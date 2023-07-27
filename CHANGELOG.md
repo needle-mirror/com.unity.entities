@@ -1,7 +1,54 @@
 # Changelog
 
 
-## [1.0.11] - 2023-6-19
+## [1.0.14] - 2023-07-27
+
+### Added
+
+* Obsolete API containing `evt.PreventDefault()` for `evt.StopPropagation()` in IListElement.cs.
+* Added a dependency on the com.unity.test-framework.performance package
+* Clean up for ComponentSystemGroup
+* Early null entity check in ECB commands
+* More error logging in DotsGlobalSettings
+* Error logging in UpdateLoadOperation()
+* Added `EntityCommandBuffer.MoveComponent<T>(Entity src, Entity dst)`
+
+### Changed
+
+* Updated Burst dependency to version 1.8.7
+* Replaced an erroneous NUnit.Framework dependency in EntitySceneBuildUtility from an Assert.Equal() call with UnityEngine.Assertions
+* Obsolete API containing `FindObjectsOfType<>()` for `FindObjectsByType<>(FindObjectsSortMode.None)` in SubSceneInspectorUtility.cs and `FindObjectOfType<>()` for `FindFirstObjectByType<>()` in LiveConversionEditorPerformanceTests.cs and LiveConversionEditorTests.cs.
+* Increased allocation size in RuntimeContentManager initialization
+* More informative error message in WriteSceneHeader()
+
+
+### Removed
+
+* Alignment attribute is removed when displaying component attributes in Inspector window.
+
+### Fixed
+
+* Avoid unnecessary sync point in `EntityCommandBufferSystem.OnUpdate()` if no command buffers were recorded.
+* Adding and removing shared components and tag components to an entire chunk now correctly updates the per-component order versions. This most commonly manifested as errors in the element order of the data returned by `EntityQuery.GetTransformAccessArray()`.
+* Use default inspector when an asset is selected regardless of the data mode.
+* Assertion failure when undoing entity selection is fixed.
+* Not being able to access Entity item from tuple when using `SystemAPI.Query` and `WithEntityAccess`.
+* `BurstCompatibleAspect` is now `readonly`, as required by `IAspect` implementations.
+* VisualElement null exception upon entities tooling windows' opening is fixed.
+* Using `EnabledRefRW` and `EnabledMask` to set enableable component state to its existing value (e.g. disabling a component that's already disabled) no longer causes an "internal consistency check" failure when the EntityManager is disposed.
+* Fixed potential uninitialized memory access when creating an `EntityQuery` with multiple `EntityQueryDesc` elements.
+* Components tab update will check the target's existing state first.
+* Check windows' initialization state before any actions in `OnDisable()`.
+* Crash in EntityManager.SetArchetype() when the new archetype is the same as the current one.
+* crash in BlobAssetReference
+* Crash in BakingSystemFilterSettings
+* Clarified documentation for the unusual semantics of `EntityManager.SetComponentEnabled(EntityQuery)`, which ignores the current status of enableable components and processes all entities in all of the query's matching chunks.
+* Better error messages when `EntityManager`'s internal consistency checks fail at shutdown.
+* `EntityManager.MoveComponent<T>(Entity src, Entity dst)` now throws if `dst` already has the component `T`. This case has never been supported; previously, the existing value would be quietly leaked.
+* Fixed stack overflow that was the result of circular dependency data in the content.
+
+
+## [1.0.11] - 2023-06-19
 
 ### Added
 

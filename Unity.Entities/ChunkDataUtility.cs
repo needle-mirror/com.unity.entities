@@ -1112,9 +1112,15 @@ namespace Unity.Entities
                 dstArchetype->EntityCount += count;
                 entityComponentStore->SetArchetype(srcChunk, dstArchetype);
 
-                // Also set the order version. Even though the ORDER hasn't changed, the archetype HAS, which must be tracked.
+                // Bump the order versions. Even though the ORDER hasn't changed, the archetype HAS, which must be tracked.
                 // Note that srcChunk is now in dstArchetype!
+                // The order version for the chunk that moved must be updated.
                 dstArchetype->Chunks.SetOrderVersion(srcChunk->ListIndex, entityComponentStore->GlobalSystemVersion);
+                // The component type order version for all types in both the source and destination archetype must be incremented,
+                // since entities with these types have moved. Types in both archetypes will have their version incremented twice,
+                // but that's fine; the absolute value of the order version doesn't generally matter. It just needs to increase.
+                entityComponentStore->IncrementComponentTypeOrderVersion(srcArchetype);
+                entityComponentStore->IncrementComponentTypeOrderVersion(dstArchetype);
             }
             else
             {

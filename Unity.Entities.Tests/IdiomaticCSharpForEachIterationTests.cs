@@ -834,6 +834,18 @@ namespace Unity.Entities.Tests
             }
         }
 
+        partial struct ForEachIterationOverComponents_WithEntityAccessToTupleSystem : ISystem
+        {
+            public void OnCreate(ref SystemState state) =>
+                state.EntityManager.AddComponent(state.SystemHandle, ComponentType.ReadWrite<EcsTestDataEntity>());
+
+            public void OnUpdate(ref SystemState state)
+            {
+                foreach (var item in Query<RefRW<EcsTestDataEntity>>().WithEntityAccess().WithOptions(EntityQueryOptions.IncludeSystems))
+                    item.Item1.ValueRW.value1 = item.Item2;
+            }
+        }
+
         partial struct ForEachIterationOverAspect_WithEntityAccessSystem : ISystem
         {
             public void OnCreate(ref SystemState state) =>
@@ -1352,6 +1364,17 @@ namespace Unity.Entities.Tests
         public void ForEachIterationOverComponents_WithEntityAccess()
         {
             var system = World.GetOrCreateSystem<ForEachIterationOverComponents_WithEntityAccessSystem>();
+            system.Update(World.Unmanaged);
+
+            var ecsTestData = GetComponent<EcsTestDataEntity>(system);
+
+            Assert.AreEqual(system.m_Entity, ecsTestData.value1);
+        }
+
+        [Test]
+        public void ForEachIterationOverComponents_WithEntityAccess_ToTupleType()
+        {
+            var system = World.GetOrCreateSystem<ForEachIterationOverComponents_WithEntityAccessToTupleSystem>();
             system.Update(World.Unmanaged);
 
             var ecsTestData = GetComponent<EcsTestDataEntity>(system);

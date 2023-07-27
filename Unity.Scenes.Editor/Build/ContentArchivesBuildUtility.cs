@@ -78,7 +78,12 @@ namespace Unity.Entities.Content
             content.CustomAssets.AddRange(customContent);
             var group = BuildPipeline.GetBuildTargetGroup(buildTarget);
             Directory.CreateDirectory(outputPath);
-            var arParams = new BundleBuildParameters(buildTarget, group, outputPath) { UseCache = true, BundleCompression = UnityEngine.BuildCompression.LZ4Runtime };
+            var arParams = new BundleBuildParameters(buildTarget, group, outputPath)
+            {
+                NonRecursiveDependencies = false,
+                UseCache = true,
+                BundleCompression = UnityEngine.BuildCompression.LZ4Runtime
+            };
             if (CachedTypeDB != null)
                 arParams.ScriptInfo = CachedTypeDB;
             var returnCode = ContentPipeline.BuildAssetBundles(arParams, content, out results, taskList, contextObjects);

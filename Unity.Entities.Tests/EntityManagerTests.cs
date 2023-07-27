@@ -939,28 +939,64 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void ManagedComponent_MoveComponent()
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires extra debug checks")]
+        public void ManagedComponent_MoveComponent_Works()
         {
-            // regression test for DOTS-5122
+            var srcEntity = m_Manager.CreateEntity();
+            var dstEntity = m_Manager.CreateEntity();
+            var destroyedEntity = m_Manager.CreateEntity();
+            m_Manager.DestroyEntity(destroyedEntity);
+
+            // null src is an error (in debug builds only)
+            Assert.Throws<ArgumentException>(() => m_Manager.MoveComponent<EcsTestDisposableManagedComponent>(Entity.Null, dstEntity));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(dstEntity));
+            // null dst is an error
+            Assert.Throws<ArgumentException>(() => m_Manager.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, Entity.Null));
+            // invalid but non-null src is an error
+            Assert.Throws<ArgumentException>(() => m_Manager.MoveComponent<EcsTestDisposableManagedComponent>(destroyedEntity, dstEntity));
+            // invalid but non-null dst is an error
+            Assert.Throws<ArgumentException>(() => m_Manager.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, destroyedEntity));
+            // missing target component on src is an error
+            Assert.Throws<ArgumentException>(() => m_Manager.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, dstEntity));
+
+            var componentValue = "value1";
+            m_Manager.AddComponentData(srcEntity, new EcsTestDisposableManagedComponent { Value = componentValue });
+            // src == dst is a no-op
+            m_Manager.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, srcEntity);
+            Assert.AreEqual(componentValue, m_Manager.GetComponentData<EcsTestDisposableManagedComponent>(srcEntity).Value);
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(dstEntity));
+            // If dst doesn't have the target component, it's added, and the value is not disposed
+            m_Manager.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, dstEntity);
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(srcEntity));
+            Assert.AreEqual(componentValue, m_Manager.GetComponentData<EcsTestDisposableManagedComponent>(dstEntity).Value);
+        }
+
+        [Test]
+        public void ManagedComponent_MoveComponent_DestEntityHasTargetComponent_Works()
+        {
             var srcEnt = m_Manager.CreateEntity();
             var dstEnt = m_Manager.CreateEntity();
-            m_Manager.AddComponentData(srcEnt, new EcsTestManagedComponent
-            {
-                value = "Moved Entity"
-            });
+            var value1 = new EcsTestDisposableManagedComponent { Value = "Value 1" };
+            var value2 = new EcsTestDisposableManagedComponent { Value = "Value 2" };
 
-            //make sure the same entity performs a no-op
-            m_Manager.MoveComponent<EcsTestManagedComponent>(srcEnt,srcEnt);
-            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent>(srcEnt));
-            Assert.AreEqual("Moved Entity",m_Manager.GetComponentData<EcsTestManagedComponent>(srcEnt).value);
+            // dst's T is null / default-initialized
+            m_Manager.AddComponentData(srcEnt, value1);
+            m_Manager.AddComponent<EcsTestDisposableManagedComponent>(dstEnt);
+            Assert.DoesNotThrow(() => m_Manager.MoveComponent<EcsTestDisposableManagedComponent>(srcEnt,dstEnt));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(srcEnt));
+            Assert.AreEqual(value1,m_Manager.GetComponentData<EcsTestDisposableManagedComponent>(dstEnt));
 
-            m_Manager.MoveComponent<EcsTestManagedComponent>(srcEnt,dstEnt);
+            // dst's T value matches src's
+            m_Manager.AddComponentData(srcEnt, value1);
+            Assert.DoesNotThrow(() => m_Manager.MoveComponent<EcsTestDisposableManagedComponent>(srcEnt,dstEnt));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(srcEnt));
+            Assert.AreEqual(value1,m_Manager.GetComponentData<EcsTestDisposableManagedComponent>(dstEnt));
 
-            Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent>(srcEnt));
-            Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent>(dstEnt));
-
-            Assert.AreEqual("Moved Entity",m_Manager.GetComponentData<EcsTestManagedComponent>(dstEnt).value);
-
+            // dst's T value does not match src. In this case, we need to make sure dst's old value is correctly disposed and doesn't leak.
+            m_Manager.AddComponentData(srcEnt, value2);
+            Assert.DoesNotThrow(() => m_Manager.MoveComponent<EcsTestDisposableManagedComponent>(srcEnt,dstEnt));
+            Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(srcEnt));
+            Assert.AreEqual(value2,m_Manager.GetComponentData<EcsTestDisposableManagedComponent>(dstEnt));
         }
 
         [Test]

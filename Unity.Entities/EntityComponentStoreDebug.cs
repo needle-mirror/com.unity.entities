@@ -27,13 +27,13 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void CheckInternalConsistency(object[] managedComponentData)
         {
-            Assert.IsTrue(ManagedChangesTracker.Empty);
+            Assert.IsTrue(ManagedChangesTracker.Empty, "Found unapplied managed component store changes");
             var managedComponentIndices = new UnsafeBitArray(m_ManagedComponentIndex, Allocator.Temp);
             var usedSequenceNumbers = new UnsafeParallelHashSet<ulong>(512, Allocator.Temp);
 
-            Assert.IsTrue(managedComponentData.Length >= m_ManagedComponentIndex);
+            Assert.IsTrue(managedComponentData.Length >= m_ManagedComponentIndex, $"managed component data length {managedComponentData.Length} should not be less than {m_ManagedComponentIndex}");
             for (int i = m_ManagedComponentIndex; i < managedComponentData.Length; ++i)
-                Assert.IsNull(managedComponentData[i]);
+                Assert.IsNull(managedComponentData[i], $"unused managed component data {i} is not null");
 
             EntityComponentStore* selfPtr;
             fixed(EntityComponentStore* self = &this) { selfPtr = self; }  // This is safe - we're allocated on the native heap
@@ -45,22 +45,22 @@ namespace Unity.Entities
                 var archetype = m_Archetypes.Ptr[i];
                 int managedTypeBegin = archetype->FirstManagedComponent;
                 int managedTypeEnd = archetype->ManagedComponentsEnd;
-                Assert.AreEqual((IntPtr)selfPtr, (IntPtr)archetype->EntityComponentStore);
+                Assert.AreEqual((IntPtr)selfPtr, (IntPtr)archetype->EntityComponentStore, "archetype refers to the wrong EntityComponentStore");
 
                 for (int indexInArchetype = 0; indexInArchetype < archetype->TypesCount; ++indexInArchetype)
                 {
                     int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[indexInArchetype];
-                    Assert.AreEqual(indexInArchetype, archetype->TypeMemoryOrderIndexToIndexInArchetype[memoryOrderIndexInArchetype]);
+                    Assert.AreEqual(indexInArchetype, archetype->TypeMemoryOrderIndexToIndexInArchetype[memoryOrderIndexInArchetype], $"archetype component types do not match expected memory order");
                 }
 
                 var countInArchetype = 0;
                 for (var j = 0; j < archetype->Chunks.Count; ++j)
                 {
                     var chunk = archetype->Chunks[j];
-                    Assert.IsTrue(chunk->Archetype == archetype);
-                    Assert.IsTrue(chunk->Capacity >= chunk->Count);
-                    Assert.AreEqual(chunk->Count, archetype->Chunks.GetChunkEntityCount(j));
-                    Assert.AreNotEqual(0, chunk->Count);
+                    Assert.IsTrue(chunk->Archetype == archetype, "chunk belongs to incorrect archetype");
+                    Assert.IsTrue(chunk->Capacity >= chunk->Count, "chunk entity count exceeds chunk capacity");
+                    Assert.AreEqual(chunk->Count, archetype->Chunks.GetChunkEntityCount(j), "cached chunk entity count in archetype does not match actual count");
+                    Assert.AreNotEqual(0, chunk->Count, "found chunk with entity count of 0; this should never happen");
 
                     var chunkEntities = (Entity*)chunk->Buffer;
                     AssertEntitiesExist(chunkEntities, chunk->Count);
@@ -74,12 +74,12 @@ namespace Unity.Entities
                     {
                         if (archetype->NumSharedComponents == 0)
                         {
-                            Assert.IsTrue(chunk->ListWithEmptySlotsIndex >= 0 && chunk->ListWithEmptySlotsIndex < archetype->ChunksWithEmptySlots.Length);
+                            Assert.IsTrue(chunk->ListWithEmptySlotsIndex >= 0 && chunk->ListWithEmptySlotsIndex < archetype->ChunksWithEmptySlots.Length, "chunk with empty slots is not tracked correctly");
                             Assert.IsTrue(chunk == archetype->ChunksWithEmptySlots.Ptr[chunk->ListWithEmptySlotsIndex]);
                         }
                         else
                         {
-                            Assert.IsTrue(archetype->FreeChunksBySharedComponents.Contains(chunk));
+                            Assert.IsTrue(archetype->FreeChunksBySharedComponents.Contains(chunk), "chunk with empty slots and shared components is not tracked correctly");
                         }
                     }
 
@@ -87,10 +87,10 @@ namespace Unity.Entities
 
                     if (chunk->Archetype->HasChunkHeader) // Chunk entities with chunk components are not supported
                     {
-                        Assert.IsFalse(chunk->Archetype->HasChunkComponents);
+                        Assert.IsFalse(chunk->Archetype->HasChunkComponents, "chunks with a chunk header should not have chunk components");
                     }
 
-                    Assert.AreEqual(chunk->Archetype->HasChunkComponents, chunk->metaChunkEntity != Entity.Null);
+                    Assert.AreEqual(chunk->Archetype->HasChunkComponents, chunk->metaChunkEntity != Entity.Null, $"expected hasChunkComponents={archetype->HasChunkComponents}, actual={!archetype->HasChunkComponents}");
                     if (chunk->metaChunkEntity != Entity.Null)
                     {
                         var chunkHeaderTypeIndex = TypeManager.GetTypeIndex<ChunkHeader>();
@@ -99,10 +99,10 @@ namespace Unity.Entities
                         var chunkHeader =
                             *(ChunkHeader*)GetComponentDataWithTypeRO(chunk->metaChunkEntity,
                                 chunkHeaderTypeIndex);
-                        Assert.IsTrue(chunk == chunkHeader.ArchetypeChunk.m_Chunk);
+                        Assert.IsTrue(chunk == chunkHeader.ArchetypeChunk.m_Chunk, "chunk's metaChunkEntity chunk != chunk's metaChunk");
                         var metaChunk = GetChunk(chunk->metaChunkEntity);
-                        Assert.IsTrue(metaChunk->Archetype == chunk->Archetype->MetaChunkArchetype);
-                        Assert.IsTrue(chunkHeader.ArchetypeChunk.m_EntityComponentStore == selfPtr);
+                        Assert.IsTrue(metaChunk->Archetype == chunk->Archetype->MetaChunkArchetype, "chunk's metaChunk archetype doesn't match cached value");
+                        Assert.IsTrue(chunkHeader.ArchetypeChunk.m_EntityComponentStore == selfPtr, "metaChunkEntity's ArchetypeChunk has incorrect EntityComponentStore");
                     }
 
                     for (int iType = managedTypeBegin; iType < managedTypeEnd; ++iType)
@@ -114,7 +114,8 @@ namespace Unity.Entities
                             if (index == 0)
                                 continue;
 
-                            Assert.AreEqual(managedComponentData[index].GetType(), TypeManager.GetType(archetype->Types[iType].TypeIndex));
+                            if (managedComponentData[index].GetType() != TypeManager.GetType(archetype->Types[iType].TypeIndex))
+                                Assert.IsFalse(true, $"managed component value has incorrect type index {TypeManager.GetType(archetype->Types[iType].TypeIndex)}");
                             Assert.IsTrue(index < m_ManagedComponentIndex, "Managed component index in chunk is out of range.");
                             Assert.IsFalse(managedComponentIndices.IsSet(index), "Managed component index is used multiple times.");
                             managedComponentIndices.Set(index, true);
@@ -122,7 +123,7 @@ namespace Unity.Entities
                     }
                 }
 
-                Assert.AreEqual(countInArchetype, archetype->EntityCount);
+                Assert.AreEqual(countInArchetype, archetype->EntityCount, "archetype's cached entity count is incorrect");
 
                 AssertPaddingBitsAreZeroForArchetype(archetype);
                 AssertEnabledBitsHierarchyIsCorrectForArchetype(archetype);
@@ -133,7 +134,7 @@ namespace Unity.Entities
             usedSequenceNumbers.Dispose();
 
             for (int i = 0; i < m_ManagedComponentIndex; ++i)
-                Assert.AreEqual(managedComponentData[i] != null, managedComponentIndices.IsSet(i));
+                Assert.AreEqual(managedComponentData[i] != null, managedComponentIndices.IsSet(i), $"managed component {i}: expected isSet={managedComponentData[i] != null}, but wasn't");
 
             var freeManagedIndices = (int*)m_ManagedComponentFreeIndex.Ptr;
             var freeManagedCount = m_ManagedComponentFreeIndex.Length / sizeof(int);
@@ -150,14 +151,14 @@ namespace Unity.Entities
             managedComponentIndices.Dispose();
 
             // Iterate by free list
-            Assert.IsTrue(m_EntityInChunkByEntity[m_NextFreeEntityIndex].Chunk == null);
+            Assert.IsTrue(m_EntityInChunkByEntity[m_NextFreeEntityIndex].Chunk == null, "free chunk list does not end in a null chunk");
 
             var entityCountByFreeList = EntitiesCapacity;
             int freeIndex = m_NextFreeEntityIndex;
             while (freeIndex != -1)
             {
-                Assert.IsTrue(m_EntityInChunkByEntity[freeIndex].Chunk == null);
-                Assert.IsTrue(freeIndex < EntitiesCapacity);
+                Assert.IsTrue(m_EntityInChunkByEntity[freeIndex].Chunk == null, "found non=null chunk in free list");
+                Assert.IsTrue(freeIndex < EntitiesCapacity, "free entity index exceeds capacity");
 
                 freeIndex = m_EntityInChunkByEntity[freeIndex].IndexInChunk;
 
@@ -175,19 +176,19 @@ namespace Unity.Entities
 
                 entityCountByEntities++;
                 var archetype = m_ArchetypeByEntity[i];
-                Assert.AreEqual((IntPtr)archetype, (IntPtr)chunk->Archetype);
-                Assert.AreEqual(entityType, archetype->Types[0].TypeIndex);
-                Assert.IsTrue(m_EntityInChunkByEntity[i].IndexInChunk < m_EntityInChunkByEntity[i].Chunk->Count);
+                Assert.AreEqual((IntPtr)archetype, (IntPtr)chunk->Archetype, "entity's archetype does not match entity's chunk's archetype");
+                Assert.AreEqual(entityType, archetype->Types[0].TypeIndex, "found archetype with types[0] != Entity");
+                Assert.IsTrue(m_EntityInChunkByEntity[i].IndexInChunk < m_EntityInChunkByEntity[i].Chunk->Count, "found entity with invalid indexInChunk");
                 var entity = *(Entity*)ChunkDataUtility.GetComponentDataRO(m_EntityInChunkByEntity[i].Chunk,
                     m_EntityInChunkByEntity[i].IndexInChunk, 0);
-                Assert.AreEqual(i, entity.Index);
-                Assert.AreEqual(m_VersionByEntity[i], entity.Version);
+                Assert.AreEqual(i, entity.Index, "found entity with invalid index");
+                Assert.AreEqual(m_VersionByEntity[i], entity.Version, "found entity with invalid version");
 
-                Assert.IsTrue(Exists(entity));
+                Assert.IsTrue(Exists(entity), "found entity that should not exist");
             }
 
 
-            Assert.AreEqual(entityCountByEntities, entityCountByArchetype);
+            Assert.AreEqual(entityCountByEntities, entityCountByArchetype, $"cached entity count {entityCountByEntities} does not match sum of all archetypes {entityCountByArchetype}");
 
             // Enabling this fails SerializeEntitiesWorksWithBlobAssetReferences.
             // There is some special entity 0 usage in the serialization code.

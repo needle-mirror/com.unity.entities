@@ -185,6 +185,9 @@ namespace Unity.Entities
 
         internal void FlushPendingBuffers(bool playBack)
         {
+            if (m_PendingBuffers->IsEmpty)
+                return;
+
             CompleteDependency();
             m_ProducerHandle.Complete();
             m_ProducerHandle = new JobHandle();
@@ -353,10 +356,10 @@ namespace Unity.Entities
             where T : unmanaged, IECBSingleton, IComponentData
         {
             world.EntityManager.AddComponent(system.SystemHandle, ComponentType.ReadWrite<T>());
-            
+
             var query = new EntityQueryBuilder(system.WorldUpdateAllocator).WithAllRW<T>().WithOptions(EntityQueryOptions.IncludeSystems).Build(system);
             ref var s = ref query.GetSingletonRW<T>().ValueRW;
-            
+
             s.SetPendingBufferList(ref pendingBuffers);
             s.SetAllocator(system.m_EntityCommandBufferAllocator.Allocator.ToAllocator);
         }

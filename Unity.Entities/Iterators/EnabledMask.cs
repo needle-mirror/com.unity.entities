@@ -2,6 +2,7 @@ using System;
 using System.ComponentModel;
 using System.Diagnostics;
 using System.Threading;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -142,16 +143,21 @@ namespace Unity.Entities
         /// <exception cref="InvalidOperationException">Thrown if the EnabledMask is missing a pointer to the ChunkDisabledCount</exception>
         public unsafe bool this[int index]
         {
-            get => GetBit(index);
+            get => m_EnableBitRef.Offset(index).GetBit();
             set
             {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                if (m_PtrChunkDisabledCount == null)
+                if (Hint.Unlikely(m_PtrChunkDisabledCount == null))
                     throw new InvalidOperationException(
                     "ComponentEnabledMask requires a non-null ChunkDisabledCount pointer to be able to write to it");
 #endif
+                bool wasSet = m_EnableBitRef.Offset(index).GetBit();
                 m_EnableBitRef.Offset(index).SetBit(value);
-                Interlocked.Add(ref UnsafeUtility.AsRef<int>(m_PtrChunkDisabledCount), value ? -1 : 1);
+                if (Hint.Likely(wasSet != value))
+                {
+                    var adjustment = math.select(1, -1, value);
+                    Interlocked.Add(ref UnsafeUtility.AsRef<int>(m_PtrChunkDisabledCount), adjustment);
+                }
             }
         }
 

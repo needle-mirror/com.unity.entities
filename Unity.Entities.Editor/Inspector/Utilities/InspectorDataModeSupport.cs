@@ -96,6 +96,9 @@ namespace Unity.Entities.Editor
                 return;
             }
 
+            if (Undo.isProcessing)
+                return; // Can't create new objects while processing Undo operations.
+
             // Successfully patched GameObject with missing primary Entity
             var context = EntitySelectionProxy.CreateInstance(defaultWorld, primaryEntity);
             SelectionBridge.UpdateSelectionMetaData(context, dataModeHint);
@@ -176,6 +179,10 @@ namespace Unity.Entities.Editor
 
             foreach (var target in targets)
             {
+                // Data mode does not apply to assets.
+                if (EditorUtility.IsPersistent(target))
+                    return null;
+
                 switch (target)
                 {
                     case EntitySelectionProxy proxy:
@@ -230,7 +237,7 @@ namespace Unity.Entities.Editor
                     => typeof(InvalidEntityEditor),
 
                 DataMode.Runtime
-                    when context is null && (Selection.activeGameObject != null && Selection.activeGameObject.scene.isSubScene)
+                    when context is null && (Selection.activeGameObject != null && Selection.activeGameObject.scene != default && Selection.activeGameObject.scene.isSubScene)
                     => typeof(InvalidEntityEditor),
 
                 // Anything else: show the default inspector.

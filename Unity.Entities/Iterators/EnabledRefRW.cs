@@ -1,8 +1,10 @@
 using System;
 using System.Diagnostics;
 using System.Threading;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Mathematics;
 
 namespace Unity.Entities
 {
@@ -60,8 +62,13 @@ namespace Unity.Entities
             get => m_Ptr.GetBit();
             set
             {
+                bool wasSet = m_Ptr.GetBit();
                 m_Ptr.SetBit(value);
-                Interlocked.Add(ref UnsafeUtility.AsRef<int>(m_PtrChunkDisabledCount), value ? -1 : 1);
+                if (Hint.Likely(wasSet != value))
+                {
+                    var adjustment = math.select(1, -1, value);
+                    Interlocked.Add(ref UnsafeUtility.AsRef<int>(m_PtrChunkDisabledCount), adjustment);
+                }
             }
         }
     }

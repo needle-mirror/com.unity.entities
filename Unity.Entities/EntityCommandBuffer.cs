@@ -649,6 +649,10 @@ namespace Unity.Entities
                 cmd->IdentityIndex = index;
                 cmd->BatchCount = 1;
                 chain->m_PrevEntityCommand = cmd;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(e == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddEntityCommand");
+#endif
             }
         }
 
@@ -687,6 +691,10 @@ namespace Unity.Entities
             {
                 throw new ArgumentException("This component value passed to this command contains a reference to a temporary Entity, which is not currently supported.");
             }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddLinkedEntityGroupComponentCommand");
+#endif
         }
 
         internal void AddLinkedEntityGroupTypeCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, EntityQueryMask mask, Entity e, ComponentType t)
@@ -705,6 +713,10 @@ namespace Unity.Entities
             data->Header.ComponentTypeIndex = t.TypeIndex;
             data->Header.ComponentSize = 0;
             data->Mask = mask;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddLinkedEntityGroupTypeCommand");
+#endif
         }
 
         internal void AddMultipleEntityCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, int firstIndex, int count, Entity e, bool batchable)
@@ -728,6 +740,10 @@ namespace Unity.Entities
                 cmd->IdentityIndex = firstIndex;
                 cmd->BatchCount = count;
                 chain->m_PrevEntityCommand = null;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddMultipleEntityCommand");
+#endif
             }
         }
 
@@ -785,6 +801,10 @@ namespace Unity.Entities
                 else if (op == ECBCommand.ReplaceComponentLinkedEntityGroup) //TODO DOTS-5586: Add support for component data with fixup
                     throw new ArgumentException("This component value passed to this command contains a reference to a temporary Entity, which is not currently supported.");
             }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddEntityComponentCommand");
+#endif
         }
 
         internal void UnsafeAddEntityComponentCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, TypeIndex typeIndex, int typeSize, void* componentDataPtr)
@@ -819,6 +839,10 @@ namespace Unity.Entities
                 else if (op == ECBCommand.ReplaceComponentLinkedEntityGroup) //TODO DOTS-5586: Add support for component data with fixup
                     throw new ArgumentException("This component value passed to this command contains a reference to a temporary Entity, which is not currently supported.");
             }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.UnsafeAddEntityComponentCommand");
+#endif
         }
 
         internal void AddEntityEnabledCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e,
@@ -836,6 +860,10 @@ namespace Unity.Entities
             cmd->Header.IdentityIndex = 0;
             cmd->Header.BatchCount = 1;
             cmd->IsEnabled = value ? (byte)1 : (byte)0;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddEntityEnabledCommand");
+#endif
         }
 
         internal void AddEntityComponentEnabledCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, TypeIndex typeIndex, bool value)
@@ -853,6 +881,10 @@ namespace Unity.Entities
             cmd->Header.Header.BatchCount = 1;
             cmd->ComponentTypeIndex = typeIndex;
             cmd->Header.IsEnabled = value ? (byte)1 : (byte)0;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddEntityComponentEnabledCommand");
+#endif
         }
 
         internal void AddEntityNameCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, in FixedString64Bytes name)
@@ -869,6 +901,10 @@ namespace Unity.Entities
             cmd->Header.IdentityIndex = 0;
             cmd->Header.BatchCount = 1;
             cmd->Name = name;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddEntityComponentEnabledCommand");
+#endif
         }
 
         internal BufferHeader* AddEntityBufferCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op,
@@ -935,6 +971,10 @@ namespace Unity.Entities
             data->Header.BatchCount = 1;
             data->ComponentTypeIndex = t.TypeIndex;
             data->ComponentSize = 0;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddEntityComponentTypeCommand");
+#endif
         }
 
         internal void AddEntityComponentTypesCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, in ComponentTypeSet t)
@@ -951,6 +991,10 @@ namespace Unity.Entities
             data->Header.IdentityIndex = 0;
             data->Header.BatchCount = 1;
             data->TypeSet = t;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddEntityComponentTypesCommand");
+#endif
         }
 
         internal bool AppendMultipleEntitiesCommand(EntityCommandBufferChain* chain, int sortKey, ECBCommand op,
@@ -1504,6 +1548,10 @@ namespace Unity.Entities
             {
                 data->GCNode.BoxedObject = new GCHandle();
             }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddEntitySharedComponentCommand");
+#endif
         }
 
         internal void AddEntityUnmanagedSharedComponentCommand<T>(EntityCommandBufferChain* chain, int sortKey, ECBCommand op, Entity e, int hashCode, void* componentData)
@@ -1543,6 +1591,10 @@ namespace Unity.Entities
             {
                 UnsafeUtility.MemSet(data, 0, typeSize);
             }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddEntityUnmanagedSharedComponentCommand");
+#endif
         }
 
         internal byte* Reserve(EntityCommandBufferChain* chain, int sortKey, int size)
@@ -1641,6 +1693,10 @@ namespace Unity.Entities
             {
                 cmd->Header.Header.CommandType = ECBCommand.AppendToBufferWithEntityFixUp;
             }
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AppendToBufferCommand");
+#endif
         }
     }
 
@@ -4175,6 +4231,10 @@ namespace Unity.Entities
             public void DestroyEntity(BasicCommand* header)
             {
                 var cmd = (EntityCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.DestroyEntity");
+#endif
                 Entity entity = SelectEntity(cmd->Entity, playbackState);
                 mgr->DestroyEntityInternalDuringStructuralChange(&entity, 1, in originSystem);
             }
@@ -4183,6 +4243,10 @@ namespace Unity.Entities
             public void RemoveComponent(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.RemoveComponent");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->RemoveComponentDuringStructuralChange(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), in originSystem);
             }
@@ -4191,6 +4255,10 @@ namespace Unity.Entities
             public void RemoveMultipleComponents(BasicCommand* header)
             {
                 var cmd = (EntityMultipleComponentsCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.RemoveMultipleComponents");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 var componentTypes = cmd->TypeSet;
 
@@ -4215,7 +4283,10 @@ namespace Unity.Entities
             public void InstantiateEntity(BasicCommand* header)
             {
                 var cmd = (EntityCommand*)header;
-
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.InstantiateEntity");
+#endif
                 var index = -cmd->IdentityIndex - 1;
                 Entity srcEntity = SelectEntity(cmd->Entity, playbackState);
                 mgr->InstantiateInternalDuringStructuralChange(srcEntity, playbackState.CreateEntityBatch + index,
@@ -4226,6 +4297,10 @@ namespace Unity.Entities
             public void AddComponent(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddComponent");
+#endif
                 var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->AddComponentDuringStructuralChange(entity, componentType, in originSystem);
@@ -4237,6 +4312,10 @@ namespace Unity.Entities
             public void AddMultipleComponents(BasicCommand* header)
             {
                 var cmd = (EntityMultipleComponentsCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddMultipleComponents");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 var componentTypes = cmd->TypeSet;
                 mgr->AddMultipleComponentsDuringStructuralChange(entity, componentTypes);
@@ -4248,6 +4327,10 @@ namespace Unity.Entities
                 AssertSinglePlayback(header->CommandType, isFirstPlayback != 0);
 
                 var cmd = (EntityComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddComponentWithEntityFixUp");
+#endif
                 var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->AddComponentDuringStructuralChange(entity, componentType, in originSystem);
@@ -4258,6 +4341,10 @@ namespace Unity.Entities
             public void SetComponent(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.SetComponent");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->SetComponentDataRaw(entity, cmd->ComponentTypeIndex, cmd + 1, cmd->ComponentSize, in originSystem);
             }
@@ -4266,6 +4353,10 @@ namespace Unity.Entities
             public void SetEnabled(BasicCommand* header)
             {
                 var cmd = (EntityEnabledCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.SetEnabled");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->SetEnabled(entity, cmd->IsEnabled != 0);
             }
@@ -4274,6 +4365,10 @@ namespace Unity.Entities
             public void SetComponentEnabled(BasicCommand* header)
             {
                 var cmd = (EntityComponentEnabledCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.SetComponentEnabled");
+#endif
                 var entity = SelectEntity(cmd->Header.Header.Entity, playbackState);
                 mgr->SetComponentEnabled(entity, cmd->ComponentTypeIndex, cmd->Header.IsEnabled != 0);
             }
@@ -4282,6 +4377,10 @@ namespace Unity.Entities
             public void SetName(BasicCommand* header)
             {
                 var cmd = (EntityNameCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.SetName");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->SetName(entity, in cmd->Name);
             }
@@ -4292,6 +4391,10 @@ namespace Unity.Entities
                 AssertSinglePlayback(header->CommandType, isFirstPlayback != 0);
 
                 var cmd = (EntityComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.SetComponentWithEntityFixUp");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 SetCommandDataWithFixup(mgr->EntityComponentStore, cmd, entity, playbackState);
             }
@@ -4300,6 +4403,10 @@ namespace Unity.Entities
             public void AddBuffer(BasicCommand* header)
             {
                 var cmd = (EntityBufferCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddBuffer");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->AddComponentDuringStructuralChange(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), in originSystem);
                 if (playbackPolicy == PlaybackPolicy.SinglePlayback)
@@ -4324,6 +4431,10 @@ namespace Unity.Entities
                 AssertSinglePlayback(header->CommandType, isFirstPlayback != 0);
 
                 var cmd = (EntityBufferCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddBufferWithEntityFixUp");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->AddComponentDuringStructuralChange(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), in originSystem);
                 mgr->SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer, cmd->ComponentSize, in originSystem);
@@ -4334,6 +4445,10 @@ namespace Unity.Entities
             public void SetBuffer(BasicCommand* header)
             {
                 var cmd = (EntityBufferCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.SetBuffer");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 if (playbackPolicy == PlaybackPolicy.SinglePlayback)
                 {
@@ -4355,6 +4470,10 @@ namespace Unity.Entities
                 AssertSinglePlayback(header->CommandType, isFirstPlayback != 0);
 
                 var cmd = (EntityBufferCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.SetBufferWithEntityFixUp");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer, cmd->ComponentSize, in originSystem);
                 AddToPostPlaybackFixup(cmd, ref playbackState);
@@ -4364,6 +4483,10 @@ namespace Unity.Entities
             public void AppendToBuffer(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AppendToBuffer");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
 
                 CheckBufferExistsOnEntity(mgr->EntityComponentStore, entity, cmd);
@@ -4388,6 +4511,10 @@ namespace Unity.Entities
                 AssertSinglePlayback(header->CommandType, isFirstPlayback != 0);
 
                 var cmd = (EntityComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AppendToBufferWithEntityFixUp");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
 
                 CheckBufferExistsOnEntity(mgr->EntityComponentStore, entity, cmd);
@@ -4594,6 +4721,10 @@ namespace Unity.Entities
             public void AddComponentLinkedEntityGroup(BasicCommand* header)
             {
                 var cmd = (EntityQueryMaskCommand*) header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddComponentLinkedEntityGroup");
+#endif
                 var entity = SelectEntity(cmd->Header.Header.Entity, playbackState);
                 mgr->AddComponentForLinkedEntityGroup(entity, cmd->Mask, cmd->Header.ComponentTypeIndex, cmd + 1,
                     cmd->Header.ComponentSize);
@@ -4602,6 +4733,10 @@ namespace Unity.Entities
             public void SetComponentLinkedEntityGroup(BasicCommand* header)
             {
                 var cmd = (EntityQueryMaskCommand*) header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.SetComponentLinkedEntityGroup");
+#endif
                 var entity = SelectEntity(cmd->Header.Header.Entity, playbackState);
                 mgr->SetComponentForLinkedEntityGroup(entity, cmd->Mask, cmd->Header.ComponentTypeIndex, cmd + 1,
                     cmd->Header.ComponentSize);
@@ -4610,6 +4745,10 @@ namespace Unity.Entities
             public void ReplaceComponentLinkedEntityGroup(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*) header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.ReplaceComponentLinkedEntityGroup");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->ReplaceComponentForLinkedEntityGroup(entity, cmd->ComponentTypeIndex, cmd + 1,
                     cmd->ComponentSize);
@@ -4620,6 +4759,10 @@ namespace Unity.Entities
             public void AddManagedComponentData(BasicCommand* header)
             {
                 var cmd = (EntityManagedComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddManagedComponentData");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 var addedManaged = mgr->AddComponentDuringStructuralChange(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), in originSystem);
                 if (addedManaged)
@@ -4641,6 +4784,10 @@ namespace Unity.Entities
             public void AddUnmanagedSharedComponentData(BasicCommand* header)
             {
                 var cmd = (EntityUnmanagedSharedComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddUnmanagedSharedComponentData");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 var tmp = new NativeArray<Entity>(1, Allocator.Temp, NativeArrayOptions.UninitializedMemory);
                 tmp[0] = entity;
@@ -4657,6 +4804,10 @@ namespace Unity.Entities
             public void AddSharedComponentData(BasicCommand* header)
             {
                 var cmd = (EntitySharedComponentCommand*) header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.AddSharedComponentData");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 var addedShared = mgr->AddSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(
                     entity,
@@ -4846,6 +4997,10 @@ namespace Unity.Entities
             public void SetManagedComponentData(BasicCommand* header)
             {
                 var cmd = (EntityManagedComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.SetManagedComponentData");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 if (!mgr->EntityComponentStore->ManagedChangesTracker.Empty)
                 {
@@ -4978,6 +5133,10 @@ namespace Unity.Entities
             public void SetSharedComponentData(BasicCommand* header)
             {
                 var cmd = (EntitySharedComponentCommand*)header;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(cmd->Header.Entity == Entity.Null))
+                    throw new InvalidOperationException("Invalid Entity.Null passed. ECBCommand.SetSharedComponentData");
+#endif
                 var entity = SelectEntity(cmd->Header.Entity, playbackState);
                 mgr->SetSharedComponentDataBoxedDefaultMustBeNullDuringStructuralChange(entity, cmd->ComponentTypeIndex, cmd->HashCode,
                     cmd->GetBoxedObject(), in originSystem);
@@ -5266,7 +5425,7 @@ namespace Unity.Entities
             [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
             private static void CheckNotNull(Entity e)
             {
-                if (e == Entity.Null)
+                if (Hint.Unlikely(e == Entity.Null))
                     throw new ArgumentNullException(nameof(e));
             }
 

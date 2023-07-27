@@ -50,7 +50,14 @@ namespace Unity.Entities.UI
         static void TrapKeys(KeyDownEvent evt)
         {
             if (evt.keyCode == KeyCode.Return || evt.keyCode == KeyCode.KeypadEnter)
-                evt.PreventDefault();
+            {
+#if UNITY_2023_2_OR_NEWER
+                evt.StopPropagation();
+                (evt.target as VisualElement)?.focusController?.IgnoreEvent(evt);
+#else
+                    evt.PreventDefault();
+#endif
+            }
         }
 
         public override void OnContextReady()
@@ -132,7 +139,11 @@ namespace Unity.Entities.UI
         void CountChanged(ChangeEvent<int> evt)
         {
             evt.StopImmediatePropagation();
+#if UNITY_2023_2_OR_NEWER
+            (evt.target as VisualElement)?.focusController?.IgnoreEvent(evt);
+#else
             evt.PreventDefault();
+#endif
             var count = evt.newValue;
             if (count < 0)
             {

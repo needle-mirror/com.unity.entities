@@ -433,18 +433,15 @@ namespace Unity.Entities
         // Calculates the intersection of "All" and "Disabled" arrays from the provided ArchetypeQuery objects
         private ComponentType* CalculateRequiredComponentsFromQuery(ref UnsafeScratchAllocator allocator, ArchetypeQuery* queries, int queryCount, out int outRequiredComponentsCount)
         {
-            var maxIntersectionCount = 0;
-            for (int queryIndex = 0; queryIndex < queryCount; ++queryIndex)
-                maxIntersectionCount = math.max(maxIntersectionCount, queries[queryIndex].AllCount + queries[queryIndex].DisabledCount);
-
             // Populate and sort a combined array of all+disabled component types and their access modes from the first ArchetypeQuery
-            var outRequiredComponents = (ComponentType*)allocator.Allocate<ComponentType>(maxIntersectionCount+1);
+            var maxIntersectionCount = queries[0].AllCount + queries[0].DisabledCount;
             // The first required component is always Entity.
+            var outRequiredComponents = (ComponentType*)allocator.Allocate<ComponentType>(maxIntersectionCount+1);
             outRequiredComponents[0] = ComponentType.ReadWrite<Entity>();
-            var intersection = outRequiredComponents + 1;
+            var intersectionComponents = outRequiredComponents + 1;
             for (int j = 0; j < queries[0].AllCount; ++j)
             {
-                intersection[j] = new ComponentType
+                intersectionComponents[j] = new ComponentType
                 {
                     TypeIndex = queries[0].All[j],
                     AccessModeType = (ComponentType.AccessMode)queries[0].AllAccessMode[j],
@@ -452,13 +449,13 @@ namespace Unity.Entities
             }
             for (int j = 0; j < queries[0].DisabledCount; ++j)
             {
-                intersection[j+queries[0].AllCount] = new ComponentType
+                intersectionComponents[j+queries[0].AllCount] = new ComponentType
                 {
                     TypeIndex = queries[0].Disabled[j],
                     AccessModeType = (ComponentType.AccessMode)queries[0].DisabledAccessMode[j],
                 };
             }
-            NativeSortExtension.Sort(intersection, maxIntersectionCount);
+            NativeSortExtension.Sort(intersectionComponents, maxIntersectionCount);
 
             // For each additional ArchetypeQuery, create the same sorted array of component types, and reduce the
             // original array to the intersection of these two arrays.
@@ -484,10 +481,10 @@ namespace Unity.Entities
                     };
                 }
                 NativeSortExtension.Sort(queryRequiredTypes, queryRequiredCount);
-                intersectionCount = IntersectSortedComponentIndexArrays(intersection, intersectionCount,
-                    queryRequiredTypes, queryRequiredCount, intersection);
+                intersectionCount = IntersectSortedComponentIndexArrays(intersectionComponents, intersectionCount,
+                    queryRequiredTypes, queryRequiredCount, intersectionComponents);
             }
-            outRequiredComponentsCount = intersectionCount + 1;
+            outRequiredComponentsCount = intersectionCount + 1; // again, the +1 is for the Entity type at outRequiredComponents[0]
             return outRequiredComponents;
         }
 

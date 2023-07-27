@@ -593,14 +593,15 @@ namespace Unity.Entities
                 if (false == eda->EntityComponentStore->IsIntentionallyInconsistent)
                     eda->EntityComponentStore->CheckInternalConsistency(mcs.m_ManagedComponentData);
 
-                Assert.IsTrue(eda->AllSharedComponentReferencesAreFromChunks(eda->EntityComponentStore));
+                Assert.IsTrue(eda->AllSharedComponentReferencesAreFromChunks(eda->EntityComponentStore), "Not all shared component references originate from chunks");
                 mcs.CheckInternalConsistency();
 
                 var chunkHeaderType = new ComponentType(typeof(ChunkHeader));
                 var chunkQuery = eda->EntityQueryManager->CreateEntityQuery(eda, &chunkHeaderType, 1);
 
                 int totalEntitiesFromQuery = eda->m_UniversalQueryWithSystems.CalculateEntityCount() + chunkQuery.CalculateEntityCount();
-                Assert.AreEqual(eda->EntityComponentStore->CountEntities(), totalEntitiesFromQuery);
+                int expectedEntities = eda->EntityComponentStore->CountEntities();
+                Assert.AreEqual(expectedEntities, totalEntitiesFromQuery, $"expected {expectedEntities} entities in EntityComponentStore, but queries match {totalEntitiesFromQuery}");
 
                 chunkQuery.Dispose();
 #endif

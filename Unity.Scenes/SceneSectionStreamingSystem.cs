@@ -621,6 +621,7 @@ namespace Unity.Scenes
                 catch (Exception e)
                 {
                     Debug.LogWarning($"Error when loading '{operation}': {e}");
+                    Debug.LogException(e);
                     SetLoadFailureOnEntity(sectionEntity);
 
                     return UpdateLoadOperationResult.Error;

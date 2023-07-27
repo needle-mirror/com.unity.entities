@@ -78,7 +78,7 @@ namespace Unity.Entities.Editor
         public HierarchyWindow() : base(Analytics.Window.Hierarchy)
         { }
 
-        void OnEnable()
+        protected override void OnCreate()
         {
             titleContent = new GUIContent(k_WindowName, EditorIcons.EntityGroup);
             minSize = k_MinWindowSize;
@@ -109,7 +109,7 @@ namespace Unity.Entities.Editor
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         }
 
-        void OnDisable()
+        protected override void OnCleanup()
         {
             m_HierarchySettings.UseAdvanceSearchSettingChanged -= OnUseAdvanceSearchSettingChanged;
             EditorApplication.update -= OnBackgroundUpdate;
@@ -401,10 +401,6 @@ namespace Unity.Entities.Editor
 
         protected override void OnUpdate()
         {
-            if (m_Hierarchy == null)
-                return;
-
-
             using (k_OnUpdateMarker.Auto())
             {
                 m_Hierarchy.Update(m_IsVisible);
@@ -458,6 +454,5 @@ namespace Unity.Entities.Editor
             if (execute)
                 m_HierarchyElement?.HandleCommand(evt.commandName);
         }
-
     }
 }

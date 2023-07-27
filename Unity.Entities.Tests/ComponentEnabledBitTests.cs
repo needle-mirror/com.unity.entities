@@ -1136,19 +1136,44 @@ namespace Unity.Entities.Tests
                 mask = EnabledBitUtility.ShiftRight(mask, i);
                 for (int j = 0; j < 128; ++j)
                 {
-                    FastAssert.AreEqual((j < 128 - i), GetBit(mask, j));
+                    FastAssert.AreEqual((j < 128 - i), GetBit(mask, j), $"shift by {i} failed on bit {j}");
                 }
             }
             // test shift by 0
             mask = new v128(-1, -1, -1, 0x7FFFFFFF);
             mask = EnabledBitUtility.ShiftRight(mask, 0);
-            FastAssert.AreEqual(-1, mask.SLong0);
-            FastAssert.AreEqual(0x7FFFFFFFFFFFFFFF, mask.SLong1);
+            FastAssert.AreEqual(-1, mask.SLong0, $"shift by 0 failed");
+            FastAssert.AreEqual(0x7FFFFFFFFFFFFFFF, mask.SLong1, $"shift by 0 failed");
             // test shift by 128
             mask = new v128(-1, -1, -1, -1);
             mask = EnabledBitUtility.ShiftRight(mask, 128);
-            FastAssert.AreEqual(0, mask.ULong0);
-            FastAssert.AreEqual(0, mask.ULong1);
+            FastAssert.AreEqual((ulong)0, mask.ULong0, $"shift by 128 failed");
+            FastAssert.AreEqual((ulong)0, mask.ULong1, $"shift by 128 failed");
+        }
+
+        [Test]
+        public unsafe void ShiftRight128_Burst_Works()
+        {
+            v128 mask;
+            for (int i = 1; i < 128; i++)
+            {
+                mask = new v128(-1, -1);
+                EnabledBitUtility.ShiftRightBurstForTests(ref mask, out mask, i);
+                for (int j = 0; j < 128; ++j)
+                {
+                    FastAssert.AreEqual((j < 128 - i), GetBit(mask, j), $"shift by {i} failed on bit {j}");
+                }
+            }
+            // test shift by 0
+            mask = new v128(-1, -1, -1, 0x7FFFFFFF);
+            EnabledBitUtility.ShiftRightBurstForTests(ref mask, out mask, 0);
+            FastAssert.AreEqual(-1, mask.SLong0, $"shift by 0 failed");
+            FastAssert.AreEqual(0x7FFFFFFFFFFFFFFF, mask.SLong1, $"shift by 0 failed");
+            // test shift by 128
+            mask = new v128(-1, -1, -1, -1);
+            EnabledBitUtility.ShiftRightBurstForTests(ref mask, out mask, 128);
+            FastAssert.AreEqual((ulong)0, mask.ULong0, $"shift by 128 failed");
+            FastAssert.AreEqual((ulong)0, mask.ULong1, $"shift by 128 failed");
         }
 
         [Test]
@@ -1195,6 +1220,63 @@ namespace Unity.Entities.Tests
             VerifyNextRange(firstIndexToCheck: nextRangeEnd, expectedBegin: 62, expectedCount: 4, ref mask, out nextRangeEnd);
             VerifyNextRange(firstIndexToCheck: nextRangeEnd, expectedBegin: 127, expectedCount: 1, ref mask, out nextRangeEnd);
             VerifyNoSubsequentRangeFound(firstIndexToCheck: nextRangeEnd, ref mask);
+        }
+
+        [Test]
+        public void GetEnabledRefRW_UpdatesDisabledCounts([Values(0,1,2,3)] int bit)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+            var lookup = m_Manager.GetComponentLookup<EcsTestDataEnableable>(false);
+            var e0 = m_Manager.CreateEntity(archetype);
+            var e1 = m_Manager.CreateEntity(archetype);
+            var e2 = m_Manager.CreateEntity(archetype);
+            var e3 = m_Manager.CreateEntity(archetype);
+            // components are enabled by default, so turn a few off to start.
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e0, false);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
+            // Test all four transitions. Can't test them all in the same run, or the errors would cancel each other out!
+            var ref0 = lookup.GetEnabledRefRW<EcsTestDataEnableable>(e0);
+            var ref1 = lookup.GetEnabledRefRW<EcsTestDataEnableable>(e1);
+            var ref2 = lookup.GetEnabledRefRW<EcsTestDataEnableable>(e2);
+            var ref3 = lookup.GetEnabledRefRW<EcsTestDataEnableable>(e3);
+            if (bit == 0)
+                ref0.ValueRW = true; // off -> on;
+            else if (bit == 1)
+                ref1.ValueRW = false; // off -> off;
+            else if (bit == 2)
+                ref2.ValueRW = false; // on -> off;
+            else if (bit == 3)
+                ref3.ValueRW = true; // on -> on;
+            // If the disabled counts are not updated correctly, we'll get an internal consistency
+            // failure when the EntityManager is destroyed during TearDown.
+        }
+
+        [Test]
+        public void GetEnabledMask_UpdatesDisabledCounts([Values(0,1,2,3)] int bit)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+            var e0 = m_Manager.CreateEntity(archetype);
+            var e1 = m_Manager.CreateEntity(archetype);
+            var e2 = m_Manager.CreateEntity(archetype);
+            var e3 = m_Manager.CreateEntity(archetype);
+            // components are enabled by default, so turn a few off to start.
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e0, false);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
+            var chunk = m_Manager.GetChunk(e0);
+            Assert.AreEqual(4, chunk.Count);
+            var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
+            var enabledMask = chunk.GetEnabledMask(ref typeHandle);
+            // Test all four transitions. Can't test them all in the same run, or the errors would cancel each other out!
+            if (bit == 0)
+                enabledMask[0] = true; // off -> on;
+            else if (bit == 1)
+                enabledMask[1] = false; // off -> off;
+            else if (bit == 2)
+                enabledMask[2] = false; // on -> off;
+            else if (bit == 3)
+                enabledMask[3] = true; // on -> on;
+            // If the disabled counts are not updated correctly, we'll get an internal consistency
+            // failure when the EntityManager is destroyed during TearDown.
         }
 
         [Test]

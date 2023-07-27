@@ -3,7 +3,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.NotBurstCompatible;
 using Unity.Entities;
@@ -30,6 +29,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.Analytics;
 using Object = UnityEngine.Object;
+using UnityEngine.Assertions;
 using UnityEngine.SceneManagement;
 using Unity.Entities.Build;
 using Unity.Loading;
@@ -792,7 +792,7 @@ namespace Unity.Scenes.Editor
                 return _Instances;
             }
         }
-        
+
         [UnityEditor.InitializeOnLoadMethod]
         static void EditorInitializeOnLoadMethod()
         {

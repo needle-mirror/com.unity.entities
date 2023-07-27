@@ -793,7 +793,7 @@ namespace Unity.Scenes.Editor
             if (headerSize > SerializeUtility.MaxSubsceneHeaderSize)
             {
                 string errorMessage =
-                    $"Entity scene header of scene '{sceneName}' is to large. Size = {headerSize}, Maximum size = {SerializeUtility.MaxSubsceneHeaderSize}";
+                    $"Entity scene header of scene '{sceneName}' is too large. Size = {headerSize}, Maximum size = {SerializeUtility.MaxSubsceneHeaderSize}. Decrease the number of SubScenes in '{sceneName}'.";
                 Debug.LogError(errorMessage);
                 File.Delete(headerPath);
             }

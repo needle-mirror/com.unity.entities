@@ -155,16 +155,16 @@ namespace Unity.Entities.Content
 #if UNITY_EDITOR
             Catalog.Initialize();
 #endif
-            ActiveArchives = new UnsafeHashMap<ContentArchiveId, ActiveArchive>(8, Allocator.Persistent);
-            ActiveFiles = new UnsafeHashMap<ContentFileId, ActiveFile>(8, Allocator.Persistent);
-            ActiveObjects = new UnsafeHashMap<UntypedWeakReferenceId, ActiveObject>(8, Allocator.Persistent);
-            ActiveScenes = new UnsafeHashMap<int, ActiveScene>(4, Allocator.Persistent);
+            ActiveArchives = new UnsafeHashMap<ContentArchiveId, ActiveArchive>(2048, Allocator.Persistent);
+            ActiveFiles = new UnsafeHashMap<ContentFileId, ActiveFile>(2048, Allocator.Persistent);
+            ActiveObjects = new UnsafeHashMap<UntypedWeakReferenceId, ActiveObject>(2048, Allocator.Persistent);
+            ActiveScenes = new UnsafeHashMap<int, ActiveScene>(1024, Allocator.Persistent);
 
-            SharedStaticObjectValueCache.Data = new ObjectValueCache(8);
-            SharedStaticObjectLoadQueue.Data = new MultiProducerSingleBulkConsumerQueue<UntypedWeakReferenceId>(8);
-            SharedStaticObjectReleaseQueue.Data = new MultiProducerSingleBulkConsumerQueue<UntypedWeakReferenceId>(8);
-            SharedStaticLoadingObjects.Data = new UnsafeList<UntypedWeakReferenceId>(8, Allocator.Persistent);
-            SharedStaticDeferredSceneUnloads.Data = new UnsafeList<DeferredSceneDependencyUnload>(4, Allocator.Persistent);
+            SharedStaticObjectValueCache.Data = new ObjectValueCache(2048);
+            SharedStaticObjectLoadQueue.Data = new MultiProducerSingleBulkConsumerQueue<UntypedWeakReferenceId>(2048);
+            SharedStaticObjectReleaseQueue.Data = new MultiProducerSingleBulkConsumerQueue<UntypedWeakReferenceId>(2048);
+            SharedStaticLoadingObjects.Data = new UnsafeList<UntypedWeakReferenceId>(2048, Allocator.Persistent);
+            SharedStaticDeferredSceneUnloads.Data = new UnsafeList<DeferredSceneDependencyUnload>(1024, Allocator.Persistent);
 
             if (s_LoadObjectDelegateGCPrevention == null)
             {
@@ -285,7 +285,7 @@ namespace Unity.Entities.Content
                     }
                     ActiveScenes.Dispose();
                 }
-                
+
                 for (int i = 0; i < SharedStaticDeferredSceneUnloads.Data.Length; i++)
                 {
                     var dsui = SharedStaticDeferredSceneUnloads.Data[i];
@@ -674,7 +674,7 @@ namespace Unity.Entities.Content
 #if ENABLE_PROFILER
             RuntimeContentManagerProfiler.EnterProcessCommands();
 #endif
-            
+
             if (SharedStaticObjectLoadQueue.Data.ConsumeAll(out var objectLoads, Allocator.Temp))
             {
                 new FunctionPointer<LoadObjectManagedDelegate>(s_ManagedLoadObjectTrampoline.Data).Invoke((UntypedWeakReferenceId *)objectLoads.GetUnsafePtr<UntypedWeakReferenceId>(), objectLoads.Length);

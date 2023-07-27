@@ -857,6 +857,15 @@ namespace Unity.Entities.Tests
         public string value4;
     }
 
+    class EcsTestDisposableManagedComponent : IComponentData, IDisposable
+    {
+        public string Value;
+        public void Dispose()
+        {
+            Value = "disposed";
+        }
+    }
+
     internal unsafe class EcsTestManagedCompWithRefCount : IComponentData, ICloneable, IDisposable
     {
         public int RefCount;

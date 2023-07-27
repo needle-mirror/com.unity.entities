@@ -44,10 +44,11 @@ namespace Unity.Entities
                 if (BuildConfiguration != null)
                 {
                     var bakingSystemFilterSettings = new BakingSystemFilterSettings();
-                    var conversionSystemFilterSettings = BuildConfiguration.GetComponent<ConversionSystemFilterSettings>();
-                    bakingSystemFilterSettings.ExcludedBakingSystemAssemblies =
-                        conversionSystemFilterSettings.ExcludedConversionSystemAssemblies;
-
+                    if (BuildConfiguration.TryGetComponent<ConversionSystemFilterSettings>(out var conversionSystemFilterSettings))
+                    {
+                        bakingSystemFilterSettings.ExcludedBakingSystemAssemblies =
+                            conversionSystemFilterSettings.ExcludedConversionSystemAssemblies;
+                    }
                     return bakingSystemFilterSettings;
                 }
 #endif

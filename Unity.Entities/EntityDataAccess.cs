@@ -3169,5 +3169,49 @@ namespace Unity.Entities
             var ptr = dataAccess.GetManagedComponentIndex(entity, componentType.TypeIndex);
             dataAccess.ManagedComponentStore.UpdateManagedComponentValue(ptr, componentObject, ref *dataAccess.EntityComponentStore);
         }
+
+        public static void MoveComponentObjectDuringStructuralChange(ref this EntityDataAccess dataAccess, Entity srcEntity,
+            Entity dstEntity, ComponentType componentType, in SystemHandle originSystem = default)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(!componentType.IsManagedComponent))
+                throw new ArgumentException($"{componentType} must be a managed component type.");
+#endif
+            if (srcEntity == dstEntity)
+                return;
+            // Get the src pointer first, so we fail if it's not present before adding T to dst
+            int* srcPtr = dataAccess.GetManagedComponentIndex(srcEntity, componentType.TypeIndex);
+            // We need to add T to dst before getting the pointer to its value index
+            if (!dataAccess.HasComponent(dstEntity, componentType))
+                dataAccess.AddComponentDuringStructuralChange(dstEntity, componentType, originSystem);
+
+            // If dst's T value is non-null (value index != 0), and it's a different object than src, and it's IDisposable,
+            // we'd need to dispose the old value.
+            int* dstPtr = dataAccess.GetManagedComponentIndex(dstEntity, componentType.TypeIndex);
+            if (*dstPtr != 0)
+            {
+                object srcValue = dataAccess.ManagedComponentStore.GetManagedComponent(*srcPtr);
+                object dstValue = dataAccess.ManagedComponentStore.GetManagedComponent(*dstPtr);
+                if (!ReferenceEquals(srcValue, dstValue))
+                {
+                    // If srcValue and dstValue are references to different objects, we need to dispose dstValue. This can
+                    // use the same code path as SetComponentObject<T>(dstEntity, srcValue).
+                    dataAccess.ManagedComponentStore.UpdateManagedComponentValue(dstPtr, null,
+                        ref *dataAccess.EntityComponentStore);
+                }
+                else if (*srcPtr != *dstPtr)
+                {
+                    // src and dst refer to the same object with different managed component indices. We need to
+                    // release *dstPtr back into the pool of unused value indices, but not dispose of the value object.
+                    dataAccess.ManagedComponentStore.SetManagedComponentValue(*dstPtr, null);
+                    dataAccess.EntityComponentStore->FreeManagedComponentIndex(*dstPtr);
+                }
+            }
+            *dstPtr = *srcPtr;
+            // Force the src entity's managed component index to zero before removing the component, to ensure that
+            // removing doesn't attempt to dispose the value.
+            *srcPtr = 0;
+            dataAccess.RemoveComponentDuringStructuralChange(srcEntity, componentType, originSystem);
+        }
     }
 }

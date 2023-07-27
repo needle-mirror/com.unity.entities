@@ -574,6 +574,10 @@ namespace Unity.Entities
                                 }
                                 else
                                 {
+                                    using (s_CreateBakerState.Auto())
+                                    {
+                                        bakerState = new BakerState(entity, Allocator.Persistent);
+                                    }
                                     for (int i = 0, n = gameObjectBakers.Length; i < n; ++i)
                                     {
                                         var baker = gameObjectBakers[i];
@@ -581,11 +585,6 @@ namespace Unity.Entities
                                         // We don't run bake if the baker belongs to a disabled assembly
                                         if (!baker.AssemblyData.Enabled)
                                             continue;
-
-                                        using (s_CreateBakerState.Auto())
-                                        {
-                                            bakerState = new BakerState(entity, Allocator.Persistent);
-                                        }
 
                                         using (baker.Profiler.Auto())
                                         {

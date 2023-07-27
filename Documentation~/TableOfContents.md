@@ -159,3 +159,4 @@
     * [Entities Structural Changes Profiler module](profiler-module-structural-changes.md)
     * [Entities Memory Profiler module](profiler-module-memory.md)
   * [Journaling](entities-journaling.md)
+  * [Common error messages](common-errors.md)

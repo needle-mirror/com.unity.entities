@@ -133,8 +133,15 @@ namespace Unity.Entities.Build
         /// <remarks>If there is a settings override, the GUID will correspond to the override rather than the default settings asset.</remarks>
         public Hash128 GetPlayerSettingGUID()
         {
-            return GetSettingAsset()?.GUID ?? default;
-        }
+            var settingsAsset = GetSettingAsset();
+
+            if (settingsAsset == null)
+            {
+                UnityEngine.Debug.LogError("GetPlayerSettingGUID() - GetSettingsAsset() returned null");
+                return default;
+            }
+
+            return settingsAsset.GUID;        }
 
         /// <summary>
         /// Return the PlayerType of the asset (Client or Server).
@@ -323,6 +330,7 @@ namespace Unity.Entities.Build
         {
             if (ClientProvider == null)
             {
+                Debug.LogError($"GetClientGUID() - ClientProvider is NULL");
                 return default;
             }
             return ClientProvider.GetPlayerSettingGUID();

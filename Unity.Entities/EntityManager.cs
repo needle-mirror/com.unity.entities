@@ -1059,7 +1059,7 @@ namespace Unity.Entities
         /// All entities with the same archetype and the same values for a shared component are stored in the same set
         /// of chunks. This function finds the unique shared components existing across chunks and archetype and
         /// fills a list with copies of those components and fills in a separate list with the indices of those components
-        /// in the internal shared component list. You can use the indices to ask the same shared components directly
+        /// in the internal shared component list. You can use the indices to access the same shared components directly
         /// by calling <see cref="GetSharedComponentManaged{T}(int)"/>, passing in the index. An index remains valid until
         /// the shared component order version changes. Check this version using
         /// <see cref="GetSharedComponentOrderVersion{T}(T)"/>.
@@ -1253,10 +1253,11 @@ namespace Unity.Entities
         /// the specified shared component. Such changes include creating or destroying entities or anything that changes
         /// the archetype of an entity.
         ///
-        /// Version numbers can overflow. To compare if one version is more recent than another use a calculation such as:
+        /// Version numbers can overflow. To compare if one version is more recent than another, directly checking if
+        /// VersionB is greater than VersionA is not sufficient. Instead, use the helper function:
         ///
         /// <code>
-        /// bool VersionBisNewer = (VersionB - VersionA) > 0;
+        /// bool VersionBisNewer = ChangeVersionUtility.DidChange(VersionB, VersionA);
         /// </code>
         /// </remarks>
         /// <param name="sharedComponent">The shared component instance.</param>
@@ -1277,10 +1278,11 @@ namespace Unity.Entities
         /// the specified shared component. Such changes include creating or destroying entities or anything that changes
         /// the archetype of an entity.
         ///
-        /// Version numbers can overflow. To compare if one version is more recent than another use a calculation such as:
+        /// Version numbers can overflow. To compare if one version is more recent than another, directly checking if
+        /// VersionB is greater than VersionA is not sufficient. Instead, use the helper function:
         ///
         /// <code>
-        /// bool VersionBisNewer = (VersionB - VersionA) > 0;
+        /// bool VersionBisNewer = ChangeVersionUtility.DidChange(VersionB, VersionA);
         /// </code>
         /// </remarks>
         /// <param name="sharedComponent">The unmanaged shared component instance.</param>
@@ -2819,6 +2821,11 @@ namespace Unity.Entities
             var oldArchetype = ecs->GetArchetype(entity);
             var newArchetype = archetype.Archetype;
 
+            if (oldArchetype == newArchetype)
+            {
+                return;
+            }
+
             EntityComponentStore.AssertArchetypeDoesNotRemoveCleanupComponents(oldArchetype, newArchetype);
 
             var changes = access->BeginStructuralChanges();
@@ -2997,16 +3004,24 @@ namespace Unity.Entities
 
         /// <summary>
         /// Sets or clears the "is enabled" bit for the provided component on all entities in all chunks matched by the
-        /// query.</summary>
+        /// query, ignoring the current state of any enableable components in the query.</summary>
         /// <typeparam name="T">The component type which should be enabled or disabled on all matching chunks. This type
         /// must be included in the query's required types, and must implement <see cref="IEnableableComponent"/>.</typeparam>
-        /// <param name="query">The query to match by.</param>
+        /// <param name="query">The query whose matching chunks should be affected.</param>
         /// <param name="value">If true, the component <typeparamref name="T"/> will be enabled on all entities in all
-        /// matching chunks. Otherwise, the component will be disabled on all components in all chunks.</param>
-        /// <remarks>The current value of the bits are ignored; this function will enable disabled components on
-        /// entities, even if the component being disabled would cause the entity to not match the query. If any jobs
-        /// are currently running which read or write the target component, this function will block until they complete
-        /// before performing the requested operation.</remarks>
+        /// matching chunks. Otherwise, the component will be disabled on all entities in all matching chunks.</param>
+        /// <remarks>
+        /// This method ignores the current state of all enableable components in the query. The target component
+        /// will be enabled or disabled on every entity in every chunk that matches the query. Specifically, this function
+        /// will enable disabled components on entities, even if the disabled component would cause its entity to not match
+        /// the query.
+        ///
+        /// To enable or disable a component on all entities that match a query (while respecting the current status of
+        /// enableable components), the recommended workaround is to use a simple IJobEntity or foreach loop.
+        ///
+        /// If any jobs are currently running which read or write the target component, this function will block until
+        /// they complete before performing the requested operation.
+        /// </remarks>
         /// <seealso cref="IsComponentEnabled(Entity,ComponentType)"/>
         /// <seealso cref="ComponentLookup{T}.SetComponentEnabled(Entity,bool)"/>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleEnableableComponent) })]
@@ -3022,16 +3037,24 @@ namespace Unity.Entities
 
         /// <summary>
         /// Sets or clears the "is enabled" bit for the provided component on all entities in all chunks matched by the
-        /// query.</summary>
+        /// query, ignoring the current state of any enableable components in the query.</summary>
         /// <param name="componentType">The component type which should be enabled or disabled on all matching chunks. This type
         /// must be included in the query's required types, and must implement <see cref="IEnableableComponent"/>.</param>
+        /// <param name="query">The query whose matching chunks should be affected.</param>
         /// <param name="value">If true, the component <typeparamref name="T"/> will be enabled on all entities in all
-        /// matching chunks. Otherwise, the component will be disabled on all components in all chunks.</param>
-        /// <param name="query">The query to match.</param>
-        /// <remarks>The current value of the bits are ignored; this function will enable disabled components on
-        /// entities, even if the component being disabled would cause the entity to not match the query. If any jobs
-        /// are currently running which read or write the target component, this function will block until they complete
-        /// before performing the requested operation.</remarks>
+        /// matching chunks. Otherwise, the component will be disabled on all entities in all matching chunks.</param>
+        /// <remarks>
+        /// This method ignores the current state of all enableable components in the query. The target component
+        /// will be enabled or disabled on every entity in every chunk that matches the query. Specifically, this function
+        /// will enable disabled components on entities, even if the disabled component would cause its entity to not match
+        /// the query.
+        ///
+        /// To enable or disable a component on all entities that match a query (while respecting the current status of
+        /// enableable components), the recommended workaround is to use a simple IJobEntity or foreach loop.
+        ///
+        /// If any jobs are currently running which read or write the target component, this function will block until
+        /// they complete before performing the requested operation.
+        /// </remarks>
         /// <seealso cref="IsComponentEnabled(Entity,ComponentType)"/>
         /// <seealso cref="ComponentLookup{T}.SetComponentEnabled(Entity,bool)"/>
         public void SetComponentEnabled(EntityQuery query, ComponentType componentType, bool value)
@@ -3887,10 +3910,11 @@ namespace Unity.Entities
         /// or removing the component type from an entity. Shared components are not covered by this version;
         /// see <see cref="GetSharedComponentOrderVersion{T}(T)"/>.
         ///
-        /// Version numbers can overflow. To compare if one version is more recent than another use a calculation such as:
+        /// Version numbers can overflow. To compare if one version is more recent than another, directly checking if
+        /// VersionB is greater than VersionA is not sufficient. Instead, use the helper function:
         ///
         /// <code>
-        /// bool VersionBisNewer = (VersionB - VersionA) > 0;
+        /// bool VersionBisNewer = ChangeVersionUtility.DidChange(VersionB, VersionA);
         /// </code>
         /// </remarks>
         /// <typeparam name="T">The component type.</typeparam>
@@ -5781,7 +5805,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Move the given component on the source entity to another destination entity.
+        /// Safely move a managed component on the source entity to another destination entity.
         /// </summary>
         /// <remarks>
         /// If the source and destination entity are identical, no operation is performed.
@@ -5792,30 +5816,27 @@ namespace Unity.Entities
         /// AddComponentData(dst, value)
         /// RemoveComponent&lt;T&gt;(src)
         ///
-        /// But for managed components which implement <see cref="IDisposable"/>, calling RemoveComponent will invoke Dispose() on the component value, leaving the destination entity with an uninitialized object.```
+        /// But for managed components which implement <see cref="IDisposable"/>, calling RemoveComponent will invoke
+        /// Dispose() on the component value, leaving the destination entity with an uninitialized object.```
         /// This operation ensures the component is properly moved over.
         /// </remarks>
         /// <param name="manager">This entity manager.</param>
-        /// <param name="src">The Entity the managed component will be removed from</param>
-        /// <param name="dst">The Entity the managed component will be added to</param>
+        /// <param name="src">
+        /// The Entity the managed component will be removed from. This entity must have a component
+        /// of type <typeparamref name="T"/>.
+        /// </param>
+        /// <param name="dst">
+        /// The Entity the managed component will be added to. If this entity already has
+        /// <typeparamref name="T"/> with a different value than <paramref name="src"/>, the existing value will be
+        /// removed and disposed before the new value is assigned.
+        /// </param>
         /// <typeparam name="T">The managed component type.</typeparam>
         public static void MoveComponent<T>(this EntityManager manager, Entity src, Entity dst) where T : class, IComponentData, new()
         {
-
             var access = manager.GetCheckedEntityDataAccess();
-
-            if (src == dst)
-                return;
-
-            manager.AddComponent<T>(dst);
-
-            var typeIndex = TypeManager.GetTypeIndex<T>();
-            var srcPtr = access->GetManagedComponentIndex(src, typeIndex);
-            var dstPtr = access->GetManagedComponentIndex(dst, typeIndex);
-            *dstPtr = *srcPtr;
-            *srcPtr = 0;
-
-            manager.RemoveComponent<T>(src);
+            var changes = access->BeginStructuralChanges();
+            access->MoveComponentObjectDuringStructuralChange(src, dst, ComponentType.ReadWrite<T>());
+            access->EndStructuralChanges(ref changes);
         }
 
         /// <summary>

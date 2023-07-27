@@ -118,7 +118,7 @@ namespace Unity.Scenes.Editor.Tests
             yield return new EnterPlayMode();
 
             {
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
                 Assert.IsTrue(subScene.IsLoaded);
             }
         }
@@ -133,7 +133,7 @@ namespace Unity.Scenes.Editor.Tests
             yield return new EnterPlayMode();
 
             {
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
                 Assert.IsFalse(subScene.IsLoaded);
             }
         }
@@ -148,7 +148,7 @@ namespace Unity.Scenes.Editor.Tests
             yield return new EnterPlayMode();
 
             {
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
                 Assert.IsFalse(subScene.IsLoaded);
                 SubSceneUtility.EditScene(subScene);
                 yield return null;
@@ -182,7 +182,7 @@ namespace Unity.Scenes.Editor.Tests
 
                 var subSceneQuery = w.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<SubScene>());
                 var subScenes = subSceneQuery.ToComponentArray<SubScene>();
-                var subSceneObjects = Object.FindObjectsOfType<SubScene>();
+                var subSceneObjects = Object.FindObjectsByType<SubScene>(FindObjectsSortMode.None);
                 foreach (var subScene in subSceneObjects)
                     Assert.Contains(subScene, subScenes);
 
@@ -221,7 +221,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(mode);
 
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
                 var subSceneQuery = w.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<SubScene>());
                 Assert.Contains(subScene, subSceneQuery.ToComponentArray<SubScene>(), "SubScene was not loaded");
 
@@ -279,7 +279,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(mode);
 
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
                 var testTagQuery =
                     w.EntityManager.CreateEntityQuery(ComponentType
                         .ReadWrite<TestComponentAuthoring.UnmanagedTestComponent>());
@@ -329,7 +329,7 @@ namespace Unity.Scenes.Editor.Tests
                 var w = GetLiveConversionWorld(mode);
                 var manager = w.EntityManager;
 
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
 
                 var sceneEntity = SceneSystem.GetSceneEntity(w.Unmanaged, subScene.SceneGUID);
                 var sectionEntity = manager.GetBuffer<ResolvedSectionEntity>(sceneEntity)[0].SectionEntity;
@@ -363,7 +363,7 @@ namespace Unity.Scenes.Editor.Tests
 
                 manager.AddComponent<DisableLiveConversion>(sceneInstance);
 
-                var authoring = Object.FindObjectOfType<TestComponentAuthoring>();
+                var authoring = Object.FindFirstObjectByType<TestComponentAuthoring>();
 
                 Undo.RecordObject(authoring, "Change component value");
                 authoring.IntValue = 117;
@@ -394,7 +394,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(mode);
 
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
                 var testTagQuery =
                     w.EntityManager.CreateEntityQuery(ComponentType
                         .ReadWrite<TestComponentAuthoring.UnmanagedTestComponent>());
@@ -533,7 +533,7 @@ namespace Unity.Scenes.Editor.Tests
                         .ReadWrite<TestComponentAuthoring.UnmanagedTestComponent>());
                 Assert.AreEqual(1, testTagQuery.CalculateEntityCount(), "Expected a game object to be converted");
 
-                var go = Object.FindObjectOfType<TestComponentAuthoring>().gameObject;
+                var go = Object.FindFirstObjectByType<TestComponentAuthoring>().gameObject;
                 var scene = SceneManager.GetActiveScene();
                 Undo.MoveGameObjectToScene(go, scene, "Move out of subscene");
 
@@ -579,7 +579,7 @@ namespace Unity.Scenes.Editor.Tests
                         .ReadWrite<TestComponentAuthoring.UnmanagedTestComponent>());
                 Assert.AreEqual(2, testTagQuery.CalculateEntityCount(), "Expected a game object to be converted");
 
-                var go = Object.FindObjectOfType<TestComponentAuthoring>().gameObject;
+                var go = Object.FindFirstObjectByType<TestComponentAuthoring>().gameObject;
                 if (go.transform.parent != null)
                     go = go.transform.parent.gameObject;
                 Undo.DestroyObjectImmediate(go);
@@ -614,7 +614,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(mode);
 
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
                 var go = new GameObject("TestGameObject");
                 var authoring = go.AddComponent<TestConditionalComponentAuthoring>();
 
@@ -668,7 +668,7 @@ namespace Unity.Scenes.Editor.Tests
                         .ReadWrite<TestComponentAuthoring.UnmanagedTestComponent>());
                 Assert.AreEqual(1, testTagQuery.CalculateEntityCount(), "Expected a game object to be converted");
 
-                var subscene = Object.FindObjectOfType<SubScene>();
+                var subscene = Object.FindFirstObjectByType<SubScene>();
 
                 subscene.enabled = false;
                 yield return UpdateEditorAndWorld(w);
@@ -701,7 +701,7 @@ namespace Unity.Scenes.Editor.Tests
                         .ReadWrite<TestComponentAuthoring.UnmanagedTestComponent>());
                 Assert.AreEqual(1, testTagQuery.CalculateEntityCount(), "Expected a game object to be converted");
 
-                var subscene = Object.FindObjectOfType<SubScene>();
+                var subscene = Object.FindFirstObjectByType<SubScene>();
 
                 subscene.gameObject.SetActive(false);
                 yield return UpdateEditorAndWorld(w);
@@ -725,7 +725,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(mode);
 
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
                 var go = new GameObject("TestGameObject");
                 Undo.MoveGameObjectToScene(go, subScene.EditingScene, "Test Move");
                 Undo.IncrementCurrentGroup();
@@ -775,7 +775,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(mode);
 
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
                 var go = new GameObject("TestGameObject");
                 go.AddComponent<TestComponentAuthoring>();
                 Undo.MoveGameObjectToScene(go, subScene.EditingScene, "Test Move");
@@ -833,7 +833,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(mode);
 
-                var authoring = Object.FindObjectOfType<TestComponentAuthoring>();
+                var authoring = Object.FindFirstObjectByType<TestComponentAuthoring>();
                 Assert.AreEqual(authoring.IntValue, 15);
 
                 var testTagQuery =
@@ -941,7 +941,7 @@ namespace Unity.Scenes.Editor.Tests
                 Assert.AreEqual(1, queryWithoutDisabled.CalculateEntityCount(),
                     "Expected a game object to be converted");
 
-                var go = Object.FindObjectOfType<TestComponentAuthoring>().gameObject;
+                var go = Object.FindFirstObjectByType<TestComponentAuthoring>().gameObject;
                 Undo.RecordObject(go, "DisableObject");
                 go.SetActive(false);
                 Undo.FlushUndoRecordObjects();
@@ -1154,7 +1154,7 @@ namespace Unity.Scenes.Editor.Tests
             yield return GetEnterPlayMode(mode);
 
             {
-                var authoring = Object.FindObjectOfType<TestComponentAuthoring>();
+                var authoring = Object.FindFirstObjectByType<TestComponentAuthoring>();
                 Assert.AreEqual(authoring.IntValue, 15);
                 Assert.AreEqual(authoring.Material, m_TestMaterial);
 
@@ -1182,7 +1182,7 @@ namespace Unity.Scenes.Editor.Tests
                 Assert.AreEqual(2, testTagQuery.GetSingleton<TestComponentAuthoring.UnmanagedTestComponent>().IntValue,
                     "Expected a component value to change");
 
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
                 Assert.IsNotNull(subScene);
 
                 subScene.gameObject.SetActive(false);
@@ -1227,7 +1227,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(TestWithEditorLiveConversion.Mode.Edit);
 
-                var authoring = Object.FindObjectOfType<TestComponentWithBlobAssetAuthoring>();
+                var authoring = Object.FindFirstObjectByType<TestComponentWithBlobAssetAuthoring>();
 
                 var testTagQuery =
                     w.EntityManager.CreateEntityQuery(ComponentType
@@ -1320,7 +1320,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(TestWithEditorLiveConversion.Mode.Edit);
 
-                var authoring = Object.FindObjectOfType<TestComponentAuthoring>();
+                var authoring = Object.FindFirstObjectByType<TestComponentAuthoring>();
                 Assert.AreEqual(authoring.IntValue, 3);
 
                 var testTagQuery = w.EntityManager.CreateEntityQuery(ComponentType
@@ -1397,7 +1397,7 @@ namespace Unity.Scenes.Editor.Tests
                 var manager = w.EntityManager;
 
                 var sceneSystem = w.GetExistingSystem<SceneSystem>();
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
 
                 var sceneEntity = SceneSystem.GetSceneEntity(w.Unmanaged, subScene.SceneGUID);
                 Assert.AreNotEqual(Entity.Null, sceneEntity);
@@ -1422,7 +1422,7 @@ namespace Unity.Scenes.Editor.Tests
                 //this emulates an async scene not yet fully loaded
                 manager.GetBuffer<ResolvedSectionEntity>(sceneInstance).Clear();
 
-                var authoring = Object.FindObjectOfType<TestComponentAuthoring>();
+                var authoring = Object.FindFirstObjectByType<TestComponentAuthoring>();
 
                 //Change the authoring component value in order to force the LiveConversion patcher to run
                 //Expect no errors
@@ -1559,7 +1559,7 @@ namespace Unity.Scenes.Editor.Tests
                 // In the editor, undoing the deletion would restore the reference, but this doesn't immediately work
                 // in code. So we're doing it manually for now.
                 var b = GameObject.Find("B");
-                var assets = Object.FindObjectsOfType<DependsOnAssetTransitiveTestScriptableObject>();
+                var assets = Object.FindObjectsByType<DependsOnAssetTransitiveTestScriptableObject>(FindObjectsSortMode.None);
 
                 // Make sure we find the right asset
                 DependsOnAssetTransitiveTestScriptableObject asset = null;
@@ -2077,7 +2077,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var e = GetTargetEntity(w);
                 Assert.That(w.EntityManager.GetName(e), Is.EqualTo("TestGameObject"));
-                var go = Object.FindObjectOfType<TestComponentAuthoring>().gameObject;
+                var go = Object.FindFirstObjectByType<TestComponentAuthoring>().gameObject;
 
                 Undo.RecordObject(go, "Renaming");
                 go.name = "The renamed GameObject";
@@ -2217,7 +2217,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(TestWithEditorLiveConversion.Mode.Edit);
 
-                var roots = Object.FindObjectOfType<SubScene>().EditingScene.GetRootGameObjects();
+                var roots = Object.FindFirstObjectByType<SubScene>().EditingScene.GetRootGameObjects();
                 var stack = new Stack<GameObject>(roots);
                 var objs = new List<Transform>();
                 while (stack.Count > 0)
@@ -2626,7 +2626,7 @@ namespace Unity.Scenes.Editor.Tests
             {
                 var w = GetLiveConversionWorld(TestWithEditorLiveConversion.Mode.Edit);
 
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
 
                 DependsOnComponentTestAuthoring.Versions.Clear();
                 Console.WriteLine($"Running fuzz test with seed {seed} and the following actions:");
@@ -3022,7 +3022,7 @@ namespace Unity.Scenes.Editor.Tests
 
             {
                 var w = GetLiveConversionWorld(TestWithEditorLiveConversion.Mode.Edit);
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
 
                 DependsOnComponentTestAuthoring.Versions.Clear();
                 Console.WriteLine($"Running test with {commands.Count} commands");
@@ -8425,7 +8425,7 @@ namespace Unity.Scenes.Editor.Tests
                 var manager = w.EntityManager;
 
                 var sceneSystem = w.GetExistingSystem<SceneSystem>();
-                var subScene = Object.FindObjectOfType<SubScene>();
+                var subScene = Object.FindFirstObjectByType<SubScene>();
 
                 var sceneEntity = SceneSystem.GetSceneEntity(w.Unmanaged, subScene.SceneGUID);
                 Assert.AreNotEqual(Entity.Null, sceneEntity);

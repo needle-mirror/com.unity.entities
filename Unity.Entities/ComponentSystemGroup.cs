@@ -151,6 +151,10 @@ namespace Unity.Entities
             m_UnmanagedSystemsToUpdate.Dispose();
             base.OnDestroy();
             Created = false;
+            // Adding this to help eliminate noise when hunting for memory leaks in the memory profiler tool. (DOTS-8683)
+            m_managedSystemsToUpdate.Clear();
+            m_managedSystemsToRemove.Clear();
+
         }
 
         private void CheckCreated()
@@ -409,7 +413,7 @@ namespace Unity.Entities
                 }
             }
         }
-        
+
         private void GenerateMasterUpdateList()
         {
             RemovePending();
@@ -452,14 +456,14 @@ namespace Unity.Entities
                 };
                 systemsPerBucket[orderingBucket]++;
             }
-            
+
             var lookupDictionary = new NativeHashMap<int, int>(16, Allocator.Temp);
 
             var nativeHashMap =
                 (NativeHashMap<SystemTypeIndex, int>*)UnsafeUtility.AddressOf(ref lookupDictionary);
 
             var badTypeIndices = new NativeHashSet<SystemTypeIndex>(16, Allocator.Temp);
-            
+
             // Find & validate constraints between systems in the group
             var badTypeIndicesPtr = (NativeHashSet<SystemTypeIndex>*)UnsafeUtility.AddressOf(ref badTypeIndices);
             ComponentSystemSorter.FindConstraints(groupTypeIndex,
@@ -554,7 +558,7 @@ namespace Unity.Entities
         {
             if (ourTypeIndex == -1 || sysType == -1)
                 return 1;
-            
+
             var attrs = TypeManager.GetSystemAttributes(sysType, TypeManager.SystemAttributeKind.UpdateInGroup);
             for (int i=0; i<attrs.Length; i++)
             {

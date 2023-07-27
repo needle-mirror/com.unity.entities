@@ -1,4 +1,4 @@
-using System.Collections;
+﻿using System.Collections;
 using System.Collections.Generic;
 
 namespace Unity.Entities
@@ -226,8 +226,8 @@ namespace Unity.Entities
     {
         /// <summary>A component value for the current entity.</summary>
         public readonly T1 Item1;
-        /// <summary>A component value for the current entity.</summary>
-        public readonly Entity Entity;
+        /// <summary>The current entity.</summary>
+        public readonly Entity Item2;
 
         /// <summary>
         /// Construct a new object.
@@ -239,7 +239,7 @@ namespace Unity.Entities
         public QueryEnumerableWithEntity(T1 item1, Entity entity)
         {
             Item1 = item1;
-            Entity = entity;
+            Item2 = entity;
         }
 
         /// <summary>
@@ -252,7 +252,7 @@ namespace Unity.Entities
         public void Deconstruct(out T1 item1, out Entity entity)
         {
             item1 = Item1;
-            entity = Entity;
+            entity = Item2;
         }
 
         /// <summary>
@@ -628,8 +628,8 @@ namespace Unity.Entities
         public readonly T1 Item1;
         /// <summary>A component value for the current entity.</summary>
         public readonly T2 Item2;
-        /// <summary>A component value for the current entity.</summary>
-        public readonly Entity Entity;
+        /// <summary>The current entity.</summary>
+        public readonly Entity Item3;
 
         /// <summary>
         /// Construct a new object.
@@ -643,7 +643,7 @@ namespace Unity.Entities
         {
             Item1 = item1;
             Item2 = item2;
-            Entity = entity;
+            Item3 = entity;
         }
 
         /// <summary>
@@ -658,7 +658,7 @@ namespace Unity.Entities
         {
             item1 = Item1;
             item2 = Item2;
-            entity = Entity;
+            entity = Item3;
         }
 
         /// <summary>
@@ -1038,8 +1038,8 @@ namespace Unity.Entities
         public readonly T2 Item2;
         /// <summary>A component value for the current entity.</summary>
         public readonly T3 Item3;
-        /// <summary>A component value for the current entity.</summary>
-        public readonly Entity Entity;
+        /// <summary>The current entity.</summary>
+        public readonly Entity Item4;
 
         /// <summary>
         /// Construct a new object.
@@ -1055,7 +1055,7 @@ namespace Unity.Entities
             Item1 = item1;
             Item2 = item2;
             Item3 = item3;
-            Entity = entity;
+            Item4 = entity;
         }
 
         /// <summary>
@@ -1072,7 +1072,7 @@ namespace Unity.Entities
             item1 = Item1;
             item2 = Item2;
             item3 = Item3;
-            entity = Entity;
+            entity = Item4;
         }
 
         /// <summary>
@@ -1456,8 +1456,8 @@ namespace Unity.Entities
         public readonly T3 Item3;
         /// <summary>A component value for the current entity.</summary>
         public readonly T4 Item4;
-        /// <summary>A component value for the current entity.</summary>
-        public readonly Entity Entity;
+        /// <summary>The current entity.</summary>
+        public readonly Entity Item5;
 
         /// <summary>
         /// Construct a new object.
@@ -1475,7 +1475,7 @@ namespace Unity.Entities
             Item2 = item2;
             Item3 = item3;
             Item4 = item4;
-            Entity = entity;
+            Item5 = entity;
         }
 
         /// <summary>
@@ -1494,7 +1494,7 @@ namespace Unity.Entities
             item2 = Item2;
             item3 = Item3;
             item4 = Item4;
-            entity = Entity;
+            entity = Item5;
         }
 
         /// <summary>
@@ -1882,8 +1882,8 @@ namespace Unity.Entities
         public readonly T4 Item4;
         /// <summary>A component value for the current entity.</summary>
         public readonly T5 Item5;
-        /// <summary>A component value for the current entity.</summary>
-        public readonly Entity Entity;
+        /// <summary>The current entity.</summary>
+        public readonly Entity Item6;
 
         /// <summary>
         /// Construct a new object.
@@ -1903,7 +1903,7 @@ namespace Unity.Entities
             Item3 = item3;
             Item4 = item4;
             Item5 = item5;
-            Entity = entity;
+            Item6 = entity;
         }
 
         /// <summary>
@@ -1924,7 +1924,7 @@ namespace Unity.Entities
             item3 = Item3;
             item4 = Item4;
             item5 = Item5;
-            entity = Entity;
+            entity = Item6;
         }
 
         /// <summary>
@@ -2316,8 +2316,8 @@ namespace Unity.Entities
         public readonly T5 Item5;
         /// <summary>A component value for the current entity.</summary>
         public readonly T6 Item6;
-        /// <summary>A component value for the current entity.</summary>
-        public readonly Entity Entity;
+        /// <summary>The current entity.</summary>
+        public readonly Entity Item7;
 
         /// <summary>
         /// Construct a new object.
@@ -2339,7 +2339,7 @@ namespace Unity.Entities
             Item4 = item4;
             Item5 = item5;
             Item6 = item6;
-            Entity = entity;
+            Item7 = entity;
         }
 
         /// <summary>
@@ -2362,7 +2362,7 @@ namespace Unity.Entities
             item4 = Item4;
             item5 = Item5;
             item6 = Item6;
-            entity = Entity;
+            entity = Item7;
         }
 
         /// <summary>
@@ -2758,8 +2758,8 @@ namespace Unity.Entities
         public readonly T6 Item6;
         /// <summary>A component value for the current entity.</summary>
         public readonly T7 Item7;
-        /// <summary>A component value for the current entity.</summary>
-        public readonly Entity Entity;
+        /// <summary>The current entity.</summary>
+        public readonly Entity Item8;
 
         /// <summary>
         /// Construct a new object.
@@ -2783,7 +2783,7 @@ namespace Unity.Entities
             Item5 = item5;
             Item6 = item6;
             Item7 = item7;
-            Entity = entity;
+            Item8 = entity;
         }
 
         /// <summary>
@@ -2808,7 +2808,7 @@ namespace Unity.Entities
             item5 = Item5;
             item6 = Item6;
             item7 = Item7;
-            entity = Entity;
+            entity = Item8;
         }
 
         /// <summary>

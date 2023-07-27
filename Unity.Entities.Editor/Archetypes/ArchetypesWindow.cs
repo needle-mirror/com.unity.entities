@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
@@ -27,7 +28,7 @@ namespace Unity.Entities.Editor
         public ArchetypesWindow() : base(Analytics.Window.Archetypes)
         {}
 
-        void OnEnable()
+        protected override void OnCreate()
         {
             titleContent = new GUIContent(s_WindowName, EditorIcons.Archetype);
             minSize = Constants.MinWindowSize;
@@ -50,7 +51,7 @@ namespace Unity.Entities.Editor
             rootVisualElement.Add(viewElement);
         }
 
-        void OnDisable()
+        protected override void OnCleanup()
         {
             m_ArchetypesMemoryData.Dispose();
             m_ArchetypesStableHash.Dispose();

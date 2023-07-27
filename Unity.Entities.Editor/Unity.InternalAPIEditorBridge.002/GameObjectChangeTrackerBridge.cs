@@ -48,6 +48,9 @@ namespace Unity.Editor.Bridge
             InstanceId = instanceId;
             EventType = eventType;
         }
+
+        public override string ToString()
+            => $"GameObjectChangeTrackerEvent(InstanceId: {InstanceId}, EventType: {EventType})";
     }
 
     [Flags]

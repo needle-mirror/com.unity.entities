@@ -1,6 +1,5 @@
 using System;
 using Unity.Assertions;
-using Unity.Entities.UI;
 using Unity.Serialization.Editor;
 using UnityEditor;
 using UnityEditor.UIElements;
@@ -12,6 +11,10 @@ namespace Unity.Entities.Editor
     abstract class DOTSEditorWindow : EditorWindow
     {
         readonly WorldDisplayNameCache m_WorldDisplayNameCache = new WorldDisplayNameCache();
+
+        // This bool is added to detect if the window is properly initialized before any updates or
+        // OnDisable() is being called, since the calling order for CreateGUI, Update and OnDisable is not definite.
+        bool m_Created;
 
         ToolbarMenu m_WorldSelector;
         VisualElement m_SearchFieldContainer;
@@ -174,9 +177,37 @@ namespace Unity.Entities.Editor
             parent.Add(searchIconContainer);
         }
 
+        protected void OnEnable()
+        {
+            // NO-OP, please use CreateGUI to ensure UI is fully ready to be instantiated.
+            // This method exists to ensure no window does its own initialization in OnEnable.
+        }
+
+        protected void CreateGUI()
+        {
+            // This is where the whole window should be initialized if we want UITK to be ready to load all resources.
+            // Note: Window creation must be fully complete by the end of this method.
+            // Note 2: There is no order guarantee, this could be called before or after Update or OnDisable.
+            OnCreate();
+            m_Created = true;
+        }
+
+        protected void OnDisable()
+        {
+            // OnDisable may be called before CreateGUI and we need to guard against it.
+            if (!m_Created)
+                return;
+
+            OnCleanup();
+        }
+
         public void Update()
         {
-            if (SelectedWorld != null && !SelectedWorld.IsCreated)
+            // Update may be called 1..n times before CreateGUI and we need to guard against it.
+            if (!m_Created)
+                return;
+
+            if (SelectedWorld is { IsCreated: false })
             {
                 SelectedWorld = null;
             }
@@ -244,8 +275,6 @@ namespace Unity.Entities.Editor
             OnWorldsChanged(World.All.Count > 0);
         }
 
-        protected virtual void OnWorldsChanged(bool containsAnyWorld) { }
-
         void AppendWorldMenu(DropdownMenu menu, bool showAdvancedWorlds)
         {
             var worldCategories = WorldCategoryHelper.Categories;
@@ -284,8 +313,15 @@ namespace Unity.Entities.Editor
             SelectedWorld = world;
         }
 
-        protected abstract void OnUpdate();
-        protected abstract void OnWorldSelected(World world);
+        protected virtual void OnCreate() { }
+
+        protected virtual void OnUpdate() { }
+
+        protected virtual void OnCleanup() { }
+
+        protected virtual void OnWorldsChanged(bool containsAnyWorld) { }
+
+        protected virtual void OnWorldSelected(World world) { }
 
         internal class BaseStateContainer
         {

@@ -175,7 +175,7 @@ namespace Unity.Scenes.Editor
         {
             Lightmapping.bakeCompleted += () =>
             {
-                ForceReimport(UnityEngine.Object.FindObjectsOfType<SubScene>());
+                ForceReimport(UnityEngine.Object.FindObjectsByType<SubScene>(FindObjectsSortMode.None));
             };
         }
 

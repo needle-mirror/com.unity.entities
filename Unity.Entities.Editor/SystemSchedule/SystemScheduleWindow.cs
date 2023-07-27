@@ -85,7 +85,7 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// Build the GUI for the system window.
         /// </summary>
-        void OnEnable()
+        protected override void OnCreate()
         {
             Resources.AddCommonVariables(rootVisualElement);
 
@@ -122,7 +122,7 @@ namespace Unity.Entities.Editor
             Selection.selectionChanged += OnGlobalSelectionChanged;
         }
 
-        void OnDisable()
+        protected override void OnCleanup()
         {
             WorldProxyManager?.Dispose();
             m_SystemTreeView?.Dispose();

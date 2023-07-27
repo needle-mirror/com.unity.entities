@@ -1102,6 +1102,34 @@ namespace Unity.Entities
                     enabledMask = X86.Sse2.andnot_si128(bitsForTypes[memoryOrderIndexInArchetype], enabledMask);
                 }
             }
+            else if (Arm.Neon.IsNeonSupported)
+            {
+                for (int i = 0; i < allComponentCount; ++i) // masks for "All" types are AND'd together
+                {
+                    var memoryOrderIndexInArchetype = allTypeMemoryOrderIndices[i];
+                    enabledMask = Arm.Neon.vandq_u64(bitsForTypes[memoryOrderIndexInArchetype], enabledMask);
+                }
+                if (anyComponentCount > 0)
+                {
+                    v128 anyCombinedMask = bitsForTypes[anyTypeMemoryOrderIndices[0]];
+                    for (int i = 1; i < anyComponentCount; ++i) // masks for "Any" types are OR'd with each other, then AND'd with the final result
+                    {
+                        var memoryOrderIndexInArchetype = anyTypeMemoryOrderIndices[i];
+                        anyCombinedMask = Arm.Neon.vorrq_u64(bitsForTypes[memoryOrderIndexInArchetype], anyCombinedMask);
+                    }
+                    enabledMask = Arm.Neon.vandq_u64(anyCombinedMask, enabledMask);
+                }
+                for (int i = 0; i < noneComponentCount; ++i) // masks for "None" types are negated and AND'd together
+                {
+                    var memoryOrderIndexInArchetype = noneTypeMemoryOrderIndices[i];
+                    enabledMask = Arm.Neon.vandq_u64(Arm.Neon.vmvnq_u32(bitsForTypes[memoryOrderIndexInArchetype]), enabledMask);
+                }
+                for (int i = 0; i < disabledComponentCount; ++i) // masks for "Disabled" types are negated and AND'd together
+                {
+                    var memoryOrderIndexInArchetype = disabledTypeMemoryOrderIndices[i];
+                    enabledMask = Arm.Neon.vandq_u64(Arm.Neon.vmvnq_u32(bitsForTypes[memoryOrderIndexInArchetype]), enabledMask);
+                }
+            }
             else
             {
                 for (int i = 0; i < allComponentCount; ++i) // masks for "All" types are AND'd together
@@ -1144,6 +1172,12 @@ namespace Unity.Entities
             Assert.IsTrue(matchingArchetype->Archetype->ChunkCapacity <= 128);
             GetEnabledMask(chunk->ListIndex, chunk->Count, new EnabledMaskMatchingArchetypeState(matchingArchetype), out enabledMask);
         }
+        internal static void GetEnabledMaskNoBurstForTests(Chunk* chunk, MatchingArchetype* matchingArchetype, out v128 enabledMask)
+        {
+            Assert.IsTrue(matchingArchetype->Archetype->ChunkCapacity <= 128);
+            GetEnabledMask(chunk->ListIndex, chunk->Count, new EnabledMaskMatchingArchetypeState(matchingArchetype), out enabledMask);
+        }
+
 
         [BurstCompile]
         public static void SetEnabledBitsOnAllChunks(ref EntityQueryImpl queryImpl, TypeIndex typeIndex, bool value)
@@ -1208,6 +1242,7 @@ namespace Unity.Entities
     /// Utilities to help manipulate the per-component enabled bits within a given chunk.
     /// </summary>
     [GenerateTestsForBurstCompatibility]
+    [BurstCompile]
     public static class EnabledBitUtility
     {
         /// <summary>
@@ -1230,8 +1265,7 @@ namespace Unity.Entities
             mask = ShiftRight(mask, start);
 
             // The mask has been shifted so now we need to find the first disabled bit (that's the count)
-            v128 negatedMask = X86.Sse2.IsSse2Supported ? X86.Sse2.xor_si128(mask, new v128(0xFFFFFFFF)) : new v128(~mask.ULong0, ~mask.ULong1);
-
+            v128 negatedMask = new v128(~mask.ULong0, ~mask.ULong1);
             var count = tzcnt_u128(negatedMask);
             nextRangeBegin = firstIndexToCheck + start;
             nextRangeEnd = nextRangeBegin + count;
@@ -1239,45 +1273,30 @@ namespace Unity.Entities
             return count != 0;
         }
 
-        internal static v128 ShiftRight(v128 v, int n)
+        /// <summary>
+        /// Performs a binary logical shift to the right.
+        /// </summary>
+        /// <param name="v">The value to be shifted</param>
+        /// <param name="n">The amount of bits to shift</param>
+        /// <returns>The shifted value</returns>
+        internal static v128 ShiftRight(in v128 v, int n)
         {
-            if (X86.Sse4_1.IsSse41Supported)
-            {
-                v128 v2 = X86.Sse2.srli_si128(v, 8);
-                v128 v3 = X86.Sse2.srl_epi64(v2, new v128(n - 64, n - 64));
-                v128 v1 = X86.Sse2.srl_epi64(v, new v128(n, n));
-                v128 v4 = X86.Sse2.sll_epi64(v2, new v128(64 - n, 64 - n));
-                v1 = X86.Sse2.or_si128(v1, v4);
-                int t = n >= 64 ? 0 : -1;
-                return X86.Sse4_1.blendv_ps(v3, v1, new v128(t));
-            }
-            //else if (Arm.Neon.IsNeonSupported)
-            //{
-            //    // TODO: working/testing Neon impl
-            //    v128 v2 = Arm.Neon.vdupq_laneq_u64(v, 0);
-            //    v128 v3 = Arm.Neon.vshrq_n_u64(v2, n - 64);
-            //    v128 v1 = Arm.Neon.vshrq_n_u64(v, n);
-            //    v128 v4 = Arm.Neon.vshrq_n_u64(v2, 64 - n);
-            //    v1 = Arm.Neon.vorrq_u64(v1, v4);
-            //    int t = n >= 64 ? 0 : -1;
-            //    return Arm.Neon.vbslq_u64(v3, v1, new v128(t));
-            //}
-            else
-            {
-                // Unlike SSE (which clamps shift amounts to the field size), C# computes shift amounts as count & 0x3F,
-                // so shifts of >=64 and >=128 are special-cased
-                v128 nGte128 = new v128(0, 0);
-                v128 nGte64 = new v128(v.ULong1 >> (n - 64), 0);
+            if (Hint.Unlikely(n >= 128))
+                return default;
+            if (Hint.Unlikely(n == 0))
+                return v;
+            if (n >= 64)
+                return new v128(v.ULong1 >> (n-64), 0);
+            // 0 < n < 64
+            ulong lowToLow = v.ULong0 >> n;
+            ulong highToLow = v.ULong1 << (64 - n);
+            return new v128(lowToLow | highToLow, v.ULong1 >> n);
+        }
 
-                v128 v2 = new v128(v.ULong1, 0);
-                v128 v1 = new v128(v.ULong0 >> n, v.ULong1 >> n);
-                v128 v4 = new v128(v2.ULong0 << (64 - n), v2.ULong1 << (64 - n));
-                v1 = new v128(v1.ULong0 | v4.ULong0, v1.ULong1 | v4.ULong1);
-                v4 = n >= 64 ? nGte64 : v1;
-                v4 = n >= 128 ? nGte128 : v4;
-                v4 = n == 0 ? v : v4;
-                return v4;
-            }
+        [BurstCompile]
+        internal static void ShiftRightBurstForTests(ref v128 v, out v128 vOut, int n)
+        {
+            vOut = ShiftRight(v, n);
         }
 
         internal static int tzcnt_u128 (v128 u)

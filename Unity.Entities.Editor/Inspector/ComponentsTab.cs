@@ -74,7 +74,7 @@ namespace Unity.Entities.Editor
 
             public override void Update()
             {
-                if (!Target.m_IsVisible)
+                if (!Target.m_IsVisible || !Target.m_Context.TargetExists())
                     return;
 
                 BuildOrUpdateUI();

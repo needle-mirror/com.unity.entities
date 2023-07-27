@@ -3584,18 +3584,19 @@ namespace Unity.Entities.Tests
 
             var e2 = buf2.CreateEntity();
             buf2.AddComponent(e2, new EcsTestData());
-            buf2.AddComponent(Entity.Null, new EcsTestData());
+            buf2.DestroyEntity(e2);
+            buf2.AddComponent(e2, new EcsTestData());
 
             // We exp both command buffers to execute, and an exception thrown afterwards
             // Essentially we want isolation of two systems that might fail independently.
             Assert.Throws<ArgumentException>(() => { entityCommandBufferSystem.Update(); });
-            Assert.AreEqual(2, EmptySystem.GetEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
+            Assert.AreEqual(1, EmptySystem.GetEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
 
             // On second run, we expect all buffers to be removed...
             // So no more exceptions thrown.
             entityCommandBufferSystem.Update();
 
-            Assert.AreEqual(2, EmptySystem.GetEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
+            Assert.AreEqual(1, EmptySystem.GetEntityQuery(typeof(EcsTestData)).CalculateEntityCount());
         }
 
         [Test]
@@ -7065,5 +7066,16 @@ namespace Unity.Entities.Tests
             EntityCommandBuffer.PLAYBACK_WITH_TRACE = false;
         }
 #endif
+        [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
+        public void PassingNullEntityToECBThrows()
+        {
+            using (var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
+            {
+                Assert.Throws<InvalidOperationException>(
+                    () => cmds.DestroyEntity(Entity.Null),
+                    "Invalid Entity.Null passed. ECBCommand.DestroyEntity");
+            }
+        }
     }
 }

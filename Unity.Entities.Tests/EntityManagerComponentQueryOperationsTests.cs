@@ -101,6 +101,142 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddComponent_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForData3 = (uint)m_Manager.GetComponentOrderVersion<EcsTestData3>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            m_Manager.AddComponent<EcsTestData3>(query);
+
+            // validate order versions
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData3>(), orderVersionForData3));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(true, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
+            }
+        }
+
+        [Test]
+        public void AddComponent_Tag_WithQuery_Works([Values] EnabledBitsMode enabledBitsMode)
+        {
+            int entitiesPerArchetype = 1000;
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData));
+            var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData), typeof(EcsTestData2));
+            var archetype3 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData2));
+            using var entities1 = m_Manager.CreateEntity(archetype1, entitiesPerArchetype, Allocator.Persistent);
+            using var entities2 = m_Manager.CreateEntity(archetype2, entitiesPerArchetype, Allocator.Persistent);
+            using var entities3 = m_Manager.CreateEntity(archetype3, entitiesPerArchetype, Allocator.Persistent);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities1[i], false);
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities2[i], false);
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities3[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities1[i], false);
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities2[i], false);
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities3[i], false);
+                }
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+            m_Manager.AddComponent<EcsTestTag>(query);
+            for (int i = 0; i < entitiesPerArchetype; ++i)
+            {
+                bool expectedHas1 = m_Manager.IsComponentEnabled<EcsTestTagEnableable>(entities1[i]);
+                Assert.AreEqual(expectedHas1, m_Manager.HasComponent<EcsTestTag>(entities1[i]));
+
+                bool expectedHas2 = m_Manager.IsComponentEnabled<EcsTestTagEnableable>(entities2[i]);
+                Assert.AreEqual(expectedHas2, m_Manager.HasComponent<EcsTestTag>(entities2[i]));
+
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestTag>(entities3[i]));
+            }
+        }
+
+        [Test]
+        public void AddComponent_Tag_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(AnotherEcsTestTag), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForTag2 = (uint)m_Manager.GetComponentOrderVersion<AnotherEcsTestTag>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            m_Manager.AddComponent<AnotherEcsTestTag>(query);
+
+            // validate order versions
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<AnotherEcsTestTag>(), orderVersionForTag2));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(true, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
+            }
+        }
+
+        [Test]
         public void AddComponents_WithQuery_Works([Values] EnabledBitsMode enabledBitsMode)
         {
             int entitiesPerArchetype = 1000;
@@ -146,7 +282,145 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddComponents_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestData4), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForData3 = (uint)m_Manager.GetComponentOrderVersion<EcsTestData3>();
+            uint orderVersionForData4 = (uint)m_Manager.GetComponentOrderVersion<EcsTestData4>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            m_Manager.AddComponent(query, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData3>(), ComponentType.ReadOnly<EcsTestData4>()));
+
+            // validate order versions
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData3>(), orderVersionForData3));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData4>(), orderVersionForData4));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(true, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
+            }
+        }
+
+        [Test]
         public void RemoveComponent_WithQuery_Works([Values] EnabledBitsMode enabledBitsMode)
+        {
+            int entitiesPerArchetype = 1000;
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData3), typeof(EcsTestData));
+            var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData3), typeof(EcsTestData), typeof(EcsTestData2));
+            var archetype3 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData3), typeof(EcsTestData2));
+            using var entities1 = m_Manager.CreateEntity(archetype1, entitiesPerArchetype, Allocator.Persistent);
+            using var entities2 = m_Manager.CreateEntity(archetype2, entitiesPerArchetype, Allocator.Persistent);
+            using var entities3 = m_Manager.CreateEntity(archetype3, entitiesPerArchetype, Allocator.Persistent);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities1[i], false);
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities2[i], false);
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities3[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities1[i], false);
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities2[i], false);
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities3[i], false);
+                }
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+            m_Manager.RemoveComponent<EcsTestData3>(query);
+            for (int i = 0; i < entitiesPerArchetype; ++i)
+            {
+                bool expectedHas1 = !m_Manager.IsComponentEnabled<EcsTestTagEnableable>(entities1[i]);
+                Assert.AreEqual(expectedHas1, m_Manager.HasComponent<EcsTestData3>(entities1[i]));
+
+                bool expectedHas2 = !m_Manager.IsComponentEnabled<EcsTestTagEnableable>(entities2[i]);
+                Assert.AreEqual(expectedHas2, m_Manager.HasComponent<EcsTestData3>(entities2[i]));
+
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestData3>(entities3[i]));
+            }
+        }
+
+        [Test]
+        public void RemoveComponent_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData3), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForData3 = (uint)m_Manager.GetComponentOrderVersion<EcsTestData3>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            m_Manager.RemoveComponent<EcsTestData3>(query);
+
+            // validate order versions
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData3>(), orderVersionForData3));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(true, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
+            }
+        }
+
+        [Test]
+        public void RemoveComponent_Tag_WithQuery_Works([Values] EnabledBitsMode enabledBitsMode)
         {
             int entitiesPerArchetype = 1000;
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestTag), typeof(EcsTestData));
@@ -188,12 +462,61 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void RemoveComponent_Tag_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(AnotherEcsTestTag), typeof(EcsTestData3), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForTag2 = (uint)m_Manager.GetComponentOrderVersion<AnotherEcsTestTag>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForData3 = (uint)m_Manager.GetComponentOrderVersion<EcsTestData3>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            m_Manager.RemoveComponent<AnotherEcsTestTag>(query);
+
+            // validate order versions
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<AnotherEcsTestTag>(), orderVersionForTag2));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData3>(), orderVersionForData3));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(true, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
+            }
+        }
+
+        [Test]
         public void RemoveComponents_WithQuery_Works([Values] EnabledBitsMode enabledBitsMode)
         {
             int entitiesPerArchetype = 1000;
-            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestTag), typeof(AnotherEcsTestTag), typeof(EcsTestData));
-            var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestTag), typeof(AnotherEcsTestTag), typeof(EcsTestData), typeof(EcsTestData2));
-            var archetype3 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestTag), typeof(AnotherEcsTestTag), typeof(EcsTestData2));
+            var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestTag), typeof(EcsTestData3), typeof(EcsTestData));
+            var archetype2 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestTag), typeof(EcsTestData3), typeof(EcsTestData), typeof(EcsTestData2));
+            var archetype3 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestTag), typeof(EcsTestData3), typeof(EcsTestData2));
             using var entities1 = m_Manager.CreateEntity(archetype1, entitiesPerArchetype, Allocator.Persistent);
             using var entities2 = m_Manager.CreateEntity(archetype2, entitiesPerArchetype, Allocator.Persistent);
             using var entities3 = m_Manager.CreateEntity(archetype3, entitiesPerArchetype, Allocator.Persistent);
@@ -216,24 +539,73 @@ namespace Unity.Entities.Tests
             if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
                 queryBuilder.WithAll<EcsTestTagEnableable>();
             using var query = queryBuilder.Build(m_Manager);
-            m_Manager.RemoveComponent(query, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestTag>(), ComponentType.ReadOnly<AnotherEcsTestTag>()));
+            m_Manager.RemoveComponent(query, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestTag>(), ComponentType.ReadOnly<EcsTestData3>()));
             for (int i = 0; i < entitiesPerArchetype; ++i)
             {
                 bool expectedHas1 = !m_Manager.IsComponentEnabled<EcsTestTagEnableable>(entities1[i]);
                 Assert.AreEqual(expectedHas1, m_Manager.HasComponent<EcsTestTag>(entities1[i]));
-                Assert.AreEqual(expectedHas1, m_Manager.HasComponent<AnotherEcsTestTag>(entities1[i]));
+                Assert.AreEqual(expectedHas1, m_Manager.HasComponent<EcsTestData3>(entities1[i]));
 
                 bool expectedHas2 = !m_Manager.IsComponentEnabled<EcsTestTagEnableable>(entities2[i]);
                 Assert.AreEqual(expectedHas2, m_Manager.HasComponent<EcsTestTag>(entities2[i]));
-                Assert.AreEqual(expectedHas2, m_Manager.HasComponent<AnotherEcsTestTag>(entities2[i]));
+                Assert.AreEqual(expectedHas2, m_Manager.HasComponent<EcsTestData3>(entities2[i]));
 
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestTag>(entities3[i]));
-                Assert.IsTrue(m_Manager.HasComponent<AnotherEcsTestTag>(entities3[i]));
+                Assert.IsTrue(m_Manager.HasComponent<EcsTestData3>(entities3[i]));
             }
         }
 
         [Test]
-        public void DestroyEntities_WithQuery_Works([Values] EnabledBitsMode enabledBitsMode)
+        public void RemoveComponents_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(AnotherEcsTestTag), typeof(EcsTestData3), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForTag2 = (uint)m_Manager.GetComponentOrderVersion<AnotherEcsTestTag>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForData3 = (uint)m_Manager.GetComponentOrderVersion<EcsTestData3>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            m_Manager.RemoveComponent(query, new ComponentTypeSet(ComponentType.ReadOnly<AnotherEcsTestTag>(), ComponentType.ReadOnly<EcsTestData3>()));
+
+            // validate order versions
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<AnotherEcsTestTag>(), orderVersionForTag2));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData3>(), orderVersionForData3));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(true, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
+            }
+        }
+
+        [Test]
+        public void DestroyEntity_WithQuery_Works([Values] EnabledBitsMode enabledBitsMode)
         {
             int entitiesPerArchetype = 1000;
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData));
@@ -275,8 +647,57 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void DestroyEntity_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForData3 = (uint)m_Manager.GetComponentOrderVersion<EcsTestData3>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            m_Manager.DestroyEntity(query);
+
+            // validate order versions
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData3>(), orderVersionForData3));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (!m_Manager.Exists(entities[i]))
+                    continue;
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(true, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
+            }
+        }
+
+        [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
-        public void DestroyEntities_WithQuery_LinkedEntityGroupsNotDestroyed_Throws([Values(EnabledBitsMode.NoComponentsDisabled)] EnabledBitsMode enabledBitsMode)
+        public void DestroyEntity_WithQuery_LinkedEntityGroupsNotDestroyed_Throws([Values(EnabledBitsMode.NoComponentsDisabled)] EnabledBitsMode enabledBitsMode)
         {
             int entitiesPerArchetype = 1000;
             var archetype1 = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData), typeof(LinkedEntityGroup));
@@ -342,6 +763,55 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddSharedComponent_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForSharedData = (uint)m_Manager.GetComponentOrderVersion<EcsTestSharedComp>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int sharedComponentValue = 7;
+            m_Manager.AddSharedComponent(query, new EcsTestSharedComp(sharedComponentValue));
+
+            // validate order versions
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestSharedComp>(), orderVersionForSharedData));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(true, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
+            }
+        }
+
+        [Test]
         public void AddSharedComponentManaged_WithQuery_Works([Values] EnabledBitsMode enabledBitsMode)
         {
             int entitiesPerArchetype = 1000;
@@ -385,6 +855,55 @@ namespace Unity.Entities.Tests
                     Assert.AreEqual(sharedComponentValue, m_Manager.GetSharedComponentManaged<EcsTestSharedCompManaged>(entities2[i]).value);
 
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestSharedCompManaged>(entities3[i]));
+            }
+        }
+
+        [Test]
+        public void AddSharedComponentManaged_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForSharedData = (uint)m_Manager.GetComponentOrderVersion<EcsTestSharedCompManaged>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            string sharedComponentValue = "value";
+            m_Manager.AddSharedComponentManaged(query, new EcsTestSharedCompManaged(sharedComponentValue));
+
+            // validate order versions
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.IsTrue(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestSharedCompManaged>(), orderVersionForSharedData));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(true, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
             }
         }
 
@@ -516,6 +1035,57 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void SetSharedComponent_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestSharedComp), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForSharedData = (uint)m_Manager.GetComponentOrderVersion<EcsTestSharedComp>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int sharedComponentValue = 7;
+            m_Manager.SetSharedComponent(query, new EcsTestSharedComp(sharedComponentValue));
+
+            // validate order versions
+            bool expectChange = enabledBitsMode == EnabledBitsMode.FewComponentsDisabled ||
+                                enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled;
+            Assert.AreEqual(expectChange, ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.AreEqual(expectChange, ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.AreEqual(expectChange, ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestSharedComp>(), orderVersionForSharedData));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(expectChange, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
+            }
+        }
+
+        [Test]
         public void SetSharedComponentManaged_WithQuery_Works([Values] EnabledBitsMode enabledBitsMode)
         {
             int entitiesPerArchetype = 1000;
@@ -557,6 +1127,57 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(expectedValue2, m_Manager.GetSharedComponentManaged<EcsTestSharedCompManaged>(entities2[i]));
 
                 Assert.AreEqual(default(EcsTestSharedCompManaged), m_Manager.GetSharedComponentManaged<EcsTestSharedCompManaged>(entities3[i]));
+            }
+        }
+
+        [Test]
+        public void SetSharedComponentManaged_WithQuery_UpdatesOrderVersions([Values] EnabledBitsMode enabledBitsMode)
+        {
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            int entitiesPerArchetype = 1000;
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestTagEnableable), typeof(EcsTestSharedCompManaged), typeof(EcsTestData));
+            using var entities = m_Manager.CreateEntity(archetype, entitiesPerArchetype, Allocator.Persistent);
+            var chunkOrderVersions = new NativeArray<uint>(entitiesPerArchetype, Allocator.Temp);
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                else if (enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled && (i % 2 == 0))
+                {
+                    m_Manager.SetComponentEnabled<EcsTestTagEnableable>(entities[i], false);
+                }
+                chunkOrderVersions[i] = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+            }
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>();
+            if (enabledBitsMode != EnabledBitsMode.NoEnableableComponents)
+                queryBuilder.WithAll<EcsTestTagEnableable>();
+            using var query = queryBuilder.Build(m_Manager);
+
+            // not affected by the query, but we need component types with non-zero order versions
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData3), typeof(EcsTestFloatData));
+            // read order versions
+            uint orderVersionForTag = (uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>();
+            uint orderVersionForData = (uint)m_Manager.GetComponentOrderVersion<EcsTestData>();
+            uint orderVersionForSharedData = (uint)m_Manager.GetComponentOrderVersion<EcsTestSharedCompManaged>();
+            uint orderVersionForFloat = (uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>();
+
+            m_Manager.Debug.IncrementGlobalSystemVersion();
+            string sharedComponentValue = "value";
+            m_Manager.SetSharedComponentManaged(query, new EcsTestSharedCompManaged(sharedComponentValue));
+
+            // validate order versions
+            bool expectChange = enabledBitsMode == EnabledBitsMode.FewComponentsDisabled ||
+                                enabledBitsMode == EnabledBitsMode.ManyComponentsDisabled;
+            Assert.AreEqual(expectChange, ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestTagEnableable>(), orderVersionForTag));
+            Assert.AreEqual(expectChange, ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestData>(), orderVersionForData));
+            Assert.AreEqual(expectChange, ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestSharedCompManaged>(), orderVersionForSharedData));
+            Assert.IsFalse(ChangeVersionUtility.DidChange((uint)m_Manager.GetComponentOrderVersion<EcsTestFloatData>(), orderVersionForFloat));
+            for (int i = 0; i < entitiesPerArchetype; i++)
+            {
+                uint newChunkOrderVersion = m_Manager.GetChunk(entities[i]).GetOrderVersion();
+                Assert.AreEqual(expectChange, ChangeVersionUtility.DidChange(newChunkOrderVersion, chunkOrderVersions[i]));
             }
         }
 

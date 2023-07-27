@@ -148,7 +148,7 @@ namespace Unity.Entities.Editor
         public EntitiesJournalingWindow() : base(Analytics.Window.Journaling)
         { }
 
-        void OnEnable()
+        protected override void OnCreate()
         {
             m_WorldProxyManager = new WorldProxyManager();
             m_ComponentDataValuesVisitor = new ComponentDataValuesVisitor();
@@ -305,7 +305,7 @@ namespace Unity.Entities.Editor
             Refresh();
         }
 
-        void OnDisable()
+        protected override void OnCleanup()
         {
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
             m_RecordsList = null;

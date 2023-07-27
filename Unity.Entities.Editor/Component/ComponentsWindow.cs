@@ -145,7 +145,7 @@ namespace Unity.Entities.Editor
             s_Initialized = true;
         }
 
-        void OnEnable()
+        void CreateGUI()
         {
             titleContent = EditorGUIUtility.TrTextContent(k_ComponentWindowName, EditorIcons.Component);
             CacheComponentsData();
