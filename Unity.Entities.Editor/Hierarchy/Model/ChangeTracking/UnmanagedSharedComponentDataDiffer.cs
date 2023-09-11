@@ -371,7 +371,7 @@ namespace Unity.Entities.Editor
 
         public unsafe ChangeSet GatherComponentChangesAsync(EntityManager entityManager, EntityQuery query, Allocator allocator, out JobHandle jobHandle)
         {
-            var access = entityManager.GetCheckedEntityDataAccess();
+            var access = entityManager.GetCheckedEntityDataAccessExclusive();
             var chunks = query.ToArchetypeChunkListAsync(Allocator.TempJob, out var chunksJobHandle);
 
             m_ChunkSequenceNumbers.Clear();

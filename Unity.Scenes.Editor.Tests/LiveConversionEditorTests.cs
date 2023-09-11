@@ -5851,6 +5851,143 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [UnityTest]
+        public IEnumerator IncrementalBaking_NewGameObjectDoesntTriggerDependOnParentTransformHierarchy([Values]Mode mode)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(MockDataAuthoringBaker_TransformDependencyBaker), typeof(AddTransformUsageFlag.Baker));
+
+            GameObject refGo1 = null;
+            GameObject refGo2 = null;
+            GameObject rootRefGo2 = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    // Root Object
+                    refGo1 = new GameObject("RefGo1");
+                    refGo1.transform.localPosition = new float3(1f, 1f, 1f);
+                    refGo1.AddComponent<MockDataAuthoring>();
+
+                    // Child Object
+                    rootRefGo2 = new GameObject("Root RefGo2");
+                    rootRefGo2.transform.localPosition = new float3(1f, 1f, 1f);
+
+                    refGo2 = new GameObject("RefGo2");
+                    refGo2.transform.localPosition = new float3(1f, 1f, 1f);
+                    refGo2.transform.parent = rootRefGo2.transform;
+                    refGo2.AddComponent<MockDataAuthoring>();
+
+                    return new List<GameObject> {refGo1, rootRefGo2};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                yield return UpdateEditorAndWorld(w);
+
+                var refEntity = bakingSystem.GetEntity(refGo1);
+                Assert.AreNotEqual(Entity.Null, refEntity);
+
+                bakingSystem.ClearDidBake();
+
+                // Create a new gameobject to become the root
+                GameObject root = new GameObject($"Root");
+
+                SceneManager.MoveGameObjectToScene(root, subScene.EditingScene);
+
+                Undo.RegisterCreatedObjectUndo(root, "Creating Other Root Object");
+
+                var flagComponent = Undo.AddComponent<AddTransformUsageFlag>(root);
+                flagComponent.flags = TransformUsageFlags.Dynamic;
+
+                yield return UpdateEditorAndWorld(w);
+
+                Assert.IsTrue(bakingSystem.DidBake(root));
+                Assert.IsFalse(bakingSystem.DidBake(refGo1));
+                Assert.IsFalse(bakingSystem.DidBake(refGo2));
+
+                // Check that moving the rootRefGo2 triggers the baker in refGo2
+                ChangeLocalPosition(rootRefGo2, new float3(2f, 2f, 2f));
+
+                yield return UpdateEditorAndWorld(w);
+
+                Assert.IsFalse(bakingSystem.DidBake(root));
+                Assert.IsFalse(bakingSystem.DidBake(refGo1));
+                Assert.IsTrue(bakingSystem.DidBake(refGo2));
+                Assert.IsTrue(bakingSystem.DidBake(rootRefGo2));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator IncrementalBaking_NewGameObjectDoesntTriggerOtherTransformBakers([Values]Mode mode)
+        {
+            // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.
+            using var baking = new BakerDataUtility.OverrideBakers(true, typeof(MockDataAuthoringBaker_TransformBaker), typeof(AddTransformUsageFlag.Baker));
+
+            GameObject refGo1 = null;
+            GameObject refGo2 = null;
+            Unity.Scenes.SubScene subScene;
+            {
+                subScene = CreateSubSceneFromObjects("TestSubScene", true, () =>
+                {
+                    // Root Object
+                    refGo1 = new GameObject("RefGo1");
+                    refGo1.transform.localPosition = new float3(1f, 1f, 1f);
+                    refGo1.AddComponent<MockDataAuthoring>();
+
+                    // Child Object
+                    var rootRefGo2 = new GameObject("Root RefGo2");
+                    rootRefGo2.transform.localPosition = new float3(1f, 1f, 1f);
+
+                    refGo2 = new GameObject("RefGo2");
+                    refGo2.transform.localPosition = new float3(1f, 1f, 1f);
+                    refGo2.transform.parent = rootRefGo2.transform;
+                    refGo2.AddComponent<MockDataAuthoring>();
+
+                    return new List<GameObject> {refGo1, rootRefGo2};
+                });
+            }
+
+            yield return GetEnterPlayMode(mode);
+
+            {
+                var w = GetLiveConversionWorld(Mode.Edit);
+                var bakingWorld = GetBakingWorld(w, subScene.SceneGUID);
+                var bakingSystem = GetBakingSystem(w, subScene.SceneGUID);
+                Assert.IsNotNull(bakingSystem);
+
+                yield return UpdateEditorAndWorld(w);
+
+                var refEntity = bakingSystem.GetEntity(refGo1);
+                Assert.AreNotEqual(Entity.Null, refEntity);
+
+                bakingSystem.ClearDidBake();
+
+                // Create a new gameobject to become the root
+                GameObject root = new GameObject($"Root");
+
+                SceneManager.MoveGameObjectToScene(root, subScene.EditingScene);
+
+                Undo.RegisterCreatedObjectUndo(root, "Creating Other Root Object");
+
+                var flagComponent = Undo.AddComponent<AddTransformUsageFlag>(root);
+                flagComponent.flags = TransformUsageFlags.Dynamic;
+
+                yield return UpdateEditorAndWorld(w);
+
+                Assert.IsTrue(bakingSystem.DidBake(root));
+                Assert.IsFalse(bakingSystem.DidBake(refGo1));
+                Assert.IsFalse(bakingSystem.DidBake(refGo2));
+            }
+        }
+
+        [UnityTest]
         public IEnumerator IncrementalBaking_TransformUsage_HierarchyParentSwap([Values]Mode mode)
         {
             // By default TransformBaker will cause every entity to have transform usage, so for now circumvent this by only running TransformUsageBaker and nothing else.

@@ -450,6 +450,65 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, world.Systems.Count);
         }
 
+        [DisableAutoCreation]
+        public partial struct UnregisteredGenericSystem<T>:ISystem
+        {
+            public void OnUpdate(ref SystemState state)
+            {
+                throw new InvalidOperationException("I ran!");
+            }
+        }
+        [Test]
+        public void CreateSystem_WithUnregisteredSystemType_Throws()
+        {
+            // Creating unregistered unmanaged systems is not supported; the necessary reflection would not be Burst-compatible.
+            using var world = new World("Test World");
+            SystemHandle sys = default;
+            Assert.Throws<ArgumentException>(() => { sys = world.CreateSystem<UnregisteredGenericSystem<int>>(); });
+        }
+        [Test]
+        public void GetOrCreateSystem_WithUnregisteredSystemType_Throws()
+        {
+            // Creating unregistered unmanaged systems is not supported; the necessary reflection would not be Burst-compatible.
+            using var world = new World("Test World");
+            SystemHandle sys = default;
+            Assert.Throws<ArgumentException>(() => { sys = world.GetOrCreateSystem<UnregisteredGenericSystem<int>>(); });
+        }
+
+        [DisableAutoCreation]
+        public partial class UnregisteredGenericSystemManaged<T>:SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                throw new InvalidOperationException("I ran!");
+            }
+        }
+        [Test]
+        public void AddSystemManaged_WithUnregisteredSystemType_Works()
+        {
+            using var world = new World("Test World");
+            var sys = new UnregisteredGenericSystemManaged<int>();
+            Assert.DoesNotThrow(() => world.AddSystemManaged(sys));
+            Assert.That(() => sys.Update(), Throws.InvalidOperationException.With.Message.Contain("I ran!") );
+        }
+        [Test]
+        public void CreateSystemManaged_WithUnregisteredSystemType_Works()
+        {
+            using var world = new World("Test World");
+            UnregisteredGenericSystemManaged<int> sys = default;
+            Assert.DoesNotThrow(() => { sys = world.CreateSystemManaged<UnregisteredGenericSystemManaged<int>>(); });
+            Assert.That(() => sys.Update(), Throws.InvalidOperationException.With.Message.Contain("I ran!") );
+        }
+        [Test]
+        public void GetOrCreateSystemManaged_WithUnregisteredSystemType_Works()
+        {
+            using var world = new World("Test World");
+            UnregisteredGenericSystemManaged<int> sys = default;
+            Assert.DoesNotThrow(() => { sys = world.GetOrCreateSystemManaged<UnregisteredGenericSystemManaged<int>>(); });
+            Assert.That(() => sys.Update(), Throws.InvalidOperationException.With.Message.Contain("I ran!") );
+        }
+
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void World_Dispose_DisposesManagedComponent()

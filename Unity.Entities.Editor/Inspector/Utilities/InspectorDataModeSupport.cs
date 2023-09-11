@@ -180,7 +180,7 @@ namespace Unity.Entities.Editor
             foreach (var target in targets)
             {
                 // Data mode does not apply to assets.
-                if (EditorUtility.IsPersistent(target))
+                if (context is not EntitySelectionProxy && EditorUtility.IsPersistent(target))
                     return null;
 
                 switch (target)

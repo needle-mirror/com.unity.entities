@@ -37,7 +37,6 @@ namespace Unity.Entities
             SystemVersionNode* m_LastSystemVersionNode;
             SpinLock m_Lock;
             ulong m_RecordIndex;
-            int m_ErrorFailedResolveCount;
 
             internal JournalingState(int capacityInBytes)
             {
@@ -50,7 +49,6 @@ namespace Unity.Entities
                 m_LastSystemVersionNode = null;
                 m_Lock = new SpinLock();
                 m_RecordIndex = 0;
-                m_ErrorFailedResolveCount = 10;
             }
 
             internal int RecordCount => m_Records.Count;
@@ -463,9 +461,6 @@ namespace Unity.Entities
                 m_SystemVersionNodes = node;
                 m_LastSystemVersionNode = node;
 
-                // Initialize buffer with initial global system version with default system handle
-                node->Buffer->PushBack(new SystemVersionHandle { Version = ChangeVersionUtility.InitialGlobalSystemVersion, Handle = default });
-
                 return node->Buffer;
             }
 
@@ -496,11 +491,10 @@ namespace Unity.Entities
                         return element.Handle;
                 }
 
-                if (m_ErrorFailedResolveCount > 0)
-                {
-                    UnityEngine.Debug.LogError($"EntitiesJournaling: Failed to resolve system handle for global system version {globalSystemVersion}.");
-                    m_ErrorFailedResolveCount--;
-                }
+                // System handle not found for this version.
+                // Here it could mean an event recorded outside a system (legitimate)
+                // or a system handle was not recorded (bug), but we cannot know for sure.
+                // Because of this, we cannot throw an error here.
                 return default;
             }
 

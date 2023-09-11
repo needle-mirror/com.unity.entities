@@ -89,12 +89,38 @@ namespace Unity.Entities
             return m_EntityDataAccess;
         }
 
+        internal EntityDataAccess* GetCheckedEntityDataAccessExclusive()
+        {
+            if (!CanBeginExclusiveEntityTransaction())
+                EndExclusiveEntityTransaction();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
+#endif
+            return m_EntityDataAccess;
+        }
+
         internal EntityDataAccess* GetCheckedEntityDataAccess(SystemHandle system)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
 #endif
             AssertIsExclusiveTransaction();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (system.m_WorldSeqNo != m_EntityDataAccess->m_WorldUnmanaged.SequenceNumber)
+                throw new InvalidOperationException("System is from a different world.");
+#endif
+            return m_EntityDataAccess;
+        }
+
+        internal EntityDataAccess* GetCheckedEntityDataAccessExclusive(SystemHandle system)
+        {
+            if (!CanBeginExclusiveEntityTransaction())
+                EndExclusiveEntityTransaction();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
+#endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (system.m_WorldSeqNo != m_EntityDataAccess->m_WorldUnmanaged.SequenceNumber)
                 throw new InvalidOperationException("System is from a different world.");
@@ -1305,11 +1331,12 @@ namespace Unity.Entities
             var safetyHandles = &access->DependencyManager->Safety;
 #endif
 
-            return access->GetBuffer<T>(entity
+            return access->GetBuffer<T>(entity,
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-                , safetyHandles->GetSafetyHandle(typeIndex, isReadOnly),
-                safetyHandles->GetBufferSafetyHandle(typeIndex), isReadOnly
+                safetyHandles->GetSafetyHandle(typeIndex, isReadOnly),
+                safetyHandles->GetBufferSafetyHandle(typeIndex),
 #endif
+                isReadOnly
             );
         }
 

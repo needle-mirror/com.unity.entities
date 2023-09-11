@@ -233,6 +233,8 @@ namespace Unity.Entities
             where T : struct, IJobChunk
         {
             var queryImpl = query._GetImpl();
+            if (queryImpl->_Access->IsInExclusiveTransaction)
+                throw new InvalidOperationException("You can't schedule a job while an exclusive transaction is active");
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             queryImpl->_Access->DependencyManager->ForEachStructuralChange.BeginIsInForEach(queryImpl);
 #endif
@@ -283,6 +285,8 @@ namespace Unity.Entities
             where T : struct, IJobChunk
         {
             var queryImpl = query._GetImpl();
+            if (queryImpl->_Access->IsInExclusiveTransaction)
+                throw new InvalidOperationException("You can't schedule a job while an exclusive transaction is active");
             var queryData = queryImpl->_QueryData;
             var cachedChunks = queryImpl->GetMatchingChunkCache();
             var totalChunkCount = cachedChunks.Length;

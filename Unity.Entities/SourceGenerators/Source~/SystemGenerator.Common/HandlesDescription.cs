@@ -6,6 +6,7 @@ using System.Text;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
+using static Unity.Entities.SourceGen.SystemGenerator.Common.TypeHandleFieldDescription;
 
 namespace Unity.Entities.SourceGen.SystemGenerator.Common
 {
@@ -62,9 +63,9 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
             return entityTypeHandleFieldDescription.GeneratedFieldName;
         }
 
-        public string GetOrCreateTypeHandleField(ITypeSymbol typeSymbol, bool isReadOnly)
+        public string GetOrCreateTypeHandleField(ITypeSymbol typeSymbol, bool isReadOnly, TypeHandleSource forcedTypeHandleSource = TypeHandleSource.None)
         {
-            var typeHandleFieldDescription = new TypeHandleFieldDescription(typeSymbol, isReadOnly);
+            var typeHandleFieldDescription = new TypeHandleFieldDescription(typeSymbol, isReadOnly, forcedTypeHandleSource);
             NonQueryFields.Add(typeHandleFieldDescription);
 
             return typeHandleFieldDescription.GeneratedFieldName;

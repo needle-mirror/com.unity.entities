@@ -7,12 +7,12 @@ using System.Collections.Generic;
 using UnityEditor.Experimental;
 using System.IO;
 using Unity.Entities.Build;
-using UnityEditor.Build.Content;
 using UnityEngine;
 #if USING_PLATFORMS_PACKAGE
 using Unity.Build.Classic.Private;
 #endif
 using UnityEditor.SceneManagement;
+using UnityEngine.SceneManagement;
 
 namespace Unity.Scenes.Editor
 {
@@ -108,8 +108,49 @@ namespace Unity.Scenes.Editor
                 $"No available DotsPlayerSettingsProvider for the current platform ({EditorUserBuildSettings.activeBuildTarget}). Using the client settings instead.");
         }
 
+        // This method is mostly doing the same as the engine method BuildPlayer::SaveScenesBeforeBuildIfNeeded except that it saves all unsaved opened scenes as content management requires it before building
+        void SaveScenesBeforeBuildIfNeeded(string [] scenesToBuild)
+        {
+            if (Application.isBatchMode || EditorPrefs.GetBool("SaveScenesBeforeBuilding"))
+            {
+                // In batch mode we cannot show a dialog asking to save changes.
+                // Auto-save any scene even if they are not part of the build as content management requires it.
+                var scenesToSave = new List<Scene>();
+                for (int i = 0; i < SceneManager.sceneCount; i++)
+                {
+                    var scene = SceneManager.GetSceneAt(i);
+                    if (scene.isDirty)
+                    {
+                        scenesToSave.Add(scene);
+                    }
+                }
+
+                if (scenesToSave.Count > 0)
+                    EditorSceneManager.SaveScenes(scenesToSave.ToArray());
+            }
+            else
+            {
+                if (scenesToBuild.Length == 0)
+                {
+                    // If we have no scenes in the build, we will build the currently active scenes.
+                    // In that case, if we have an untitled scene, always mark it as dirty so we can ask the user to save it
+                    for (int i = 0; i < SceneManager.sceneCount; i++)
+                    {
+                        var scene = SceneManager.GetSceneAt(i);
+                        if (String.IsNullOrEmpty(scene.path))
+                            EditorSceneManager.MarkSceneDirty(scene);
+                    }
+                }
+
+                EditorSceneManager.SaveCurrentModifiedScenesIfUserWantsTo();
+            }
+        }
+
         public override void PrepareForBuild(BuildPlayerContext buildPlayerContext)
         {
+            // Content pipeline requires the opened scenes in the Editor to be saved to be able to build or it will fail with the exception ContentCatalogBuildUtility.BuildContentArchives failed with status 'UnsavedChanges'.
+            SaveScenesBeforeBuildIfNeeded(buildPlayerContext.BuildPlayerOptions.scenes);
+
 #if USING_PLATFORMS_PACKAGE
             if (BuildPlayerStep.BuildFromBuildConfiguration)
                 return;

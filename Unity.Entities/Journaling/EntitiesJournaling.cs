@@ -360,7 +360,7 @@ namespace Unity.Entities
                 }
 
                 // Sync enabled state
-                var access = world.EntityManager.GetCheckedEntityDataAccess();
+                var access = world.EntityManager.GetCheckedEntityDataAccessExclusive();
                 if (access != null)
                 {
                     var store = access->EntityComponentStore;

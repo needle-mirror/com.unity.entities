@@ -32,7 +32,7 @@ namespace Unity.Entities.Editor
         static readonly string k_WindowName = L10n.Tr("Entities Hierarchy");
         static readonly Vector2 k_MinWindowSize = Constants.MinWindowSize;
 
-        static readonly EntityQueryOptions[] k_EntityQueryOptions = new [] {
+        static readonly EntityQueryOptions[] k_EntityQueryOptions = new[] {
             EntityQueryOptions.FilterWriteGroup,
             EntityQueryOptions.IgnoreComponentEnabledState,
             EntityQueryOptions.IncludeDisabledEntities,
@@ -86,6 +86,8 @@ namespace Unity.Entities.Editor
             Resources.Templates.DotsEditorCommon.AddStyles(rootVisualElement);
             Resources.AddCommonVariables(rootVisualElement);
 
+            dataModeController.UpdateSupportedDataModes(GetSupportedDataModes(), GetPreferredDataMode());
+
             // Initialize the data models.
             m_HierarchySettings = UserSettings<HierarchySettings>.GetOrCreate(Constants.Settings.Hierarchy);
             m_Hierarchy = new Hierarchy(Allocator.Persistent, dataModeController.dataMode)
@@ -102,9 +104,6 @@ namespace Unity.Entities.Editor
             m_HierarchyElement.SetDecorators(s_Decorators);
 
             Selection.selectionChanged += OnGlobalSelectionChanged;
-
-            // Data mode.
-            dataModeController.UpdateSupportedDataModes(GetSupportedDataModes(), GetPreferredDataMode());
             dataModeController.dataModeChanged += OnDataModeChanged;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
         }
@@ -222,12 +221,12 @@ namespace Unity.Entities.Editor
                 m_SearchElement.AddSearchFilterPopupItem(Constants.ComponentSearch.Any, k_FilterAnyComponentType, k_FilterAnyComponentType, Constants.ComponentSearch.Op);
                 m_SearchElement.AddSearchFilterPopupItem(Constants.Hierarchy.EntityIndexToken, k_FilterIndexToken, k_FilterIndexTokenTooltip, "=");
 
-                foreach(var opt in k_EntityQueryOptions)
+                foreach (var opt in k_EntityQueryOptions)
                 {
                     m_SearchElement.AddSearchFilterPopupItem($"+{opt}", "Option", k_FilterIndexTokenTooltip, " ", isCompleteFilter: true);
                 }
 
-                foreach(var k in k_NodeKinds)
+                foreach (var k in k_NodeKinds)
                 {
                     m_SearchElement.AddSearchFilterPopupItem($"{Constants.Hierarchy.KindToken}={k}", k_FilterKindToken, k_FilterKindTokenTooltip, " ", isCompleteFilter: true);
                 }
@@ -308,75 +307,80 @@ namespace Unity.Entities.Editor
             switch (handle.Kind)
             {
                 case NodeKind.Entity:
+                {
+                    var entity = handle.ToEntity();
+
+                    if (entity != Entity.Null)
                     {
-                        var entity = handle.ToEntity();
-
-                        if (entity != Entity.Null)
-                        {
-                            var world = hierarchy.World;
-                            var authoringObject = world.EntityManager.Debug.GetAuthoringObjectForEntity(entity);
-
-                            if (authoringObject == null)
-                            {
-                                EntitySelectionProxy.SelectEntity(world, entity);
-                            }
-                            else
-                            {
-                                var context = EntitySelectionProxy.CreateInstance(world, entity);
-                                // Selected entities should always try to show up in Runtime mode
-                                SelectionBridge.SetSelection(authoringObject, context, DataMode.Runtime);
-                                Undo.SetCurrentGroupName($"Select {authoringObject.name} ({authoringObject.GetType().Name})");
-                            }
-                        }
-
-                        break;
-                    }
-
-                case NodeKind.SubScene:
-                    {
-                        var subScene = hierarchy.SubSceneMap.GetSubSceneMonobehaviourFromHandle(handle);
-                        SelectionBridge.SetSelection(subScene ? subScene.gameObject : null, HierarchySelectionContext.CreateInstance(handle), DataMode.Disabled);
-                        if (subScene)
-                            Undo.SetCurrentGroupName($"Select {subScene.name} ({subScene.GetType().Name})");
-
-                        break;
-                    }
-
-                case NodeKind.Scene:
-                    {
-                        SelectionBridge.SetSelection(null, HierarchySelectionContext.CreateInstance(handle), DataMode.Disabled);
-                        break;
-                    }
-
-                case NodeKind.GameObject:
-                    {
-                        var gameObject = hierarchy.GetUnityObject(handle) as GameObject;
-
-                        // Don't reselect yourself
-                        if (Selection.activeObject == gameObject)
-                            return;
-
                         var world = hierarchy.World;
-                        EntitySelectionProxy context;
 
-                        if (world is not { IsCreated: true })
+                        // If we are in the middle of a transaction, we need to end it before we can get the authoring object
+                        if (!world.EntityManager.CanBeginExclusiveEntityTransaction())
+                            world.EntityManager.EndExclusiveEntityTransaction();
+
+                        var authoringObject = world.EntityManager.Debug.GetAuthoringObjectForEntity(entity);
+
+                        if (authoringObject == null)
                         {
-                            context = null;
+                            EntitySelectionProxy.SelectEntity(world, entity);
                         }
                         else
                         {
-                            var primaryEntity = world.EntityManager.Debug.GetPrimaryEntityForAuthoringObject(gameObject);
-
-                            context = primaryEntity != Entity.Null && world.EntityManager.SafeExists(primaryEntity)
-                                        ? EntitySelectionProxy.CreateInstance(world, primaryEntity)
-                                        : null;
+                            var context = EntitySelectionProxy.CreateInstance(world, entity);
+                            // Selected entities should always try to show up in Runtime mode
+                            SelectionBridge.SetSelection(authoringObject, context, DataMode.Runtime);
+                            Undo.SetCurrentGroupName($"Select {authoringObject.name} ({authoringObject.GetType().Name})");
                         }
-
-                        // Selected GameObjects should use whatever the current DataMode for the hierarchy is.
-                        SelectionBridge.SetSelection(gameObject, context, dataMode);
-                        Undo.SetCurrentGroupName($"Select {gameObject.name} ({gameObject.GetType().Name})");
-                        break;
                     }
+
+                    break;
+                }
+
+                case NodeKind.SubScene:
+                {
+                    var subScene = hierarchy.SubSceneMap.GetSubSceneMonobehaviourFromHandle(handle);
+                    SelectionBridge.SetSelection(subScene ? subScene.gameObject : null, HierarchySelectionContext.CreateInstance(handle), DataMode.Disabled);
+                    if (subScene)
+                        Undo.SetCurrentGroupName($"Select {subScene.name} ({subScene.GetType().Name})");
+
+                    break;
+                }
+
+                case NodeKind.Scene:
+                {
+                    SelectionBridge.SetSelection(null, HierarchySelectionContext.CreateInstance(handle), DataMode.Disabled);
+                    break;
+                }
+
+                case NodeKind.GameObject:
+                {
+                    var gameObject = hierarchy.GetUnityObject(handle) as GameObject;
+
+                    // Don't reselect yourself
+                    if (Selection.activeObject == gameObject)
+                        return;
+
+                    var world = hierarchy.World;
+                    EntitySelectionProxy context;
+
+                    if (world is not { IsCreated: true })
+                    {
+                        context = null;
+                    }
+                    else
+                    {
+                        var primaryEntity = world.EntityManager.Debug.GetPrimaryEntityForAuthoringObject(gameObject);
+
+                        context = primaryEntity != Entity.Null && world.EntityManager.SafeExists(primaryEntity)
+                                    ? EntitySelectionProxy.CreateInstance(world, primaryEntity)
+                                    : null;
+                    }
+
+                    // Selected GameObjects should use whatever the current DataMode for the hierarchy is.
+                    SelectionBridge.SetSelection(gameObject, context, dataMode);
+                    Undo.SetCurrentGroupName($"Select {gameObject.name} ({gameObject.GetType().Name})");
+                    break;
+                }
             }
 
             Undo.CollapseUndoOperations(undoGroup);

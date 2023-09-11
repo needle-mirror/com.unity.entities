@@ -1,6 +1,42 @@
 # Changelog
 
 
+## [1.0.16] - 2023-09-11
+
+### Added
+
+* checks to see if an exclusive transaction is active while scheduling a job.
+
+### Changed
+
+* Clarified in TransformHelpers API documentation that matrices are expected to be affine.
+* Updated Burst dependency to version 1.8.8
+
+### Removed
+
+* Alignment attribute is removed when displaying component attributes in Inspector window.
+* Changelog entry for * Added `EntityCommandBuffer.MoveComponent<T>(Entity src, Entity dst)` this will be added in an upcoming minor version.
+
+### Fixed
+
+* Companion objects appearing in the GameObject hierarchy for a frame
+* `SystemAPI.Query<EnabledRefRW<MyEnabledComponent>>()` can now be used with `.WithNone<MyEnabledComponent>()`, `.WithAny<MyEnabledComponent>()` and `.WithDisabled<MyEnabledComponent>()`.
+* "AssetDatabase.RegisterCustomDependency are restricted during importing" exception thrown by the EntityClientSetting in the OnDisable method, when using 2023.2 or newer.
+* The entities journaling window will no longer show an error when a system handle cannot be resolved; this is not an error and simply means that no system was executing when that event was recorded.
+* Search window for Systems now shows results from all the worlds instead of default ones.
+* Special handling for prefab entity instantiated from prefab asset at runtime.
+* Entities Hierarchy: fix an issue that can happen when copying scene entities from different worlds.
+* Entities Hierarchy: Fix memory leak in hierarchy backend.
+* Entities Hierarchy: Only remove subscene nodes when they are actually not used anymore.
+* Fixed `isReadOnly` being ignored in `EntityManager.GetBuffer`.
+* Save unsaved opened scenes in the Editor before building a player. (fix issue: Error building Player: InvalidOperationException: ContentCatalogBuildUtility.BuildContentArchives failed with status 'UnsavedChanges')
+* Fixed memory leak in some cases when an `EntityCommandBuffer` containing `DynamicBuffer` commands was disposed before it was played back.
+* `World.AddSystemManaged<T>(T system)` no longer throws an exception if the system type `T` is not registered. Instead, it registers the type just in time. This matches the existing behavior of `World.CreateSystemManaged()`.
+* Fixed a hash mismatch on DependOnParentTransformHierarchy
+* Users can now specify duplicate components in the same `IJobEntity.Execute()` method, insofar as exactly one of them is wrapped in `EnabledRef<T>`.
+* You can now use SystemAPI.GetBufferTypeHandle and SystemAPI.GetSharedComponentTypeHandle with unspecified types coming from systems. Like a `MySystem<TUnspecifiedType>` using SystemAPI.GetBufferTypeHandle<TUnspecifiedType>.
+
+
 ## [1.0.14] - 2023-07-27
 
 ### Added
@@ -11,7 +47,6 @@
 * Early null entity check in ECB commands
 * More error logging in DotsGlobalSettings
 * Error logging in UpdateLoadOperation()
-* Added `EntityCommandBuffer.MoveComponent<T>(Entity src, Entity dst)`
 
 ### Changed
 
@@ -48,7 +83,8 @@
 * Fixed stack overflow that was the result of circular dependency data in the content.
 
 
-## [1.0.11] - 2023-06-19
+
+## [1.0.11] - 2023-6-19
 
 ### Added
 

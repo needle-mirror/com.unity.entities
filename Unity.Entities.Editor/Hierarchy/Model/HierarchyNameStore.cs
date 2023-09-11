@@ -180,7 +180,7 @@ namespace Unity.Entities.Editor
                     }
 
 #if !DOTS_DISABLE_DEBUG_NAMES
-                    var entityComponentStore = m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+                    var entityComponentStore = m_World.EntityManager.GetCheckedEntityDataAccessExclusive()->EntityComponentStore;
                     var entry = entityComponentStore->NameByEntity[handle.Index];
 
                     if (entry.Index != 0 && entityComponentStore->Exists(handle.ToEntity()))

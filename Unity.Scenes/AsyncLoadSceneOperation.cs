@@ -335,6 +335,10 @@ namespace Unity.Scenes
                     {
 #if UNITY_EDITOR
                         _UnityObjectRefsHandle = RuntimeContentManager.LoadInstanceAsync(_UnityObjectRefId);
+
+                        // Before the Runtime Content Manager was added, even in Editor with async this code path was synchronous
+                        // And as such, Companions depend on this behaviour to work correctly, so do not change this to asynchronous without consideration
+                        RuntimeContentManager.WaitForInstanceCompletion(_UnityObjectRefsHandle);
 #else
                         RuntimeContentManager.LoadObjectAsync(_UnityObjectRefId);
 #endif

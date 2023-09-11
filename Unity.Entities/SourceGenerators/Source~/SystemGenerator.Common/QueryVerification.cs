@@ -74,16 +74,8 @@ namespace Unity.Entities.SourceGen.Common
             string queryGroup2Name,
             bool compareTypeSymbolsOnly = false)
         {
-            ITypeSymbol QueryToTypeSymbol(Query query)
-            {
-                if (query.TypeSymbol.ToFullName().StartsWith("global::Unity.Entities.Ref") &&
-                    ((INamedTypeSymbol)query.TypeSymbol).TypeArguments.Length > 0)
-                    return ((INamedTypeSymbol)query.TypeSymbol).TypeArguments.First();
-                else
-                    return query.TypeSymbol;
-            }
-            var mutuallyExclusiveQueryTypes1 = mutuallyExclusiveQueryGroup1.Select(QueryToTypeSymbol);
-            var mutuallyExclusiveQueryTypes2 = mutuallyExclusiveQueryGroup2.Select(QueryToTypeSymbol);
+            var mutuallyExclusiveQueryTypes1 = mutuallyExclusiveQueryGroup1.Select(q => q.TypeSymbol);
+            var mutuallyExclusiveQueryTypes2 = mutuallyExclusiveQueryGroup2.Select(q => q.TypeSymbol);
 
             if (compareTypeSymbolsOnly)
             {

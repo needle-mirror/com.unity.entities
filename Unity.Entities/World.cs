@@ -763,6 +763,7 @@ namespace Unity.Entities
         /// - does not provide lifetime or thread safety guarantees for data access
         /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
         ///
+        /// If <typeparamref name="T"/> has not been registered with the TypeManager, this method will register it before adding the system.
         /// </remarks>
         /// <typeparam name="T">The system type</typeparam>
         /// <returns>The new instance of system type <typeparamref name="T"/> in this World.</returns>
@@ -919,6 +920,8 @@ namespace Unity.Entities
         /// - couples data to the system type with no direct path to decouple
         /// - does not provide lifetime or thread safety guarantees for data access
         /// - does not provide lifetime or thread safety guarantees for system access through the returned managed reference
+        ///
+        /// If <typeparamref name="T"/> has not been registered with the TypeManager, this method will register it before adding the system.
         /// </remarks>
         /// <typeparam name="T">The system type</typeparam>
         /// <param name="system">The existing system instance to add</param>
@@ -927,7 +930,12 @@ namespace Unity.Entities
         public T AddSystemManaged<T>(T system) where T : ComponentSystemBase
         {
             CheckGetOrCreateSystem();
-            var systemTypeIndex = TypeManager.GetSystemTypeIndex<T>();
+            var systemTypeIndex = TypeManager.GetSystemTypeIndexNoThrow<T>();
+            if (systemTypeIndex <= 0)
+            {
+                TypeManager.AddSystemTypeToTablesAfterInit(typeof(T));
+                systemTypeIndex = TypeManager.GetSystemTypeIndex<T>();
+            }
             if (GetExistingSystemInternal(systemTypeIndex) != null)
                 throw new Exception($"Attempting to add system '{TypeManager.GetSystemName(systemTypeIndex)}' which has already been added to world '{Name}'");
 
@@ -1543,6 +1551,7 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="self">The World</param>
         /// <typeparam name="T">The system type</typeparam>
+        /// <exception cref="ArgumentException">Thrown if the system type <typeparamref name="T"/>has not been registered with the TypeManager.</exception>
         /// <returns>The new system instance's handle of system type <typeparamref name="T"/> in this World.</returns>
         public static SystemHandle CreateSystem<T>(this World self) where T : unmanaged, ISystem
         {
@@ -1574,6 +1583,7 @@ namespace Unity.Entities
         /// <param name="self">The World</param>
         /// <returns>The instance's handle of system type <typeparamref name="T"/> in this World. If the system
         /// does not exist in this World, it will first be created.</returns>
+        /// <exception cref="ArgumentException">Thrown if the system type <typeparamref name="T"/>has not been registered with the TypeManager.</exception>
         public static SystemHandle GetOrCreateSystem<T>(this World self) where T : unmanaged, ISystem
         {
             return self.Unmanaged.GetOrCreateUnmanagedSystem<T>();

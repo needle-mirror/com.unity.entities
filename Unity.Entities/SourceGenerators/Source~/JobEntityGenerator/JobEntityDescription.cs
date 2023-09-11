@@ -6,6 +6,7 @@ using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
+using Unity.Entities.SourceGen.JobEntityGenerator;
 
 namespace Unity.Entities.SourceGen.SystemGenerator.Common
 {
@@ -626,6 +627,56 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
             }
         }
 
+        readonly struct ExecuteMethodParameter : IEqualityComparer<ExecuteMethodParameter>
+        {
+            readonly ITypeSymbol _typeSymbol;
+            readonly ComponentRefWrapperType _componentRefWrapperType;
+
+            public ExecuteMethodParameter(ITypeSymbol typeSymbol, ComponentRefWrapperType refWrapperType)
+            {
+                _typeSymbol = typeSymbol;
+                _componentRefWrapperType = refWrapperType;
+            }
+            public bool Equals(ExecuteMethodParameter x, ExecuteMethodParameter y)
+            {
+                var identicalTypes = SymbolEqualityComparer.Default.Equals(x._typeSymbol, y._typeSymbol);
+                if (!identicalTypes)
+                    return false;
+
+                switch (x._componentRefWrapperType)
+                {
+                    case ComponentRefWrapperType.NotApplicable:
+                        return true;
+                    case ComponentRefWrapperType.None:
+                    case ComponentRefWrapperType.RefRO:
+                    case ComponentRefWrapperType.RefRW:
+                        return y._componentRefWrapperType is ComponentRefWrapperType.RefRO or ComponentRefWrapperType.RefRW or ComponentRefWrapperType.None;
+                    case ComponentRefWrapperType.EnabledRefRO:
+                    case ComponentRefWrapperType.EnabledRefRW:
+                    default:
+                        return y._componentRefWrapperType is ComponentRefWrapperType.EnabledRefRO or ComponentRefWrapperType.EnabledRefRW;
+                }
+            }
+
+            public int GetHashCode(ExecuteMethodParameter obj)
+            {
+                unchecked
+                {
+                    int refWrapperTypeInt = _componentRefWrapperType switch
+                    {
+                        ComponentRefWrapperType.NotApplicable => 0,
+                        ComponentRefWrapperType.None => 1,
+                        ComponentRefWrapperType.RefRO => 1,
+                        ComponentRefWrapperType.RefRW => 1,
+                        ComponentRefWrapperType.EnabledRefRO => 2,
+                        ComponentRefWrapperType.EnabledRefRW => 2,
+                        _ => 2
+                    };
+                    return ((_typeSymbol != null ? SymbolEqualityComparer.Default.GetHashCode(_typeSymbol) : 0) * 397) ^ refWrapperTypeInt;
+                }
+            }
+        }
+
         /// <summary>
         /// Checks if any errors are present, if so, also outputs the error.
         /// </summary>
@@ -644,22 +695,25 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 Invalid = true;
             }
 
-// TODO: This was recently fixed (https://github.com/dotnet/roslyn-analyzers/issues/5804), remove pragmas after we update .net
-#pragma warning disable RS1024
-            var alreadySeenComponents = new HashSet<ITypeSymbol>(SymbolEqualityComparer.Default);
-#pragma warning restore RS1024
-
+    // TODO: This was recently fixed (https://github.com/dotnet/roslyn-analyzers/issues/5804), remove pragmas after we update .net
+    #pragma warning disable RS1024
+            var executeMethodComponentParameters = new HashSet<ExecuteMethodParameter>();
+    #pragma warning restore RS1024
             foreach (var param in UserExecuteMethodParams)
             {
                 if (param is null)
                     continue;
 
-                if (!(param is IAttributeParameter { IsInt: true }))
-                    if (!alreadySeenComponents.Add(param.TypeSymbol))
+                if (param is not IAttributeParameter { IsInt: true })
+                {
+                    var refWrapperType = param is JobEntityParam_ComponentData componentData ? componentData.ComponentRefWrapperType : ComponentRefWrapperType.NotApplicable;
+
+                    if (!executeMethodComponentParameters.Add(new ExecuteMethodParameter(param.TypeSymbol, refWrapperType)))
                     {
                         JobEntityGeneratorErrors.SGJE0017(this, param.ParameterSymbol.Locations.First(), FullTypeName, param.TypeSymbol.ToDisplayString());
                         Invalid = true;
                     }
+                }
 
                 switch (param)
                 {
@@ -678,13 +732,11 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                     foundEntityIndexInChunk = true;
                                     continue;
                             }
-
                             JobEntityGeneratorErrors.SGJE0007(this, param.ParameterSymbol.Locations.Single(),
                                 FullTypeName, GetUserExecuteMethodSignature(userExecuteMethod), attributeParameter.AttributeName);
                             Invalid = true;
                             continue;
                         }
-
                         JobEntityGeneratorErrors.SGJE0006(this, param.ParameterSymbol.Locations.Single(),
                             FullTypeName, GetUserExecuteMethodSignature(userExecuteMethod), param.ParameterSymbol.Name, attributeParameter.AttributeName);
                         Invalid = true;
@@ -696,14 +748,14 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                             var text = sharedComponent.ParameterSymbol.DeclaringSyntaxReferences.First().GetSyntax() is ParameterSyntax {Identifier: var i}
                                 ? i.ValueText
                                 : sharedComponent.ParameterSymbol.ToDisplayString();
-                                JobEntityGeneratorErrors.SGJE0013(this, sharedComponent.ParameterSymbol.Locations.Single(), FullTypeName, text);
+                            JobEntityGeneratorErrors.SGJE0013(this, sharedComponent.ParameterSymbol.Locations.Single(), FullTypeName, text);
                             Invalid = true;
                         }
                         break;
                     case JobEntityParam_ComponentData componentData:
                     {
                         // E.g. Execute(in RefRW<T1> t1, ref EnabledRefRO<T2> t2)
-                        if (componentData.RefWrapperType != RefWrapperType.None
+                        if (componentData.ComponentRefWrapperType != ComponentRefWrapperType.None
                             && componentData.ParameterSymbol.RefKind != RefKind.None)
                         {
                             JobEntityGeneratorErrors.SGJE0018(this,componentData.ParameterSymbol.Locations.Single());
@@ -711,9 +763,9 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                         }
 
                         // E.g. Execute(ref TagComponent tag)
-                        else if (componentData.RefWrapperType == RefWrapperType.None
-                                 && componentData.IsZeroSizedComponent
-                                 && componentData.ParameterSymbol.RefKind == RefKind.Ref)
+                        else if (componentData.ComponentRefWrapperType == ComponentRefWrapperType.None
+                                && componentData.IsZeroSizedComponent
+                                && componentData.ParameterSymbol.RefKind == RefKind.Ref)
                         {
                             JobEntityGeneratorErrors.SGJE0016(
                                 this,
@@ -811,14 +863,14 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
             IParameterSymbol parameterSymbol,
             ITypeSymbol componentTypeSymbol,
             bool isReadOnly,
-            RefWrapperType refWrapperType,
+            ComponentRefWrapperType componentRefWrapperType,
             bool performSafetyChecks, string typeHandleFieldName) : base(parameterSymbol, typeHandleFieldName)
         {
             TypeSymbol = componentTypeSymbol;
             IsReadOnly = isReadOnly;
-            RefWrapperType = refWrapperType;
+            ComponentRefWrapperType = componentRefWrapperType;
             IsZeroSizedComponent = componentTypeSymbol.IsZeroSizedComponent();
-            IsEnableableComponent = componentTypeSymbol.IsEnableableComponent();
+            componentTypeSymbol.IsEnableableComponent();
 
             string fullyQualifiedTypeName = componentTypeSymbol.ToFullName();
 
@@ -835,9 +887,9 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 string setUp;
                 string value;
 
-                switch (refWrapperType)
+                switch (componentRefWrapperType)
                 {
-                    case RefWrapperType.None:
+                    case ComponentRefWrapperType.None:
                     {
                         requiredVariableName =
                             IsZeroSizedComponent
@@ -864,10 +916,11 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                         };
                         return (requiredVariableDeclaration, setUp, value);
                     }
-                    case RefWrapperType.RefRW:
+                    case ComponentRefWrapperType.RefRW:
                     {
                         requiredVariableName = $"{parameterSymbol.Name}ArrayIntPtr";
-                        requiredVariableDeclaration = $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
+                        requiredVariableDeclaration =
+                            $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
 
                         value = $"{requiredVariableName}Ref";
                         setUp =
@@ -876,10 +929,11 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                 : $"var {value} = Unity.Entities.Internal.InternalCompilerInterface.GetRefRW<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk);";
                         return (requiredVariableDeclaration, setUp, value);
                     }
-                    case RefWrapperType.RefRO:
+                    case ComponentRefWrapperType.RefRO:
                     {
                         requiredVariableName = $"{parameterSymbol.Name}ArrayIntPtr";
-                        requiredVariableDeclaration = $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
+                        requiredVariableDeclaration =
+                            $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
 
                         value = $"{requiredVariableName}Ref";
                         setUp =
@@ -888,13 +942,15 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                                 : $"var {value} = Unity.Entities.Internal.InternalCompilerInterface.GetRefRO<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk);";
                         return (requiredVariableDeclaration, setUp, value);
                     }
-                    case RefWrapperType.EnabledRefRO:
-                    case RefWrapperType.EnabledRefRW:
+                    case ComponentRefWrapperType.EnabledRefRO:
+                    case ComponentRefWrapperType.EnabledRefRW:
                     {
                         requiredVariableName = $"{parameterSymbol.Name}EnabledMask_{(IsReadOnly ? "RO" : "RW")}";
-                        requiredVariableDeclaration = $"var {requiredVariableName} = chunk.GetEnabledMask(ref __TypeHandle.{TypeHandleFieldName});";
+                        requiredVariableDeclaration =
+                            $"var {requiredVariableName} = chunk.GetEnabledMask(ref __TypeHandle.{TypeHandleFieldName});";
 
-                        value = $"{requiredVariableName}.{(IsReadOnly ? "GetEnabledRefRO" : "GetEnabledRefRW")}<{fullyQualifiedTypeName}>(entityIndexInChunk)";
+                        value =
+                            $"{requiredVariableName}.{(IsReadOnly ? "GetEnabledRefRO" : "GetEnabledRefRW")}<{fullyQualifiedTypeName}>(entityIndexInChunk)";
                         return (requiredVariableDeclaration, SetUp: default, value);
                     }
                     default:
@@ -902,9 +958,9 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 }
             }
         }
-        public RefWrapperType RefWrapperType { get; }
+
+        public ComponentRefWrapperType ComponentRefWrapperType { get; }
         public bool IsZeroSizedComponent { get; }
-        public bool IsEnableableComponent { get; }
     }
     public interface IAttributeParameter
     {
@@ -978,11 +1034,11 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
         {
             var refWrapperType = constructedFrom switch
             {
-                "global::Unity.Entities.RefRW<T>" => RefWrapperType.RefRW,
-                "global::Unity.Entities.RefRO<T>" => RefWrapperType.RefRO,
-                "global::Unity.Entities.EnabledRefRW<T>" => RefWrapperType.EnabledRefRW,
-                "global::Unity.Entities.EnabledRefRO<T>" => RefWrapperType.EnabledRefRO,
-                _ => RefWrapperType.None
+                "global::Unity.Entities.RefRW<T>" => ComponentRefWrapperType.RefRW,
+                "global::Unity.Entities.RefRO<T>" => ComponentRefWrapperType.RefRO,
+                "global::Unity.Entities.EnabledRefRW<T>" => ComponentRefWrapperType.EnabledRefRW,
+                "global::Unity.Entities.EnabledRefRO<T>" => ComponentRefWrapperType.EnabledRefRO,
+                _ => ComponentRefWrapperType.None
             };
 
             if (componentTypeSymbol is INamedTypeSymbol namedTypeSymbol && namedTypeSymbol.Arity != 0)

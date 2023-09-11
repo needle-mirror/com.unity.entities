@@ -149,6 +149,48 @@ namespace Unity.Entities.Tests
             }
         }
 
+        partial struct IterateThroughEnableableComponentsWithVariousExtensionsSystem : ISystem
+        {
+            public void OnCreate(ref SystemState state)
+            {
+                state.EntityManager.AddComponent<SumData>(state.SystemHandle);
+                state.EntityManager.AddComponent<SystemQueryData>(state.SystemHandle);
+
+                var archetype = state.EntityManager.CreateArchetype(typeof(EcsTestDataEnableable));
+                const int entityCount = 1000;
+                var allEntities = state.EntityManager.CreateEntity(archetype, entityCount, Allocator.Temp);
+
+                for (int i = 0; i < entityCount; ++i)
+                    state.EntityManager.SetComponentEnabled<EcsTestDataEnableable>(allEntities[i], i % 5 != 0);
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+                var queryExtensionToTest = state.EntityManager.GetComponentData<SystemQueryData>(state.SystemHandle).extensionToTest;
+                ref var numDisabledComponents = ref state.EntityManager.GetComponentDataRW<SumData>(state.SystemHandle).ValueRW;
+
+                switch (queryExtensionToTest)
+                {
+                    case QueryExtension.Disabled:
+                        foreach (var _ in Query<EnabledRefRO<EcsTestDataEnableable>>().WithDisabled<EcsTestDataEnableable>())
+                            numDisabledComponents.sum++;
+                        break;
+                    case QueryExtension.None:
+                        foreach (var _ in Query<EnabledRefRO<EcsTestDataEnableable>>().WithNone<EcsTestDataEnableable>())
+                            numDisabledComponents.sum++;
+                        break;
+                    case QueryExtension.Any:
+                        foreach (var _ in Query<EnabledRefRO<EcsTestDataEnableable>>().WithAny<EcsTestDataEnableable>())
+                            numDisabledComponents.sum++;
+                        break;
+                    case QueryExtension.All:
+                        foreach (var _ in Query<EnabledRefRO<EcsTestDataEnableable>>().WithAll<EcsTestDataEnableable>())
+                            numDisabledComponents.sum++;
+                        break;
+                }
+            }
+        }
+
         public struct SumData : IComponentData
         {
             public int sum;
@@ -1063,6 +1105,29 @@ namespace Unity.Entities.Tests
             var sys = World.CreateSystemManaged<IterateThroughEnableableComponents_TrackProcessedEntities>();
             sys.Update();
             CollectionAssert.AreEqual(expectedEntities.ToArray(), sys.ProcessedEntities.AsArray().ToArray());
+        }
+
+        [Test]
+        public void ForEachIteration_IterateThroughEnableableComponents(
+            [Values(QueryExtension.None, QueryExtension.Disabled, QueryExtension.Any, QueryExtension.All)] QueryExtension queryExtension)
+        {
+            var system = World.GetOrCreateSystem<IterateThroughEnableableComponentsWithVariousExtensionsSystem>();
+            ref var queryData = ref World.EntityManager.GetComponentDataRW<SystemQueryData>(system).ValueRW;
+            queryData.extensionToTest = queryExtension;
+
+            system.Update(World.Unmanaged);
+
+            switch (queryExtension)
+            {
+                case QueryExtension.Any:
+                case QueryExtension.All:
+                    Assert.AreEqual(expected: 800, actual: World.EntityManager.GetComponentData<SumData>(system).sum);
+                    break;
+                case QueryExtension.None:
+                case QueryExtension.Disabled:
+                    Assert.AreEqual(expected: 200, actual: World.EntityManager.GetComponentData<SumData>(system).sum);
+                    break;
+            }
         }
 
         [Test]

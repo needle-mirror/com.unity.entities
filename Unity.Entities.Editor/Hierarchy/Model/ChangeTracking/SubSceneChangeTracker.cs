@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Editor.Bridge;
@@ -33,10 +33,16 @@ namespace Unity.Entities.Editor
             m_SceneTagDiffer.Clear();
 
             m_World = world;
-            if (m_World is not null)
+            if (m_World != null && m_World.IsCreated)
             {
+                var entityManager = m_World.EntityManager;
+
+                // Cannot create entity query during exclusive transaction, so make sure to complete it
+                if (!entityManager.CanBeginExclusiveEntityTransaction())
+                    entityManager.EndExclusiveEntityTransaction();
+
                 using var qb = new EntityQueryBuilder(Allocator.TempJob);
-                m_Query = qb.WithAll<SceneReference>().Build(world.EntityManager);
+                m_Query = qb.WithAll<SceneReference>().Build(entityManager);
             }
         }
 

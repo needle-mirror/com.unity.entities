@@ -231,6 +231,11 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
 #endregion
 
+#region DuplicateComponents
+        [Test]
+        public void DuplicateComponents([Values(ScheduleType.Run, ScheduleType.Schedule)] ScheduleType scheduleType) => m_TestSystem.DuplicateComponents(scheduleType);
+#endregion
+
 #region EntityIndexInQuery_ArrayWrites
 
         [Test]
@@ -1676,6 +1681,54 @@ namespace Unity.Entities.Tests.ForEachCodegen
             }
 
 #endregion
+
+#region DuplicateComponents
+
+        [WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)]
+        partial struct DuplicateComponentsJob : IJobEntity
+        {
+            public void Execute(RefRW<EcsTestDataEnableable> e1, EnabledRefRW<EcsTestDataEnableable> e2)
+            {
+                if (e2.ValueRO)
+                {
+                    e1.ValueRW.value++;
+                    e2.ValueRW = false;
+                }
+            }
+        }
+        public void DuplicateComponents(ScheduleType scheduleType)
+        {
+            using var entities = CollectionHelper.CreateNativeArray<Entity>(100, World.UpdateAllocator.ToAllocator);
+            EntityManager.CreateEntity(EntityManager.CreateArchetype(typeof(EcsTestDataEnableable)), entities);
+
+            for (int i = 0; i < entities.Length; i+=2)
+                EntityManager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+
+            var job = new DuplicateComponentsJob();
+            switch (scheduleType)
+            {
+                case ScheduleType.Run:
+                    job.Run();
+                    break;
+                case ScheduleType.Schedule:
+                    job.Schedule();
+                    Dependency.Complete();
+                    break;
+            }
+
+            for (var index = 0; index < entities.Length; index++)
+            {
+                var entity = entities[index];
+
+                Assert.IsFalse(EntityManager.IsComponentEnabled<EcsTestDataEnableable>(entity));
+                Assert.AreEqual(index % 2 == 0 ? 0 : 1, EntityManager.GetComponentData<EcsTestDataEnableable>(entity).value);
+            }
+
+            EntityManager.DestroyEntity(entities);
+        }
+
+#endregion
+
 
 #region EntityIndexInQuery_ArrayWrites
 

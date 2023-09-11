@@ -1,7 +1,6 @@
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using Unity.Collections;
 using UnityEditor;
 using UnityEditor.Search;
 using UnityEngine;
@@ -108,7 +107,6 @@ namespace Unity.Entities.Editor
 
         internal static Dictionary<string, string[]> s_SystemDependencyMap = new Dictionary<string, string[]>();
         internal static WorldProxyManager s_WorldProxyManager;
-        internal static WorldProxy s_WorldProxy;
         internal static bool s_MoreTimePrecision;
         
         internal static QueryEngine<SystemDescriptor> s_QueryEngine;
@@ -298,15 +296,11 @@ namespace Unity.Entities.Editor
         {
             s_WorldProxyManager = new WorldProxyManager();
             s_SystemDependencyMap = new();
-            var world = SearchUtils.FindWorld();
-            if (world == null)
-            {
-                Debug.LogWarning("System Search provider: cannot find a valid World");
-                return false;
-            }
             s_WorldProxyManager.CreateWorldProxiesForAllWorlds();
-            s_WorldProxy = s_WorldProxyManager.GetWorldProxyForGivenWorld(world);
-            s_WorldProxyManager.SelectedWorldProxy = s_WorldProxy;
+            foreach (var updater in s_WorldProxyManager.GetAllWorldProxyUpdaters())
+            {
+                updater.EnableUpdater();
+            }
             return true;
         }
 
@@ -370,10 +364,17 @@ namespace Unity.Entities.Editor
             s_SystemDependencyMap.Clear();
             s_Systems.Clear();
 
-            foreach(var system in s_WorldProxy.AllSystems)
+            foreach (var world in World.All)
             {
-                s_Systems.Add(new SystemDescriptor(system));
-                BuildSystemDependencyMap(system);
+                var worldProxy = s_WorldProxyManager.GetWorldProxyForGivenWorld(world);
+                if (worldProxy == null)
+                    continue;
+
+                foreach (var system in worldProxy.AllSystems)
+                {
+                    s_Systems.Add(new SystemDescriptor(system));
+                    BuildSystemDependencyMap(system);
+                }
             }
 
             FillSystemDependencyCache(s_Systems);

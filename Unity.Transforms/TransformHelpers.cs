@@ -116,6 +116,9 @@ namespace Unity.Transforms
         // ------------------ Coordinate system conversion
 
         /// <summary>Transforms a 3D point by a 4x4 transformation matrix.</summary>
+        /// <remarks>
+        /// This method assumes that <paramref name="m"/> is an affine transformation matrix.
+        /// </remarks>
         /// <param name="m">A transformation matrix</param>
         /// <param name="p">A 3D position</param>
         /// <returns>
@@ -124,6 +127,9 @@ namespace Unity.Transforms
         public static float3 TransformPoint(in this float4x4 m, in float3 p) => math.mul(m, new float4(p, 1)).xyz;
 
         /// <summary>Transforms a 3D direction by a 4x4 transformation matrix.</summary>
+        /// <remarks>
+        /// This method assumes that <paramref name="m"/> is an affine transformation matrix.
+        /// </remarks>
         /// <param name="m">A transformation matrix</param>
         /// <param name="d">A vector representing a direction in 3D space. This vector does not need to be normalized.</param>
         /// <returns>
@@ -132,6 +138,9 @@ namespace Unity.Transforms
         public static float3 TransformDirection(in this float4x4 m, in float3 d) => math.rotate(m, d);
 
         /// <summary>Transforms a 3D rotation by a 4x4 transformation matrix.</summary>
+        /// <remarks>
+        /// This method assumes that <paramref name="m"/> is an affine transformation matrix without shear.
+        /// </remarks>
         /// <param name="m">A transformation matrix</param>
         /// <param name="q">A quaternion representing a 3D rotation. This quaternion does not need to be normalized.</param>
         /// <returns>
@@ -141,6 +150,9 @@ namespace Unity.Transforms
             math.mul(new quaternion(math.orthonormalize(new float3x3(m))), q);
 
         /// <summary>Transforms a 3D point by the inverse of a 4x4 transformation matrix.</summary>
+        /// <remarks>
+        /// This method assumes that <paramref name="m"/> is an affine transformation matrix.
+        /// </remarks>
         /// <param name="m">A transformation matrix</param>
         /// <param name="p">A 3D position</param>
         /// <returns>
@@ -149,6 +161,9 @@ namespace Unity.Transforms
         public static float3 InverseTransformPoint(in this float4x4 m, in float3 p) => math.mul(math.inverse(m), new float4(p, 1)).xyz;
 
         /// <summary>Transforms a 3D direction by the inverse of a 4x4 transformation matrix.</summary>
+        /// <remarks>
+        /// This method assumes that <paramref name="m"/> is an affine transformation matrix.
+        /// </remarks>
         /// <param name="m">A transformation matrix</param>
         /// <param name="d">A vector representing a direction in 3D space. This vector does not need to be normalized.</param>
         /// <returns>
@@ -157,6 +172,9 @@ namespace Unity.Transforms
         public static float3 InverseTransformDirection(in this float4x4 m, in float3 d) => math.rotate(math.inverse(m), d);
 
         /// <summary>Transforms a 3D rotation by the inverse of a 4x4 transformation matrix.</summary>
+        /// <remarks>
+        /// This method assumes that <paramref name="m"/> is an affine transformation matrix without shear.
+        /// </remarks>
         /// <param name="m">A transformation matrix</param>
         /// <param name="q">A quaternion representing a 3D rotation. This quaternion does not need to be normalized.</param>
         /// <returns>

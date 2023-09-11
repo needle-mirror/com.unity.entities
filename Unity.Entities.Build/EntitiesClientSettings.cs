@@ -62,12 +62,41 @@ namespace Unity.Entities.Build
 
         internal void Save()
         {
-            Save(true);
             ((IEntitiesPlayerSettings)this).RegisterCustomDependency();
             if (!AssetDatabase.IsAssetImportWorkerProcess())
+            {
+                Save(true);
                 AssetDatabase.Refresh();
+            }
         }
-        private void OnDisable() { Save(); }
+
+#if UNITY_2023_2_OR_NEWER
+        private void OnEnable()
+        {
+            ((IEntitiesPlayerSettings)this).RegisterCustomDependency();
+        }
+#endif
+
+        private void OnDisable()
+        {
+#if !UNITY_2023_2_OR_NEWER
+            Save();
+#else
+            //We can't call the RegisterCustomDependency here. We still save the asset (because it must be)
+            //But the depedency is going to be update when the scriptable is re-enabled.
+            if (AssetDatabase.IsAssetImportWorkerProcess())
+                return;
+
+            Save(true);
+            //This safeguard is necessary because the RegisterCustomDependency throw exceptions
+            //if this is called when the editor is refreshing the database.
+            if(!EditorApplication.isUpdating)
+            {
+                ((IEntitiesPlayerSettings)this).RegisterCustomDependency();
+                AssetDatabase.Refresh();
+            }
+#endif
+        }
     }
 
     internal class ClientSettings : DotsPlayerSettingsProvider

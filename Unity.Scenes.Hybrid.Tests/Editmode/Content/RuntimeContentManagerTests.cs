@@ -353,9 +353,9 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             RuntimeContentManager.ProcessQueuedCommands();
             Assert.AreEqual(ObjectLoadingStatus.None, RuntimeContentManager.GetObjectLoadingStatus(id));
         }
-        
+
 #if false
-         // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
+        // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
         // https://unity.slack.com/archives/C04UGPY27S9/p1683136704435259
         [Test]
         public void LoadingObjectsCountIsCorrectAfterLoadsAndReleases()

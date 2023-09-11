@@ -154,7 +154,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Destroys this system, executing any pending command buffers first.
+        /// Destroys this system. Any pending command buffers will be disposed, but their commands will NOT be played back.
         /// </summary>
         /// <remarks>If you override this method, you should call `base.OnDestroy()` to retain the default
         /// destruction logic.</remarks>

@@ -514,28 +514,18 @@ namespace Unity.Entities
     internal unsafe struct EntityCommandBufferData
     {
         public EntityCommandBufferChain m_MainThreadChain;
-
         public EntityCommandBufferChain* m_ThreadedChains;
-
         public int m_RecordedChainCount;
-
         public int m_MinimumChunkSize;
-
         public AllocatorManager.AllocatorHandle m_Allocator;
-
         public PlaybackPolicy m_PlaybackPolicy;
-
         public bool m_ShouldPlayback;
-
         public bool m_DidPlayback;
-
+        public bool m_ForceFullDisposeOnSkippedPlayback;
         public Entity m_Entity;
-
         public int m_BufferWithFixupsCount;
         public UnsafeAtomicCounter32 m_BufferWithFixups;
-
         private static readonly int ALIGN_64_BIT = 8;
-
         public int m_CommandBufferID;
 
         internal void InitForParallelWriter()
@@ -929,8 +919,16 @@ namespace Unity.Entities
             BufferHeader* header = &cmd->BufferNode.TempBuffer;
             BufferHeader.Initialize(header, type.BufferCapacity);
 
+            // Track all DynamicBuffer headers created during recording. Until the ECB is played back, it owns the
+            // memory allocations for these buffers and is responsible for deallocating them when the ECB is disposed.
             cmd->BufferNode.Prev = chain->m_Cleanup->BufferCleanupList;
             chain->m_Cleanup->BufferCleanupList = &(cmd->BufferNode);
+            // The caller may invoke methods on the DynamicBuffer returned by this command during ECB recording which
+            // cause it to allocate memory (for example, DynamicBuffer.AddRange). These allocations always use
+            // Allocator.Persistent, not the ECB's allocator. These allocations must ALWAYS be manually cleaned up
+            // if the ECB is disposed without being played back. So, we have to force the full ECB cleanup process
+            // to run in this case, even if it could normally be skipped.
+            m_ForceFullDisposeOnSkippedPlayback = true;
 
             internalCapacity = type.BufferCapacity;
 
@@ -1960,7 +1958,12 @@ namespace Unity.Entities
 
             // There's no need to walk chains and dispose individual allocations if the provided allocator
             // uses auto-dispose; they'll all be freed automatically when the allocator rewinds.
-            if (ecb.m_Data != null && !ecb.m_Data->m_Allocator.IsAutoDispose)
+            bool disposeChains = !ecb.m_Data->m_Allocator.IsAutoDispose;
+            // ...however, under some conditions we need to walk the chains anyway and manually free their allocations,
+            // even with auto-dispose allocators.
+            if (!disposeChains && !ecb.m_Data->m_DidPlayback && ecb.m_Data->m_ForceFullDisposeOnSkippedPlayback)
+                disposeChains = true;
+            if (ecb.m_Data != null && disposeChains)
             {
                 ecb.FreeChain(&ecb.m_Data->m_MainThreadChain, ecb.m_Data->m_PlaybackPolicy, ecb.m_Data->m_DidPlayback);
 

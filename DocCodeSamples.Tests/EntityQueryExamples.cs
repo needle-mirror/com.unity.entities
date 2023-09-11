@@ -382,18 +382,15 @@ namespace Doc.CodeSamples.Tests
 
         protected override void OnUpdate()
         {
-            // Only iterate over entities that have the SharedGrouping data set to 1
+            // By default (without a filter), count all entities that have the required components.
+            query.ResetFilter();
+            int unfilteredCount = query.CalculateEntityCount();
+            // With a filter, only entities in chunks that have SharedGrouping=1 will be counted.
             query.SetSharedComponentFilter(new SharedGrouping { Group = 1 });
-
-            var positions = query.ToComponentDataArray<ObjectPosition>(Allocator.Temp);
-            var displacements = query.ToComponentDataArray<Displacement>(Allocator.Temp);
-
-            for (int i = 0; i < positions.Length; i++)
-                positions[i] =
-                    new ObjectPosition
-                    {
-                        Value = positions[i].Value + displacements[i].Value
-                    };
+            int filteredCount = query.CalculateEntityCount();
+            // Many query methods include a variant that ignores any active filters. These variants are generally
+            // more efficient, and should be used when conservative upper-bound results are acceptable.
+            int ignoreFilterCount = query.CalculateEntityCountWithoutFiltering();
         }
     }
 

@@ -1597,7 +1597,6 @@ namespace Unity.Entities.Tests
 
 #if !UNITY_ANDROID // APK bundling breaks reading from streamingAssets (DOTS-7038)
         [Test]
-        [IgnoreTest_IL2CPP("DOTSE-1903 - Properties is crashing due to generic interface usage breaking non-generic-sharing IL2CPP builds")]
         public void ExportToCSV()
         {
             using (var entities = m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3)), 3, Allocator.Temp))

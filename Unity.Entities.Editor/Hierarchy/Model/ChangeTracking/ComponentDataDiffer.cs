@@ -351,6 +351,7 @@ namespace Unity.Entities.Editor
             m_ChangesByChunk.Dispose();
             m_RemovedChunks.Dispose();
             m_RemovedEntities.Dispose();
+            m_RemovedComponents.Dispose();
         }
 
         /// <summary>

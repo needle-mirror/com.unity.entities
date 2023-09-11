@@ -648,7 +648,6 @@ namespace Unity.Entities.Baking
                     var hashGenerator = new xxHash3.StreamingState(false);
                     GameObject go = transform.gameObject;
                     int goInstanceID = go.GetInstanceID();
-                    hashGenerator.Update(goInstanceID);
 
                     // We take the dependency on the parent hierarchy.
                     transform = transform.parent;
@@ -901,6 +900,7 @@ namespace Unity.Entities.Baking
                         returnValue = GetChildrenHash(ref hierarchy, GameObject, true);
                         break;
                 }
+
                 return (returnValue == Hash);
             }
 

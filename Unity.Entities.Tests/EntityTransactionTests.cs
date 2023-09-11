@@ -1174,5 +1174,56 @@ namespace Unity.Entities.Tests
 
         }
 
+        partial class ScheduleJobDuringExclusiveEntityTransactionTestSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                try
+                {
+                    var job = new EmptyJob();
+                    EntityQuery query = GetEntityQuery(typeof(EcsTestData));
+                    EntityManager.BeginExclusiveEntityTransaction();
+                    job.Schedule(query, new JobHandle()).Complete();
+                }
+                finally
+                {
+                    EntityManager.EndExclusiveEntityTransaction();
+                }
+            }
+        }
+
+        [Test]
+        public void ScheduleJobDuringExclusiveEntityTransactionTest_Throws()
+        {
+            var system = World.GetOrCreateSystemManaged<ScheduleJobDuringExclusiveEntityTransactionTestSystem>();
+            var exception = Assert.Throws<InvalidOperationException>(() => system.Update());
+            Assert.AreEqual(exception.Message, "You can't schedule a job while an exclusive transaction is active");
+        }
+
+        partial class RunByRefDuringExclusiveEntityTransactionTestSystem : SystemBase
+        {
+            protected override void OnUpdate()
+            {
+                try
+                {
+                    var job = new EmptyJob();
+                    EntityQuery query = GetEntityQuery(typeof(EcsTestData));
+                    EntityManager.BeginExclusiveEntityTransaction();
+                    Internal.InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref job, query);
+                }
+                finally
+                {
+                    EntityManager.EndExclusiveEntityTransaction();
+                }
+            }
+        }
+
+        [Test]
+        public void RunByRefDuringExclusiveEntityTransactionTest_Throws()
+        {
+            var system = World.GetOrCreateSystemManaged<RunByRefDuringExclusiveEntityTransactionTestSystem>();
+            var exception = Assert.Throws<InvalidOperationException>(() => system.Update());
+            Assert.AreEqual(exception.Message, "You can't schedule a job while an exclusive transaction is active");
+        }
     }
 }

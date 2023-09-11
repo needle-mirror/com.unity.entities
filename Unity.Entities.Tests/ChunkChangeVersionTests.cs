@@ -215,6 +215,28 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void GetBufferRO_Via_GetBuffer()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsIntElement));
+
+            BumpGlobalSystemVersion();
+            m_Manager.GetBuffer<EcsIntElement>(e1, true);
+
+            AssetHasBufferChangeVersion<EcsIntElement>(e1, OldVersion);
+        }
+
+        [Test]
+        public void GetBufferRW_Via_GetBuffer()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsIntElement));
+
+            BumpGlobalSystemVersion();
+            m_Manager.GetBuffer<EcsIntElement>(e1, false);
+
+            AssetHasBufferChangeVersion<EcsIntElement>(e1, NewVersion);
+        }
+
+        [Test]
         public void SetSharedComponentDataIndex_Via_Entity()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestSharedComp));
@@ -548,7 +570,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public unsafe void GetComponentRO_Via_GetBuffer()
+        public unsafe void GetComponentRO_Via_GetBufferTypeHandle()
         {
             var e0 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsIntElement));
             var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsIntElement));

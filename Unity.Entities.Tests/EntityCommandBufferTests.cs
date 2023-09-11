@@ -2631,6 +2631,21 @@ namespace Unity.Entities.Tests
             });
         }
 
+        [Test]
+        public void DisposeBeforePlayback_DynamicBufferAllocationsDontLeak()
+        {
+            // Ideally, we'd assert that the following sequence of calls does not leak any memory.
+
+            // Using a rewindable allocator here should normally bypass most of ECB.Dispose(), but the presence of
+            // DynamicBuffer commands requires the full dispose code to run anyway.
+            var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            var e = ecb.CreateEntity();
+            var db = ecb.AddBuffer<EcsIntElement>(e);
+            var elements = CollectionHelper.CreateNativeArray<EcsIntElement>(db.Capacity * 2, Allocator.Temp);
+            db.AddRange(elements);
+            ecb.Dispose();
+        }
+
         [Test(Description = "Once a buffer command is played back, it has no side effects on the ECB.")]
         public void BufferChanged_BetweenPlaybacks_HasNoEffectOnECB()
         {

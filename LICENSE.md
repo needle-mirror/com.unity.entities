@@ -1,4 +1,4 @@
-Entities © 2023 Unity Technologies
+Entities copyright © 2023 Unity Technologies
 
 Licensed under the Unity Companion License for Unity-dependent projects (see https://unity3d.com/legal/licenses/unity_companion_license).
 
