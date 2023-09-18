@@ -167,7 +167,6 @@ public class BurstSafetyTests
     }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-#if !UNITY_DOTSRUNTIME
     [Test]
     [Ignore("Crashes Unity - No user is supposed to write code like this, so not very important")]
     public void AccessNullUnsafePtr()
@@ -176,7 +175,5 @@ public class BurstSafetyTests
 
         new AccessNullUnsafePtrJob().Run();
     }
-
-#endif
 #endif
 }

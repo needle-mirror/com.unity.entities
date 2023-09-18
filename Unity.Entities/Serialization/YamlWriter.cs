@@ -1,4 +1,3 @@
-#if !NET_DOTS
 using System;
 using System.Collections.Generic;
 using System.IO;
@@ -275,4 +274,3 @@ namespace Unity.Entities.Serialization
         #endregion
     }
 }
-#endif

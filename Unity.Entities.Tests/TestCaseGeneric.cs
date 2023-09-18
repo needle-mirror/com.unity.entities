@@ -1,5 +1,3 @@
-#if !UNITY_PORTABLE_TEST_RUNNER
-// https://unity3d.atlassian.net/browse/DOTSR-1432
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -37,4 +35,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-#endif

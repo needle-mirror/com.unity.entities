@@ -1,7 +1,3 @@
-﻿#if !NET_DOTS
-// NET_DOTS does not support TestCaseSource and these tests are only used to validate existing DOTS ILPP-related issues (not specifically NET_DOTS related)
-// DOTS-3822
-
 using System;
 using System.Runtime.CompilerServices;
 using NUnit.Framework;
@@ -308,5 +304,3 @@ namespace Unity.Entities.CodeGen.Tests
 
     }
 }
-
-#endif

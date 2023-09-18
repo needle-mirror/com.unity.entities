@@ -89,7 +89,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !NET_DOTS
         [Test]
         public void CreatingGenericSystem_Works()
         {
@@ -98,10 +97,8 @@ namespace Unity.Entities.Tests
             system.Update();
             Assert.AreEqual(system.thing, system.thing2);
         }
-#endif
 
         [Test]
-        [DotsRuntimeFixme("Debug.LogError is not burst compatible (for safety errors reported from bursted code) and LogAssert.Expect is not properly implemented in DOTS Runtime - DOTS-4294")]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void ReturningWrongJobReportsCorrectSystemUpdate()
         {
@@ -705,10 +702,7 @@ namespace Unity.Entities.Tests
                 var readHandle = sysRead.CheckedState()->Dependency;
                 Assert.IsFalse(writeHandle.Equals(readHandle));
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-// Investigate why this fails in DOTS Runtime DOTS-5964
-#if !UNITY_DOTSRUNTIME
                 Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
-#endif
 #endif
             }
         }
@@ -729,9 +723,7 @@ namespace Unity.Entities.Tests
                 var readHandle = sysRead.CheckedState()->Dependency;
                 Assert.IsFalse(writeHandle.Equals(readHandle));
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-#if !UNITY_DOTSRUNTIME
                 Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
-#endif
 #endif
             }
         }
@@ -752,9 +744,7 @@ namespace Unity.Entities.Tests
                 var readHandle = sysRead.CheckedState()->Dependency;
                 Assert.IsFalse(writeHandle.Equals(readHandle));
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-#if !UNITY_DOTSRUNTIME
                 Assert.IsTrue(JobHandle.CheckFenceIsDependencyOrDidSyncFence(readHandle, writeHandle));
-#endif
 #endif
             }
         }
@@ -988,14 +978,10 @@ namespace Unity.Entities.Tests
             // The data access is safe but the safety system can't know that. We had an issue where the safety PanicFunction
             // was preventing the real safety message from surfacing
             var sys1 = World.CreateSystem<SystemSchedulingTwoParallelJobsWritingToSameArray>();
-#if UNITY_DOTSRUNTIME
-            Assert.Throws<InvalidOperationException>(() => { sys1.Update(World.Unmanaged); });
-#else
             Assert.That(() => { sys1.Update(World.Unmanaged); },
                             Throws.Exception.TypeOf<InvalidOperationException>()
                                 .With.Message.Contains(
                                     "The previously scheduled job SystemSchedulingTwoParallelJobsWritingToSameArray:Discriminator1Job writes to the Unity.Collections.NativeArray"));
-#endif
             LogAssert.Expect(LogType.Error, "The system Unity.Entities.Tests.SystemBaseDependencyTests+SystemSchedulingTwoParallelJobsWritingToSameArray reads Unity.Entities.Tests.EcsTestData via SystemSchedulingTwoParallelJobsWritingToSameArray:Discriminator1Job but that type was not assigned to the Dependency property. To ensure correct behavior of other systems, the job or a dependency must be assigned to the Dependency property before returning from the OnUpdate method.");
         }
     }

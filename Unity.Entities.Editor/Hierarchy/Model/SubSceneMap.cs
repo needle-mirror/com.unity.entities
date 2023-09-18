@@ -185,8 +185,13 @@ namespace Unity.Entities.Editor
             var map = new NativeParallelHashMap<HierarchyNodeHandle, bool>(m_SubScenes.Count, Allocator.TempJob);
             foreach (var (subSceneGuid, handle) in m_SubScenes)
             {
-                var subScene = m_PreviousSceneGuidToSubScene[subSceneGuid];
-                map[handle] = subScene is not null && subScene.IsLoaded;
+                //When laoding a new scene, the SubScene list may contains more entries than the m_PreviousSceneGuidToSubScene because
+                //the m_SubScene list is updated only when the SubScene change is detected. In this spurious frame, the
+                //m_PreviousSceneGuidToSubScene may not contains yet the guid of the new loaded sub-scenes. As such, a try-get
+                //here is the only possible choice, unless we keep the m_PreviousSceneGuidToSubScene and m_SubScenes in sync (that it is
+                //not the intent).
+                if (m_PreviousSceneGuidToSubScene.TryGetValue(subSceneGuid, out var subScene))
+                    map[handle] = subScene is not null && subScene.IsLoaded;
             }
             return map;
         }

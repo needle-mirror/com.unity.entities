@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
-#if !UNITY_DOTSRUNTIME
 using UnityEngine.PlayerLoop;
 using UnityEngine.LowLevel;
-#endif
 
 namespace Unity.Entities
 {
@@ -175,7 +173,6 @@ namespace Unity.Entities
         public Type GroupType { get; }
     }
 
-#if !UNITY_DOTSRUNTIME
     /// <summary>
     /// Contains helpers to add and remove systems to the UnityEngine player loop.
     /// </summary>
@@ -528,5 +525,4 @@ namespace Unity.Entities
             }
         }
     }
-#endif
 }

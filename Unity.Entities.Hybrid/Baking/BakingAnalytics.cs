@@ -22,6 +22,8 @@ namespace Unity.Entities
         const string k_EventNameOpen = "openSubScene";
         const string k_EventNameImporter = "backgroundImporter";
 
+        static readonly TypeIndex k_SkinnedMeshRendererTypeIndex;
+
         static ProjectComplexityData s_ProjectComplexityData;
         static NativeList<TypeIndex> s_BakeTypeIndices;
         static IReadOnlyList<System.Type> s_BakingSystemTypes;
@@ -36,12 +38,12 @@ namespace Unity.Entities
             s_BakeTypeIndices.Add(bakeTypeIndex);
         }
 
-        public static void LogBlobAssetCount(TypeIndex blobAssetCount)
+        public static void LogBlobAssetCount(int blobAssetCount)
         {
             s_ProjectComplexityData.blob_assets_count = blobAssetCount;
         }
 
-        public static void LogPrefabCount(TypeIndex prefabCount)
+        public static void LogPrefabCount(int prefabCount)
         {
             s_ProjectComplexityData.prefabs_count = prefabCount;
         }
@@ -57,7 +59,11 @@ namespace Unity.Entities
                 custom_baking_systems_count = 0,
                 blob_assets_count = 0,
                 prefabs_count = 0,
+                skinned_mesh_renderer_component_count = 0,
             };
+
+            TypeManager.Initialize();
+            k_SkinnedMeshRendererTypeIndex = TypeManager.GetTypeIndex(typeof(SkinnedMeshRenderer));
 
             AppDomain.CurrentDomain.DomainUnload += (_, __) => { s_BakeTypeIndices.Dispose(); };
         }
@@ -123,6 +129,7 @@ namespace Unity.Entities
             int defaultComponentCount = 0;
             int customBakerCount = 0;
             int customBakingSystemCount = 0;
+            int skinnedMeshRendererComponentCount = 0;
 
             for (int i = 0; i < s_BakeTypeIndices.Length; i++)
             {
@@ -141,9 +148,16 @@ namespace Unity.Entities
 
                 // Log the Component/Bakers according to Assembly
                 if (isUnityAssembly)
+                {
                     defaultComponentCount++;
+
+                    if (bakeTypeIndex == k_SkinnedMeshRendererTypeIndex)
+                        skinnedMeshRendererComponentCount++;
+                }
                 else
+                {
                     customBakerCount += bakers.Length;
+                }
             }
 
 
@@ -167,6 +181,7 @@ namespace Unity.Entities
             s_ProjectComplexityData.default_components_count = defaultComponentCount;
             s_ProjectComplexityData.custom_bakers_count = customBakerCount;
             s_ProjectComplexityData.custom_baking_systems_count = customBakingSystemCount;
+            s_ProjectComplexityData.skinned_mesh_renderer_component_count = skinnedMeshRendererComponentCount;
 
             // collect max every playmode enter, send when project is closed
             EditorAnalytics.SendEventWithLimit(k_EventNameComplexity, s_ProjectComplexityData);
@@ -192,6 +207,7 @@ namespace Unity.Entities
             public int custom_baking_systems_count;
             public int blob_assets_count;
             public int prefabs_count;
+            public int skinned_mesh_renderer_component_count;
 
             internal void Print()
             {
@@ -199,7 +215,8 @@ namespace Unity.Entities
                     $"custom_bakers_count = {custom_bakers_count}, " +
                     $"custom_baking_systems_count = {custom_baking_systems_count}, " +
                     $"blob_assets_count = {blob_assets_count}, " +
-                    $"prefabs_count = {prefabs_count}, ");
+                    $"prefabs_count = {prefabs_count}, " +
+                    $"skinned_mesh_renderer_component_count = {skinned_mesh_renderer_component_count},");
             }
 
             public void Clear()
@@ -209,6 +226,7 @@ namespace Unity.Entities
                 custom_baking_systems_count = 0;
                 blob_assets_count = 0;
                 prefabs_count = 0;
+                skinned_mesh_renderer_component_count = 0;
             }
         }
 

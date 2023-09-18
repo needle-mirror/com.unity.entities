@@ -11,5 +11,10 @@ namespace Unity.Entities.Editor
         public void OnSettingChanged(PropertyPath path)
         {
         }
+
+        public string[] GetSearchKeywords()
+        {
+            return ISetting.GetSearchKeywordsFromType(GetType());
+        }
     }
 }

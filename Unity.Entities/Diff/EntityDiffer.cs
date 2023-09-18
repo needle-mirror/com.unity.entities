@@ -469,6 +469,9 @@ namespace Unity.Entities
                     SameHashDifferentAddressBlobAssets = sameHashDifferentAddressBlobAssets
                 }.Run();
 
+
+                var toDelete = new NativeList<BlobAssetPtr>(Allocator.TempJob);
+
                 for (var i = 0; i < destroyedBlobAssets.Length; i++)
                 {
                     if (!batch->TryGetBlobAsset(destroyedBlobAssets[i].Hash, out _))
@@ -479,46 +482,43 @@ namespace Unity.Entities
 
                     batch->ReleaseBlobAssetImmediately(destroyedBlobAssets[i].Hash);
 
-                    using (var keys = remap.GetKeyArray(Allocator.Temp))
-                    using (var values = remap.GetValueArray(Allocator.Temp))
+                    foreach (var keyValue in remap)
                     {
-                        for (var remapIndex = 0; remapIndex < values.Length; remapIndex++)
-                        {
-                            if (destroyedBlobAssets[i].Data != values[remapIndex].Data)
-                                continue;
-
-                            remap.Remove(keys[remapIndex]);
-                            break;
-                        }
+                        if (destroyedBlobAssets[i].Data != keyValue.Value.Data)
+                            continue;
+                        toDelete.Add(keyValue.Key);
+                        break;
                     }
                 }
+
+
 
                 {
                     var deferredAdd = new NativeArray<(BlobAssetPtr key, BlobAssetPtr value)>(sameHashDifferentAddressBlobAssets.Length, Allocator.Temp);
                     var deferredAddCount = 0;
-                    for (int i = 0; i < sameHashDifferentAddressBlobAssets.Length; i++)
+                    foreach (var update in sameHashDifferentAddressBlobAssets)
                     {
-                        var update = sameHashDifferentAddressBlobAssets[i];
-
-                        using (var keys = remap.GetKeyArray(Allocator.Temp))
-                        using (var values = remap.GetValueArray(Allocator.Temp))
+                        foreach (var keyValue in remap)
                         {
-                            for (var remapIndex = 0; remapIndex < values.Length; remapIndex++)
+                            if (keyValue.Value.Hash != update.Hash)
+                                continue;
+
+                            if (keyValue.Key.Data != update.Data)
                             {
-                                if (values[remapIndex].Hash != update.Hash)
-                                    continue;
-
-                                if (keys[remapIndex].Data != update.Data)
-                                {
-                                    remap.Remove(keys[remapIndex]);
-                                    deferredAdd[deferredAddCount] = (update, values[remapIndex]);
-                                    deferredAddCount += 1;
-                                }
-
-                                break;
+                                toDelete.Add(keyValue.Key);
+                                deferredAdd[deferredAddCount] = (update, keyValue.Value);
+                                deferredAddCount += 1;
                             }
+
+                            break;
                         }
                     }
+
+                    foreach (var blobAssetPtr in toDelete)
+                    {
+                        remap.Remove(blobAssetPtr);
+                    }
+                    toDelete.Dispose();
 
                     for (int i = 0; i < deferredAddCount; i++)
                     {
@@ -563,9 +563,6 @@ namespace Unity.Entities
             throw new ArgumentException($"{nameof(EntityDiffer)} custom query requires an {nameof(EntityGuid)} component in the All filter.");
         }
 
-        /// <summary>
-        /// @TODO NET_DOTS does not support JobHandle.CombineDependencies with 3 arguments.
-        /// </summary>
         static JobHandle CombineDependencies(JobHandle job1, JobHandle job2, JobHandle job3)
         {
             var array = new NativeArray<JobHandle>(3, Allocator.Temp)

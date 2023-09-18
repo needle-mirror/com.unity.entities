@@ -69,16 +69,5 @@ namespace Unity.Entities.Tests.Conversion
 
             Assert.That(new[] { h01, h02, h10, h11, h20, h21, h30, h31 }, Is.Unique);
         }
-
-        [Test]
-        public void ComputeEntityHash_WithComponent_UsesGameObject()
-        {
-            var go = CreateGameObject();
-            var component = go.AddComponent<TestUnityComponent>();
-#pragma warning disable 0618
-            Assert.That(go.ComputeInstanceHash(), Is.EqualTo(component.ComputeInstanceHash()));
-#pragma warning restore 0618
-            Assert.That(go.ComputeEntityGuid(0, 0), Is.EqualTo(component.ComputeEntityGuid(0, 0)));
-        }
     }
 }

@@ -4,10 +4,6 @@ using System.IO;
 using System.Text;
 using Unity.Collections;
 using Unity.Entities;
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-using Unity.Build.DotsRuntime;
-#endif
 using Unity.Entities.Build;
 using Unity.Entities.Conversion;
 using Unity.Profiling;
@@ -36,9 +32,6 @@ namespace Unity.Scenes.Editor
 
         Scene                       _Scene;
         GUID                        _configGUID;
-        #if USING_PLATFORMS_PACKAGE
-        BuildConfiguration          _buildConfiguration;
-        #endif
         IEntitiesPlayerSettings     _settingAsset;
         readonly Hash128            _SceneGUID;
         readonly BlobAssetStore     _BlobAssetStore;
@@ -64,13 +57,6 @@ namespace Unity.Scenes.Editor
 
         internal IncrementalBakingChangeTracker ChangeTracker => _IncrementalBakingChangeTracker;
 
-        internal bool HasAssetDependencies()
-        {
-            var bakingSystem = _ConvertedWorld.GetExistingSystemManaged<BakingSystem>();
-            var assetDependencies = bakingSystem.GetAllAssetDependencies();
-            return assetDependencies.Length > 0;
-        }
-
         public void RequestCleanConversion()
         {
             _RequestCleanConversion = true;
@@ -86,18 +72,11 @@ namespace Unity.Scenes.Editor
             return didChange;
         }
 
-        LiveConversionDiffGenerator(Scene scene, Hash128 sceneGUID, GUID configGUID,
-#if USING_PLATFORMS_PACKAGE
-            BuildConfiguration buildConfig,
-#endif
-            IEntitiesPlayerSettings settingAsset, bool liveConversionEnabled)
+        LiveConversionDiffGenerator(Scene scene, Hash128 sceneGUID, GUID configGUID, IEntitiesPlayerSettings settingAsset, bool liveConversionEnabled)
         {
             _SceneGUID = sceneGUID;
             _Scene = scene;
             _configGUID = configGUID;
-#if USING_PLATFORMS_PACKAGE
-            _buildConfiguration = buildConfig;
-#endif
             _settingAsset = settingAsset;
 
             _LiveConversionEnabled = liveConversionEnabled;
@@ -206,11 +185,7 @@ namespace Unity.Scenes.Editor
                 _IncrementalConversionDebug.LastBakingFlags = flags;
                 _IncrementalConversionDebug.NeedsUpdate = !_RequestCleanConversion;
 
-                var conversionSettings = GetBakeSettings(flags, _BlobAssetStore,
-#if USING_PLATFORMS_PACKAGE
-                    _buildConfiguration,
-#endif
-                    _settingAsset);
+                var conversionSettings = GetBakeSettings(flags, _BlobAssetStore, _settingAsset);
                 var didBake = BakingUtility.BakeScene(_ConvertedWorld, _Scene, conversionSettings, !_RequestCleanConversion, _IncrementalBakingChangeTracker);
                 if (didBake)
                     AddMissingData(_ConvertedWorld, _MissingSceneQuery, _MissingRenderDataQuery, flags);
@@ -226,18 +201,11 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        BakingSettings GetBakeSettings(BakingUtility.BakingFlags flags, BlobAssetStore store,
-#if USING_PLATFORMS_PACKAGE
-            BuildConfiguration buildConfiguration,
-#endif
-            IEntitiesPlayerSettings settingAssets)
+        BakingSettings GetBakeSettings(BakingUtility.BakingFlags flags, BlobAssetStore store, IEntitiesPlayerSettings settingAssets)
         {
             var conversionSettings = new BakingSettings(flags, store)
             {
                 SceneGUID = _SceneGUID,
-#if USING_PLATFORMS_PACKAGE
-                BuildConfiguration = buildConfiguration,
-#endif
                 DotsSettings = settingAssets,
             };
             if (LiveConversionSettings.AdditionalConversionSystems.Count != 0)
@@ -262,11 +230,7 @@ namespace Unity.Scenes.Editor
 
                 var flags = _IncrementalConversionDebug.LastBakingFlags;
                 // use this to compare the results of incremental conversion with the results of a clean conversion.
-                var conversionSettings = GetBakeSettings(flags, blobAssetStore,
-#if USING_PLATFORMS_PACKAGE
-                    _buildConfiguration,
-#endif
-                    _settingAsset);
+                var conversionSettings = GetBakeSettings(flags, blobAssetStore, _settingAsset);
                 BakingUtility.BakeScene(_IncrementalConversionDebug.World, _Scene, conversionSettings, false, null);
 
                 AddMissingData(_IncrementalConversionDebug.World, _IncrementalConversionDebug.MissingSceneQuery,
@@ -384,18 +348,11 @@ namespace Unity.Scenes.Editor
             }
         }
 
-        public static bool UpdateLiveConversion(Scene scene, Hash128 sceneGUID, ref LiveConversionDiffGenerator liveConversionData, LiveConversionMode mode, ulong globalAsssetDependencyVersion, GUID configGUID,
-#if USING_PLATFORMS_PACKAGE
-            BuildConfiguration config,
-#endif
-            IEntitiesPlayerSettings settingAsset, out LiveConversionChangeSet changes)
+        public static bool UpdateLiveConversion(Scene scene, Hash128 sceneGUID, ref LiveConversionDiffGenerator liveConversionData, LiveConversionMode mode,
+            ulong globalAsssetDependencyVersion, GUID configGUID, IEntitiesPlayerSettings settingAsset, out LiveConversionChangeSet changes)
         {
-#if USING_PLATFORMS_PACKAGE
-            int framesToRetainBlobAssets = RetainBlobAssetsSetting.GetFramesToRetainBlobAssets(config);
-#else
             // This should be removed or moved to a general setting
             int framesToRetainBlobAssets = 1;
-#endif
 
             var liveConversionEnabled = mode != LiveConversionMode.Disabled;
             if (liveConversionData != null && liveConversionData._LiveConversionEnabled != liveConversionEnabled)
@@ -419,22 +376,11 @@ namespace Unity.Scenes.Editor
             }
 
             if (liveConversionData == null)
-                liveConversionData = new LiveConversionDiffGenerator(scene, sceneGUID, configGUID,
-                    #if USING_PLATFORMS_PACKAGE
-                    config,
-                    #endif
-                    settingAsset, liveConversionEnabled);
-            else if (liveConversionData._Scene != scene
-#if USING_PLATFORMS_PACKAGE
-                     || !ReferenceEquals(liveConversionData._buildConfiguration, config)
-#endif
-                     || liveConversionData._configGUID != configGUID)
+                liveConversionData = new LiveConversionDiffGenerator(scene, sceneGUID, configGUID, settingAsset, liveConversionEnabled);
+            else if (liveConversionData._Scene != scene || liveConversionData._configGUID != configGUID)
             {
                 liveConversionData._Scene = scene;
                 liveConversionData._configGUID = configGUID;
-#if USING_PLATFORMS_PACKAGE
-                liveConversionData._buildConfiguration = config;
-#endif
                 liveConversionData._RequestCleanConversion = true;
             }
             liveConversionData._ArtifactDependencyVersion = globalAsssetDependencyVersion;

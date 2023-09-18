@@ -19,11 +19,12 @@ namespace Unity.Entities
     /// A query description combines the component types you specify (using methods like `WithAll`, `WithAny`, and `WithNone`)
     /// sets according to the following rules:
     ///
-    /// * All - Includes archetypes that have every component in this set
+    /// * All - Includes archetypes that have every component in this set, but only includes entities where the component is enabled.
     /// * Any - Includes archetypes that have at least one component in this set
     /// * None - Excludes archetypes that have any component in this set, but includes entities which have the component disabled.
     /// * Disabled - Includes archetypes that have every component in this set, but only matches entities where the component is disabled.
     /// * Absent - Excludes archetypes that have any component in this set.
+    /// * Present - Includes archetypes that have every component in this set, whether or not the components are enabled.
     ///
     /// For example, given entities with the following components:
     ///
@@ -55,6 +56,7 @@ namespace Unity.Entities
             public ComponentIndexArray None;
             public ComponentIndexArray Disabled;
             public ComponentIndexArray Absent;
+            public ComponentIndexArray Present;
             public EntityQueryOptions Options;
         }
 
@@ -78,6 +80,7 @@ namespace Unity.Entities
             internal UnsafeList<ComponentType> _none;
             internal UnsafeList<ComponentType> _disabled;
             internal UnsafeList<ComponentType> _absent;
+            internal UnsafeList<ComponentType> _present;
             internal EntityQueryOptions _pendingOptions;
             internal byte _isFinalized;
         }
@@ -105,6 +108,7 @@ namespace Unity.Entities
             _builderDataPtr->_none = new UnsafeList<ComponentType>(6, _allocator);
             _builderDataPtr->_disabled = new UnsafeList<ComponentType>(6, _allocator);
             _builderDataPtr->_absent = new UnsafeList<ComponentType>(6, _allocator);
+            _builderDataPtr->_present = new UnsafeList<ComponentType>(6, _allocator);
 
             _builderDataPtr->_pendingOptions = default;
             _builderDataPtr->_isFinalized = 0;
@@ -132,6 +136,7 @@ namespace Unity.Entities
             _builderDataPtr->_none = new UnsafeList<ComponentType>(6, _allocator);
             _builderDataPtr->_disabled = new UnsafeList<ComponentType>(6, _allocator);
             _builderDataPtr->_absent = new UnsafeList<ComponentType>(6, _allocator);
+            _builderDataPtr->_present = new UnsafeList<ComponentType>(6, _allocator);
             _builderDataPtr->_pendingOptions = default;
             _builderDataPtr->_isFinalized = 0;
 
@@ -224,7 +229,10 @@ namespace Unity.Entities
         /// Add required component types to the query.
         /// </summary>
         /// <remarks>
-        /// To match the resulting query, an Entity must have all of the query's required component types.
+        /// To match the resulting query, an Entity must have all of the query's required component types, and any required
+        /// types that implement <see cref="IEnableableComponent"/> must be enabled.
+        /// To require components to be disabled on matching entities, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithDisabled``1"/>.
+        /// To require components regardless of whether they are enabled on matching entities, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithPresent``1"/>.
         ///
         /// WithAll accepts up to seven type arguments. You can add more component types by chaining calls together.
         ///
@@ -1003,6 +1011,8 @@ namespace Unity.Entities
         /// <remarks>
         /// To match the resulting query, an Entity must have all of the query's required component types, *and* they
         /// must all be disabled.
+        /// To require components to be enabled on matching entities, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAll``1"/>.
+        /// To require components regardless of whether they are enabled on matching entities, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithPresent``1"/>.
         ///
         /// There are several ways to exclude components from a query:
         /// - WithAbsent&lt;T&gt;() matches all entities in chunks that do not have T at all.
@@ -1444,6 +1454,266 @@ namespace Unity.Entities
 
 
         /// <summary>
+        /// Add required component types to the query, whether the type is enabled or not.
+        /// </summary>
+        /// <remarks>
+        /// To match the resulting query, an Entity must have all of the query's required component types, whether they
+        /// are enabled or not.
+        /// To match required types only if they're enabled, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAll``1"/>.
+        /// To match required types only if they're disabled, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithDisabled``1"/>.
+        ///
+        /// WithPresent accepts up to seven type arguments. You can add more component types by chaining calls together.
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-builder-chained-withall" title="Query Builder With Chained WithAll Calls"/>
+        /// </example>
+        ///
+        /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithPresent``1(``0@)"/>
+        ///
+        /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithPresentRW``1(``0@)"/>
+        /// </remarks>
+        /// <typeparam name="T1">A required component type</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithPresent<T1>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithPresent``1"/>
+        /// <typeparam name="T2">A required component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithPresent<T1,T2>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithPresent``2"/>
+        /// <typeparam name="T3">A required component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithPresent<T1,T2,T3>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithPresent``3"/>
+        /// <typeparam name="T4">A required component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithPresent<T1,T2,T3,T4>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithPresent``4"/>
+        /// <typeparam name="T5">A required component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithPresent<T1,T2,T3,T4,T5>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T5>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithPresent``5"/>
+        /// <typeparam name="T6">A required component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithPresent<T1,T2,T3,T4,T5,T6>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T5>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T6>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithPresent``6"/>
+        /// <typeparam name="T7">A required component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData),
+            typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData)
+        })]
+        public EntityQueryBuilder WithPresent<T1,T2,T3,T4,T5,T6,T7>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T3>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T4>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T5>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T6>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T7>(), AccessModeType = ComponentType.AccessMode.ReadOnly });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add required component types to the query with ReadWrite mode, whether they are enabled or disabled.
+        /// </summary>
+        /// <remarks>
+        /// If a query uses the <see cref="F:Unity.Entities.EntityQueryOptions.FilterWriteGroup"/> option,
+        /// you must use WithPresentRW to specify the query's writeable required components. Refer to the
+        /// [write groups guide](xref:systems-write-groups) for more information.
+        ///
+        /// To match the resulting query, an Entity must have all of the query's required component types, regardless of
+        /// whether they are enabled or disabled.
+        /// To match required types only if they're enabled, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAllRW``1"/>.
+        /// To match required types only if they're disabled, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithDisabledRW``1"/>.
+        ///
+        /// WithPresentRW accepts up to two type arguments. You can add more component types by chaining calls together.
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs" region="query-builder-chained-withallrw" title="Query Builder With Chained WithAllRW Calls"/>
+        /// </example>
+        ///
+        /// To request read-only access to the reference component(s), use <see cref="M:Unity.Entities.EntityQueryBuilder.WithPresent``1(``0@)"/>
+        /// </remarks>
+        /// <typeparam name="T1">A required ReadWrite component type</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithPresentRW<T1>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithPresentRW``1"/>
+        /// <typeparam name="T2">A required ReadWrite component type</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData), typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithPresentRW<T1,T2>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T1>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
+            _builderDataPtr->_present.Add(new ComponentType{ TypeIndex = TypeManager.GetTypeIndex<T2>(), AccessModeType = ComponentType.AccessMode.ReadWrite });
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add a required [Chunk Component](xref:components-chunk) type to the query, whether it is enabled or disabled.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to find entities that have all the specified chunk components, whether it
+        /// is enabled or disabled. Chunk components are a distinct component type, which are different from adding the
+        /// same type as a standard component.
+        ///
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/EntityQueryExamples.cs"
+        ///  region="query-builder-chunk-component-all" title="Query Builder With Required Chunk Component"/>
+        /// </example>
+        ///
+        /// To add additional required Chunk Components, call this method multiple times.
+        ///
+        /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithPresentChunkComponentRW``1(``0@)"/>
+        /// </remarks>
+        /// <typeparam name="T">Component type to use as a required, read-only Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithPresentChunkComponent<T>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(ComponentType.ChunkComponentReadOnly<T>());
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithPresentChunkComponent``1"/>
+        /// <typeparam name="T">Component type to use as a required, read-write Chunk Component</typeparam>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
+        public EntityQueryBuilder WithPresentChunkComponentRW<T>()
+        {
+            CheckBuilderPtr();
+
+            _builderDataPtr->_present.Add(ComponentType.ChunkComponent<T>());
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
+        /// Add a list of required component types to the query, whether they are enabled or disabled.
+        /// </summary>
+        /// <remarks>
+        /// To match the resulting query, an Entity must have all of the query's required component types, regardless of
+        /// whether they are enabled or disabled.
+        /// </remarks>
+        /// <param name="componentTypes">
+        /// A list of component types that implements <see cref="T:Unity.Collections.INativeList`1"/>.
+        /// For example, <see cref="T:Unity.Collections.NativeList`1"/> or
+        /// <see cref="T:Unity.Collections.FixedList64Bytes`1"/>
+        /// </param>
+        /// <typeparam name="T">A container of component types</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(FixedList32Bytes<ComponentType>)})]
+        public EntityQueryBuilder WithPresent<T>(ref T componentTypes)
+            where T : INativeList<ComponentType>
+        {
+            CheckBuilderPtr();
+
+            for (var i = 0; i < componentTypes.Length; i++)
+            {
+                _builderDataPtr->_present.Add(componentTypes[i]);
+            }
+
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        internal EntityQueryBuilder WithPresent(ComponentType* componentTypes, int count)
+        {
+            CheckBuilderPtr();
+
+            for (var i = 0; i < count; i++)
+            {
+                _builderDataPtr->_present.Add(componentTypes[i]);
+            }
+
+            _builderDataPtr->_isFinalized = 0;
+            return this;
+        }
+
+        /// <summary>
         /// Add an additional query description to a single EntityQuery.
         /// </summary>
         /// <remarks>
@@ -1499,6 +1769,7 @@ namespace Unity.Entities
             TransferArray(ref _builderDataPtr->_none, ref qd.None);
             TransferArray(ref _builderDataPtr->_disabled, ref qd.Disabled);
             TransferArray(ref _builderDataPtr->_absent, ref qd.Absent);
+            TransferArray(ref _builderDataPtr->_present, ref qd.Present);
             qd.Options = _builderDataPtr->_pendingOptions;
 
             // Add the QueryTypes struct to the list of _indexData. There should be one QueryTypes
@@ -1534,6 +1805,7 @@ namespace Unity.Entities
             _builderDataPtr->_none.Dispose();
             _builderDataPtr->_disabled.Dispose();
             _builderDataPtr->_absent.Dispose();
+            _builderDataPtr->_present.Dispose();
 
             if (CollectionHelper.ShouldDeallocate(_allocator))
             {
@@ -1562,6 +1834,7 @@ namespace Unity.Entities
             _builderDataPtr->_none.Clear();
             _builderDataPtr->_disabled.Clear();
             _builderDataPtr->_absent.Clear();
+            _builderDataPtr->_present.Clear();
             _builderDataPtr->_pendingOptions = default;
             _builderDataPtr->_isFinalized = 0;
         }
@@ -1626,7 +1899,6 @@ namespace Unity.Entities
             }
         }
 
-#if !NET_DOTS
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         [BurstDiscard]
         internal static void ThrowDuplicateComponentTypeError(TypeIndex curId)
@@ -1635,14 +1907,13 @@ namespace Unity.Entities
             throw new EntityQueryDescValidationException(
                 $"EntityQuery contains a filter with duplicate component type name {typeName}.  Queries can only contain a single component of a given type in a filter.");
         }
-#endif
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal static void Validate(in UnsafeList<ComponentType> allTypes, in UnsafeList<ComponentType> anyTypes, in UnsafeList<ComponentType> noneTypes,
-            in UnsafeList<ComponentType> disabledTypes, in UnsafeList<ComponentType> absentTypes)
+            in UnsafeList<ComponentType> disabledTypes, in UnsafeList<ComponentType> absentTypes, in UnsafeList<ComponentType> presentTypes)
         {
             // Determine the number of ComponentTypes contained in the filters
-            var itemCount = allTypes.Length + anyTypes.Length + noneTypes.Length + disabledTypes.Length + absentTypes.Length;
+            var itemCount = allTypes.Length + anyTypes.Length + noneTypes.Length + disabledTypes.Length + absentTypes.Length + presentTypes.Length;
 
             // Project all the ComponentType Ids of None, All, Any queryDesc filters into the same array to identify duplicated later on
 
@@ -1652,6 +1923,7 @@ namespace Unity.Entities
             ValidateComponentTypes(noneTypes, ref allComponentTypeIds);
             ValidateComponentTypes(disabledTypes, ref allComponentTypeIds);
             ValidateComponentTypes(absentTypes, ref allComponentTypeIds);
+            ValidateComponentTypes(presentTypes, ref allComponentTypeIds);
 
             // Check for duplicate, only if necessary
             if (itemCount > 1)
@@ -1666,9 +1938,7 @@ namespace Unity.Entities
                     var curId = allComponentTypeIds[i];
                     if (curId == refId)
                     {
-#if !NET_DOTS
                         ThrowDuplicateComponentTypeError(curId);
-#endif
                         throw new EntityQueryDescValidationException(
                             $"EntityQuery contains an EntityQueryDesc with duplicate component type index {curId}.  Queries can only contain a single component of a given type in a EntityQueryDesc.");
                     }

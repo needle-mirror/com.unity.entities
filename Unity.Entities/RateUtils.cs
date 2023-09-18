@@ -13,7 +13,10 @@ namespace Unity.Entities
     {
         /// <summary> Obsolete. Use <see cref="IRateManager.ShouldGroupUpdate"/> instead.</summary>
         /// <param name="group">The system group to check</param>
-        /// <returns>True if <paramref name="group"/> should update its member systems, or false if the group should skip its update.</returns>
+        /// <returns>
+        /// True while the <paramref name="group"/> should update its member systems, and then false once the group should no longer update for this frame.
+        /// Note: This is called infinitely until it returns false.
+        /// </returns>
         bool ShouldGroupUpdate(ComponentSystemGroup group);
         /// <summary> Obsolete. Use <see cref="IRateManager.Timestep"/> instead.</summary>
         float Timestep { get; set; }
@@ -26,10 +29,13 @@ namespace Unity.Entities
     public interface IRateManager
     {
         /// <summary>
-        /// Determines whether a system group should proceed with its update.
+        /// Determines whether a system group should proceed with its update, and also how many times it should update per frame.
         /// </summary>
         /// <param name="group">The system group to check</param>
-        /// <returns>True if <paramref name="group"/> should update its member systems, or false if the group should skip its update.</returns>
+        /// <returns>
+        /// True while the <paramref name="group"/> should update its member systems, and then false once the group should no longer update for this frame.
+        /// Note: This is called infinitely until it returns false.
+        /// </returns>
         bool ShouldGroupUpdate(ComponentSystemGroup group);
         /// <summary>
         /// The timestep since the previous group update (in seconds).

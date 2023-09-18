@@ -1,7 +1,5 @@
-#if !UNITY_DOTSRUNTIME
 using UnityEditor;
 using UnityEngine;
-#endif
 
 namespace Unity.Scenes
 {

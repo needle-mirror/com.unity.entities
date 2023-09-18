@@ -154,7 +154,6 @@ namespace Unity.Entities.PerformanceTests
 
             public JobHandle UpdateComponentValueTo10Job_ScheduleParallel(JobHandle jobHandle)
             {
-
                 var job = new EcsTestSetComponentValueTo10();
                 var newJobHandle = job.ScheduleParallel(jobHandle);
                 return newJobHandle;
@@ -167,53 +166,11 @@ namespace Unity.Entities.PerformanceTests
                 return newJobHandle;
             }
 
-            public JobHandle UpdateComponentValueTo10Job(JobHandle dependsOn = default)
+            public JobHandle UpdateComponentValueTo10Job(EntityQuery query, JobHandle dependsOn)
             {
-                var query = GetEntityQuery(new EntityQueryDesc
-                {
-                    All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) }
-                });
                 var job = new EcsTestSetComponentValueTo10();
                 var jobHandle = job.ScheduleParallel(query, dependsOn);
                 return jobHandle;
-            }
-
-            public JobHandle UpdateOnlyComponentValueTo10Job_WithSharedComponentFilter_10(JobHandle dependsOn = default)
-            {
-                var query = GetEntityQuery(new EntityQueryDesc
-                {
-                    All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp) }
-                });
-                query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 10});
-                var job = new EcsTestSetComponentValueTo10();
-                var jobHandle = job.ScheduleParallel(query, dependsOn);
-                return jobHandle;
-            }
-
-            public JobHandle UpdateFirstComponentValueTo10Job_WithSharedComponentFilter_0(bool withEcsTestData2, JobHandle dependsOn = default)
-            {
-                if (withEcsTestData2)
-                {
-                    var query = GetEntityQuery(new EntityQueryDesc
-                    {
-                        All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp) }
-                    });
-                    query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 10});
-                    var job = new EcsTestSetComponentValueTo10();
-                    var jobHandle = job.ScheduleParallel(query, dependsOn);
-                    return jobHandle;
-                }
-                else
-                {
-                    var query = GetEntityQuery(new EntityQueryDesc
-                    {
-                        All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestSharedComp) }
-                    });
-                    query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 10});
-                    var job = new EcsTestSetComponentValueTo10();
-                    var jobHandle = job.ScheduleParallel(query, dependsOn);
-                    return jobHandle;
-                }
             }
         }
         protected JobEntityTestComponentSystem JobEntityTestSystem => World.GetOrCreateSystemManaged<JobEntityTestComponentSystem>();
@@ -467,11 +424,16 @@ namespace Unity.Entities.PerformanceTests
 
             var dependsOn = new JobHandle();
 
+            var query = JobEntityTestSystem.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2) }
+            });
+
             Measure.Method(
                 () =>
                 {
                     for (int i = 0; i < 10000; i++)
-                        dependsOn = JobEntityTestSystem.UpdateComponentValueTo10Job(dependsOn);
+                        dependsOn = JobEntityTestSystem.UpdateComponentValueTo10Job(query, dependsOn);
                 })
                 .SampleGroup("Scheduling")
                 .Run();
@@ -483,7 +445,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < 10000; i++)
                     {
-                        var job = JobEntityTestSystem.UpdateComponentValueTo10Job(dependsOn);
+                        var job = JobEntityTestSystem.UpdateComponentValueTo10Job(query, dependsOn);
                         job.Complete();
                     }
                 })
@@ -513,11 +475,17 @@ namespace Unity.Entities.PerformanceTests
 
             var dependsOn = new JobHandle();
 
+            var query = JobEntityTestSystem.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp) }
+            });
+            query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 10});
+
             Measure.Method(
                 () =>
                 {
                     for (int i = 0; i < 10000; i++)
-                        dependsOn = JobEntityTestSystem.UpdateOnlyComponentValueTo10Job_WithSharedComponentFilter_10(dependsOn);
+                        dependsOn = JobEntityTestSystem.UpdateComponentValueTo10Job(query, dependsOn);
                 })
                 .SampleGroup("Scheduling")
                 .Run();
@@ -529,10 +497,9 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < 10000; i++)
                     {
-                        var job = JobEntityTestSystem.UpdateOnlyComponentValueTo10Job_WithSharedComponentFilter_10(dependsOn);
+                        var job = JobEntityTestSystem.UpdateComponentValueTo10Job(query, dependsOn);
                         job.Complete();
                     }
-
                 })
                 .SampleGroup("ScheduleAndRun")
                 .Run();
@@ -559,11 +526,18 @@ namespace Unity.Entities.PerformanceTests
             }
 
             var dependsOn = new JobHandle();
+
+            var query = JobEntityTestSystem.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestSharedComp) }
+            });
+            query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 10});
+
             Measure.Method(
                 () =>
                 {
                     for (int i = 0; i < 10000; i++)
-                        dependsOn = JobEntityTestSystem.UpdateFirstComponentValueTo10Job_WithSharedComponentFilter_0(withEcsTestData2: true, dependsOn);
+                        dependsOn = JobEntityTestSystem.UpdateComponentValueTo10Job(query, dependsOn);
 
                 })
                 .SampleGroup("Scheduling")
@@ -576,7 +550,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < 10000; i++)
                     {
-                        var job = JobEntityTestSystem.UpdateFirstComponentValueTo10Job_WithSharedComponentFilter_0(withEcsTestData2: true);
+                        var job = JobEntityTestSystem.UpdateComponentValueTo10Job(query, default);
                         job.Complete();
                     }
                 })
@@ -622,12 +596,18 @@ namespace Unity.Entities.PerformanceTests
 
             var dependsOn = new JobHandle();
 
+            var query = JobEntityTestSystem.GetEntityQuery(new EntityQueryDesc
+            {
+                All = new ComponentType[] { typeof(EcsTestData), typeof(EcsTestSharedComp) }
+            });
+            query.SetSharedComponentFilterManaged(new EcsTestSharedComp {value = 10});
+
             Measure.Method(
                 () =>
                 {
                     for (int i = 0; i < 10000; i++)
                     {
-                        dependsOn = JobEntityTestSystem.UpdateFirstComponentValueTo10Job_WithSharedComponentFilter_0(withEcsTestData2: false, dependsOn);
+                        dependsOn = JobEntityTestSystem.UpdateComponentValueTo10Job(query, dependsOn);
                     }
                 })
                 .SampleGroup("Scheduling")
@@ -640,7 +620,7 @@ namespace Unity.Entities.PerformanceTests
                 {
                     for (int i = 0; i < 10000; i++)
                     {
-                        var job = JobEntityTestSystem.UpdateFirstComponentValueTo10Job_WithSharedComponentFilter_0(withEcsTestData2: false);
+                        var job = JobEntityTestSystem.UpdateComponentValueTo10Job(query, default);
                         job.Complete();
                     }
                 })

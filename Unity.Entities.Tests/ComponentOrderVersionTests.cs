@@ -249,7 +249,6 @@ namespace Unity.Entities.Tests
             Assert.LessOrEqual(3, m_Manager.GetSharedComponentOrderVersion(sharedData));
         }
 
-        #if !NET_DOTS
         [Test]
         public void GetSharedComponentOrderVersionIncrementingWithManaged([Values(0, 1)]int value)
         {
@@ -286,7 +285,6 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(unaffectedVersion, m_Manager.GetSharedComponentOrderVersionManaged(new ManagedSharedData2(unaffectedSharedValue)));
         }
-#endif
 
         [Test]
         public void GetUnmanagedSharedComponentOrderVersionIncrementing([Values(0, 1)]int value)

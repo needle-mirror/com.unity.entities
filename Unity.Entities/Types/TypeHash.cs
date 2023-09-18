@@ -1,11 +1,9 @@
-#if !NET_DOTS
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Runtime.InteropServices;
 using UnityEngine.Assertions;
-#endif
 using Unity.Collections;
 
 namespace Unity.Entities
@@ -119,21 +117,21 @@ namespace Unity.Entities
 
             return hash;
         }
-#if !NET_DOTS
+
         // Todo: Remove this. DOTS Runtime currently doesn't conform to these system types so don't inspect their fields
         private static readonly Type[] WorkaroundTypes = new Type[] { typeof(System.Guid) };
 
         private static ulong HashType(Type type, Dictionary<Type, ulong> cache)
         {
             var hash = HashTypeName(type);
-#if !UNITY_DOTSRUNTIME
+
             // UnityEngine objects have their own serialization mechanism so exclude hashing the type's
             // internals and just hash its name+assemblyname (not fully qualified)
             if (TypeManager.UnityEngineObjectType?.IsAssignableFrom(type) == true)
             {
                 return CombineFNV1A64(hash, FNV1A64(type.Assembly.GetName().Name));
             }
-#endif
+
             if (type.IsGenericParameter || type.IsArray || type.IsPointer || type.IsPrimitive || type.IsEnum || WorkaroundTypes.Contains(type))
                 return hash;
 
@@ -286,6 +284,5 @@ namespace Unity.Entities
 
             return CalculateStableTypeHash(type, customAttributes, hashCache);
         }
-#endif
     }
 }

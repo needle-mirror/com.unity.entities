@@ -205,11 +205,12 @@ namespace Unity.Entities.Editor
         // Component that is never added to an Entity, used to create EntityQuery that is always empty.
         private struct UnusedTag : IComponentData {}
 
-        public HierarchyEntityChangeTracker(World world, Allocator allocator)
+        public unsafe HierarchyEntityChangeTracker(World world, Allocator allocator)
         {
             m_World = world;
+            var ecs = world.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
             m_EntityChangeTracker = new EntityDiffer(world);
-            m_ParentChangeTracker = new ComponentDataDiffer(ComponentType.ReadOnly<Parent>());
+            m_ParentChangeTracker = new ComponentDataDiffer(ecs, ComponentType.ReadOnly<Parent>());
             m_SceneTagWithoutParentChangeTracker = new UnmanagedSharedComponentDataDiffer(ComponentType.ReadOnly<SceneTag>());
 
             m_DistinctBuffer = new NativeList<int>(16, allocator);

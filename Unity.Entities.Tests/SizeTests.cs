@@ -20,10 +20,10 @@ namespace Unity.Entities.Tests
                 // a system ran, the version should match the global
                 var chunk0 = access->EntityComponentStore->GetChunk(entity0);
                 var chunk1 = access->EntityComponentStore->GetChunk(entity1);
-                var archetype0 = chunk0->Archetype;
-                var archetype1 = chunk1->Archetype;
+                var archetype0 = access->EntityComponentStore->GetArchetype(chunk0);
+                var archetype1 = access->EntityComponentStore->GetArchetype(chunk1);
 
-                ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestData2>());
+                ChunkDataUtility.GetIndexInTypeArray(archetype0, TypeManager.GetTypeIndex<EcsTestData2>());
 
                 Assert.True(ChunkDataUtility.AreLayoutCompatible(archetype0, archetype1));
             }
@@ -39,8 +39,8 @@ namespace Unity.Entities.Tests
                 var ecs = access->EntityComponentStore;
                 // a system ran, the version should match the global
                 var chunk0 = ecs->GetChunk(entity0);
-                var archetype0 = chunk0->Archetype;
-                var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(chunk0->Archetype, TypeManager.GetTypeIndex<EcsTestTag>());
+                var archetype0 = ecs->GetArchetype(chunk0);
+                var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype0, TypeManager.GetTypeIndex<EcsTestTag>());
 
                 Assert.AreEqual(0, archetype0->SizeOfs[indexInTypeArray]);
             }

@@ -1,8 +1,6 @@
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-#if !NET_DOTS
 using Unity.Properties;
-#endif
 
 namespace Unity.Entities
 {

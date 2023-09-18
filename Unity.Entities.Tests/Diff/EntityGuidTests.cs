@@ -1,7 +1,5 @@
 using NUnit.Framework;
-#if !NET_DOTS
 using System.Linq;
-#endif
 
 namespace Unity.Entities.Tests
 {
@@ -32,8 +30,6 @@ namespace Unity.Entities.Tests
             Assert.That(g1.ToString(), Is.EqualTo("-1:0:000000f0:89abcdef"));
         }
 
-#if !NET_DOTS
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void Comparisons()
         {
@@ -61,7 +57,5 @@ namespace Unity.Entities.Tests
             Assert.That(hashCodeEquals, Is.EqualTo(new[] { true, false, false, false, false }));
             Assert.That(compareTo,      Is.EqualTo(new[] { 0, 1, 1, -1, 1 }));
         }
-
-#endif
     }
 }

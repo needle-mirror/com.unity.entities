@@ -51,16 +51,6 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         }
 
         [Test]
-        public void CheckObjectIsNotComponent()
-        {
-            var go = CreateGameObject();
-            var component = go.AddComponent<Rigidbody>();
-
-            Assert.DoesNotThrow(() => go.CheckObjectIsNotComponent());
-            Assert.Throws<InvalidOperationException>(() => component.CheckObjectIsNotComponent());
-        }
-
-        [Test]
         public void GetEntity_WithNull_Returns_NullEntity()
         {
             var e1 = m_BakingSystem.GetEntity((Component)null);

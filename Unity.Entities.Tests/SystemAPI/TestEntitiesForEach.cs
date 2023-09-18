@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using NUnit.Framework;
 using Unity.Core;
 using Unity.Mathematics;
@@ -13,7 +12,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void SetUp()
         {
             World.CreateSystem<TestTime>();
-            World.CreateSystem<TestGetAspect>();
+            World.CreateSystem<TestGetAspectRW>();
             World.CreateSystem<WithStructuralChangeNoCapture>();
         }
 
@@ -24,7 +23,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         #region Aspect
         [Test]
-        public void GetAspect() => World.GetExistingSystem<TestGetAspect>().Update(World.Unmanaged);
+        public void GetAspectRW() => World.GetExistingSystem<TestGetAspectRW>().Update(World.Unmanaged);
 
         #endregion
 
@@ -56,7 +55,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         }
     }
 
-    partial class TestGetAspect : SystemBase {
+    partial class TestGetAspectRW : SystemBase {
         protected override void OnCreate() {}
         protected override void OnDestroy() {}
         protected override void OnUpdate() {
@@ -90,4 +89,3 @@ namespace Unity.Entities.Tests.TestSystemAPI
     }
     #endregion
 }
-#endif

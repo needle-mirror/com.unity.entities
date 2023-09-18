@@ -1,22 +1,17 @@
 using System;
 using System.Collections.Generic;
-
-#if !NET_DOTS
 using System.Reflection;
 using Unity.Properties;
-#endif
 
 namespace Unity.Entities.Editor
 {
     readonly struct EntityAspectContainer<TAspect>
         where TAspect : struct, IAspect, IAspectCreate<TAspect>
     {
-#if !NET_DOTS
         static EntityAspectContainer()
         {
             PropertyBag.Register(new EntityAspectPropertyBag<TAspect>());
         }
-#endif
 
         public readonly World World;
         public readonly Entity Entity;
@@ -63,7 +58,6 @@ namespace Unity.Entities.Editor
         }
     }
 
-#if !NET_DOTS
     /// <summary>
     /// The <see cref="EntityAspectPropertyBag{TAspect}"/> exposes all properties of an underlying <see cref="TAspect"/> in a safe way.
     /// </summary>
@@ -220,5 +214,4 @@ namespace Unity.Entities.Editor
             throw new InvalidOperationException("Failed to forward aspect property.");
         }
     }
-#endif
 }

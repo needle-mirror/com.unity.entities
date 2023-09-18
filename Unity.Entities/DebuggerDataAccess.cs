@@ -196,34 +196,14 @@ namespace Unity.Entities
 
                 int length = header->Length;
 
-    #if !NET_DOTS
                 System.Array array = Array.CreateInstance(TypeManager.GetType(typeIndex), length);
-    #else
-                            // no Array.CreateInstance in Tiny BCL
-                            // This unfortunately means that the debugger display for this will be object[], because we can't
-                            // create an array of the right type.  But better than nothing, since the values are still viewable.
-                            var array = new object[length];
-    #endif
-
                 var elementSize = TypeManager.GetTypeInfo(typeIndex).ElementSize;
                 byte* basePtr = BufferHeader.GetElementPointer(header);
 
-    #if !UNITY_DOTSRUNTIME
                 var dstPtr = UnsafeUtility.PinGCArrayAndGetDataAddress(array, out var handle);
                 UnsafeUtility.MemCpy(dstPtr, basePtr, elementSize * length);
                 UnsafeUtility.ReleaseGCObject(handle);
-    #else
-                            // DOTS Runtime doesn't have PinGCArrayAndGetDataAddress, because that's in Unity's Mono impl only
-                            for (int i = 0; i < length; i++)
-                            {
-                                var item = TypeManager.ConstructComponentFromBuffer(type.TypeIndex, basePtr + elementSize * i);
-                                #if !NET_DOTS
-                                array.SetValue(item, i);
-                                #else
-                                array[i] = item;
-                                #endif
-                            }
-    #endif
+
                 return array;
             }
             else

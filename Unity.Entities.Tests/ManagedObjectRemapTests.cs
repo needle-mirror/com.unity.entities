@@ -1,4 +1,4 @@
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;

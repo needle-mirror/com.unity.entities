@@ -8,9 +8,6 @@ using UnityEditor.Experimental;
 using System.IO;
 using Unity.Entities.Build;
 using UnityEngine;
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build.Classic.Private;
-#endif
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
 
@@ -150,11 +147,6 @@ namespace Unity.Scenes.Editor
         {
             // Content pipeline requires the opened scenes in the Editor to be saved to be able to build or it will fail with the exception ContentCatalogBuildUtility.BuildContentArchives failed with status 'UnsavedChanges'.
             SaveScenesBeforeBuildIfNeeded(buildPlayerContext.BuildPlayerOptions.scenes);
-
-#if USING_PLATFORMS_PACKAGE
-            if (BuildPlayerStep.BuildFromBuildConfiguration)
-                return;
-#endif
 
             // For WebGL, we need to prepare a manifest list of all generated data files under StreamingAssets/
             // that need to be synchronously accessible.

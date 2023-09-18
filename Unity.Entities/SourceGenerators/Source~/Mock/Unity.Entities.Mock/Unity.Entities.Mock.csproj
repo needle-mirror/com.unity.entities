@@ -8,6 +8,8 @@
         <AssemblyName>Unity.Entities</AssemblyName>
         <RootNamespace>Unity.Entities</RootNamespace>
         <AllowUnsafeBlocks>true</AllowUnsafeBlocks>
+        <Deterministic>True</Deterministic>
+        <PlatformTarget>AnyCPU</PlatformTarget>
     </PropertyGroup>
 
     <ItemGroup>

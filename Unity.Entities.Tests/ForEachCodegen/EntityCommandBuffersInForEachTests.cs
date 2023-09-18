@@ -39,14 +39,14 @@ namespace Unity.Entities.Tests
                 var entity = EntityManager.CreateEntity();
 
                 Entities
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
                     .WithoutBurst()
 #endif
                     .WithImmediatePlayback()
                     .ForEach(
                         (Entity e, EntityCommandBuffer ecb) =>
                         {
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
                             ecb.AddComponent(e, new EcsTestManagedComponent());
                             ecb.AddComponent<EcsTestManagedComponent2>(e);
 #endif
@@ -57,7 +57,7 @@ namespace Unity.Entities.Tests
                         })
                     .Run();
 
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
                 Assert.IsTrue(EntityManager.HasComponent<EcsTestManagedComponent>(entity));
                 Assert.IsTrue(EntityManager.HasComponent<EcsTestManagedComponent2>(entity));
 #endif
@@ -85,14 +85,14 @@ namespace Unity.Entities.Tests
                     case ScheduleType.Run:
                     {
                         Entities
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
                             .WithoutBurst()
 #endif
                             .WithDeferredPlaybackSystem<TestEntityCommandBufferSystem>()
                             .ForEach(
                                 (Entity e, EntityCommandBuffer ecb) =>
                                 {
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
                                     ecb.AddComponent(e, new EcsTestManagedComponent());
                                     ecb.AddComponent<EcsTestManagedComponent2>(e);
 #endif
@@ -150,7 +150,7 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(EntityManager.HasComponent<EcsTestData4>(entity));
                 Assert.IsTrue(EntityManager.HasComponent<EcsTestData5>(entity));
 
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
                 if (scheduleType == ScheduleType.Run)
                 {
                     Assert.IsTrue(EntityManager.HasComponent<EcsTestManagedComponent>(entity));

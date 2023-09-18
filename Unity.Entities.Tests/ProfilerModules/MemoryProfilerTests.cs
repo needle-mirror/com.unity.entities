@@ -4,6 +4,7 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
+using Unity.Collections;
 using Unity.Profiling;
 using UnityEditor.Profiling;
 using UnityEditorInternal;
@@ -139,7 +140,7 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(EcsTestData), typeof(EcsTestData2))]
         [TestCase(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3))]
         [TestCase(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4))]
-#if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
+#if !UNITY_WEBGL
         [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
 #endif
         public void ArchetypeOnly(params Type[] types)
@@ -188,7 +189,7 @@ namespace Unity.Entities.Tests
         [TestCase(100, typeof(EcsTestData), typeof(EcsTestData2))]
         [TestCase(1000, typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3))]
         [TestCase(10000, typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData3), typeof(EcsTestData4))]
-#if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
+#if !UNITY_WEBGL
         [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
 #endif
         public void ArchetypeWithEntities(int entityCount, params Type[] types)

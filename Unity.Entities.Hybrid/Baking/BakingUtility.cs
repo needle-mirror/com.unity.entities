@@ -104,12 +104,12 @@ namespace Unity.Entities
             var systemTypeIndices = DefaultWorldInitialization.GetAllSystemTypeIndices(settings.FilterFlags);
 
             //currently, baking uses reflection to decide whether to run a system, so we can't avoid this. but we
-            //should fix that. 
+            //should fix that.
             var typesList = new List<Type>();
             for (int i=0; i<systemTypeIndices.Length; i++)
                 typesList.Add(TypeManager.GetSystemType(systemTypeIndices[i]));
             var systemTypes = settings.Systems ?? typesList;
-            
+
 #if UNITY_EDITOR
             if (settings.BakingSystemFilterSettings != null)
             {
@@ -120,6 +120,7 @@ namespace Unity.Entities
                 }
             }
 #endif
+
             if (settings.ExtraSystems.Count > 0)
             {
                 systemTypes.AddRange(settings.ExtraSystems);
@@ -203,7 +204,7 @@ namespace Unity.Entities
                 type == TypeManager.GetSystemTypeIndex<PreBakingSystemGroup>();
         }
 
-        static void AddBakingSystems(World gameObjectWorld, IEnumerable<Type> systemTypes)
+        internal static void AddBakingSystems(World gameObjectWorld, IEnumerable<Type> systemTypes)
         {
             var bakeSystemGroup = gameObjectWorld.GetOrCreateSystemManaged<BakingSystemGroup>();
             var postBakingSystemGroup = gameObjectWorld.GetOrCreateSystemManaged<PostBakingSystemGroup>();
@@ -217,7 +218,7 @@ namespace Unity.Entities
             }
 
             DefaultWorldInitialization.AddSystemToRootLevelSystemGroupsInternal(gameObjectWorld, systemTypeIndices, bakeSystemGroup, new BakingRootGroups());
-            
+
             bakeSystemGroup.SortSystems();
             postBakingSystemGroup.SortSystems();
             transformBakingSystemGroup.SortSystems();

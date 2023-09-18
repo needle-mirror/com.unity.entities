@@ -11,7 +11,7 @@ using Unity.Properties;
 namespace Unity.Transforms
 {
     /// <summary>
-    /// Position, rotation and scale of this entity, relative to the parent, or on world space, if no parent exists.
+    /// Position, rotation and scale of this entity, relative to the parent, or in world space, if no parent exists.
     /// </summary>
     /// <remarks>
     /// If the entity has a <see cref="Parent"/> component, LocalTransform is relative to that parent.
@@ -89,35 +89,43 @@ namespace Unity.Transforms
             var tolerancesq = tolerance * tolerance;
 
             // Test for uniform scale
-            var scaleX = math.lengthsq(matrix.c0.xyz);
-            var scaleY = math.lengthsq(matrix.c1.xyz);
-            var scaleZ = math.lengthsq(matrix.c2.xyz);
+            var scaleXsq = math.lengthsq(matrix.c0.xyz);
+            var scaleYsq = math.lengthsq(matrix.c1.xyz);
+            var scaleZsq = math.lengthsq(matrix.c2.xyz);
 
-            if (math.abs(scaleX - scaleY) > tolerancesq || math.abs(scaleX - scaleZ) > tolerancesq)
+            if (math.abs(scaleXsq - scaleYsq) > tolerancesq || math.abs(scaleXsq - scaleZsq) > tolerancesq)
             {
                 throw new ArgumentException("Trying to convert a float4x4 to a LocalTransform, but the scale is not uniform");
             }
 
+            var scaleX = math.sqrt(scaleXsq);
+            var scaleY = math.sqrt(scaleYsq);
+            var scaleZ = math.sqrt(scaleZsq);
+
+            var scale = math.max(scaleX, math.max(scaleY, scaleZ));
+
             var matrix3x3 = new float3x3(matrix);
-            var transpose3x3 = math.transpose(matrix3x3);
-            var combined3x3 = math.mul(matrix3x3, transpose3x3);
+
+            float dot01 = math.dot(matrix3x3.c0, matrix3x3.c1);
+            float dot02 = math.dot(matrix3x3.c0, matrix3x3.c2);
+            float dot12 = math.dot(matrix3x3.c1, matrix3x3.c2);
 
             // If the matrix is orthogonal, the combined result should be identity
-            if (math.lengthsq(combined3x3.c0 - math.right()) > tolerancesq ||
-                math.lengthsq(combined3x3.c1 - math.up()) > tolerancesq ||
-                math.lengthsq(combined3x3.c2 - math.right()) > tolerancesq)
+            if ( math.abs(dot01) > tolerancesq ||
+                math.abs(dot02) > tolerancesq ||
+                math.abs(dot12) > tolerancesq)
             {
                 throw new ArgumentException("Trying to convert a float4x4 to a LocalTransform, but the rotation 3x3 is not orthogonal");
             }
 
-            float3x3 normalizedRotationMatrix = math.orthonormalize(new float3x3(matrix));
+            float3x3 normalizedRotationMatrix = math.orthonormalize(matrix3x3);
             var rotation = new quaternion(normalizedRotationMatrix);
 
             var position = matrix.c3.xyz;
 
             var transform = default(LocalTransform);
             transform.Position = position;
-            transform.Scale = scaleX;
+            transform.Scale = scale;
             transform.Rotation = rotation;
             return transform;
         }

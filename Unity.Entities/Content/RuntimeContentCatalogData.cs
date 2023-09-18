@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.Runtime.InteropServices;
 using Unity.Collections;
@@ -207,4 +206,3 @@ namespace Unity.Entities.Content
         public BlobArray<ContentBlobLocation> Blobs;
     }
 }
-#endif

@@ -5,10 +5,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Burst.Intrinsics;
 using Unity.Jobs;
-
-#if !UNITY_PORTABLE_TEST_RUNNER
 using System.Linq;
-#endif
 
 
 // ******* COPY AND PASTE WARNING *************

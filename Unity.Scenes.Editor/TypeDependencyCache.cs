@@ -6,9 +6,6 @@ using UnityEditor;
 using UnityEngine;
 using UnityEditor.AssetImporters;
 using System.Reflection;
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-#endif
 using Unity.Entities.Conversion;
 using Unity.Entities.Serialization;
 using Unity.Profiling;
@@ -90,38 +87,80 @@ namespace Unity.Scenes.Editor
             }
         }
 
+        static int CompareType(BakingTypeAndFullName a, BakingTypeAndFullName b)
+        {
+            return string.CompareOrdinal(a.FullName, b.FullName);
+        }
+
+        internal struct BakingTypeAndFullName
+        {
+            public Type Type;
+            public string FullName;
+        }
+
         static unsafe void RegisterBakingAssemblies()
         {
-            var bakers = TypeCache.GetTypesDerivedFrom<IBaker>();
-            var systems = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.BakingSystem | WorldSystemFilterFlags.EntitySceneOptimizations);
-            BakingNameAndVersion[] versionedAssemblies = new BakingNameAndVersion[bakers.Count + systems.Count];
+            var bakersTypeCollection = TypeCache.GetTypesDerivedFrom<IBaker>();
+            var systemsReadOnlyList = DefaultWorldInitialization.GetAllSystems(WorldSystemFilterFlags.BakingSystem | WorldSystemFilterFlags.EntitySceneOptimizations);
+            int bakersCount = bakersTypeCollection.Count;
+            int systemsCount = systemsReadOnlyList.Count;
+            BakingNameAndVersion[] versionedAssemblies = new BakingNameAndVersion[bakersCount + systemsCount];
+
+            BakingTypeAndFullName[] bakers = new BakingTypeAndFullName[bakersCount];
+            var emptyString = string.Empty;
+            for (int i = 0; i < bakersCount; i++)
+            {
+                var currentType = bakersTypeCollection[i];
+                var fullName = currentType.FullName;
+                fullName = fullName == null ? emptyString : fullName;
+                ref BakingTypeAndFullName bakingNameAndVersion = ref bakers[i];
+                bakingNameAndVersion.FullName = fullName;
+                bakingNameAndVersion.Type = currentType;
+            }
+
+            Array.Sort(bakers, CompareType);
+
+            List<Type> systemsAsList = systemsReadOnlyList as List<Type>;
+
+            BakingTypeAndFullName[] systems = new BakingTypeAndFullName[systemsCount];
+            for (int i = 0; i < systemsCount; i++)
+            {
+                var currentType = systemsAsList[i];
+                var fullName = currentType.FullName;
+                fullName = fullName == null ? emptyString : fullName;
+                ref BakingTypeAndFullName bakingNameAndVersion = ref systems[i];
+                bakingNameAndVersion.FullName = fullName;
+                bakingNameAndVersion.Type = currentType;
+            }
+
+            Array.Sort(systems, CompareType);
 
             int count = 0;
             // baker versions
-            for (int i = 0; i != bakers.Count; i++)
+            for (int i = 0; i != bakersCount; i++)
             {
                 var fullName = bakers[i].FullName;
                 if (fullName == null)
                     continue;
 
-                var bakingVersionAttribute = bakers[i].GetCustomAttribute<BakingVersionAttribute>();
+                var bakingVersionAttribute = bakers[i].Type.GetCustomAttribute<BakingVersionAttribute>();
                 if ( bakingVersionAttribute != null)
                 {
-                    versionedAssemblies[count++].Init(bakingVersionAttribute, bakers[i], fullName);
+                    versionedAssemblies[count++].Init(bakingVersionAttribute, bakers[i].Type, fullName);
                 }
             }
 
             // baking system versions
-            for (int i = 0; i != systems.Count; i++)
+            for (int i = 0; i != systemsCount; i++)
             {
                 var fullName = systems[i].FullName;
                 if (fullName == null)
                     continue;
 
-                var bakingVersionAttribute = systems[i].GetCustomAttribute<BakingVersionAttribute>();
+                var bakingVersionAttribute = systems[i].Type.GetCustomAttribute<BakingVersionAttribute>();
                 if ( bakingVersionAttribute != null)
                 {
-                    versionedAssemblies[count++].Init(bakingVersionAttribute, systems[i], fullName);
+                    versionedAssemblies[count++].Init(bakingVersionAttribute, systems[i].Type, fullName);
                 }
             }
 
@@ -129,8 +168,15 @@ namespace Unity.Scenes.Editor
             UnityEngine.Hash128 hash = default;
             Dictionary<string, List<Type>> missingBakingVersionAttributePerAssembly = new Dictionary<string, List<Type>>();
 
-            foreach (var bakerType in bakers)
+            for (int i = 0; i != bakersCount; i++)
             {
+                Type bakerType = bakers[i].Type;
+
+                // If this baker has the BakingVersion attribute set to Excluded we don't need to validate it (it can be in an assembly with or without BakingVersions)
+                var isExcluded = Array.Exists(versionedAssemblies, x => x.Excluded && x.Type == bakerType);
+                if (isExcluded)
+                    continue;
+
                 var assembly = bakerType.Assembly;
                 var assemblyName = assembly.GetName().Name;
                 //If there is at least one baker marked with BakingVersion attribute, we don't register the dependency with the assembly but the value of the attribute
@@ -178,8 +224,15 @@ namespace Unity.Scenes.Editor
                 }
             }
 
-            foreach (var systemType in systems)
+            for (int i = 0; i != systemsCount; i++)
             {
+                Type systemType = systems[i].Type;
+
+                // If this baking system has the BakingVersion attribute set to Excluded we don't need to validate it (it can be in an assembly with or without BakingVersions)
+                var isExcluded = Array.Exists(versionedAssemblies, x => x.Excluded && x.Type == systemType);
+                if (isExcluded)
+                    continue;
+
                 var assembly = systemType.Assembly;
                 var assemblyName = assembly.GetName().Name;
                 //If there is at least one baking system or entity scene optimization system marked with BakingVersion attribute, we don't register the dependency with the assembly but the value of the attribute

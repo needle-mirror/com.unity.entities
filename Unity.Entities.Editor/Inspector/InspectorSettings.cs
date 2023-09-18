@@ -11,6 +11,11 @@ namespace Unity.Entities.Editor
         [InternalSetting]
         public bool DisplayComponentType = false;
 
+        string[] ISetting.GetSearchKeywords()
+        {
+            return null;
+        }
+
         void ISetting.OnSettingChanged(PropertyPath path)
         {
         }

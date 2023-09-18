@@ -6,9 +6,7 @@ using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Serialization;
 using UnityEngine;
-#if !UNITY_DOTSRUNTIME
 using UnityEngine.SceneManagement;
-#endif
 using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes
@@ -49,12 +47,10 @@ namespace Unity.Scenes
             /// The flags applied when loading the scene.
             /// </summary>
             public SceneLoadFlags Flags;
-#if !UNITY_DOTSRUNTIME
             /// <summary>
             /// The priority of the load operation.
             /// </summary>
             public int Priority;
-#endif
         }
 
         static internal RequestSceneLoaded CreateRequestSceneLoaded(LoadParameters loadParameters)
@@ -67,22 +63,7 @@ namespace Unity.Scenes
         private EntityQuery _unloadSceneQuery;
         BlobAssetReference<ResourceCatalogData> catalogData;
 
-
-#if UNITY_DOTSRUNTIME
-        internal void SetCatalogData(BlobAssetReference<ResourceCatalogData> newCatalogData)
-        {
-            catalogData = newCatalogData;
-        }
-#endif
-
-
-        static internal string SceneLoadDir =>
-#if UNITY_DOTSRUNTIME
-            "Data";
-#else
-            Application.streamingAssetsPath;
-
-#endif
+        static internal string SceneLoadDir => Application.streamingAssetsPath;
 
         /// <summary>
         /// Callback invoked when the system starts running.
@@ -133,7 +114,6 @@ namespace Unity.Scenes
 
         void LoadCatalogData(ref SystemState state)
         {
-#if !UNITY_DOTSRUNTIME
             var fullSceneInfoPath = EntityScenesPaths.FullPathForFile(SceneLoadDir, EntityScenesPaths.RelativePathForSceneInfoFile);
             if (FileUtilityHybrid.FileExists(fullSceneInfoPath))
             {
@@ -143,7 +123,6 @@ namespace Unity.Scenes
                     return;
                 }
             }
-#endif
         }
 
         /// <summary>
@@ -642,7 +621,6 @@ namespace Unity.Scenes
             return sceneEntity;
         }
 
-#if !UNITY_DOTSRUNTIME
         /// <summary>
         /// Find the scene given a guid and no DisableLiveConversion component.  This will only return the first matching scene.
         /// </summary>
@@ -667,7 +645,6 @@ namespace Unity.Scenes
 
             return sceneEntity;
         }
-#endif
 
         /// <summary>
         /// Callback invoked when the system is updated.

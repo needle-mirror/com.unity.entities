@@ -19,6 +19,18 @@ namespace Unity.Entities
     [BurstCompile]
     static unsafe partial class EntityDiffer
     {
+        static bool TryGetEntityGuidComponent(EntityComponentStore* ecs, Entity entity, TypeIndex entityGuidTypeIndex, out EntityGuid entityGuid)
+        {
+            entityGuid = default;
+            if (!ecs->HasComponent(entity, entityGuidTypeIndex))
+            {
+                return false;
+            }
+
+            entityGuid = *(EntityGuid*)ecs->GetComponentDataWithTypeRO(entity, entityGuidTypeIndex);
+            return true;
+        }
+
         // This value has to be power of two.
         public const int ComponentChangesBatchCount = 128;
         public struct DeferredSharedComponentChange
@@ -409,6 +421,9 @@ namespace Unity.Entities
             [ReadOnly] public NativeList<ModifiedEntity> ModifiedEntities;
             [ReadOnly] [NativeDisableUnsafePtrRestriction] public TypeManager.TypeInfo* TypeInfo;
 
+            [NativeDisableUnsafePtrRestriction] public EntityComponentStore* AfterEntityComponentStore;
+            [NativeDisableUnsafePtrRestriction] public EntityComponentStore* BeforeEntityComponentStore;
+
             public PackedEntityGuidsCollection Entities;
             public PackedCollection<ComponentTypeHash> ComponentTypes;
 
@@ -437,7 +452,7 @@ namespace Unity.Entities
                     var entityGuid = CreatedEntities[i].EntityGuid;
                     var afterEntity = CreatedEntities[i].AfterEntityInChunk;
                     var afterChunk = afterEntity.Chunk;
-                    var afterArchetype = afterChunk->Archetype;
+                    var afterArchetype = AfterEntityComponentStore->GetArchetype(afterChunk);
                     var afterTypesCount = afterArchetype->TypesCount;
 
                     Entities.List.Add(entityGuid);
@@ -448,7 +463,7 @@ namespace Unity.Entities
                         {
                             var afterTypeInArchetype = afterArchetype->Types[afterIndexInTypeArray];
 
-                            if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType)
+                            if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType || afterTypeInArchetype.IsChunkComponent)
                                 continue;
 
                             AddStableTypeHash(afterTypeInArchetype.TypeIndex);
@@ -466,13 +481,13 @@ namespace Unity.Entities
 
                     var afterEntity = modification.AfterEntityInChunk;
                     var afterChunk = afterEntity.Chunk;
-                    var afterArchetype = afterChunk->Archetype;
+                    var afterArchetype = AfterEntityComponentStore->GetArchetype(afterChunk);
                     var afterTypesCount = afterArchetype->TypesCount;
 
                     var beforeEntity = modification.BeforeEntityInChunk;
                     var beforeChunk = beforeEntity.Chunk;
 
-                    var beforeArchetype = beforeChunk->Archetype;
+                    var beforeArchetype = BeforeEntityComponentStore->GetArchetype(beforeChunk);
                     var beforeTypesCount = beforeArchetype->TypesCount;
 
                     Entities.List.Add(entityGuid);
@@ -499,7 +514,7 @@ namespace Unity.Entities
                         {
                             var beforeComponentTypeInArchetype = beforeArchetype->Types[beforeTypeIndexInArchetype];
 
-                            if (beforeComponentTypeInArchetype.IsCleanupComponent || beforeComponentTypeInArchetype.IsBakeOnlyType)
+                            if (beforeComponentTypeInArchetype.IsCleanupComponent || beforeComponentTypeInArchetype.IsBakeOnlyType || beforeComponentTypeInArchetype.IsChunkComponent)
                                 continue;
 
                             var beforeTypeIndex = beforeComponentTypeInArchetype.TypeIndex;
@@ -526,6 +541,8 @@ namespace Unity.Entities
             // Atomic outputs written from the cached data
             public GatherComponentChangesOutput OutputData;
             public NativeHashMap<ulong, int> AddedArchetypes;
+            public EntityComponentStore* AfterEntityComponentStore;
+            public EntityComponentStore* BeforeEntityComponentStore;
 
             public void ProcessRange(int index)
             {
@@ -542,7 +559,7 @@ namespace Unity.Entities
                         var entityGuid = ReadData.CreatedEntities[i].EntityGuid;
                         var afterEntity = ReadData.CreatedEntities[i].AfterEntityInChunk;
                         var afterChunk = afterEntity.Chunk;
-                        var afterArchetype = afterChunk->Archetype;
+                        var afterArchetype = AfterEntityComponentStore->GetArchetype(afterChunk);
                         var afterTypesCount = afterArchetype->TypesCount;
                         var archetypeHash = afterArchetype->StableHash;
 
@@ -571,7 +588,7 @@ namespace Unity.Entities
                             {
                                 var afterTypeInArchetype = afterArchetype->Types[indexInTypeArray];
 
-                                if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType)
+                                if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType || afterTypeInArchetype.IsChunkComponent)
                                     continue;
 
                                 ValidateTypeForSerialization(afterTypeInArchetype, entityGuid);
@@ -594,7 +611,7 @@ namespace Unity.Entities
                         {
                             var afterTypeInArchetype = afterArchetype->Types[afterIndexInTypeArray];
 
-                            if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType)
+                            if (afterTypeInArchetype.IsCleanupComponent || afterTypeInArchetype.IsBakeOnlyType || afterTypeInArchetype.IsChunkComponent)
                                 continue;
 
                             // This handles special component types that need additional/special adding
@@ -636,12 +653,12 @@ namespace Unity.Entities
 
                     var afterEntity = modification.AfterEntityInChunk;
                     var afterChunk = afterEntity.Chunk;
-                    var afterArchetype = afterChunk->Archetype;
+                    var afterArchetype = AfterEntityComponentStore->GetArchetype(afterChunk);
                     var afterTypesCount = afterArchetype->TypesCount;
 
                     var beforeEntity = modification.BeforeEntityInChunk;
                     var beforeChunk = beforeEntity.Chunk;
-                    var beforeArchetype = beforeChunk->Archetype;
+                    var beforeArchetype = BeforeEntityComponentStore->GetArchetype(beforeChunk);
                     var beforeTypesCount = beforeArchetype->TypesCount;
 
                     for (var afterIndexInTypeArray = 1; afterIndexInTypeArray < afterTypesCount; afterIndexInTypeArray++)
@@ -677,9 +694,14 @@ namespace Unity.Entities
                             continue;
                         }
 
-                        if (!afterTypeInArchetype.IsManagedComponent && modification.CanCompareChunkVersions && afterChunk->GetChangeVersion(afterIndexInTypeArray) == beforeChunk->GetChangeVersion(beforeIndexInTypeArray))
+                        if (!afterTypeInArchetype.IsManagedComponent && modification.CanCompareChunkVersions)
                         {
-                            continue;
+                            var afterVersion = afterArchetype->Chunks.GetChangeVersion(afterIndexInTypeArray, afterChunk.ListIndex);
+                            var beforeVersion = beforeArchetype->Chunks.GetChangeVersion(beforeIndexInTypeArray, beforeChunk.ListIndex);
+                            if (afterVersion == beforeVersion)
+                            {
+                                continue;
+                            }
                         }
 
                         SetComponentData(
@@ -700,7 +722,7 @@ namespace Unity.Entities
                     {
                         var beforeComponentTypeInArchetype = beforeArchetype->Types[beforeTypeIndexInArchetype];
 
-                        if (beforeComponentTypeInArchetype.IsCleanupComponent || beforeComponentTypeInArchetype.IsBakeOnlyType)
+                        if (beforeComponentTypeInArchetype.IsCleanupComponent || beforeComponentTypeInArchetype.IsBakeOnlyType || beforeComponentTypeInArchetype.IsChunkComponent)
                         {
                             continue;
                         }
@@ -717,7 +739,7 @@ namespace Unity.Entities
             }
 
             void AddComponentData(
-                Chunk* afterChunk,
+                ChunkIndex afterChunk,
                 Archetype* afterArchetype,
                 ComponentTypeInArchetype afterTypeInArchetype,
                 int afterIndexInTypeArray,
@@ -728,6 +750,7 @@ namespace Unity.Entities
                 bool addComponent)
             {
                 var packedComponent = PackComponent(entityGuid, afterTypeInArchetype.TypeIndex, tableHint, entryHint);
+                var chunkBuffer = afterChunk.Buffer;
 
                 if (addComponent)
                 {
@@ -736,8 +759,8 @@ namespace Unity.Entities
 
                 if (afterTypeInArchetype.IsSharedComponent)
                 {
-                    var offset = afterIndexInTypeArray - afterChunk->Archetype->FirstSharedComponent;
-                    var sharedComponentIndex = afterChunk->GetSharedComponentValue(offset);
+                    var offset = afterIndexInTypeArray - AfterEntityComponentStore->GetArchetype(afterChunk)->FirstSharedComponent;
+                    var sharedComponentIndex = afterArchetype->Chunks.GetSharedComponentValue(offset, afterChunk.ListIndex);
 
                     // No managed objects in burst land. Do what we can a defer the actual unpacking until later.
                     AddendSharedComponentData(entityGuid, afterTypeInArchetype.TypeIndex, sharedComponentIndex);
@@ -746,7 +769,7 @@ namespace Unity.Entities
 
                 if (afterTypeInArchetype.IsManagedComponent)
                 {
-                    var afterManagedComponentIndex  = ((int*)(ChunkDataUtility.GetChunkBuffer(afterChunk) + afterArchetype->Offsets[afterIndexInTypeArray]))[afterEntityIndexInChunk];
+                    var afterManagedComponentIndex  = ((int*)(chunkBuffer + afterArchetype->Offsets[afterIndexInTypeArray]))[afterEntityIndexInChunk];
                     AppendManagedComponentData(entityGuid, afterTypeInArchetype.TypeIndex, afterManagedComponentIndex);
                     return;
                 }
@@ -754,7 +777,7 @@ namespace Unity.Entities
                 int isEnabled = -1;
                 if (afterTypeInArchetype.IsEnableable)
                 {
-                    var isComponentEnabled = ChunkDataUtility.GetEnabledRefRO(afterChunk, afterIndexInTypeArray);
+                    var isComponentEnabled = ChunkDataUtility.GetEnabledRefRO(afterChunk, afterArchetype, afterIndexInTypeArray);
                     // Default value of an enableable component is true, so we only need to process new components that are false
                     isEnabled = isComponentEnabled.IsSet(afterEntityIndexInChunk) ? -1 : 0;
                 }
@@ -774,7 +797,7 @@ namespace Unity.Entities
                 if (afterTypeInArchetype.IsBuffer)
                 {
                     var sizeOf = afterArchetype->SizeOfs[afterIndexInTypeArray];
-                    var buffer = (BufferHeader*)(ChunkDataUtility.GetChunkBuffer(afterChunk) + afterArchetype->Offsets[afterIndexInTypeArray] + afterEntityIndexInChunk * sizeOf);
+                    var buffer = (BufferHeader*)(chunkBuffer + afterArchetype->Offsets[afterIndexInTypeArray] + afterEntityIndexInChunk * sizeOf);
                     var length = buffer->Length;
 
                     if (length == 0)
@@ -790,9 +813,7 @@ namespace Unity.Entities
 
                     if (afterTypeInArchetype.TypeIndex == ReadData.LinkedEntityGroupTypeIndex)
                     {
-                        // Magic in AddComponent already put a self-reference at the top of the buffer, so there's no need for us to add it.
-                        // The rest of the elements should be interpreted as LinkedEntityGroupAdditions.
-                        for (var elementIndex = 1; elementIndex < length; elementIndex++)
+                        for (var elementIndex = 0; elementIndex < length; elementIndex++)
                         {
                             var childEntity = ((Entity*)elementPtr)[elementIndex];
                             var childEntityGuid = GetEntityGuid(ReadData.AfterEntityComponentStore, ReadData.EntityGuidTypeIndex, childEntity);
@@ -815,7 +836,7 @@ namespace Unity.Entities
                 {
                     var typeInfo = &ReadData.TypeInfo[afterTypeInArchetype.TypeIndex.Index];
                     var sizeOf = afterArchetype->SizeOfs[afterIndexInTypeArray];
-                    var ptr = ChunkDataUtility.GetChunkBuffer(afterChunk) + afterArchetype->Offsets[afterIndexInTypeArray] + afterEntityIndexInChunk * sizeOf;
+                    var ptr = chunkBuffer + afterArchetype->Offsets[afterIndexInTypeArray] + afterEntityIndexInChunk * sizeOf;
                     AppendComponentData(packedComponent, ptr, sizeOf, isEnabled);
                     ExtractPatches(typeInfo, packedComponent, ptr, 1);
                 }
@@ -829,25 +850,28 @@ namespace Unity.Entities
             }
 
             void SetComponentData(
-                Chunk* afterChunk,
+                ChunkIndex afterChunk,
                 Archetype* afterArchetype,
                 ComponentTypeInArchetype afterTypeInArchetype,
                 int afterIndexInTypeArray,
                 int afterEntityIndexInChunk,
-                Chunk* beforeChunk,
+                ChunkIndex beforeChunk,
                 Archetype* beforeArchetype,
                 int beforeIndexInTypeArray,
                 int beforeEntityIndexInChunk,
                 EntityGuid entityGuid,
                 int entryHint)
             {
+                var afterChunkBuffer = afterChunk.Buffer;
+                var beforeChunkBuffer = beforeChunk.Buffer;
+
                 if (afterTypeInArchetype.IsSharedComponent)
                 {
-                    var beforeOffset = beforeIndexInTypeArray - beforeChunk->Archetype->FirstSharedComponent;
-                    var beforeSharedComponentIndex = beforeChunk->GetSharedComponentValue(beforeOffset);
+                    var beforeOffset = beforeIndexInTypeArray - BeforeEntityComponentStore->GetArchetype(beforeChunk)->FirstSharedComponent;
+                    var beforeSharedComponentIndex = beforeArchetype->Chunks.GetSharedComponentValue(beforeOffset, beforeChunk.ListIndex);
 
-                    var afterOffset = afterIndexInTypeArray - afterChunk->Archetype->FirstSharedComponent;
-                    var afterSharedComponentIndex = afterChunk->GetSharedComponentValue(afterOffset);
+                    var afterOffset = afterIndexInTypeArray - AfterEntityComponentStore->GetArchetype(afterChunk)->FirstSharedComponent;
+                    var afterSharedComponentIndex = afterArchetype->Chunks.GetSharedComponentValue(afterOffset, afterChunk.ListIndex);
 
                     // No managed objects in burst land. Do what we can and defer the actual unpacking until later.
                     AddendSharedComponentData(entityGuid, afterTypeInArchetype.TypeIndex, afterSharedComponentIndex, beforeSharedComponentIndex);
@@ -856,8 +880,8 @@ namespace Unity.Entities
 
                 if (afterTypeInArchetype.IsManagedComponent)
                 {
-                    var afterManagedComponentIndex  = ((int*)(ChunkDataUtility.GetChunkBuffer(afterChunk) + afterArchetype->Offsets[afterIndexInTypeArray]))[afterEntityIndexInChunk];
-                    var beforeManagedComponentIndex  = ((int*)(ChunkDataUtility.GetChunkBuffer(beforeChunk) + beforeArchetype->Offsets[beforeIndexInTypeArray]))[beforeEntityIndexInChunk];
+                    var afterManagedComponentIndex  = ((int*)(afterChunkBuffer + afterArchetype->Offsets[afterIndexInTypeArray]))[afterEntityIndexInChunk];
+                    var beforeManagedComponentIndex  = ((int*)(beforeChunkBuffer + beforeArchetype->Offsets[beforeIndexInTypeArray]))[beforeEntityIndexInChunk];
 
                     AppendManagedComponentData(entityGuid, afterTypeInArchetype.TypeIndex, afterManagedComponentIndex, beforeManagedComponentIndex);
                     return;
@@ -866,8 +890,8 @@ namespace Unity.Entities
                 int isEnabledAfter = -1;
                 if (afterTypeInArchetype.IsEnableable)
                 {
-                    AreEnableableComponentsEqual(afterChunk, afterIndexInTypeArray, afterEntityIndexInChunk,
-                        beforeChunk, beforeIndexInTypeArray, beforeEntityIndexInChunk, out isEnabledAfter);
+                    AreEnableableComponentsEqual(afterChunk, afterArchetype, afterIndexInTypeArray, afterEntityIndexInChunk,
+                        beforeChunk, beforeArchetype, beforeIndexInTypeArray, beforeEntityIndexInChunk, out isEnabledAfter);
                 }
 
                 // IMPORTANT This means `IsZeroSizedInChunk` which is always true for shared components.
@@ -884,7 +908,7 @@ namespace Unity.Entities
 
                 if (afterTypeInArchetype.IsBuffer)
                 {
-                    var beforeBuffer = (BufferHeader*)(ChunkDataUtility.GetChunkBuffer(beforeChunk)
+                    var beforeBuffer = (BufferHeader*)(beforeChunkBuffer
                         + beforeArchetype->Offsets[beforeIndexInTypeArray]
                         + beforeEntityIndexInChunk
                         * beforeArchetype->SizeOfs[beforeIndexInTypeArray]);
@@ -892,7 +916,7 @@ namespace Unity.Entities
                     var beforeElementPtr = BufferHeader.GetElementPointer(beforeBuffer);
                     var beforeLength = beforeBuffer->Length;
 
-                    var afterBuffer = (BufferHeader*)(ChunkDataUtility.GetChunkBuffer(afterChunk)
+                    var afterBuffer = (BufferHeader*)(afterChunkBuffer
                         + afterArchetype->Offsets[afterIndexInTypeArray]
                         + afterEntityIndexInChunk
                         * afterArchetype->SizeOfs[afterIndexInTypeArray]);
@@ -944,12 +968,12 @@ namespace Unity.Entities
                     AssertArchetypeSizeOfsMatch(beforeArchetype, beforeIndexInTypeArray, afterArchetype,
                         afterIndexInTypeArray);
 
-                    var beforeAddress = ChunkDataUtility.GetChunkBuffer(beforeChunk)
+                    var beforeAddress = beforeChunkBuffer
                                         + beforeArchetype->Offsets[beforeIndexInTypeArray]
                                         + beforeArchetype->SizeOfs[beforeIndexInTypeArray]
                                         * beforeEntityIndexInChunk;
 
-                    var afterAddress = ChunkDataUtility.GetChunkBuffer(afterChunk)
+                    var afterAddress = afterChunkBuffer
                                        + afterArchetype->Offsets[afterIndexInTypeArray]
                                        + afterArchetype->SizeOfs[afterIndexInTypeArray]
                                        * afterEntityIndexInChunk;
@@ -1003,13 +1027,13 @@ namespace Unity.Entities
             }
 
 
-            bool AreEnableableComponentsEqual(Chunk* afterChunk, int afterIndexInTypeArray, int afterEntityIndexInChunk,
-                Chunk* beforeChunk, int beforeIndexInTypeArray, int beforeEntityIndexInChunk, out int enabled)
+            bool AreEnableableComponentsEqual(ChunkIndex afterChunk, Archetype* afterArchetype, int afterIndexInTypeArray, int afterEntityIndexInChunk,
+                ChunkIndex beforeChunk, Archetype* beforeArchetype, int beforeIndexInTypeArray, int beforeEntityIndexInChunk, out int enabled)
             {
-                var isComponentEnabledAfter = ChunkDataUtility.GetEnabledRefRO(afterChunk, afterIndexInTypeArray);
+                var isComponentEnabledAfter = ChunkDataUtility.GetEnabledRefRO(afterChunk, afterArchetype, afterIndexInTypeArray);
                 bool isEnabledAfter = isComponentEnabledAfter.IsSet(afterEntityIndexInChunk);
 
-                var isComponentEnabledBefore = ChunkDataUtility.GetEnabledRefRO(beforeChunk, beforeIndexInTypeArray);
+                var isComponentEnabledBefore = ChunkDataUtility.GetEnabledRefRO(beforeChunk, beforeArchetype, beforeIndexInTypeArray);
                 bool isEnabledBefore = isComponentEnabledBefore.IsSet(beforeEntityIndexInChunk);
 
                 bool equal = isEnabledAfter == isEnabledBefore;
@@ -1140,8 +1164,8 @@ namespace Unity.Entities
                         var beforeEntity = *(Entity*) (beforeAddress + offset);
 
                         // If the entity has no guid, then guid will be null (desired)
-                        ReadData.BeforeEntityComponentStore->TryGetComponent(beforeEntity, ReadData.EntityGuidTypeIndex, out var beforeGuid);
-                        ReadData.AfterEntityComponentStore->TryGetComponent(afterEntity, ReadData.EntityGuidTypeIndex, out var afterGuid);
+                        TryGetEntityGuidComponent(ReadData.BeforeEntityComponentStore, beforeEntity, ReadData.EntityGuidTypeIndex, out var beforeGuid);
+                        TryGetEntityGuidComponent(ReadData.AfterEntityComponentStore, afterEntity, ReadData.EntityGuidTypeIndex, out var afterGuid);
                         if (!beforeGuid.Equals(afterGuid))
                             return true;
                     }
@@ -1186,7 +1210,7 @@ namespace Unity.Entities
                         var entity = *(Entity*)(afterAddress + offset);
 
                         // If the entity has no guid, then guid will be null (desired)
-                        ReadData.AfterEntityComponentStore->TryGetComponent(entity, ReadData.EntityGuidTypeIndex, out var entityGuid);
+                        TryGetEntityGuidComponent(ReadData.AfterEntityComponentStore, entity, ReadData.EntityGuidTypeIndex, out var entityGuid);
 
                         CacheData.EntityReferencePatches.Add(new EntityReferenceChange
                         {
@@ -1356,7 +1380,7 @@ namespace Unity.Entities
 
             EntityGuid GetEntityGuid(EntityComponentStore* entityComponentStore, TypeIndex entityGuidTypeIndex, Entity entity)
             {
-                if (!entityComponentStore->TryGetComponent(entity, entityGuidTypeIndex, out var result))
+                if (!TryGetEntityGuidComponent(entityComponentStore, entity, entityGuidTypeIndex, out var result))
                 {
                     ThrowOnEntityGuidMissing();
                 }
@@ -1488,6 +1512,8 @@ namespace Unity.Entities
         {
             public GatherComponentChangesReadOnlyData ReadData;
             public GatherComponentChangesOutput OutputData;
+            [NativeDisableUnsafePtrRestriction] public EntityComponentStore* AfterEntityComponentStore;
+            [NativeDisableUnsafePtrRestriction] public EntityComponentStore* BeforeEntityComponentStore;
 
             public void Execute()
             {
@@ -1526,7 +1552,9 @@ namespace Unity.Entities
                     ReadData = ReadData,
                     CacheData = cacheData,
                     OutputData = OutputData,
-                    AddedArchetypes = addedArchetypes
+                    AddedArchetypes = addedArchetypes,
+                    AfterEntityComponentStore = AfterEntityComponentStore,
+                    BeforeEntityComponentStore = BeforeEntityComponentStore,
                 };
 
                 int count = ReadData.CreatedEntities.Length + ReadData.ModifiedEntities.Length;
@@ -1640,6 +1668,8 @@ namespace Unity.Entities
                 TypeInfo = TypeManager.GetTypeInfoPointer(),
                 Entities = readOnlyData.Entities,
                 ComponentTypes = readOnlyData.ComponentTypes,
+                AfterEntityComponentStore = entityChanges.AfterEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
+                BeforeEntityComponentStore = entityChanges.BeforeEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
             }.Run();
 
             if (count >= 1)
@@ -1647,7 +1677,9 @@ namespace Unity.Entities
                 new GatherComponentChangesJob
                 {
                     ReadData = readOnlyData,
-                    OutputData = outputData
+                    OutputData = outputData,
+                    AfterEntityComponentStore = entityChanges.AfterEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
+                    BeforeEntityComponentStore = entityChanges.BeforeEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
                 }.Run();
             }
 #if UNITY_EDITOR
@@ -2032,7 +2064,7 @@ namespace Unity.Entities
                 entityGuid = default;
 
                 if (entityComponentStoreEntity->Exists(entity) &&
-                    entityComponentStoreEntity->TryGetComponent(entity, EntityGuidTypeIndex, out entityGuid))
+                    TryGetEntityGuidComponent(entityComponentStoreEntity, entity, EntityGuidTypeIndex, out entityGuid))
                 {
                     return true;
                 }
@@ -2055,7 +2087,7 @@ namespace Unity.Entities
                 int guidIndex = 0;
                 for (var i = 0; i < CreatedEntities.Length; i++)
                 {
-                    var afterEntity = ChunkDataUtility.GetEntityFromEntityInChunk(CreatedEntities[i].AfterEntityInChunk);
+                    var afterEntity = ChunkDataUtility.GetEntityFromEntityInChunk(AfterEntityComponentStore->GetArchetype(CreatedEntities[i].AfterEntityInChunk.Chunk), CreatedEntities[i].AfterEntityInChunk);
                     AfterEntityComponentStore->GetName(afterEntity, out namesPtr[nameIndex++]);
                     entitiesLookup.Add(CreatedEntities[i].EntityGuid);
 
@@ -2104,7 +2136,9 @@ namespace Unity.Entities
                 // They will not exist in the after world so use the before world.
                 for (var i = 0; i < DestroyedEntities.Length; i++)
                 {
-                    var beforeEntity = ChunkDataUtility.GetEntityFromEntityInChunk(DestroyedEntities[i].BeforeEntityInChunk);
+                    var beforeArchetype =
+                        BeforeEntityComponentStore->GetArchetype(DestroyedEntities[i].BeforeEntityInChunk.Chunk);
+                    var beforeEntity = ChunkDataUtility.GetEntityFromEntityInChunk(beforeArchetype, DestroyedEntities[i].BeforeEntityInChunk);
                     BeforeEntityComponentStore->GetName(beforeEntity, out namesPtr[nameIndex++]);
                 }
 
@@ -2201,10 +2235,8 @@ namespace Unity.Entities
 
             protected override void VisitProperty<TContainer, TValue>(Property<TContainer, TValue> property, ref TContainer container, ref TValue value)
             {
-#if !UNITY_DOTSRUNTIME
                 if (typeof(UnityEngine.Object).IsAssignableFrom(typeof(TValue)))
                     return;
-#endif
 
                 base.VisitProperty(property, ref container, ref value);
             }

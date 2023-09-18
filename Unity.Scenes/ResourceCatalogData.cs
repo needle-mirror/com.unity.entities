@@ -2,18 +2,14 @@ using System;
 using System.IO;
 using Unity.Collections;
 using Unity.Entities;
-#if !UNITY_DOTSRUNTIME
 using UnityEngine.Scripting.APIUpdating;
-#endif
 
 namespace Unity.Scenes
 {
     /// <summary>
     /// Information for resources to be loaded at runtime.
     /// </summary>
-#if !UNITY_DOTSRUNTIME
     [MovedFrom(true, "Unity.Entities.Hybrid", "Unity.Entities.Hybrid")]
-#endif
     public struct ResourceMetaData
     {
         /// <summary>
@@ -36,29 +32,6 @@ namespace Unity.Scenes
         /// </summary>
         public Hash128 ResourceId;
 
-#if UNITY_DOTSRUNTIME
-        /// <summary>
-        /// For scenes, if AutoLoad is true, the scene will be loaded when the player starts.
-        /// </summary>
-        [Flags]
-        public enum Flags
-        {
-            /// <summary>
-            /// Doesn't automatically load the scene.
-            /// </summary>
-            None = 0,
-            /// <summary>
-            /// Loads the scene when the player starts.
-            /// </summary>
-            AutoLoad = 1
-        }
-
-        /// <summary>
-        /// Flags to control the behavior of the asset.
-        /// </summary>
-        public Flags ResourceFlags;
-#endif
-
         /// <summary>
         /// The type of resource.
         /// </summary>
@@ -68,9 +41,7 @@ namespace Unity.Scenes
     /// <summary>
     /// Container for resource data.
     /// </summary>
-#if !UNITY_DOTSRUNTIME
     [MovedFrom(true, "Unity.Entities.Hybrid", "Unity.Entities.Hybrid")]
-#endif
     public struct ResourceCatalogData
     {
         /// <summary>
@@ -108,15 +79,9 @@ namespace Unity.Scenes
                     Debug.LogWarning("Deprecation Warning - Use of GetGUIDFromPath working without extensions is obsolete. (RemovedAfter 2021-02-05)");
                     return resources[i].ResourceId;
                 }
-#if !NET_DOTS
+
                 var currentPathWithoutExtensionLower = currentPathWithoutExtension.ToLower();
                 var pathLower = path.ToLower();
-#else
-                // NET_DOTS doesn't have toLower so we just make sure we export lower case data
-                // as the user is already expected to pass in lowercase strings
-                var currentPathWithoutExtensionLower = currentPathWithoutExtension;
-                var pathLower = path;
-#endif
                 if (pathLower == currentPathWithoutExtensionLower)
                 {
                     Debug.LogWarning("Deprecation Warning - Use of GetGUIDFromPath working with lower-case paths is obsolete. (RemovedAfter 2021-02-05)");

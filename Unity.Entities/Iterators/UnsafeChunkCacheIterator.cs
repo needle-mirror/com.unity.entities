@@ -16,7 +16,7 @@ namespace Unity.Entities
 
         [NoAlias]
         [NativeDisableUnsafePtrRestriction]
-        Chunk**                                _Chunks;
+        ChunkIndex*                            _Chunks;
 
         [NativeDisableUnsafePtrRestriction]
         [NoAlias] EntityComponentStore*        _EntityComponentStore;
@@ -38,7 +38,7 @@ namespace Unity.Entities
 
         internal UnsafeChunkCacheIterator(in EntityQueryFilter filter, bool hasEnableableComponents, UnsafeCachedChunkList list, MatchingArchetype** matchingArchetypes)
         {
-            _Chunks = list.Ptr;
+            _Chunks = list.ChunkIndices;
             Length = list.Length;
             _EntityComponentStore = list.EntityComponentStore;
             _MatchingArchetypes = matchingArchetypes;
@@ -82,8 +82,10 @@ namespace Unity.Entities
         public bool MoveNextChunk(ref int chunkIndexInCache, out ArchetypeChunk outputChunk, out int outputChunkEntityCount, out byte outputUseEnableBits, ref v128 enableBits)
         {
 #if UNITY_BURST_EXPERIMENTAL_PREFETCH_INTRINSIC
-            if (Burst.CompilerServices.Hint.Likely(chunkIndexInCache + 1 < Length))
-                Common.Prefetch(_Chunks[chunkIndexInCache + 1], Common.ReadWrite.Read);
+            if (Hint.Likely(chunkIndexInCache + 1 < Length))
+            {
+                Common.Prefetch(&EntityComponentStore.PerChunkArray.ChunkData[_Chunks[chunkIndexInCache + 1]], Common.ReadWrite.Read);
+            }
 #endif
 
             chunkIndexInCache++;

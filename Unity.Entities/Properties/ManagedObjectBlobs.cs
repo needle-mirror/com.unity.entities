@@ -2,9 +2,7 @@ using System;
 using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-#if !NET_DOTS
 using Unity.Properties;
-#endif
 
 namespace Unity.Entities
 {
@@ -193,10 +191,8 @@ namespace Unity.Entities
                 if (null == value)
                     return;
 
-#if !UNITY_DOTSRUNTIME
                 if (value is UnityEngine.Object)
                     return;
-#endif
             }
 
             if (!TypeTraits<TValue>.IsValueType && typeof(string) != typeof(TValue))

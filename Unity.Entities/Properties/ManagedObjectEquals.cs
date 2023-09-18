@@ -1,12 +1,9 @@
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-#if !NET_DOTS
 using Unity.Properties;
-#endif
 
 namespace Unity.Entities
 {
-#if !UNITY_DOTSRUNTIME
     /// <summary>
     /// Unity.Properties visitor used to deep compare two object instances. This is an internal class.
     /// </summary>
@@ -61,10 +58,9 @@ namespace Unity.Entities
 
             var type = lhs.GetType();
 
-#if !UNITY_DOTSRUNTIME
             if (typeof(UnityEngine.Object).IsAssignableFrom(type))
                 return lhs.Equals(rhs);
-#endif
+
             var properties = PropertyBag.GetPropertyBag(type);
 
             if (null == properties)
@@ -255,13 +251,12 @@ namespace Unity.Entities
 
                 var type = lhs.GetType();
 
-#if !UNITY_DOTSRUNTIME
                 // UnityEngine references can be copied as-is.
                 if (typeof(UnityEngine.Object).IsAssignableFrom(type))
                 {
                     return EqualityComparer<TValue>.Default.Equals(lhs, rhs);
                 }
-#endif
+
                 // Boxed value types can be compared as-is using the default comparer (with boxing).
                 if (!TypeTraits.IsContainer(type))
                 {
@@ -299,15 +294,4 @@ namespace Unity.Entities
             return m_Equals;
         }
     }
-#else
-    class ManagedObjectEqual
-    {
-        public bool CompareEqual(object lhs, object rhs)
-        {
-            if (lhs == null) return rhs == null;
-            if (rhs == null) return false;
-            return lhs.Equals(rhs);
-        }
-    }
-#endif
 }

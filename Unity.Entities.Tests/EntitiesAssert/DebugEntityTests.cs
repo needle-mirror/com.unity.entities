@@ -1,10 +1,6 @@
 using System;
 using NUnit.Framework;
 
-#if !NET_DOTS
-// https://unity3d.atlassian.net/browse/DOTSR-1432
-// EntitiesAssert aren't currently supported.
-
 namespace Unity.Entities.Tests
 {
     public class DebugEntityTests : ECSTestsFixture
@@ -43,10 +39,6 @@ namespace Unity.Entities.Tests
                 debugEntities);
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // TODO: IL2CPP_TEST_RUNNER can't handle Is.Instance() and With() chains
-
         [Test]
         public void GetAllEntities_WithSharedTagEntity()
         {
@@ -54,27 +46,12 @@ namespace Unity.Entities.Tests
 
             var debugEntities = DebugEntity.GetAllEntitiesWithSystems(m_Manager);
 
-#if NET_DOTS
-
-            // until ManagedComponentStore.GetSharedComponentDataBoxed supports an alternative to Activator to construct
-            // a default instance of T, we can't support it here. once implemented, remove this special case to the test
-            // and drop the try/catch from DebugComponent ctor.
-            Assert.That(
-                debugEntities[0].Components[0].Data,
-                Is.InstanceOf<Exception>().With.Message.Match("Implement TypeManager.*DefaultValue"));
-
-#else
-
             EntitiesAssert.AreEqual(
                 new[] { new DebugEntity(entity,
                     new DebugComponent {Type = typeof(Simulate), Data = new Simulate()},
                     new DebugComponent { Type = typeof(EcsTestSharedTag), Data = new EcsTestSharedTag() }) },
                 debugEntities);
-
-#endif
         }
-
-#endif
 
         [Test]
         public void GetAllEntities_WithComponentData()
@@ -136,7 +113,6 @@ namespace Unity.Entities.Tests
                 debugEntities);
         }
 
-#if !UNITY_DOTSRUNTIME
         class TestClassComponent : UnityEngine.Object
         {
             public int Value;
@@ -172,8 +148,6 @@ namespace Unity.Entities.Tests
                     new DebugComponent {Type = typeof(Simulate), Data = new Simulate()}) },
                 debugEntities);
         }
-
-#endif // !UNITY_DOTSRUNTIME
     }
 
     public class DebugComponentTests
@@ -217,5 +191,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-
-#endif // !NET_DOTS

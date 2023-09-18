@@ -47,6 +47,7 @@ namespace Unity.Entities
             /// with bakers handling more components (hence handling base types) being evaluated first.
             /// </remarks>
             public int              CompatibleComponentCount;
+            public bool             ForceBakingForDisabledComponents;
         }
 
 #if UNITY_EDITOR
@@ -61,10 +62,24 @@ namespace Unity.Entities
 
         public static BakerData[] GetBakers(TypeIndex typeIndex)
         {
-            if (!_IndexToBakerInstances.TryGetValue(typeIndex, out var bakerData))
+            if (_IndexToBakerInstances == null || !_IndexToBakerInstances.TryGetValue(typeIndex, out var bakerData))
                 return null;
 
             return bakerData;
+        }
+
+        //Method used by EntityBehaviour in motion
+        internal static int GetBakerIndexInArray(TypeIndex authoringTypeIndex, Type bakerType)
+        {
+            if (_IndexToBakerInstances == null || !_IndexToBakerInstances.TryGetValue(authoringTypeIndex, out var bakerData))
+                return 0;
+            for (int i = 0; i < bakerData.Length; i++)
+            {
+                var data = bakerData[i];
+                if (data.GetType() == bakerType)
+                    return i;
+            }
+            return 0;
         }
 
         public static void Initialize()
@@ -190,7 +205,8 @@ namespace Unity.Entities
                 Baker = baker,
                 Profiler = new ProfilerMarker(baker.GetType().Name),
                 AssemblyData = assemblyData,
-                CompatibleComponentCount = compatibleComponentCount
+                CompatibleComponentCount = compatibleComponentCount,
+                ForceBakingForDisabledComponents = type.IsDefined(typeof(ForceBakingOnDisabledComponentsAttribute))
             };
 
             _IndexToBakerInstances[typeIndex] = bakers;

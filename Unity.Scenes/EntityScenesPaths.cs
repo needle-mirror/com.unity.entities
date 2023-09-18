@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
-#if !NET_DOTS
 using System.Linq;
-#endif
 using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
 

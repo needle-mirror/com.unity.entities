@@ -196,7 +196,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         #region ManagedComponents
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-#if !UNITY_DOTSRUNTIME
         [Test]
         public void UnityEngineComponent() => m_TestSystem.UnityEngineComponent();
 
@@ -205,7 +204,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
         [Test]
         public void UnityEngineScriptableObject() => m_TestSystem.UnityEngineScriptableObject();
-#endif
         [Test]
         public void ManyManagedComponents() => m_TestSystem.ManyManagedComponents();
 #endif
@@ -1475,7 +1473,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
 #region ManagedComponents
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-#if !UNITY_DOTSRUNTIME
             public partial struct UnityEngineComponentJob : IJobEntity
             {
                 void Execute(Transform transform) => transform.position = Vector3.up;
@@ -1522,7 +1519,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 new UnityEngineScriptableObjectJob().Run();
                 Assert.AreEqual(so.value, 1);
             }
-#endif
             public partial struct ManyManagedComponentsJob : IJobEntity
             {
                 void Execute(EcsTestManagedComponent t0, EcsTestManagedComponent2 t1, EcsTestManagedComponent3 t2, EcsTestManagedComponent4 t3)

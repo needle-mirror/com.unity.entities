@@ -1,7 +1,3 @@
-// Run methods for Non DOTS_Runtime (or IL2CPP)
-
-#if !(UNITY_DOTSRUNTIME && !UNITY_DOTSRUNTIME_IL2CPP)
-
 using System;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -34,5 +30,3 @@ namespace Unity.Entities.Internal
         }
     }
 }
-
-#endif

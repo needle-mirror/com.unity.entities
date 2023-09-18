@@ -120,14 +120,14 @@ namespace Unity.Entities
                     }
 
                     var chunk = archetypeChunk.m_Chunk;
-                    var count = chunk->Count;
-                    var entities = (Entity*)chunk->Buffer;
+                    var count = chunk.Count;
+                    var entities = (Entity*)chunk.Buffer;
 
                     for (int entityIndex = 0; entityIndex < count; entityIndex++)
                     {
                         var entity = entities[entityIndex];
 
-                        var managedIndex = *(int*)(chunk->Buffer + (unityObjectTypeOffset + unityObjectTypeSizeOf * entityIndex));
+                        var managedIndex = *(int*)(chunk.Buffer + (unityObjectTypeOffset + unityObjectTypeSizeOf * entityIndex));
                         var obj = (UnityEngine.Component)mcs.GetManagedComponent(managedIndex);
                         var authoringGameObject = obj.gameObject;
                         bool wasActive = authoringGameObject.activeSelf;

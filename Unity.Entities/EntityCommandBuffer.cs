@@ -206,6 +206,14 @@ namespace Unity.Entities
     }
 
     [StructLayout(LayoutKind.Sequential)]
+    internal unsafe struct EntityMoveManagedComponentCommand
+    {
+        public EntityCommand Header;
+        public Entity SrcEntity;
+        public TypeIndex ComponentTypeIndex;
+    }
+
+    [StructLayout(LayoutKind.Sequential)]
     internal unsafe struct EntityUnmanagedSharedComponentCommand
     {
         public EntityCommand Header;
@@ -436,6 +444,7 @@ namespace Unity.Entities
 
         AddManagedComponentData,
         SetManagedComponentData,
+        MoveManagedComponentData,
 
         AddComponentLinkedEntityGroup,
         SetComponentLinkedEntityGroup,
@@ -1812,11 +1821,9 @@ namespace Unity.Entities
 
         private static readonly SharedStatic<int> s_staticSafetyId = SharedStatic<int>.GetOrCreate<EntityCommandBuffer>();
 #endif
-#if !UNITY_DOTSRUNTIME
         // TODO(michalb): bugfix for https://jira.unity3d.com/browse/BUR-1767, remove when burst is upgraded to 1.7.2.
         static readonly ProfilerMarker k_ProfileEcbPlayback = new ProfilerMarker("EntityCommandBuffer.Playback");
         static readonly ProfilerMarker k_ProfileEcbDispose = new ProfilerMarker("EntityCommandBuffer.Dispose");
-#endif
         /// <summary>
         ///     Allows controlling the size of chunks allocated from the temp job allocator to back the command buffer.
         /// </summary>
@@ -1947,9 +1954,7 @@ namespace Unity.Entities
         [BurstCompile]
         static void DisposeInternal(ref EntityCommandBuffer ecb)
         {
-#if !UNITY_DOTSRUNTIME
             k_ProfileEcbDispose.Begin();
-#endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             CollectionHelper.DisposeSafetyHandle(ref ecb.m_Safety0);
             AtomicSafetyHandle.Release(ecb.m_ArrayInvalidationSafety);
@@ -1985,9 +1990,7 @@ namespace Unity.Entities
                 Memory.Unmanaged.Free(ecb.m_Data, ecb.m_Data->m_Allocator);
             }
             ecb.m_Data = null;
-#if !UNITY_DOTSRUNTIME
             k_ProfileEcbDispose.End();
-#endif
         }
 
         /// <summary>
@@ -3435,14 +3438,13 @@ namespace Unity.Entities
             else
             {
                 byte* componentAddr = null;
+                GCHandle handle = default;
                 if (sharedComponent != null)
                 {
-#if !UNITY_DOTSRUNTIME
-                    componentAddr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(sharedComponent, out var gcHandle) + TypeManager.ObjectOffset;
-#else
-                    throw new NotSupportedException("This API is not supported when called with unmanaged shared component on DOTS Runtime");
-#endif
+                    handle = GCHandle.Alloc(sharedComponent, GCHandleType.Pinned);
+                    componentAddr = (byte*)handle.AddrOfPinnedObject();
                 }
+
                 m_Data->AddEntityUnmanagedSharedComponentCommand(
                     &m_Data->m_MainThreadChain,
                     MainThreadSortKey,
@@ -3452,6 +3454,11 @@ namespace Unity.Entities
                     typeIndex,
                     TypeManager.GetTypeInfo(typeIndex).TypeSize,
                     componentAddr);
+
+                if(componentAddr != null)
+                {
+                    handle.Free();
+                }
 
             }
         }
@@ -3672,9 +3679,7 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckWriteAndBumpSecondaryVersion(m_ArrayInvalidationSafety);
 #endif
 
-#if !UNITY_DOTSRUNTIME
             k_ProfileEcbPlayback.Begin();
-#endif
 
             if (ENABLE_PRE_PLAYBACK_VALIDATION)
             {
@@ -3709,9 +3714,7 @@ namespace Unity.Entities
             }
 
             m_Data->m_DidPlayback = true;
-#if !UNITY_DOTSRUNTIME
             k_ProfileEcbPlayback.End();
-#endif
         }
 
         // This enum is used by the ECBInterop to allow us to have generic chain walking code
@@ -3760,6 +3763,7 @@ namespace Unity.Entities
             public void SetComponentLinkedEntityGroup(BasicCommand* header);
             public void ReplaceComponentLinkedEntityGroup(BasicCommand* header);
             public void AddManagedComponentData(BasicCommand* header);
+            public void MoveManagedComponentData(BasicCommand* header);
             public void AddComponentObjectForMultipleEntities(BasicCommand* header);
             public void SetComponentObjectForMultipleEntities(BasicCommand* header);
             public void AddSharedComponentData(BasicCommand* header);
@@ -3785,6 +3789,10 @@ namespace Unity.Entities
             {
                 case ECBCommand.AddManagedComponentData:
                     processor->AddManagedComponentData(header);
+                    break;
+
+                case ECBCommand.MoveManagedComponentData:
+                    processor->MoveManagedComponentData(header);
                     break;
 
                 case ECBCommand.AddSharedComponentData:
@@ -4774,14 +4782,24 @@ namespace Unity.Entities
                 }
 
                 var box = cmd->GetBoxedObject();
-#if !NET_DOTS
                 if (box != null && TypeManager.HasEntityReferences(cmd->ComponentTypeIndex))
                     FixupManagedComponent.FixUpComponent(box, playbackState);
-#endif
 
                 mgr->SetComponentObject(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), box, in originSystem);
             }
 
+
+            [BurstDiscard]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void MoveManagedComponentData(BasicCommand* header)
+            {
+                var cmd = (EntityMoveManagedComponentCommand*)header;
+                var srcEntity = SelectEntity(cmd->SrcEntity, playbackState);
+                var dstEntity = SelectEntity(cmd->Header.Entity, playbackState);
+                var componentType = ComponentType.FromTypeIndex(cmd->ComponentTypeIndex);
+                mgr->MoveComponentObjectDuringStructuralChange(srcEntity, dstEntity, componentType, originSystem);
+                CommitStructuralChanges(mgr, ref archetypeChanges);
+            }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddUnmanagedSharedComponentData(BasicCommand* header)
@@ -4846,10 +4864,8 @@ namespace Unity.Entities
 
                 var box = cmd->GetBoxedObject();
                 var typeIndex = cmd->ComponentTypeIndex;
-#if !NET_DOTS
                 if (box != null && TypeManager.HasEntityReferences(typeIndex))
                     FixupManagedComponent.FixUpComponent(box, playbackState);
-#endif
 
                 for (int len = entities.Length, i = 0; i < len; i++)
                 {
@@ -4881,10 +4897,8 @@ namespace Unity.Entities
 
                 var box = cmd->GetBoxedObject();
                 var typeIndex = cmd->ComponentTypeIndex;
-#if !NET_DOTS
                 if (box != null && TypeManager.HasEntityReferences(typeIndex))
                     FixupManagedComponent.FixUpComponent(box, playbackState);
-#endif
 
                 for (int len = entities.Length, i = 0; i < len; i++)
                 {
@@ -5011,10 +5025,8 @@ namespace Unity.Entities
                 }
 
                 var box = cmd->GetBoxedObject();
-#if !NET_DOTS
                 if (box != null && TypeManager.HasEntityReferences(cmd->ComponentTypeIndex))
                     FixupManagedComponent.FixUpComponent(box, playbackState);
-#endif
 
                 mgr->SetComponentObject(entity, ComponentType.FromTypeIndex(cmd->ComponentTypeIndex), cmd->GetBoxedObject(), in originSystem);
             }
@@ -5223,7 +5235,6 @@ namespace Unity.Entities
             }
         }
 
-#if !NET_DOTS
         class FixupManagedComponent : Unity.Properties.PropertyVisitor, Unity.Properties.IVisitPropertyAdapter<Entity>
         {
             [ThreadStatic]
@@ -5255,7 +5266,6 @@ namespace Unity.Entities
                 }
             }
         }
-#endif
 
         static void SetCommandDataWithFixup(
             EntityComponentStore* mgr, EntityComponentCommand* cmd, Entity entity,
@@ -6438,6 +6448,42 @@ namespace Unity.Entities
             AddEntityManagedComponentCommandFromMainThread(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.AddManagedComponentData, e, default(T));
         }
 
+        /// <summary>Records a command to safely move a managed component (and its current value) from one entity to another</summary>
+        /// <remarks>At playback, this command throws an error if this entity is destroyed before playback,
+        /// if this entity is still deferred, or adding this componentType makes the archetype too large.</remarks>
+        /// <param name="ecb">This entity command buffer.</param>
+        /// <param name="src">The entity whose <typeparamref name="T"/> component should be moved to <paramref name="dst"/>. This entity must have a component of type <typeparamref name="T"/> at playback time.</param>
+        /// <param name="dst">
+        /// The Entity the managed component will be added to. If this entity already has
+        /// <typeparamref name="T"/> with a different value than <paramref name="src"/>, the existing value will be
+        /// removed and disposed before the new value is assigned.
+        /// </param>
+        /// <typeparam name="T"> The type of component to move. Must be a managed type.</typeparam>
+        /// <remarks>
+        /// If the source and destination entity are identical, no operation is performed.
+        ///
+        /// This operation seems similar to
+        ///
+        /// value = GetComponentData&lt;T&gt;(src);
+        /// AddComponentData(dst, value)
+        /// RemoveComponent&lt;T&gt;(src)
+        ///
+        /// But for managed components which implement <see cref="IDisposable"/>, calling RemoveComponent will invoke Dispose() on the component value, leaving the destination entity with an uninitialized object.```
+        /// This operation ensures the component is properly moved over.
+        /// </remarks>
+        /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
+        /// <exception cref="InvalidOperationException">Throws if this EntityCommandBuffer has already been played back.</exception>
+        /// <exception cref="ArgumentException">Throws if <paramref name="src"/> does not have component <typeparamref name="T"/> at playback time.</exception>
+        [SupportedInEntitiesForEach]
+        public static void MoveComponent<T>(this EntityCommandBuffer ecb, Entity src, Entity dst) where T :  class, IComponentData, new()
+        {
+            if (src == dst)
+                return;
+            ecb.EnforceSingleThreadOwnership();
+            ecb.AssertDidNotPlayback();
+            AddMoveManagedComponentCommandFromMainThread<T>(ecb.m_Data, ecb.MainThreadSortKey, ECBCommand.MoveManagedComponentData, src, dst);
+        }
+
         /// <summary> Records a command to set a managed component for an entity.</summary>
         /// <remarks> At playback, this command throws an error if this entity is destroyed before playback,
         /// if this entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if the entity doesn't have the shared component type.</remarks>
@@ -6536,6 +6582,10 @@ namespace Unity.Entities
 
         internal static void AddEntityManagedComponentCommandFromMainThread<T>(EntityCommandBufferData* ecbd, int sortKey, ECBCommand op, Entity e, T component) where T : class
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(e == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed.");
+#endif
             var typeIndex = TypeManager.GetTypeIndex<T>();
             var sizeNeeded = EntityCommandBufferData.Align(sizeof(EntityManagedComponentCommand), 8);
 
@@ -6562,6 +6612,29 @@ namespace Unity.Entities
             {
                 data->GCNode.BoxedObject = new GCHandle();
             }
+        }
+
+        internal static void AddMoveManagedComponentCommandFromMainThread<T>(EntityCommandBufferData* ecbd, int sortKey, ECBCommand op, Entity src, Entity dst) where T : class
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(src == Entity.Null || dst == Entity.Null))
+                throw new InvalidOperationException("Invalid Entity.Null passed.");
+#endif
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+            var sizeNeeded = EntityCommandBufferData.Align(sizeof(EntityMoveManagedComponentCommand), 8);
+
+            var chain = &ecbd->m_MainThreadChain;
+            ecbd->ResetCommandBatching(chain);
+            var data = (EntityMoveManagedComponentCommand*)ecbd->Reserve(chain, sortKey, sizeNeeded);
+
+            data->Header.Header.CommandType = op;
+            data->Header.Header.TotalSize = sizeNeeded;
+            data->Header.Header.SortKey = chain->m_LastSortKey;
+            data->Header.Entity = dst;
+            data->Header.IdentityIndex = 0;
+            data->Header.BatchCount = 1;
+            data->ComponentTypeIndex = typeIndex;
+            data->SrcEntity = src;
         }
     }
 #endif

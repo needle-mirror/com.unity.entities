@@ -26,6 +26,9 @@ To instantiate prefabs that are referenced in components, use an [`EntityManager
 
 [!code-cs[InstantiateEmbeddedPrefabs](../DocCodeSamples.Tests/BakingPrefabExamples.cs#InstantiateEmbeddedPrefabs)]
 
+> [!NOTE]
+> Instanced prefabs will contain a [SceneSection component](streaming-scene-sections.md#entity-prefabs-and-sections). This could affect the lifetime of the entity.
+
 To instantiate a prefab referenced with `EntityPrefabReference`, you must also add the [`RequestEntityPrefabLoaded`](xref:Unity.Scenes.RequestEntityPrefabLoaded) struct to the entity. This is because Unity needs to load the prefab before it can use it. `RequestEntityPrefabLoaded` ensures that the prefab is loaded and the result is added to the `PrefabLoadResult` component. Unity adds the [`PrefabLoadResult`](xref:Unity.Scenes.PrefabLoadResult) component to the same entity that contains the `RequestEntityPrefabLoaded`.
 
 [!code-cs[InstantiateLoadedPrefabs](../DocCodeSamples.Tests/BakingPrefabExamples.cs#InstantiateLoadedPrefabs)]

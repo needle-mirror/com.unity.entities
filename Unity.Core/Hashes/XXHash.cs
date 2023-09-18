@@ -70,7 +70,6 @@ namespace Unity.Core
             return avalanche32(acc);
         }
 
-#if !NET_DOTS
         /// <summary>
         /// Generate a 32-bit xxHash value from a stream.
         /// </summary>
@@ -130,8 +129,6 @@ namespace Unity.Core
             return avalanche32(acc);
         }
 
-#endif
-
         /// <summary>
         /// Generate a 64-bit xxHash value.
         /// </summary>
@@ -175,7 +172,6 @@ namespace Unity.Core
             return avalanche64(acc);
         }
 
-#if !NET_DOTS
         /// <summary>
         /// Generate a 64-bit xxHash value from a stream.
         /// </summary>
@@ -239,8 +235,6 @@ namespace Unity.Core
 
             return avalanche64(acc);
         }
-
-#endif
 
         //[MethodImpl(MethodImplOptions.AggressiveInlining)]
         //private static unsafe (ulong, ulong, ulong, ulong) initAccumulators64(ulong seed)

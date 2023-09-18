@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.IO;
 using Unity.Collections;
@@ -302,4 +301,3 @@ namespace Unity.Entities.Content
 
     }
 }
-#endif

@@ -1,7 +1,4 @@
 using NUnit.Framework;
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-#endif
 using Unity.Entities.Build;
 using Unity.Entities.Hybrid.Tests.Baking.ExcludedAssemblyTest;
 using Unity.Scenes.Editor.Tests;
@@ -34,50 +31,6 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             m_BakingSystem = null;
             m_Settings.TearDown();
         }
-
-#if USING_PLATFORMS_PACKAGE
-        [Test]
-        public void BakingExcludeAssemblyTests()
-        {
-            m_BakingSystem = World.GetOrCreateSystemManaged<BakingSystem>();
-            var manager = World.EntityManager;
-
-            // Create the gameobject with the authoring component
-            var go = CreateGameObject();
-            go.AddComponent<ComponentInAssemblyAuthoring>();
-
-            // Create the a setting with a filter and another one without a filter
-            var normalSettings = MakeDefaultSettings();
-            var exludeSettings = MakeDefaultSettings();
-            var config = BuildConfiguration.CreateInstance((bs) =>
-            {
-                bs.hideFlags = HideFlags.HideAndDontSave;
-                bs.SetComponent(new ConversionSystemFilterSettings("Unity.Entities.Hybrid.Tests.SeparateAssembly"));
-            });
-            exludeSettings.BuildConfiguration = config;
-
-            // Bake the gameobject
-            BakingUtility.BakeGameObjects(World, new[] {go}, normalSettings);
-
-            // With regular baking it is expected that the baker runs and the component is added
-            var entity = m_BakingSystem.GetEntity(go);
-            Assert.AreEqual(true, manager.HasComponent<ComponentInAssemblyComponent>(entity));
-
-            // With the filter we expect that the baker hasn't run and the component is not in the entity
-            BakingUtility.BakeGameObjects(World, new[] {go}, exludeSettings);
-            entity = m_BakingSystem.GetEntity(go);
-            Assert.AreEqual(false, manager.HasComponent<ComponentInAssemblyComponent>(entity));
-
-            // We repeat the same two checks to make sure nothing is left that affects this
-            BakingUtility.BakeGameObjects(World, new[] {go}, normalSettings);
-            entity = m_BakingSystem.GetEntity(go);
-            Assert.AreEqual(true, manager.HasComponent<ComponentInAssemblyComponent>(entity));
-
-            BakingUtility.BakeGameObjects(World, new[] {go}, exludeSettings);
-            entity = m_BakingSystem.GetEntity(go);
-            Assert.AreEqual(false, manager.HasComponent<ComponentInAssemblyComponent>(entity));
-        }
-#endif
 
         [Test]
         public void BakingExcludeAssemblyTests_BuiltInBuildsPath()

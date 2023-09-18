@@ -4,11 +4,6 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using NUnit.Framework;
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-using Unity.Build.Classic;
-using Unity.Build.Common;
-#endif
 using Unity.Entities;
 using Unity.Entities.Hybrid.Tests;
 using Unity.Entities.Tests;

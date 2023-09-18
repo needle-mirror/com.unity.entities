@@ -9,13 +9,9 @@ using Unity.Assertions;
 using UnityEngine;
 using Unity.Collections;
 using Unity.Profiling;
-#if !UNITY_DOTSRUNTIME
 using UnityEngine.LowLevel;
 using UnityEngine.PlayerLoop;
-#endif
-#if !NET_DOTS
 using System.Linq;
-#endif
 
 namespace Unity.Entities
 {
@@ -36,7 +32,6 @@ namespace Unity.Entities
         internal static event Action DefaultWorldDestroyed;
 #pragma warning restore 0067 // unused variable
 
-#if !UNITY_DOTSRUNTIME
         static bool s_UnloadOrPlayModeChangeShutdownRegistered = false;
 
         /// <summary>
@@ -48,7 +43,6 @@ namespace Unity.Entities
         {
             DomainUnloadOrPlayModeChangeShutdown();
         }
-#endif
 
         /// <summary>
         /// Ensures the current World destruction on shutdown or when entering/exiting Play Mode or Domain Reload.
@@ -67,7 +61,6 @@ namespace Unity.Entities
         /// </summary>
         static void RegisterUnloadOrPlayModeChangeShutdown()
         {
-#if !UNITY_DOTSRUNTIME
             if (s_UnloadOrPlayModeChangeShutdownRegistered)
                 return;
 
@@ -82,12 +75,10 @@ namespace Unity.Entities
             RuntimeApplication.RegisterFrameUpdateToCurrentPlayerLoop();
 
             s_UnloadOrPlayModeChangeShutdownRegistered = true;
-#endif
         }
 
         internal static void DomainUnloadOrPlayModeChangeShutdown()
         {
-#if !UNITY_DOTSRUNTIME
             if (!s_UnloadOrPlayModeChangeShutdownRegistered)
                 return;
 
@@ -111,7 +102,6 @@ namespace Unity.Entities
             s_UnloadOrPlayModeChangeShutdownRegistered = false;
 
             DefaultWorldDestroyed?.Invoke();
-#endif
         }
 
         /// <summary>
@@ -152,14 +142,12 @@ namespace Unity.Entities
 
             AddSystemToRootLevelSystemGroupsInternal(world, GetAllSystemTypeIndices(WorldSystemFilterFlags.Default, editorWorld));
 
-#if !UNITY_DOTSRUNTIME
             ScriptBehaviourUpdateOrder.AppendWorldToCurrentPlayerLoop(world);
-#endif
 
             DefaultWorldInitialized?.Invoke(world);
             return world;
         }
-        
+
         /// <summary>
         /// Adds the collection of systems to the world by injecting them into the root level system groups
         /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup). Prefer the version that
@@ -174,7 +162,8 @@ namespace Unity.Entities
             {
                 systemTypeIndices.Add(TypeManager.GetSystemTypeIndex(t));
             }
-            AddSystemToRootLevelSystemGroupsInternal(world, systemTypeIndices);        }
+            AddSystemToRootLevelSystemGroupsInternal(world, systemTypeIndices);
+        }
 
         /// <summary>
         /// Adds the collection of systems to the world by injecting them into the root level system groups
@@ -192,7 +181,7 @@ namespace Unity.Entities
             }
             AddSystemToRootLevelSystemGroupsInternal(world, systemTypeIndices);
         }
-
+        
 
         /// <summary>
         /// Adds the collection of systems to the world by injecting them into the root level system groups
@@ -208,9 +197,9 @@ namespace Unity.Entities
             {
                 indices.Add(TypeManager.GetSystemTypeIndex(systemTypes[i]));
             }
-
             AddSystemToRootLevelSystemGroupsInternal(world, indices);
         }
+        
 
         /// <summary>
         /// Adds the collection of systems to the world by injecting them into the root level system groups
@@ -289,7 +278,7 @@ namespace Unity.Entities
             }
         }
 
-        internal static void AddSystemToRootLevelSystemGroupsInternal(World world, NativeList<SystemTypeIndex> systemTypesOrig) 
+        internal static void AddSystemToRootLevelSystemGroupsInternal(World world, NativeList<SystemTypeIndex> systemTypesOrig)
         {
             using var marker = new ProfilerMarker("AddSystems").Auto();
 
@@ -308,7 +297,7 @@ namespace Unity.Entities
         private static ComponentSystemGroup FindGroup(World world, SystemTypeIndex systemType, TypeManager.SystemAttribute attr)
         {
             var groupTypeIndex = attr.TargetSystemTypeIndex;
-
+            
             if (!TypeManager.IsSystemTypeIndex(groupTypeIndex) || !groupTypeIndex.IsGroup)
             {
                 throw new InvalidOperationException($"Invalid [{nameof(UpdateInGroupAttribute)}] attribute for {systemType}: target group must be derived from {nameof(ComponentSystemGroup)}.");
@@ -371,7 +360,7 @@ namespace Unity.Entities
 
         /// <summary>
         /// Calculates a list of all systems filtered with WorldSystemFilterFlags, [DisableAutoCreation] etc. Prefer
-        /// GetAllSystemTypeIndices where possible to avoid extra reflection.
+        /// GetAllSystemTypeIndices where possible to avoid extra reflection. 
         /// </summary>
         /// <param name="filterFlags">The filter flags to search for.</param>
         /// <param name="requireExecuteInEditor">Optionally require that [WorldSystemFilter(WorldSystemFilterFlags.Editor)] is present on the system. This is used when creating edit mode worlds.</param>
@@ -388,7 +377,7 @@ namespace Unity.Entities
 
             return ret;
         }
-
+        
         /// <summary>
         /// Calculates a list of all systems filtered with WorldSystemFilterFlags, [DisableAutoCreation] etc.
         /// Prefer this over GetAllSystems if possible, to avoid extra reflection usage.
@@ -403,7 +392,6 @@ namespace Unity.Entities
 
         static ICustomBootstrap CreateBootStrap()
         {
-#if !UNITY_DOTSRUNTIME
             var bootstrapTypes = TypeManager.GetTypesDerivedFrom(typeof(ICustomBootstrap));
             Type selectedType = null;
 
@@ -424,9 +412,6 @@ namespace Unity.Entities
                 bootstrap = Activator.CreateInstance(selectedType) as ICustomBootstrap;
 
             return bootstrap;
-#else
-            throw new Exception("This method should have been replaced by code-gen.");
-#endif
         }
     }
 }

@@ -9,10 +9,13 @@ using UnityEngine.SceneManagement;
 using System.Runtime.CompilerServices;
 
 [assembly: InternalsVisibleTo("Unity.Scenes.Hybrid.Tests.Editmode.Content")]
+[assembly: InternalsVisibleTo("Unity.Environment.Editor")]
 namespace Unity.Scenes.Editor
 {
     internal class SubSceneContextMenu
     {
+        private const string k_DefaultFilename = "New Sub Scene";
+
         internal enum NewSubSceneMode
         {
             EmptyScene,
@@ -21,18 +24,20 @@ namespace Unity.Scenes.Editor
 
         internal struct NewSubSceneArgs
         {
-            public NewSubSceneArgs(GameObject target, Scene parentScene, NewSubSceneMode mode)
+            public NewSubSceneArgs(GameObject target, Scene parentScene, NewSubSceneMode mode, string defaultFilename = null)
             {
                 if (target == null && !parentScene.isLoaded)
                     throw new ArgumentException("Missing info for new Sub Scene: Neither GameObject target nor parent scene is valid");
                 this.target = target;
                 this.parentScene = target != null ? target.scene : parentScene;
                 newSubSceneMode = mode;
+                this.defaultFilename = defaultFilename;
             }
 
             public GameObject target;
             public Scene parentScene;
             public NewSubSceneMode newSubSceneMode;
+            public string defaultFilename;
         }
 
         internal static SubScene CreateNewSubSceneAtPath(string path, NewSubSceneArgs args, InteractionMode interactionMode)
@@ -79,7 +84,7 @@ namespace Unity.Scenes.Editor
 
         internal static SubScene CreateSubSceneAndAddSelection(GameObject gameObject, InteractionMode interactionMode = InteractionMode.AutomatedAction)
         {
-            var args = new NewSubSceneArgs(gameObject, default(Scene), NewSubSceneMode.MoveSelectionToScene);
+            var args = new NewSubSceneArgs(gameObject, default(Scene), NewSubSceneMode.MoveSelectionToScene, "New Sub Scene");
 
             return CreateNewSubScene(gameObject.name, args, interactionMode);
         }
@@ -94,13 +99,13 @@ namespace Unity.Scenes.Editor
             var parentScene = target != null ? target.scene : GetLastRootScene();
             var validForEmptyScene = validTarget || !string.IsNullOrEmpty(parentScene.path);
             if (!EditorApplication.isPlaying && validForEmptyScene)
-                menu.AddItem(newEmptySubScene, false, OnMenuItemForNewSubScene, new NewSubSceneArgs(target, parentScene, NewSubSceneMode.EmptyScene));
+                menu.AddItem(newEmptySubScene, false, OnMenuItemForNewSubScene, new NewSubSceneArgs(target, parentScene, NewSubSceneMode.EmptyScene, k_DefaultFilename));
             else
                 menu.AddDisabledItem(newEmptySubScene);
 
             var addSubSceneContent = EditorGUIUtility.TrTextContent("New Sub Scene/From Selection...");
             if (!EditorApplication.isPlaying && validTarget)
-                menu.AddItem(addSubSceneContent, false, OnMenuItemForNewSubScene, new NewSubSceneArgs(target, default(Scene), NewSubSceneMode.MoveSelectionToScene));
+                menu.AddItem(addSubSceneContent, false, OnMenuItemForNewSubScene, new NewSubSceneArgs(target, default(Scene), NewSubSceneMode.MoveSelectionToScene, k_DefaultFilename));
             else
                 menu.AddDisabledItem(addSubSceneContent);
         }
@@ -121,7 +126,7 @@ namespace Unity.Scenes.Editor
             var newEmptySubScene = EditorGUIUtility.TrTextContent("New Empty Sub Scene...");
             var validTarget = target.isLoaded;
             if (!EditorApplication.isPlaying && validTarget)
-                menu.AddItem(newEmptySubScene, false, OnMenuItemForNewSubScene, new NewSubSceneArgs(null, target,  NewSubSceneMode.EmptyScene));
+                menu.AddItem(newEmptySubScene, false, OnMenuItemForNewSubScene, new NewSubSceneArgs(null, target,  NewSubSceneMode.EmptyScene, k_DefaultFilename));
             else
                 menu.AddDisabledItem(newEmptySubScene);
         }
@@ -166,25 +171,33 @@ namespace Unity.Scenes.Editor
         static void OnMenuItemForNewSubScene(object userData)
         {
             var args = (NewSubSceneArgs)userData;
+            PromptUserForNewSubscene(args);
+        }
 
+        /// <summary>
+        /// Display a file picker dialog for the user to create a new Sub Scene
+        /// </summary>
+        /// <param name="args">The creation settings to use</param>
+        /// <returns>The created Sub Scene or null if the operation failed or was canceled</returns>
+        internal static SubScene PromptUserForNewSubscene(NewSubSceneArgs args)
+        {
             if (args.newSubSceneMode == NewSubSceneMode.MoveSelectionToScene)
             {
                 var topLevelSelection = GetValidSelectedGameObjectsForSubSceneCreation(args.target);
                 if (topLevelSelection == null)
-                    return;
+                    return null;
                 try { ThrowIfAnyGameObjectsCannotBeMovedToSubScene(topLevelSelection); }
                 catch (ArgumentException e)
                 {
                     EditorUtility.DisplayDialog("Cannot Move Selection To Sub Scene", e.Message, "OK");
-                    return;
+                    return null;
                 }
             }
 
             var parentScene = args.parentScene.isLoaded ? args.parentScene : args.target.scene;
             var parentSceneName = Path.GetFileNameWithoutExtension(parentScene.path);
             var startFolder = Path.Combine(Path.GetDirectoryName(parentScene.path), parentSceneName);
-            var baseName = "New Sub Scene";
-            var startPath = GetActualPathName(Path.Combine(startFolder, baseName + ".unity"));
+            var startPath = GetActualPathName(Path.Combine(startFolder, args.defaultFilename ?? k_DefaultFilename + ".unity"));
             if (Directory.Exists(startFolder))
                 startPath = AssetDatabase.GenerateUniqueAssetPath(startPath);
 
@@ -223,8 +236,9 @@ namespace Unity.Scenes.Editor
                 if (File.Exists(savePath))
                     AssetDatabase.DeleteAsset(savePath);
 
-                CreateNewSubSceneAtPath(savePath, args, InteractionMode.UserAction);
+                return CreateNewSubSceneAtPath(savePath, args, InteractionMode.UserAction);
             }
+            return null;
         }
 
         static string GetSubSceneFilePathUnderParentSceneFilePath(Scene parentScene, string newSubSceneName)

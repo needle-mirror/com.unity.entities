@@ -5,9 +5,7 @@ using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
-#if !NET_DOTS
 using Unity.Properties;
-#endif
 
 namespace Unity.Entities
 {
@@ -483,19 +481,16 @@ namespace Unity.Entities
             in NativeParallelMultiHashMap<int, Entity> packedEntities,
             in NativeArray<FilteredArchetype> createdArchetypes)
         {
-            var linkedEntityGroupTypeIndex = TypeManager.GetTypeIndex<LinkedEntityGroup>();
             for (int i = 0; i < createdArchetypes.Length; i++)
             {
-                bool hasLinkedEntityGroup = false;
                 var filteredArchetype = createdArchetypes[i];
+
 
                 // Convert ComponentType Indices to ComponentTypes and create a ComponentTypeSet
                 var typeSet = new NativeArray<ComponentType>(filteredArchetype.TypeIndices.Length, Allocator.Temp);
                 for (int j = 0; j < typeSet.Length; j++)
                 {
                     typeSet[j] = ComponentType.ReadOnly(filteredArchetype.TypeIndices[j]);
-                    if (typeSet[j].TypeIndex == linkedEntityGroupTypeIndex)
-                        hasLinkedEntityGroup = true;
                 }
 
                 // Create the archetype
@@ -509,15 +504,6 @@ namespace Unity.Entities
                         // PackedEntityIndices stores the indices of the Entities that have this archetype in the PackedTypes
                         // By adding the Entity to that index, it lines up with the components in PackedTypes used in ApplyAddComponents
                         packedEntities.Add(filteredArchetype.PackedEntityIndices[j], entities[j]);
-
-                        // By convention, the first entity in a LinkedEntityGroup dynamic buffer is the entity that owns it.
-                        // This convention is relied on later in the patching process by BuildPrefabAndLinkedEntityGroupLookups
-                        // and in particular the BuildLinkedEntityGroupHashMap job.
-                        if (hasLinkedEntityGroup)
-                        {
-                            var buffer = entityManager.GetBuffer<LinkedEntityGroup>(entities[j]);
-                            buffer.Add(new LinkedEntityGroup() {Value = entities[j]});
-                        }
                     }
                 }
             }
@@ -1435,12 +1421,6 @@ namespace Unity.Entities
                         {
                             do
                             {
-                                if (rootEntity == prefabEntityToInstantiate)
-                                {
-                                    Debug.LogWarning($"Trying to instantiate self as child?");
-                                    continue;
-                                }
-
                                 if (entityManager.HasComponent<Prefab>(rootEntity))
                                 {
                                     entityManager.GetBuffer<LinkedEntityGroup>(rootEntity).Add(prefabEntityToInstantiate);
@@ -1501,16 +1481,6 @@ namespace Unity.Entities
                             Debug.LogWarning("Failed to add a linked child. Multiple instances of the child entity were found in the destination world.");
                             continue;
                         }
-
-                        if (rootEntity == childEntityToLink)
-                        {
-                            // While this is actually valid and the intended way to use LinkedEntityGroup.
-                            // We should never receive change set with this change.
-                            // Instead we automatically add the root when adding the LinkedEntityGroup component.
-                            Debug.LogWarning("Failed to add a linked child. Unable to link the root as a child.");
-                            continue;
-                        }
-
                         entityManager.GetBuffer<LinkedEntityGroup>(rootEntity).Add(childEntityToLink);
                         entityToLinkedEntityGroupRoot.TryAdd(childEntityToLink, rootEntity);
                     }

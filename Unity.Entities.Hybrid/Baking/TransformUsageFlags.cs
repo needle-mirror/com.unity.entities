@@ -3,10 +3,10 @@ using System;
 namespace Unity.Entities
 {
     /// <summary>
-    /// Controls how Transform components on GameObjects are converted to entity data. 
+    /// Controls how Transform components on GameObjects are converted to entity data.
     /// </summary>
     /// <remarks>
-    /// These flags help to reduce the number of unnecessary transform components in baked entities based on their 
+    /// These flags help to reduce the number of unnecessary transform components in baked entities based on their
     /// intended use at runtime.
     ///
     /// The Dynamic flag replicates as close as possible the GameObject data and structure.
@@ -44,8 +44,7 @@ namespace Unity.Entities
     /// takes off, the hierarchy needs to be broken manually at runtime and the transform data converted to world
     /// space.
     ///
-    /// If the helicopter can shoot some bullets, the bullet entity prefab should be marked as Dynamic so it can be
-    /// instantiated at the right position and moved.
+    /// If the helicopter can shoot some bullets, the bullet entity prefab will automatically be marked as Dynamic so the instances can be placed in the world.
     ///
     /// There is also a case where an Entity might be stripped out from the final world during baking. This happens
     /// when there is no baker adding a TransformUsageFlag to it (TranformUsageFlags.None counts as adding a
@@ -60,7 +59,7 @@ namespace Unity.Entities
     public enum TransformUsageFlags : int
     {
         /// <summary>
-        /// Specifies that the entity doesn't need transform components. 
+        /// Specifies that the entity doesn't need transform components.
         /// </summary>
         /// <remarks>
         /// Unless something else requests other flags, this entity doesn't have any transform related components and isn't part of a hierarchy.
@@ -71,7 +70,7 @@ namespace Unity.Entities
         None = 0,
 
         /// <summary>
-        /// Indicates that an entity requires the necessary transform components to be rendered (<see cref="Unity.Transforms.LocalToWorld"/>), 
+        /// Indicates that an entity requires the necessary transform components to be rendered (<see cref="Unity.Transforms.LocalToWorld"/>),
         /// but it doesn't require the transform components needed to move the entity at runtime.
         /// </summary>
         /// <remarks>
@@ -90,7 +89,7 @@ namespace Unity.Entities
         Dynamic = 1 << 1,
 
         /// <summary>
-        /// Indicates that an entity needs to be in world space, even if they have a Dynamic entity as a parent. 
+        /// Indicates that an entity needs to be in world space, even if they have a Dynamic entity as a parent.
         /// </summary>
         /// <remarks>
         /// This means that an entity doesn't have a <see cref="Unity.Transforms.Parent"/> component and all their
@@ -100,7 +99,7 @@ namespace Unity.Entities
         WorldSpace = 1 << 2,
 
         /// <summary>
-        /// Indicates that an entity requires transform components to represent non uniform scale. 
+        /// Indicates that an entity requires transform components to represent non uniform scale.
         /// </summary>
         /// <remarks>
         /// For Dynamic entities, all the scale information is stored in a <see cref="Unity.Transforms.PostTransformMatrix"/> component.

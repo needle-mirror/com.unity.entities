@@ -2,13 +2,10 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using System.Runtime.CompilerServices;
-#if !NET_DOTS
 using Unity.Properties;
-#endif
 
 namespace Unity.Entities
 {
-#if !NET_DOTS
     /// <summary>
     /// Unity.Properties visitor used to deep clone object instances. This is an internal class.
     /// </summary>
@@ -62,11 +59,9 @@ namespace Unity.Entities
 
             var type = obj.GetType();
 
-#if !UNITY_DOTSRUNTIME
             // UnityEngine references are always by reference.
             if (typeof(UnityEngine.Object).IsAssignableFrom(type))
                 return obj;
-#endif
             var instance = type.IsArray
                 ? Array.CreateInstance(type.GetElementType(), obj is IList srcList ? srcList.Count : 0)
                 : Activator.CreateInstance(type);
@@ -256,14 +251,13 @@ namespace Unity.Entities
             {
                 var type = srcValue.GetType();
 
-#if !UNITY_DOTSRUNTIME
                 // UnityEngine references can be copied as-is.
                 if (typeof(UnityEngine.Object).IsAssignableFrom(type))
                 {
                     dstValue = srcValue;
                     return;
                 }
-#endif
+
                 // Boxed value types can be copied as-is.
                 if (!TypeTraits.IsContainer(type))
                 {
@@ -340,19 +334,4 @@ namespace Unity.Entities
             m_RootDestination = null;
         }
     }
-#else
-    class ManagedObjectClone
-    {
-        public object Clone(object obj)
-        {
-            if (obj is ICloneable cloneable) return cloneable.Clone();
-            return obj;
-        }
-
-        public void ClearGCRefs()
-        {
-            //no-op, no references to clear
-        }
-    }
-#endif
 }

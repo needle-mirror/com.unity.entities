@@ -101,7 +101,7 @@ namespace Unity.Entities
     /// <example>
     /// <code source="../DocCodeSamples.Tests/BlobAssetExamples.cs" region="builderclassexample" title="BlobBuilder Example"/>
     /// </example>
-    unsafe public struct BlobBuilder : IDisposable
+    unsafe public partial struct BlobBuilder : IDisposable
     {
         AllocatorManager.AllocatorHandle m_allocator;
         NativeList<BlobAllocation> m_allocations;
@@ -307,8 +307,12 @@ namespace Unity.Entities
         /// <returns>Returns a reference to the blob asset in unmanaged memory.</returns>
         public BlobAssetReference<T> CreateBlobAssetReference<T>(AllocatorManager.AllocatorHandle allocator) where T : unmanaged
         {
-            //Align last chunk upwards so all chunks are 16 byte aligned
-            AlignChunk(m_currentChunkIndex);
+            // Avoid crash when there are no chunks (DOTS-8681)
+            if (m_currentChunkIndex != -1)
+            {
+                //Align last chunk upwards so all chunks are 16 byte aligned
+                AlignChunk(m_currentChunkIndex);
+            }
 
             var offsets = new NativeArray<int>(m_allocations.Length + 1, Allocator.Temp);
             var sortedAllocs = new NativeArray<SortedIndex>(m_allocations.Length, Allocator.Temp);
@@ -472,6 +476,12 @@ namespace Unity.Entities
             blobDataRef = default;
             return false;
         }
+
+        /// <summary>
+        /// Returns true if this BlobBuilder has been allocated.
+        /// </summary>
+        public readonly bool IsCreated
+            => m_allocations.IsCreated;
 
         /// <summary>
         /// Disposes of this BlobBuilder instance and frees its temporary memory allocations.

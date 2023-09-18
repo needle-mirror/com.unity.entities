@@ -1,11 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.IO;
-#if UNITY_DOTSRUNTIME
-using Unity.Runtime.IO;
-#else
 using Unity.Entities.Content;
-#endif
 using System.Runtime.InteropServices;
 using Unity.Assertions;
 using Unity.Collections;
@@ -17,9 +13,7 @@ using Unity.IO.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Profiling;
 using UnityEngine;
-#if !NET_DOTS
 using System.Linq;
-#endif
 
 namespace Unity.Scenes
 {
@@ -34,10 +28,7 @@ namespace Unity.Scenes
         public BlobAssetReference<DotsSerialization.BlobHeader> BlobHeader;
         public BlobAssetOwner BlobHeaderOwner;
         public Entity SceneSectionEntity;
-
-#if !UNITY_DOTSRUNTIME
         public UntypedWeakReferenceId UnityObjectRefId;
-#endif
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         public PostLoadCommandBuffer PostLoadCommandBuffer;
 #endif
@@ -60,7 +51,7 @@ namespace Unity.Scenes
             return $"AsyncLoadSceneJob({_ScenePath})";
         }
 
-        unsafe struct FreeJob : IJob
+        struct FreeJob : IJob
         {
             [NativeDisableUnsafePtrRestriction]
             public void* Ptr;
@@ -79,7 +70,7 @@ namespace Unity.Scenes
                     for (int i = 0; i < length; ++i)
                     {
                         var chunks = DeserializationStatus.MegaChunkInfoList[i];
-                        EntityComponentStore.FreeContiguousChunks((Chunk*)chunks.MegaChunkAddress, chunks.MegaChunkSize);
+                        EntityComponentStore.FreeContiguousChunks(chunks.MegaChunkIndex, chunks.MegaChunkSize);
                     }
                 }
 
@@ -99,10 +90,9 @@ namespace Unity.Scenes
                 freeJob.FreeChunks = true;
                 freeJob.Schedule(_ReadHandle.JobHandle);
             }
-#if !UNITY_DOTSRUNTIME
+
             if (_UnityObjectRefId.IsValid)
                 RuntimeContentManager.ReleaseObjectAsync(_UnityObjectRefId);
-#endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             _Data.PostLoadCommandBuffer?.Dispose();
@@ -118,9 +108,8 @@ namespace Unity.Scenes
             public long                         FileLength;
 
             public GCHandle                     LoadingOperationHandle;
-#if !UNITY_DOTSRUNTIME
             public GCHandle                     ObjectReferencesHandle;
-#endif
+
             public ExclusiveEntityTransaction   Transaction;
             public NativeArray<SerializeUtility.WorldDeserializationResult> DeserializationResult;
 
@@ -136,10 +125,9 @@ namespace Unity.Scenes
                 LoadingOperationHandle.Free();
 
                 object[] objectReferences = null;
-#if !UNITY_DOTSRUNTIME
                 objectReferences = (object[]) ObjectReferencesHandle.Target;
                 ObjectReferencesHandle.Free();
-#endif
+
                 try
                 {
                     SerializeUtility.WorldDeserializationResult deserializationResult;
@@ -177,11 +165,9 @@ namespace Unity.Scenes
         ref EntityManager           _EntityManager => ref _Data.EntityManager;
         bool                    _BlockUntilFullyLoaded => _Data.BlockUntilFullyLoaded;
 
-#if !UNITY_DOTSRUNTIME
         UntypedWeakReferenceId _UnityObjectRefId;
 #if UNITY_EDITOR
         RuntimeContentManager.InstanceHandle _UnityObjectRefsHandle;
-#endif
 #endif
 
         LoadingStatus           _LoadingStatus;
@@ -201,9 +187,7 @@ namespace Unity.Scenes
         public AsyncLoadSceneOperation(AsyncLoadSceneData asyncLoadSceneData)
         {
             _Data = asyncLoadSceneData;
-#if !UNITY_DOTSRUNTIME
             _UnityObjectRefId = asyncLoadSceneData.UnityObjectRefId;
-#endif
             _LoadingStatus = LoadingStatus.NotStarted;
             _DeserializationResultArray = new NativeArray<SerializeUtility.WorldDeserializationResult>(1, Allocator.Persistent);
         }
@@ -229,14 +213,13 @@ namespace Unity.Scenes
 
         public Exception Exception => _LoadingException;
 
-#if !UNITY_DOTSRUNTIME
         public UntypedWeakReferenceId StealReferencedUnityObjects()
         {
             var tmp = _UnityObjectRefId;
             _UnityObjectRefId = default;
             return tmp;
         }
-#endif
+
         private void UpdateBlocking()
         {
             if (_LoadingStatus == LoadingStatus.Completed)
@@ -259,7 +242,6 @@ namespace Unity.Scenes
                     throw new InvalidOperationException("BlobHeader must be valid");
                 }
 
-#if !UNITY_DOTSRUNTIME
                 if (_UnityObjectRefId.IsValid)
                 {
 #if UNITY_EDITOR
@@ -270,7 +252,7 @@ namespace Unity.Scenes
                     RuntimeContentManager.WaitForObjectCompletion(_UnityObjectRefId);
 #endif
                 }
-#endif
+
                 ScheduleSceneRead();
                 _EntityManager.EndExclusiveEntityTransaction();
                 PostProcessScene();
@@ -330,7 +312,6 @@ namespace Unity.Scenes
                         }
                     }
 
-#if !UNITY_DOTSRUNTIME
                     if (_UnityObjectRefId.IsValid)
                     {
 #if UNITY_EDITOR
@@ -348,10 +329,6 @@ namespace Unity.Scenes
                     {
                         _LoadingStatus = LoadingStatus.WaitingForEntitiesLoad;
                     }
-
-#else
-                    _LoadingStatus = LoadingStatus.WaitingForEntitiesLoad;
-#endif
                 }
                 catch (Exception e)
                 {
@@ -361,7 +338,6 @@ namespace Unity.Scenes
                 }
             }
 
-#if !UNITY_DOTSRUNTIME
             // Once async asset bundle load is done, we can read the asset
             if (_LoadingStatus == LoadingStatus.WaitingForUnityObjectReferencesLoad)
             {
@@ -372,24 +348,9 @@ namespace Unity.Scenes
 #endif
                     _LoadingStatus = LoadingStatus.WaitingForEntitiesLoad;
             }
-#endif
 
             if (_LoadingStatus == LoadingStatus.WaitingForEntitiesLoad)
             {
-                // All jobs in DOTS Runtime when singlethreaded will be executed immediately
-                // so if we were to create a job for IO, we would block, which is a guaranteed deadlock on the web
-                // so we must early out until the async read has completed without waiting on the jobhandle.
-#if UNITY_DOTSRUNTIME && UNITY_SINGLETHREADED_JOBS
-                if (_ReadHandle.Status == ReadStatus.InProgress)
-                    return;
-                if (_ReadHandle.Status == ReadStatus.Failed)
-                {
-                    _LoadingFailure = $"Failed to read '{_ScenePath}'";
-                    _LoadingStatus = LoadingStatus.Completed;
-                    return;
-                }
-                Assert.IsTrue(_ReadHandle.Status == ReadStatus.Complete);
-#endif
                 try
                 {
                     _LoadingStatus = LoadingStatus.WaitingForSceneDeserialization;
@@ -438,8 +399,8 @@ namespace Unity.Scenes
         void ScheduleSceneRead()
         {
             var transaction = _EntityManager.BeginExclusiveEntityTransaction();
-#if !UNITY_DOTSRUNTIME
             UnityEngine.Object[] objectReferences = null;
+
 #if UNITY_EDITOR
             if (_UnityObjectRefsHandle.IsValid)
             {
@@ -462,43 +423,10 @@ namespace Unity.Scenes
                 DeserializationResult = _DeserializationResultArray,
                 SceneSectionEntity = _Data.SceneSectionEntity
             };
-#else
-            var loadJob = new AsyncLoadSceneJob
-            {
-                Transaction = transaction,
-                LoadingOperationHandle = GCHandle.Alloc(this),
-                DeserializationStatus = _DeserializationStatus,
-                BlobHeader = _Data.BlobHeader,
-                FileContent = _FileContent,
-                FileLength = _SceneSize,
-                DeserializationResult = _DeserializationResultArray,
-                SceneSectionEntity = _Data.SceneSectionEntity
-            };
-#endif
 
-#if !UNITY_DOTSRUNTIME
             var loadJobHandle = loadJob.Schedule(JobHandle.CombineDependencies(
                 _EntityManager.ExclusiveEntityTransactionDependency,
                 _ReadHandle.JobHandle));
-#else
-
-            JobHandle decompressJob = default;
-            if (_Data.Codec != Codec.None)
-            {
-                decompressJob = new DecompressJob()
-                {
-                    Codec = _Data.Codec,
-                    AsyncOp = _ReadHandle.mAsyncOp,
-                    DecompressedData = _FileContent,
-                    DecompressedDataSize = _Data.SceneSize
-                }.Schedule(_ReadHandle.mJobHandle);
-            }
-
-            var loadJobHandle = loadJob.Schedule(JobHandle.CombineDependencies(
-                _EntityManager.ExclusiveEntityTransactionDependency,
-                _ReadHandle.JobHandle,
-                decompressJob));
-#endif
             _EntityManager.ExclusiveEntityTransactionDependency = loadJobHandle;
             _DeserializationStatus = default; // _DeserializationStatus is disposed by AsyncLoadSceneJob
             var freeJob = new FreeJob { Ptr = _FileContent, ReadCommands = _ReadCommands, ReadHandle = _ReadHandle };
@@ -509,14 +437,11 @@ namespace Unity.Scenes
             _ReadHandle = default;
         }
 
-#if !UNITY_DOTSRUNTIME
         static readonly ProfilerMarker s_PostProcessScene = new ProfilerMarker(nameof(PostProcessScene));
-#endif
         void PostProcessScene()
         {
-#if !UNITY_DOTSRUNTIME
             using var marker = s_PostProcessScene.Auto();
-#endif
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             if (_Data.PostLoadCommandBuffer != null)
             {
@@ -535,23 +460,4 @@ namespace Unity.Scenes
                 _EntityManager.AddSharedComponentManaged(missingSceneTag, new SceneTag { SceneEntity = _Data.SceneSectionEntity });
         }
     }
-
-#if UNITY_DOTSRUNTIME
-    public unsafe struct DecompressJob : IJob
-    {
-        public AsyncOp AsyncOp;
-        internal Codec Codec;
-        public unsafe byte* DecompressedData;
-        public int DecompressedDataSize;
-
-        public void Execute()
-        {
-            AsyncOp.GetData(out var compressedData, out var compressedDataSize);
-            bool result = CodecService.Decompress(Codec, compressedData, compressedDataSize, DecompressedData, DecompressedDataSize);
-
-            if (!result)
-                throw new Exception("Failed to decompress using codec " + Codec.ToString());
-        }
-    }
-#endif
 }

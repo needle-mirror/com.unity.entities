@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.Threading;
 using NUnit.Framework;
@@ -113,4 +112,3 @@ namespace Unity.Entities.Tests.Content
         }
     }
 }
-#endif

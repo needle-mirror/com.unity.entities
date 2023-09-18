@@ -14,9 +14,7 @@
     "overrideReferences": false,
     "precompiledReferences": [],
     "autoReferenced": true,
-    "defineConstraints": [
-        "!UNITY_DOTSRUNTIME"
-    ],
+    "defineConstraints": [],
     "versionDefines": [
         {
             "name": "com.unity.render-pipelines.high-definition",

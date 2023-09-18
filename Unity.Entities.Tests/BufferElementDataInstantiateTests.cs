@@ -2,10 +2,7 @@ using System;
 using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
-
-#if !UNITY_PORTABLE_TEST_RUNNER
 using System.Linq;
-#endif
 
 #pragma warning disable 0649
 #pragma warning disable 0219 // assigned but its value is never used
@@ -64,10 +61,6 @@ namespace Unity.Entities.Tests
             public byte Value;
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // TODO: IL2CPP_TEST_RUNNER doesn't support the Assert.That / Has behavior
-        //        LINQ code is unsupported as well.
         [Test]
         public void DuplicatingEntity_WhenPrototypeHasDynamicBuffer_DoesNotWriteOutOfBounds()
         {
@@ -150,8 +143,6 @@ namespace Unity.Entities.Tests
                     duplicate.Dispose();
             }
         }
-
-#endif
     }
 }
 

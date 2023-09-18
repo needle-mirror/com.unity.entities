@@ -1,7 +1,5 @@
 using NUnit.Framework;
 using System;
-#if !NET_DOTS
-#endif
 
 namespace Unity.Entities.Tests
 {
@@ -60,10 +58,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(testData.value, 2);
         }
 
-#if !NET_DOTS
-// https://unity3d.atlassian.net/browse/DOTSR-1432
-// EntitiesAssert isn't currently supported
-
         [Test]
         public void RemoveComponentTwiceIgnored()
         {
@@ -81,8 +75,6 @@ namespace Unity.Entities.Tests
             Assert.That(removed0, Is.True);
             Assert.That(removed1, Is.False);
         }
-
-#endif
 
         [Test]
         public void RemoveSharedComponentTwiceIgnored()

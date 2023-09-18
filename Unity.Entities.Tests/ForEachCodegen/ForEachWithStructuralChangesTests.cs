@@ -9,9 +9,7 @@ using Unity.Jobs;
 using Unity.Transforms;
 using UnityEngine;
 using UnityEngine.TestTools;
-#if !UNITY_PORTABLE_TEST_RUNNER
 using System.Linq;
-#endif
 
 namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
 {
@@ -144,7 +142,6 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
         }
 
         [Test]
-        [IgnoreInPortableTests("Assert.Throws isn't supported; the test runner doesn't currently find the lambda function.")]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void DestroyEntity_EntityOperations_ShouldThrowWhenRequired()
         {
@@ -164,7 +161,6 @@ namespace Unity.Entities.Tests.ForEachWithStructuralChangesCodegen
         }
 
         [Test]
-        [IgnoreInPortableTests("Assert.Throws isn't supported; the test runner doesn't currently find the lambda function.")]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void RemoveComponent_GetOrSetOfRemovedComponent_Throws()
         {

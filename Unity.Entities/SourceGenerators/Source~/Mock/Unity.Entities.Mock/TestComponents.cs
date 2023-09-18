@@ -4,6 +4,7 @@
 using System.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Entities.Internal;
 using Unity.Entities.Serialization;
 
 namespace Unity.Entities.Tests
@@ -18,7 +19,7 @@ namespace Unity.Entities.Tests
         public int Value;
     }
 
-    public struct GenericComponentData<T> : IComponentData where T : unmanaged, IComponentData
+    public struct GenericComponentData<T> : IComponentData where T : unmanaged
     {
 
     }
@@ -65,6 +66,15 @@ namespace Unity.Entities.Tests
     public struct EcsIntElement : IBufferElementData
     {
         public int Value;
+        public static implicit operator int(EcsIntElement a) => a.Value;
+        public static implicit operator EcsIntElement(int val) => new() {Value = val};
+    }
+
+    public struct EcsFloatElement : IBufferElementData
+    {
+        public float Value;
+        public static implicit operator float(EcsFloatElement a) => a.Value;
+        public static implicit operator EcsFloatElement(float val) => new() {Value = val};
     }
 
     public struct EcsTestSharedComp : ISharedComponentData
@@ -75,6 +85,16 @@ namespace Unity.Entities.Tests
         {
             value = inValue;
         }
+    }
+
+    public struct EcsTestSharedCompA : ISharedComponentData
+    {
+        public int value;
+    }
+
+    public struct EcsTestSharedCompB : ISharedComponentData
+    {
+        public int value;
     }
 
     public class EcsTestManagedComponent : IComponentData
@@ -95,7 +115,7 @@ namespace Unity.Entities.Tests
         public void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all) =>
             throw new NotImplementedException();
 
-        public struct Lookup
+        public struct Lookup : InternalCompilerInterface.IAspectLookup<EcsTestAspect>
         {
             public Lookup(ref global::Unity.Entities.SystemState state) =>
                 throw new NotImplementedException();
@@ -134,8 +154,8 @@ namespace Unity.Entities.Tests
             IEnumerator IEnumerable.GetEnumerator() => GetEnumerator();
         }
 
-        public static void CompleteDependencyBeforeRO(ref SystemState state) { }
-        public static void CompleteDependencyBeforeRW(ref SystemState state) { }
+        public void CompleteDependencyBeforeRO(ref SystemState state) { }
+        public void CompleteDependencyBeforeRW(ref SystemState state) { }
     }
 
     public struct EcsTestDataEntity : IComponentData

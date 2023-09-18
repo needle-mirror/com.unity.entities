@@ -100,13 +100,7 @@ namespace Unity.Core.Compression
             }
         }
 
-#if !UNITY_DOTSRUNTIME
-        // We assume when not using DOTS Runtime the liblz4 dll is provided externally for linking
         const string DllName = "liblz4";
-        
-#else
-        const string DllName = "lib_unity_entities";
-#endif
         [DllImport(DllName, EntryPoint = "LZ4_compressBound")]
         static extern unsafe int CompressBoundLZ4(int srcSize);
         [DllImport(DllName, EntryPoint = "LZ4_compress_default")]

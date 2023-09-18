@@ -1,9 +1,9 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
-using Unity.Entities.SourceGen.SystemGenerator.Common;
+using Unity.Entities.SourceGen.Common;
 
-namespace Unity.Entities.SourceGen.Common
+namespace Unity.Entities.SourceGen.SystemGenerator.Common
 {
     public static class QueryVerification
     {
@@ -19,17 +19,25 @@ namespace Unity.Entities.SourceGen.Common
             {
                 var queryTypeSymbol = query.TypeSymbol;
 
-                bool isValidQueryType =
-                    queryTypeSymbol.InheritsFromInterface("Unity.Entities.IComponentData") ||
-                    queryTypeSymbol.InheritsFromInterface("Unity.Entities.ISharedComponentData") ||
-                    queryTypeSymbol.InheritsFromInterface("Unity.Entities.IBufferElementData") ||
-                    queryTypeSymbol.InheritsFromInterface($"Unity.Entities.IAspect") ||
-                    queryTypeSymbol.Is("UnityEngine.Object");
-
-                if (!isValidQueryType)
+                if (queryTypeSymbol is ITypeParameterSymbol)
                 {
-                    QueryConstructionErrors.SGQC001(systemDescription, location, queryTypeSymbol.Name, invokedMethodName);
+                    QueryConstructionErrors.SGQC005(systemDescription, location, queryTypeSymbol.Name, invokedMethodName);
                     success = false;
+                }
+                else
+                {
+                    var isValidQueryType =
+                        queryTypeSymbol.InheritsFromInterface("Unity.Entities.IComponentData") ||
+                        queryTypeSymbol.InheritsFromInterface("Unity.Entities.ISharedComponentData") ||
+                        queryTypeSymbol.InheritsFromInterface("Unity.Entities.IBufferElementData") ||
+                        queryTypeSymbol.InheritsFromInterface($"Unity.Entities.IAspect") ||
+                        queryTypeSymbol.Is("UnityEngine.Object");
+
+                    if (!isValidQueryType)
+                    {
+                        QueryConstructionErrors.SGQC001(systemDescription, location, queryTypeSymbol.Name, invokedMethodName);
+                        success = false;
+                    }
                 }
             }
             return success;

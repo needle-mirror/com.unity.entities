@@ -10,7 +10,7 @@ namespace Unity.Entities.Editor
     /// <summary>
     /// The <see cref="ComponentDataDiffer"/> is use to efficiently track changes for a given <see cref="IComponentData"/> type over time.
     /// </summary>
-    class ComponentDataDiffer : IDisposable
+    unsafe class ComponentDataDiffer : IDisposable
     {
         /// <summary>
         /// The structure returned when gathering changes. This can be used to unpack all changes since the last diff.
@@ -224,7 +224,7 @@ namespace Unity.Entities.Editor
         /// </summary>
         unsafe struct ChunkChanges : IDisposable
         {
-            public Chunk* Chunk;
+            public ChunkIndex Chunk;
             public ChunkShadow Shadow;
             public UnsafeList<byte> AddedComponentData;
             public UnsafeList<byte> RemovedComponentData;
@@ -233,7 +233,7 @@ namespace Unity.Entities.Editor
 
             public void Dispose()
             {
-                Chunk = null;
+                Chunk = ChunkIndex.Null;
                 Shadow = default;
                 AddedComponentData.Dispose();
                 RemovedComponentData.Dispose();
@@ -241,6 +241,8 @@ namespace Unity.Entities.Editor
                 RemovedEntities.Dispose();
             }
         }
+
+        readonly EntityComponentStore* m_EntityComponentStore;
 
         /// <summary>
         /// The type index for the tracked component.
@@ -316,7 +318,7 @@ namespace Unity.Entities.Editor
         /// </summary>
         /// <param name="componentType">The component type to diff.</param>
         /// <exception cref="ArgumentException">The specified component can not be watched by the differ.</exception>
-        public ComponentDataDiffer(ComponentType componentType)
+        public ComponentDataDiffer(EntityComponentStore* ecs, ComponentType componentType)
         {
             if (!CanWatch(componentType))
                 throw new ArgumentException($"{nameof(ComponentDataDiffer)} only supports unmanaged {nameof(IComponentData)} components.", nameof(componentType));
@@ -335,6 +337,7 @@ namespace Unity.Entities.Editor
             m_RemovedChunks = new NativeList<ChunkShadow>(Allocator.Persistent);
             m_RemovedEntities = new NativeList<Entity>(Allocator.Persistent);
             m_RemovedComponents = new NativeList<byte>(Allocator.Persistent);
+            m_EntityComponentStore = ecs;
         }
 
         public void Dispose()
@@ -451,6 +454,7 @@ namespace Unity.Entities.Editor
             {
                 TypeIndex = m_TypeIndex,
                 Chunks = chunks,
+                EntityComponentStore = m_EntityComponentStore,
                 ComponentSize = m_ComponentSize,
                 GatheredChangesByChunk = m_ChangesByChunk.AsDeferredJobArray(),
                 AllocatedChunkShadowsByChunk = m_AllocatedChunkShadowByChunk.AsDeferredJobArray(),
@@ -507,15 +511,17 @@ namespace Unity.Entities.Editor
             public void Execute(int index)
             {
                 var chunk = Chunks[index].m_Chunk;
-                var archetype = chunk->Archetype;
+                var archetype = Chunks[index].Archetype.Archetype;
                 var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex);
 
                 if (indexInTypeArray == -1) return;
 
-                if (ShadowChunksBySequenceNumber.TryGetValue(chunk->SequenceNumber, out var shadow))
+                if (ShadowChunksBySequenceNumber.TryGetValue(chunk.SequenceNumber, out var shadow))
                 {
-                    if (!ChangeVersionUtility.DidChange(chunk->GetChangeVersion(indexInTypeArray), shadow.Ptr->ComponentVersion) &&
-                        !ChangeVersionUtility.DidChange(chunk->GetChangeVersion(0), shadow.Ptr->EntityVersion))
+                    var componentVersion = archetype->Chunks.GetChangeVersion(indexInTypeArray, chunk.ListIndex);
+                    var entityVersion = archetype->Chunks.GetChangeVersion(0, chunk.ListIndex);
+                    if (!ChangeVersionUtility.DidChange(componentVersion, shadow.Ptr->ComponentVersion) &&
+                        !ChangeVersionUtility.DidChange(entityVersion, shadow.Ptr->EntityVersion))
                         return;
 
                     var changesForChunk = GatheredChanges + index;
@@ -530,10 +536,10 @@ namespace Unity.Entities.Editor
                         changesForChunk->RemovedComponentData = new UnsafeList<byte>(0, Allocator.TempJob);
                     }
 
-                    var entityDataPtr = chunk->Buffer + archetype->Offsets[0];
-                    var componentDataPtr = chunk->Buffer + archetype->Offsets[indexInTypeArray];
+                    var entityDataPtr = chunk.Buffer + archetype->Offsets[0];
+                    var componentDataPtr = chunk.Buffer + archetype->Offsets[indexInTypeArray];
 
-                    var currentCount = chunk->Count;
+                    var currentCount = chunk.Count;
                     var previousCount = shadow.Ptr->Count;
 
                     var i = 0;
@@ -569,14 +575,14 @@ namespace Unity.Entities.Editor
                 }
                 else
                 {
-                    var addedComponentDataBuffer = new UnsafeList<byte>(chunk->Count * ComponentSize, Allocator.TempJob);
-                    var addedComponentEntities = new UnsafeList<Entity>(chunk->Count, Allocator.TempJob);
+                    var addedComponentDataBuffer = new UnsafeList<byte>(chunk.Count * ComponentSize, Allocator.TempJob);
+                    var addedComponentEntities = new UnsafeList<Entity>(chunk.Count, Allocator.TempJob);
 
-                    var entityDataPtr = chunk->Buffer + archetype->Offsets[0];
-                    var componentDataPtr = chunk->Buffer + archetype->Offsets[indexInTypeArray];
+                    var entityDataPtr = chunk.Buffer + archetype->Offsets[0];
+                    var componentDataPtr = chunk.Buffer + archetype->Offsets[indexInTypeArray];
 
-                    addedComponentDataBuffer.AddRange(componentDataPtr, chunk->Count * ComponentSize);
-                    addedComponentEntities.AddRange(entityDataPtr, chunk->Count);
+                    addedComponentDataBuffer.AddRange(componentDataPtr, chunk.Count * ComponentSize);
+                    addedComponentEntities.AddRange(entityDataPtr, chunk.Count);
 
                     var changesForChunk = GatheredChanges + index;
                     changesForChunk->Chunk = chunk;
@@ -610,11 +616,12 @@ namespace Unity.Entities.Editor
             public void Execute(int index)
             {
                 var chunk = Chunks[index].m_Chunk;
+                var archetype = Chunks[index].Archetype.Archetype;
 
-                if (ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, TypeIndex) == -1) // Archetype doesn't match required component
+                if (ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex) == -1) // Archetype doesn't match required component
                     return;
 
-                ChunkSequenceNumbers.Add(chunk->SequenceNumber);
+                ChunkSequenceNumbers.Add(chunk.SequenceNumber);
             }
         }
 
@@ -665,28 +672,30 @@ namespace Unity.Entities.Editor
             public void Execute(int index)
             {
                 var chunk = Chunks[index].m_Chunk;
-                var archetype = chunk->Archetype;
+                var archetype = Chunks[index].Archetype.Archetype;
                 var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex);
                 if (indexInTypeArray == -1) return;
-                var sequenceNumber = chunk->SequenceNumber;
+                var capacity = archetype->ChunkCapacity;
+                var sequenceNumber = chunk.SequenceNumber;
 
                 if (ChunkShadowBySequenceNumber.TryGetValue(sequenceNumber, out var shadow))
                     return;
 
-                var entityDataPtr = chunk->Buffer + archetype->Offsets[0];
-                var componentDataPtr = chunk->Buffer + archetype->Offsets[indexInTypeArray];
+                var entityDataPtr = chunk.Buffer + archetype->Offsets[0];
+                var componentDataPtr = chunk.Buffer + archetype->Offsets[indexInTypeArray];
 
                 shadow = new ChunkShadow(Allocator.Persistent);
 
-                shadow.Ptr->Count = chunk->Count;
-                shadow.Ptr->ComponentVersion = chunk->GetChangeVersion(indexInTypeArray);
-                shadow.Ptr->EntityVersion = chunk->GetChangeVersion(0);
-                shadow.Ptr->Entities = (byte*)Memory.Unmanaged.Allocate(sizeof(Entity) * chunk->Capacity, 4, Allocator.Persistent);
-                shadow.Ptr->Components = (byte*)Memory.Unmanaged.Allocate(ComponentSize * chunk->Capacity, 4, Allocator.Persistent);
+                var chunkCount = chunk.Count;
+                shadow.Ptr->Count = chunkCount;
+                shadow.Ptr->ComponentVersion = archetype->Chunks.GetChangeVersion(indexInTypeArray, chunk.ListIndex);
+                shadow.Ptr->EntityVersion = archetype->Chunks.GetChangeVersion(0, chunk.ListIndex);
+                shadow.Ptr->Entities = (byte*)Memory.Unmanaged.Allocate(sizeof(Entity) * capacity, 4, Allocator.Persistent);
+                shadow.Ptr->Components = (byte*)Memory.Unmanaged.Allocate(ComponentSize * capacity, 4, Allocator.Persistent);
                 shadow.Ptr->SequenceNumber = sequenceNumber;
 
-                UnsafeUtility.MemCpy(shadow.Ptr->Entities, entityDataPtr, chunk->Count * sizeof(Entity));
-                UnsafeUtility.MemCpy(shadow.Ptr->Components, componentDataPtr, chunk->Count * ComponentSize);
+                UnsafeUtility.MemCpy(shadow.Ptr->Entities, entityDataPtr, chunkCount * sizeof(Entity));
+                UnsafeUtility.MemCpy(shadow.Ptr->Components, componentDataPtr, chunkCount * ComponentSize);
 
                 AllocatedChunkShadowByChunk->ElementAt(index) = shadow;
             }
@@ -764,6 +773,7 @@ namespace Unity.Entities.Editor
             public TypeIndex TypeIndex;
             public int ComponentSize;
 
+            [NativeDisableUnsafePtrRestriction][ReadOnly] public EntityComponentStore* EntityComponentStore;
             [ReadOnly] public NativeList<ArchetypeChunk> Chunks; // not used, but required to be here for IJobParallelForDefer
             [ReadOnly] public NativeArray<ChunkChanges> GatheredChangesByChunk;
             [ReadOnly] public NativeArray<ChunkShadow> AllocatedChunkShadowsByChunk;
@@ -775,27 +785,31 @@ namespace Unity.Entities.Editor
 
                 var chunk = changes.Chunk;
 
-                if (null == chunk)
+                if (ChunkIndex.Null == chunk)
                     return;
 
                 if (!changes.Shadow.IsCreated)
                 {
-                    ChunkShadowBySequenceNumber.TryAdd(chunk->SequenceNumber, AllocatedChunkShadowsByChunk[index]);
+                    ChunkShadowBySequenceNumber.TryAdd(chunk.SequenceNumber, AllocatedChunkShadowsByChunk[index]);
                 }
                 else
                 {
-                    var archetype = chunk->Archetype;
+                    var archetype = EntityComponentStore->GetArchetype(chunk);
                     var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex);
 
-                    var entities = chunk->Buffer + archetype->Offsets[0];
-                    var components = chunk->Buffer + archetype->Offsets[indexInTypeArray];
+                    var buffer = chunk.Buffer;
+                    var entities = buffer + archetype->Offsets[0];
+                    var components = buffer + archetype->Offsets[indexInTypeArray];
+                    var listIndex = chunk.ListIndex;
 
-                    changes.Shadow.Ptr->Count = changes.Chunk->Count;
-                    changes.Shadow.Ptr->EntityVersion = chunk->GetChangeVersion(0);
-                    changes.Shadow.Ptr->ComponentVersion = chunk->GetChangeVersion(indexInTypeArray);
+                    changes.Shadow.Ptr->Count = changes.Chunk.Count;
+                    changes.Shadow.Ptr->EntityVersion = archetype->Chunks.GetChangeVersion(0, listIndex);
+                    changes.Shadow.Ptr->ComponentVersion = archetype->Chunks.GetChangeVersion(indexInTypeArray, listIndex);
 
-                    UnsafeUtility.MemCpy(changes.Shadow.Ptr->Entities, entities, chunk->Count * sizeof(Entity));
-                    UnsafeUtility.MemCpy(changes.Shadow.Ptr->Components, components, chunk->Count * ComponentSize);
+                    var entityCount = chunk.Count;
+
+                    UnsafeUtility.MemCpy(changes.Shadow.Ptr->Entities, entities, entityCount * sizeof(Entity));
+                    UnsafeUtility.MemCpy(changes.Shadow.Ptr->Components, components, entityCount * ComponentSize);
                 }
             }
         }

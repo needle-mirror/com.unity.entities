@@ -95,7 +95,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
     }
 
     [Test]
-#if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
+#if !UNITY_WEBGL
     [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
 #endif
     public void ForEachProtectionDoesntLeakWhenThrowingISystemBase()
@@ -168,7 +168,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
     }
 
     [Test]
-#if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
+#if !UNITY_WEBGL
     [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
 #endif
     public void CallUpdateFromUpdateWorks()
@@ -329,7 +329,7 @@ partial class SystemSafetyTests_SystemStateConsistency : ECSTestsFixture
     }
 
     [Test]
-#if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
+#if !UNITY_WEBGL
     [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
 #endif
     public void CreateAndUpdateNewWorldInSystemTest()

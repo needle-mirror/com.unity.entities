@@ -1,11 +1,10 @@
 using System;
+using System.Collections.Generic;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
-#if !UNITY_DOTSRUNTIME
 using Unity.Entities.Content;
-#endif
 using Unity.Mathematics;
 using Unity.Profiling;
 using UnityEngine;
@@ -87,9 +86,7 @@ namespace Unity.Scenes
         readonly ProfilerMarker s_MoveEntitiesFrom = new ProfilerMarker("SceneStreaming.MoveEntitiesFrom");
         readonly ProfilerMarker s_ExtractEntityRemapRefs = new ProfilerMarker("SceneStreaming.ExtractEntityRemapRefs");
         readonly ProfilerMarker s_AddSceneSharedComponents = new ProfilerMarker("SceneStreaming.AddSceneSharedComponents");
-#if !UNITY_DOTSRUNTIME
         static readonly ProfilerMarker s_UnloadSectionImmediate = new ProfilerMarker("SceneStreaming." + nameof(UnloadSectionImmediate));
-#endif
         readonly ProfilerMarker s_MoveEntities = new ProfilerMarker("SceneStreaming." + nameof(MoveEntities));
         readonly ProfilerMarker s_UpdateLoadOperation = new ProfilerMarker("SceneStreaming." + nameof(UpdateLoadOperation));
 
@@ -248,42 +245,26 @@ namespace Unity.Scenes
             group.SortSystems();
         }
 
-        static unsafe NativeArray<Entity> GetExternalRefEntities(EntityManager manager, AllocatorManager.AllocatorHandle allocator)
+        static SceneTag SceneTagForSection0(Entity sceneEntity, EntityQuery sectionDataQuery)
         {
-            var type = ComponentType.ReadOnly<ExternalEntityRefInfo>();
-            using (var group = manager.CreateEntityQuery(&type, 1))
-            {
-                return group.ToEntityArray(allocator);
-            }
-        }
+            using var sectionDataEntities = sectionDataQuery.ToEntityArray(Allocator.Temp);
+            using var sectionData = sectionDataQuery.ToComponentDataArray<SceneSectionData>(Allocator.Temp);
+            using var sceneEntityReference = sectionDataQuery.ToComponentDataArray<SceneEntityReference>(Allocator.Temp);
 
-        static NativeArray<SceneTag> ExternalRefToSceneTag(NativeArray<ExternalEntityRefInfo> externalEntityRefInfos, Entity sceneEntity, EntityQuery sectionDataQuery, AllocatorManager.AllocatorHandle allocator)
-        {
-            // Todo: When NativeArray supports custom allocators, remove these .ToAllocator callsites DOTS-7695
-            var sceneTags = new NativeArray<SceneTag>(externalEntityRefInfos.Length, allocator.ToAllocator);
-
-            using (var sectionDataEntities = sectionDataQuery.ToEntityArray(Allocator.TempJob))
-            using (var sectionData = sectionDataQuery.ToComponentDataArray<SceneSectionData>(Allocator.TempJob))
-            using (var sceneEntityReference = sectionDataQuery.ToComponentDataArray<SceneEntityReference>(Allocator.TempJob))
+            for (int i = 0; i < sectionData.Length; ++i)
             {
-                for (int i = 0; i < sectionData.Length; ++i)
+                // Multiple instances of the same scene can co-exist, they need to be differentiated.
+                // Searching for the scene GUID instead of the scene entity would be ambiguous.
+                if (
+                    sceneEntity == sceneEntityReference[i].SceneEntity &&
+                    sectionData[i].SubSectionIndex == 0
+                )
                 {
-                    for (int j = 0; j < externalEntityRefInfos.Length; ++j)
-                    {
-                        if (
-                            sceneEntity == sceneEntityReference[i].SceneEntity &&
-                            externalEntityRefInfos[j].SceneGUID == sectionData[i].SceneGUID &&
-                            externalEntityRefInfos[j].SubSectionIndex == sectionData[i].SubSectionIndex
-                        )
-                        {
-                            sceneTags[j] = new SceneTag { SceneEntity = sectionDataEntities[i] };
-                            break;
-                        }
-                    }
+                    return new SceneTag { SceneEntity = sectionDataEntities[i] };
                 }
             }
 
-            return sceneTags;
+            throw new InvalidOperationException("Could not find the scene entity corresponding to the section being loaded!");
         }
 
         struct EntityRemapArgs
@@ -293,6 +274,7 @@ namespace Unity.Scenes
             public Entity SceneEntity;
             public EntityQuery SectionData;
             public EntityQuery PublicRefFilter;
+            public SceneSectionData SceneSectionData;
 
             public NativeArray<EntityRemapUtility.EntityRemapInfo> OutEntityRemapping;
         }
@@ -306,6 +288,7 @@ namespace Unity.Scenes
             NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping;
             using (s_ExtractEntityRemapRefs.Auto())
             {
+                var sceneSectionData = SystemAPI.GetComponent<SceneSectionData>(sectionEntity);
                 var remapArgs = new EntityRemapArgs
                 {
                     EntityManager = EntityManager,
@@ -313,6 +296,7 @@ namespace Unity.Scenes
                     PublicRefFilter = m_PublicRefFilter,
                     SrcManager = srcManager,
                     SceneEntity = sceneEntity,
+                    SceneSectionData = sceneSectionData
                 };
                 if (!ExtractEntityRemapRefs(ref remapArgs))
                     return false;
@@ -353,12 +337,6 @@ namespace Unity.Scenes
                 }
             }
 
-            var sharedComponentFilter = new SceneTag {SceneEntity = sectionEntity};
-            Entities.WithSharedComponentFilter(sharedComponentFilter).ForEach((ref ExternalEntityRefInfo sceneRef) =>
-            {
-                sceneRef.SceneRef = sceneEntity;
-            }).Run();
-
             if (prefabRoot != Entity.Null)
                 prefabRoot = EntityRemapUtility.RemapEntity(ref entityRemapping, prefabRoot);
 
@@ -368,68 +346,75 @@ namespace Unity.Scenes
             return true;
         }
 
-        [BurstCompile]
+        // The Burst compilation of the following function causes ECSB-621
+        // It can be re-enabled once UUM-46084 (fix for the root cause) has landed
+        // [BurstCompile]
         static bool ExtractEntityRemapRefs(ref EntityRemapArgs args)
         {
-            // External entity references are "virtual" entities. If we don't have any, only real entities need remapping
-            int remapTableSize = args.SrcManager.EntityCapacity;
-
-            using (var externalRefEntities = GetExternalRefEntities(args.SrcManager, Allocator.TempJob))
+            if (args.SceneSectionData.SubSectionIndex == 0)
             {
-                // We can potentially have several external entity reference arrays, each one pointing to a different scene
-                var externalEntityRefInfos = new NativeArray<ExternalEntityRefInfo>(externalRefEntities.Length, Allocator.Temp);
-                for (int i = 0; i < externalRefEntities.Length; ++i)
+                // External entity references are "virtual" entities. If we don't have any, only real entities need remapping
+                // Section 0 doesn't have an external ref info, let's skip the whole process.
+                args.OutEntityRemapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(args.SrcManager.EntityCapacity, Allocator.TempJob);
+                return true;
+            }
+
+            // Loading a section which isn't section 0. We need to figure out the exact count of entities in the section,
+            // because immediately after that comes the external references that need remapping.
+            // Above we could use EntityCapacity as an approximation, it's faster than going over the archetypes to get the exact count.
+            int entitiesCount = 0;
+
+            unsafe
+            {
+                var access = args.SrcManager.GetCheckedEntityDataAccess();
+                var archetypes = access->EntityComponentStore->m_Archetypes;
+                for (int ai = 0, ac = archetypes.Length; ai < ac; ai++)
                 {
-                    // External references point to indices beyond the range used by the entities in this scene
-                    // The highest index used by all those references defines how big the remap table has to be
-                    externalEntityRefInfos[i] = args.SrcManager.GetComponentData<ExternalEntityRefInfo>(externalRefEntities[i]);
-                    var extRefs = args.SrcManager.GetBuffer<ExternalEntityRef>(externalRefEntities[i]);
-                    remapTableSize = math.max(remapTableSize, externalEntityRefInfos[i].EntityIndexStart + extRefs.Length);
+                    entitiesCount += archetypes[ai]->EntityCount;
                 }
+            }
 
-                // Within a scene, external scenes are identified by some ID
-                // In the destination world, scenes are identified by an entity
-                // Every entity coming from a scene needs to have a SceneTag that references the scene entity
-                using (var sceneTags = ExternalRefToSceneTag(externalEntityRefInfos, args.SceneEntity, args.SectionData, Allocator.TempJob))
+            int remapTableSize = entitiesCount;
+
+            // Within a scene, external scenes are identified by some ID
+            // In the destination world, scenes are identified by an entity
+            // Every entity coming from a scene needs to have a SceneTag that references the scene entity
+            var sceneTag = SceneTagForSection0(args.SceneEntity, args.SectionData);
+
+            // A scene section 0 is expected to have a single public reference array
+            args.PublicRefFilter.SetSharedComponentFilter(sceneTag);
+            var pubRefEntities = args.PublicRefFilter.ToEntityArray(Allocator.Temp);
+
+            if (pubRefEntities.Length == 0)
+            {
+                // If the array is missing, the scene section 0 isn't loaded, we have to wait.
+                args.OutEntityRemapping.Dispose();
+                return false;
+            }
+
+            if (pubRefEntities.Length > 1)
+            {
+                throw new InvalidOperationException("Multiple entities containing public references arrays found in scene section 0!");
+            }
+
+            var pubRefs = args.EntityManager.GetBuffer<PublicEntityRef>(pubRefEntities[0]);
+
+            // Space is required to handle every possible external reference that needs remapping.
+            remapTableSize += pubRefs.Length;
+            args.OutEntityRemapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(remapTableSize, Allocator.TempJob);
+
+            // Proper mapping from external reference in section to entity in main world
+            for (int k = 0; k < pubRefs.Length; ++k)
+            {
+                var srcIdx = entitiesCount + k;
+                var target = pubRefs[k].targetEntity;
+
+                // External references always have a version number of 1 (like any other entity in a deserialized file)
+                args.OutEntityRemapping[srcIdx] = new EntityRemapUtility.EntityRemapInfo
                 {
-                    args.OutEntityRemapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(remapTableSize, Allocator.TempJob);
-
-                    for (int i = 0; i < externalRefEntities.Length; ++i)
-                    {
-                        var extRefs = args.SrcManager.GetBuffer<ExternalEntityRef>(externalRefEntities[i]);
-                        var extRefInfo = args.SrcManager.GetComponentData<ExternalEntityRefInfo>(externalRefEntities[i]);
-
-                        // A scene that external references point to is expected to have a single public reference array
-                        args.PublicRefFilter.SetSharedComponentFilter(sceneTags[i]);
-                        using (var pubRefEntities = args.PublicRefFilter.ToEntityArray(Allocator.TempJob))
-                        {
-                            if (pubRefEntities.Length == 0)
-                            {
-                                // If the array is missing, the external scene isn't loaded, we have to wait.
-                                args.OutEntityRemapping.Dispose();
-                                return false;
-                            }
-
-                            var pubRefs = args.EntityManager.GetBuffer<PublicEntityRef>(pubRefEntities[0]);
-
-                            // Proper mapping from external reference in section to entity in main world
-                            for (int k = 0; k < extRefs.Length; ++k)
-                            {
-                                var srcIdx = extRefInfo.EntityIndexStart + k;
-                                var target = pubRefs[extRefs[k].entityIndex].targetEntity;
-
-                                // External references always have a version number of 1
-                                args.OutEntityRemapping[srcIdx] = new EntityRemapUtility.EntityRemapInfo
-                                {
-                                    SourceVersion = 1,
-                                    Target = target
-                                };
-                            }
-                        }
-
-                        args.PublicRefFilter.ResetFilter();
-                    }
-                }
+                    SourceVersion = 1,
+                    Target = target
+                };
             }
 
             return true;
@@ -544,14 +529,13 @@ namespace Unity.Scenes
                                     EntityManager.AddComponentData(sectionEntity, default(IsSectionLoaded));
                                 }
 
-#if !UNITY_DOTSRUNTIME
                                 var objRefs = operation.StealReferencedUnityObjects();
                                 if (objRefs.IsValid)
                                 {
                                     EntityManager.AddSharedComponentManaged(sectionEntity, new SceneSectionReferencedUnityObjects(objRefs));
                                     RuntimeContentManager.ReleaseObjectAsync(objRefs);
                                 }
-#endif
+
                                 if (prefabRoot != Entity.Null)
                                 {
                                     var sceneEntity = EntityManager.GetComponentData<SceneEntityReference>(sectionEntity).SceneEntity;
@@ -834,9 +818,7 @@ namespace Unity.Scenes
 
         internal static void UnloadSectionImmediate(WorldUnmanaged world, Entity scene)
         {
-#if !UNITY_DOTSRUNTIME
             using var marker = s_UnloadSectionImmediate.Auto();
-#endif
             ref var singleton =
                 ref world.GetExistingSystemState<SceneSectionStreamingSystem>().GetSingletonEntityQueryInternal(
                     ComponentType.ReadWrite<SceneSectionStreamingData>())
@@ -866,10 +848,9 @@ namespace Unity.Scenes
                 world.EntityManager.RemoveComponent<IsSectionLoaded>(scene);
                 world.EntityManager.RemoveComponent<StreamingState>(scene);
             }
-#if !UNITY_DOTSRUNTIME
+
             if (world.EntityManager.HasComponent<SceneSectionReferencedUnityObjects>(scene))
                 world.EntityManager.RemoveComponent<SceneSectionReferencedUnityObjects>(scene);
-#endif
         }
 
         int CreateAsyncLoadScene(Entity entity, bool blockUntilFullyLoaded)
@@ -926,9 +907,7 @@ namespace Unity.Scenes
                 BlobHeader = sceneData.BlobHeader,
                 BlobHeaderOwner = blobHeaderOwner,
                 SceneSectionEntity = entity,
-#if !UNITY_DOTSRUNTIME
                 UnityObjectRefId = sectionData.HybridReferenceId,
-#endif
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
                 PostLoadCommandBuffer = postLoadCommandBuffer
 #endif

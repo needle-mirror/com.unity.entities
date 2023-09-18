@@ -22,7 +22,6 @@ namespace Unity.Entities.SourceGen.Common
             if (Environment.GetEnvironmentVariable("SOURCEGEN_DISABLE_PROJECT_PATH_OUTPUT") == "1")
                 return;
 
-            var isDotsRuntime = parseOptions.PreprocessorSymbolNames.Contains("UNITY_DOTSRUNTIME");
             var outputSourceGenFiles = parseOptions.PreprocessorSymbolNames.Contains("DOTS_OUTPUT_SOURCEGEN_FILES");
 
             if (additionalFiles == null || !additionalFiles.Any() || string.IsNullOrEmpty(additionalFiles[0].Path))
@@ -31,10 +30,7 @@ namespace Unity.Entities.SourceGen.Common
             // Only output source in the case where we have the symbol define enabled
             if (outputSourceGenFiles)
             {
-                s_ProjectPath =
-                    (!isDotsRuntime
-                        ? additionalFiles[0].GetText().ToString()
-                        : additionalFiles[0].Path).Replace('\\', '/');
+                s_ProjectPath = additionalFiles[0].GetText().ToString();
                 s_OutputSourceGenFiles = true;
             }
             else
@@ -83,27 +79,23 @@ namespace Unity.Entities.SourceGen.Common
             var stableHashCode = SourceGenHelpers.GetStableHashCode(syntaxTree.FilePath) & 0x7fffffff;
             var postfix = generatorName.Length > 0 ? $"__{generatorName}" : String.Empty;
 
-            if (isSuccess)
-                fileName = $"{fileName}{postfix}_{stableHashCode}{salting}.g.cs";
-            else
-                fileName = Path.Combine($"{Path.GetRandomFileName()}{postfix}", ".g.cs");
+            fileName = isSuccess ? $"{fileName}{postfix}_{stableHashCode}{salting}.g.cs" : Path.Combine($"{Path.GetRandomFileName()}{postfix}", ".g.cs");
 
             return fileName;
         }
-
-        public static string GetGeneratedSourceFilePath(this SyntaxTree syntaxTree, string assemblyName, string generatorName)
+        public static (string FullFilePath, string FileNameOnly) GetGeneratedSourceFilePath(this SyntaxTree syntaxTree, string assemblyName, string generatorName, int salting = 0)
         {
-            var fileName = GetGeneratedSourceFileName(syntaxTree, generatorName);
+            var fileName = GetGeneratedSourceFileName(syntaxTree, generatorName, salting);
 
             if (CanWriteToProjectPath && s_OutputSourceGenFiles)
             {
                 var generatedCodePath = GetGeneratedCodePath();
                 var saveToDirectory = $"{generatedCodePath}/{assemblyName}/";
                 Directory.CreateDirectory(saveToDirectory);
-                return $"{saveToDirectory}/{fileName}";
+                return ($"{saveToDirectory}/{fileName}".Replace('\\', '/'), fileName.Replace('\\', '/'));
             }
 
-            return $"Temp/GeneratedCode/{assemblyName}/{fileName}";
+            return ($"Temp/GeneratedCode/{assemblyName}/{fileName}".Replace('\\', '/'), fileName.Replace('\\', '/'));
         }
 
         static (bool IsSuccess, string FileName) TryGetFileNameWithoutExtension(SyntaxTree syntaxTree)

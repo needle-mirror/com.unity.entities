@@ -4,6 +4,7 @@ using System.ComponentModel;
 using System.Diagnostics;
 using System.Runtime.InteropServices;
 using Unity.Burst;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;
@@ -32,10 +33,8 @@ namespace Unity.Entities
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         internal SystemState* m_StatePtr;
 
-#if !NET_DOTS
         // This property exists so that the SystemSate is visible in the .NET Debugger.
         SystemState_ SystemState => SystemState_.FromPointer(m_StatePtr);
-#endif
 
         internal SystemState* CheckedState()
         {
@@ -738,7 +737,7 @@ namespace Unity.Entities
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             var typeIndex = TypeManager.GetTypeIndex<T>();
-            if (TypeManager.IsEnableable(typeIndex))
+            if (Hint.Unlikely(TypeManager.IsEnableable(typeIndex)))
             {
                 var typeName = typeIndex.ToFixedString();
                 throw new InvalidOperationException(
@@ -747,7 +746,16 @@ namespace Unity.Entities
 #endif
             var type = ComponentType.ReadOnly<T>();
             var query = CheckedState()->GetSingletonEntityQueryInternal(type);
-            return query.CalculateEntityCount() == 1;
+            int matchingEntityCount = query.CalculateEntityCount();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(matchingEntityCount > 1))
+            {
+                var typeName = typeIndex.ToFixedString();
+                throw new InvalidOperationException(
+                    $"HasSingleton<{typeName}>() found {matchingEntityCount} instances of {typeName}; there must only be either zero or one.");
+            }
+#endif
+            return matchingEntityCount == 1;
         }
 
         /// <summary>
@@ -831,10 +839,17 @@ namespace Unity.Entities
             var type = ComponentType.ReadOnly<T>();
             var query = CheckedState()->GetSingletonEntityQueryInternal(type);
 
-            var hasSingleton = query.CalculateEntityCount() == 1;
-
+            int matchingEntityCount = query.CalculateEntityCount();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(matchingEntityCount > 1))
+            {
+                var typeName = type.TypeIndex.ToFixedString();
+                throw new InvalidOperationException(
+                    $"TryGetSingleton<{typeName}>() found {matchingEntityCount} instances of {typeName}; there must only be either zero or one.");
+            }
+#endif
+            bool hasSingleton = matchingEntityCount == 1;
             value = hasSingleton ? query.GetSingleton<T>() : default;
-
             return hasSingleton;
         }
 
@@ -852,10 +867,17 @@ namespace Unity.Entities
             var type = ComponentType.ReadOnly<T>();
             var query = CheckedState()->GetSingletonEntityQueryInternal(type);
 
-            var hasSingleton = query.CalculateEntityCount() == 1;
-
+            int matchingEntityCount = query.CalculateEntityCount();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(matchingEntityCount > 1))
+            {
+                var typeName = type.TypeIndex.ToFixedString();
+                throw new InvalidOperationException(
+                    $"TryGetSingletonBuffer<{typeName}>() found {matchingEntityCount} instances of {typeName}; there must only be either zero or one.");
+            }
+#endif
+            bool hasSingleton = matchingEntityCount == 1;
             value = hasSingleton ? GetSingletonBuffer<T>() : default;
-
             return hasSingleton;
         }
 
@@ -906,10 +928,17 @@ namespace Unity.Entities
         {
             var type = ComponentType.ReadOnly<T>();
             var query = CheckedState()->GetSingletonEntityQueryInternal(type);
-            var hasSingleton = query.CalculateEntityCount() == 1;
-
+            int matchingEntityCount = query.CalculateEntityCount();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(matchingEntityCount > 1))
+            {
+                var typeName = type.TypeIndex.ToFixedString();
+                throw new InvalidOperationException(
+                    $"TryGetSingletonEntity<{typeName}>() found {matchingEntityCount} instances of {typeName}; there must only be either zero or one.");
+            }
+#endif
+            bool hasSingleton = matchingEntityCount == 1;
             value = hasSingleton ? query.GetSingletonEntity() : Entity.Null;
-
             return hasSingleton;
         }
 

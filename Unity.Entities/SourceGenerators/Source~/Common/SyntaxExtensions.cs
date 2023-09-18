@@ -1,5 +1,4 @@
 using System;
-using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
 using Microsoft.CodeAnalysis.CSharp;
@@ -10,29 +9,8 @@ namespace Unity.Entities.SourceGen.Common
 {
     public static class SyntaxExtensions
     {
-        public static IEnumerable<MemberDeclarationSyntax> GetContainingTypesAndNamespacesFromMostToLeastNested(
-            this SyntaxNode syntaxNode)
-        {
-            SyntaxNode current = syntaxNode;
-            while (current.Parent != null && (current.Parent is NamespaceDeclarationSyntax || current.Parent is ClassDeclarationSyntax || current.Parent is StructDeclarationSyntax))
-            {
-                yield return current.Parent as MemberDeclarationSyntax;
-                current = current.Parent;
-            }
-        }
-
         public static bool IsReadOnly(this ParameterSyntax parameter) => parameter.Modifiers.Any(mod => mod.IsKind(SyntaxKind.InKeyword));
         public static bool IsReadOnly(this IParameterSymbol parameter) => parameter.RefKind == RefKind.In;
-
-        public static IEnumerable<NamespaceDeclarationSyntax> GetNamespacesFromMostToLeastNested(this SyntaxNode syntaxNode)
-        {
-            SyntaxNode current = syntaxNode;
-            while (current.Parent != null && current.Parent is NamespaceDeclarationSyntax nds)
-            {
-                yield return nds;
-                current = current.Parent;
-            }
-        }
 
         class PreprocessorTriviaRemover : CSharpSyntaxRewriter
         {
@@ -70,11 +48,13 @@ namespace Unity.Entities.SourceGen.Common
         {
             if (node.Block != null)
                 return node.Block;
-            if (node.Body is StatementSyntax lambdaBodyStatement)
-                return Block(lambdaBodyStatement);
-            if (node.Body is ExpressionSyntax lambdaBodyExpression)
-                return Block(SyntaxFactory.ExpressionStatement(lambdaBodyExpression));
-            throw new InvalidOperationException($"Invalid lambda body: {node.Body}");
+
+            return node.Body switch
+            {
+                StatementSyntax lambdaBodyStatement => Block(lambdaBodyStatement),
+                ExpressionSyntax lambdaBodyExpression => Block(ExpressionStatement(lambdaBodyExpression)),
+                _ => throw new InvalidOperationException($"Invalid lambda body: {node.Body}")
+            };
         }
 
         public static bool ContainsDynamicCode(this InvocationExpressionSyntax invoke)
@@ -99,42 +79,7 @@ namespace Unity.Entities.SourceGen.Common
             return null;
         }
 
-        public static SyntaxNode WithLineTrivia(this SyntaxNode node, string originalFilePath, int originalLineNumber, int offsetLineNumber = 1)
-        {
-            if (string.IsNullOrEmpty(originalFilePath))
-                return node;
-
-            var lineTrivia = Comment($"#line {originalLineNumber + offsetLineNumber} \"{originalFilePath}\"");
-            return node.WithLeadingTrivia(lineTrivia, CarriageReturnLineFeed);
-        }
-
         public static int GetLineNumber(this SyntaxNode node) => node.GetLocation().GetLineSpan().StartLinePosition.Line;
-
-        public static SyntaxNode WithHiddenLineTrivia(this SyntaxNode node)
-            => node.WithLeadingTrivia(Comment($"#line hidden"), CarriageReturnLineFeed);
-
-        // Walk direct ancestors that are MemberAccessExpressionSyntax and InvocationExpressionSyntax and collect invocations
-        // This collects things like Entities.WithAll().WithNone().Run() without getting additional ancestor invocations.
-        public static Dictionary<string, List<InvocationExpressionSyntax>> GetMethodInvocations(this SyntaxNode node)
-        {
-            var result = new Dictionary<string, List<InvocationExpressionSyntax>>();
-            var parent = node.Parent;
-
-            while (parent is MemberAccessExpressionSyntax memberAccessExpression)
-            {
-                parent = parent.Parent;
-                if (parent is InvocationExpressionSyntax invocationExpression)
-                {
-                    var memberName = memberAccessExpression.Name.Identifier.ValueText;
-                    result.Add(memberName, invocationExpression);
-                    parent = parent.Parent;
-                }
-                else if (!(parent is MemberAccessExpressionSyntax))
-                    break;
-            }
-
-            return result;
-        }
 
         public static string GetModifierString(this ParameterSyntax parameter)
         {
@@ -146,13 +91,6 @@ namespace Unity.Entities.SourceGen.Common
                     return "ref";
             }
             return "";
-        }
-
-        public static bool DoesPerformStructuralChange(this InvocationExpressionSyntax syntax, SemanticModel model)
-        {
-            return model.GetSymbolInfo(syntax.Expression).Symbol is IMethodSymbol methodSymbol &&
-                   methodSymbol.ContainingType.Is("Unity.Entities.EntityManager") &&
-                   methodSymbol.HasAttribute("Unity.Entities.EntityManager.StructuralChangeMethodAttribute");
         }
     }
 }

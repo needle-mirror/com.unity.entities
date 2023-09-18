@@ -36,7 +36,8 @@ namespace Unity.Entities
         }
 
         private UnsafeList<uint> hashes;
-        private UnsafePtrList<Chunk> chunks;
+        private UnsafeList<ChunkIndex> chunks;
+        private Archetype* archetype;
 
         private int emptyNodes;
         private int skipNodes;
@@ -79,8 +80,9 @@ namespace Unity.Entities
             hashes.SetCapacity(capacity);
         }
 
-        public void Init(int count)
+        public void Init(Archetype* archetype, int count)
         {
+            this.archetype = archetype;
             if (count < MinimumSize)
                 count = MinimumSize;
             Assert.IsTrue(0 == (count & (count - 1)));
@@ -94,7 +96,7 @@ namespace Unity.Entities
             if (chunks.IsCreated)
                 chunks.Clear();
             else
-                chunks = new UnsafePtrList<Chunk>(count, Allocator.Persistent);
+                chunks = new UnsafeList<ChunkIndex>(count, Allocator.Persistent);
             chunks.Resize(count, NativeArrayOptions.ClearMemory);
 
             emptyNodes = count;
@@ -111,7 +113,7 @@ namespace Unity.Entities
             }
         }
 
-        public Chunk* TryGet(SharedComponentValues sharedComponentValues, int numSharedComponents)
+        public ChunkIndex TryGet(SharedComponentValues sharedComponentValues, int numSharedComponents)
         {
             uint desiredHash = GetHashCode(sharedComponentValues, numSharedComponents);
             int offset = (int)(desiredHash & (uint)hashMask);
@@ -120,17 +122,18 @@ namespace Unity.Entities
             {
                 var hash = hashes.Ptr[offset];
                 if (hash == 0)
-                    return null;
+                    return ChunkIndex.Null;
                 if (hash == desiredHash)
                 {
                     var chunk = chunks.Ptr[offset];
-                    if (sharedComponentValues.EqualTo(chunk->SharedComponentValues, numSharedComponents))
+                    var sharedComponentValuesFromChunk = archetype->Chunks.GetSharedComponentValues(chunk.ListIndex);
+                    if (sharedComponentValues.EqualTo(sharedComponentValuesFromChunk, numSharedComponents))
                         return chunk;
                 }
                 offset = (offset + 1) & hashMask;
                 ++attempts;
                 if (attempts == Size)
-                    return null;
+                    return ChunkIndex.Null;
             }
         }
 
@@ -142,7 +145,7 @@ namespace Unity.Entities
                 return;
             var temp = this;
             this = new ChunkListMap();
-            Init(size);
+            Init(temp.archetype, size);
             AppendFrom(ref temp);
             temp.Dispose();
         }
@@ -159,12 +162,11 @@ namespace Unity.Entities
                 Resize(Size / 2);
         }
 
-        public void Add(Chunk* chunk)
+        public void Add(ChunkIndex chunk)
         {
-            Assert.IsTrue(chunk != null);
-            Assert.IsTrue(chunk->Archetype != null);
-            var sharedComponentValues = chunk->SharedComponentValues;
-            int numSharedComponents = chunk->Archetype->NumSharedComponents;
+            Assert.IsTrue(chunk != ChunkIndex.Null);
+            var sharedComponentValues = archetype->Chunks.GetSharedComponentValues(chunk.ListIndex);
+            int numSharedComponents = archetype->NumSharedComponents;
             uint desiredHash = GetHashCode(sharedComponentValues, numSharedComponents);
             int offset = (int)(desiredHash & (uint)hashMask);
             int attempts = 0;
@@ -175,7 +177,7 @@ namespace Unity.Entities
                 {
                     hashes.Ptr[offset] = desiredHash;
                     chunks.Ptr[offset] = chunk;
-                    chunk->ListWithEmptySlotsIndex = offset;
+                    chunk.ListWithEmptySlotsIndex = offset;
                     --emptyNodes;
                     PossiblyGrow();
                     return;
@@ -185,7 +187,7 @@ namespace Unity.Entities
                 {
                     hashes.Ptr[offset] = desiredHash;
                     chunks.Ptr[offset] = chunk;
-                    chunk->ListWithEmptySlotsIndex = offset;
+                    chunk.ListWithEmptySlotsIndex = offset;
                     --skipNodes;
                     PossiblyGrow();
                     return;
@@ -197,20 +199,20 @@ namespace Unity.Entities
             }
         }
 
-        public void Remove(Chunk* chunk)
+        public void Remove(ChunkIndex chunk)
         {
-            int offset = chunk->ListWithEmptySlotsIndex;
-            chunk->ListWithEmptySlotsIndex = -1;
+            int offset = chunk.ListWithEmptySlotsIndex;
+            chunk.ListWithEmptySlotsIndex = -1;
             Assert.IsTrue(offset != -1);
-            Assert.IsTrue(chunks.Ptr[offset] == chunk);
+            Assert.IsTrue(chunks[offset] == chunk);
             hashes.Ptr[offset] = kSkipCode;
             ++skipNodes;
             PossiblyShrink();
         }
 
-        public bool Contains(Chunk* chunk)
+        public bool Contains(ChunkIndex chunk)
         {
-            var offset = chunk->ListWithEmptySlotsIndex;
+            var offset = chunk.ListWithEmptySlotsIndex;
             return offset != -1 && chunks.Ptr[offset] == chunk;
         }
 

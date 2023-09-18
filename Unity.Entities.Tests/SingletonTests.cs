@@ -202,6 +202,22 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires opt-in debug checks")]
+        public void HasSingleton_MoreThanOneInstance_Throws()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsIntElement), typeof(EcsTestSharedComp));
+            var e2 = m_Manager.CreateEntity(typeof(EcsIntElement), typeof(EcsTestSharedComp));
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsIntElement,EcsTestSharedComp>().Build(EmptySystem);
+            Assert.Throws<InvalidOperationException>(() => query.HasSingleton<EcsIntElement>());
+            // If the query has filtering enabled and only one instance matches the filter, this should not throw
+            var sharedComponentValue = new EcsTestSharedComp { value = 17 };
+            m_Manager.SetSharedComponent(e2, sharedComponentValue);
+            query.SetSharedComponentFilter(sharedComponentValue);
+            Assert.DoesNotThrow(() => query.HasSingleton<EcsIntElement>());
+            Assert.AreEqual(e2, query.GetSingletonEntity());
+        }
+
+        [Test]
         public void GetSingletonBuffer_Works()
         {
             var ent = m_Manager.CreateSingletonBuffer<EcsIntElement>();
@@ -443,9 +459,6 @@ namespace Unity.Entities.Tests
 
             m_Manager.CreateEntity(typeof(EcsTestData));
             Assert.IsTrue(query.HasSingleton<EcsTestData>());
-
-            m_Manager.CreateEntity(typeof(EcsTestData));
-            Assert.IsFalse(query.HasSingleton<EcsTestData>());
         }
 
         [Test]

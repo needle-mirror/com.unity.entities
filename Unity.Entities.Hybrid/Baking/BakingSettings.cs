@@ -4,9 +4,6 @@ using Unity.Entities.Conversion;
 using Unity.Entities.Hybrid;
 using UnityEngine;
 #if UNITY_EDITOR
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-#endif
 using UnityEditor;
 using Unity.Entities.Build;
 using UnityEditor.AssetImporters;
@@ -24,9 +21,6 @@ namespace Unity.Entities
         public List<Type>               Systems;
 #if UNITY_EDITOR
         public IEntitiesPlayerSettings DotsSettings;
-#if USING_PLATFORMS_PACKAGE
-        public BuildConfiguration BuildConfiguration;
-#endif
         public AssetImportContext AssetImportContext;
         public GameObject PrefabRoot;
 
@@ -39,19 +33,6 @@ namespace Unity.Entities
 
                 if (DotsSettings != null)
                     return DotsSettings.GetFilterSettings();
-
-#if USING_PLATFORMS_PACKAGE
-                if (BuildConfiguration != null)
-                {
-                    var bakingSystemFilterSettings = new BakingSystemFilterSettings();
-                    if (BuildConfiguration.TryGetComponent<ConversionSystemFilterSettings>(out var conversionSystemFilterSettings))
-                    {
-                        bakingSystemFilterSettings.ExcludedBakingSystemAssemblies =
-                            conversionSystemFilterSettings.ExcludedConversionSystemAssemblies;
-                    }
-                    return bakingSystemFilterSettings;
-                }
-#endif
 
                 return null;
             }

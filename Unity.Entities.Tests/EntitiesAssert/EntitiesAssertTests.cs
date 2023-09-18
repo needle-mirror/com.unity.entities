@@ -1,7 +1,3 @@
-#if !UNITY_PORTABLE_TEST_RUNNER
-// https://unity3d.atlassian.net/browse/DOTSR-1432
-// The main problem is that EntitiesAssert uses LINQ
-
 using System;
 using System.Collections.Generic;
 using NUnit.Framework;
@@ -262,5 +258,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-
-#endif // NET_DOTS

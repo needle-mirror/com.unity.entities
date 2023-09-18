@@ -58,6 +58,11 @@ namespace Unity.Entities.Editor
 
         }
 
+        public string[] GetSearchKeywords()
+        {
+            return ISetting.GetSearchKeywordsFromType(GetType());
+        }
+
         class Inspector : PropertyInspector<BakingPreferences>
         {
             public override VisualElement Build()

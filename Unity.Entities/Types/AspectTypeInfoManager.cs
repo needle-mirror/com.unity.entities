@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.Linq;
 using System.Reflection;
@@ -44,6 +43,7 @@ namespace Unity.Entities
                 var none = new UnsafeList<ComponentType>(8, Allocator.Temp);
                 var disabled = new UnsafeList<ComponentType>(8, Allocator.Temp);
                 var absent = new UnsafeList<ComponentType>(8, Allocator.Temp);
+                var present = new UnsafeList<ComponentType>(8, Allocator.Temp);
                 addComponentRequirementsTo.Invoke(ref all);
 
                 for (var j = 0; j != all.Length; ++j)
@@ -54,6 +54,9 @@ namespace Unity.Entities
                 all.Dispose();
                 any.Dispose();
                 none.Dispose();
+                disabled.Dispose();
+                absent.Dispose();
+                present.Dispose();
 
                 s_AspectTypeInfo.Data.AspectTypes.AddNoResize(aspectType);
             }
@@ -132,4 +135,3 @@ namespace Unity.Entities
         }
     }
 }
-#endif

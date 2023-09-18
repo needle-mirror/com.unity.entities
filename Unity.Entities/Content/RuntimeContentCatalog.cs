@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.IO;
 using System.Runtime.InteropServices;
@@ -516,5 +515,3 @@ namespace Unity.Entities.Content
     }
 
 }
-
-#endif

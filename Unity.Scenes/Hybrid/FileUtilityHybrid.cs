@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 #if UNITY_ANDROID
 using UnityEngine.Networking;
 #else
@@ -38,4 +37,3 @@ namespace Unity.Scenes
         }
     }
 }
-#endif

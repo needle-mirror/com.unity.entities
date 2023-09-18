@@ -44,12 +44,12 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
         }
 
         [UnityTest]
-        [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
         public IEnumerator LoadMultipleSubscenes_Async_WithAssetBundles()
         {
             using (var worldA = CreateEntityWorld("World A"))
             using (var worldB = CreateEntityWorld("World B"))
             {
+
 #if UNITY_EDITOR
                 Assert.IsTrue(PlayModeSceneGUID.IsValid);
 
@@ -57,7 +57,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 var worldBScene = SceneSystem.LoadSceneAsync(worldB.Unmanaged, PlayModeSceneGUID);
 #else
                 Assert.IsTrue(BuildSceneGUID.IsValid);
-
+                var initialContentFilesNumber = Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.Namespace).Length;
                 var worldAScene = SceneSystem.LoadSceneAsync(worldA.Unmanaged, BuildSceneGUID);
                 var worldBScene = SceneSystem.LoadSceneAsync(worldB.Unmanaged, BuildSceneGUID);
 #endif
@@ -102,7 +102,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 Assert.AreSame(sharedA.material, sharedB.material);
                 Assert.IsTrue(sharedA.material != null, "sharedA.material != null");
 #if !UNITY_EDITOR
-                Assert.AreEqual(2, Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.Namespace).Length);
+                var contentFilesNumberAfterLoadingScene = Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.Namespace).Length;
 #endif
 
                 SceneSystem.UnloadScene(worldA.Unmanaged, worldAScene);
@@ -111,14 +111,13 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 worldA.Update();
                 worldB.Update();
 #if !UNITY_EDITOR
-                Assert.AreEqual(0, Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.Namespace).Length);
+                var contentFilesNumberAfterUnLoadingScene = contentFilesNumberAfterLoadingScene - initialContentFilesNumber;
+                Assert.AreEqual(2, contentFilesNumberAfterUnLoadingScene);
 #endif
             }
         }
 
-        // Only works in Editor for now until we can support SubScene building with new build settings in a test
         [UnityTest]
-        [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
         public IEnumerator LoadMultipleSubscenes_Blocking_WithAssetBundles()
         {
             using (var worldA = CreateEntityWorld("World A"))
@@ -139,7 +138,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 var worldBScene = SceneSystem.LoadSceneAsync(worldB.Unmanaged, PlayModeSceneGUID, loadParams);
 #else
                 Assert.IsTrue(BuildSceneGUID.IsValid);
-
+                var initialContentFilesNumber = Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.Namespace).Length;
                 var worldAScene = SceneSystem.LoadSceneAsync(worldA.Unmanaged, BuildSceneGUID, loadParams);
                 var worldBScene = SceneSystem.LoadSceneAsync(worldB.Unmanaged, BuildSceneGUID, loadParams);
 #endif
@@ -193,7 +192,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 Assert.IsTrue(sharedA.material != null, "sharedA.material != null");
 
 #if !UNITY_EDITOR
-                Assert.AreEqual(2, Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.Namespace).Length);
+                var contentFilesNumberAfterLoadingScene = Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.Namespace).Length;
 #endif
 
                 SceneSystem.UnloadScene(worldA.Unmanaged, worldAScene);
@@ -203,7 +202,8 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 worldB.Update();
 
 #if !UNITY_EDITOR
-                Assert.AreEqual(0, Loading.ContentLoadInterface.GetContentFiles(Unity.Entities.Content.RuntimeContentManager.Namespace).Length);
+                var contentFilesNumberAfterUnLoadingScene = contentFilesNumberAfterLoadingScene - initialContentFilesNumber;
+                Assert.AreEqual(2, contentFilesNumberAfterUnLoadingScene);
 #endif
             }
         }
@@ -218,7 +218,6 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
             return postLoadCommandBuffer;
         }
 
-        // Only works in Editor for now until we can support SubScene building with new build settings in a test
         [UnityTest]
         public IEnumerator LoadSubscene_With_PostLoadCommandBuffer([Values] bool loadAsync, [Values] bool addCommandBufferToSection)
         {
@@ -285,7 +284,6 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
         }
 
         [Test]
-        [UnityPlatform(RuntimePlatform.WindowsEditor, RuntimePlatform.OSXEditor, RuntimePlatform.LinuxEditor)]
         public void Load_MultipleInstancesOfSameSubScene_By_Instantiating_ResolvedScene()
         {
             var postLoadCommandBuffer1 = CreateTestProcessAfterLoadDataCommandBuffer(42);
@@ -293,7 +291,13 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
 
             using (var world = CreateEntityWorld("World"))
             {
+#if UNITY_EDITOR
+                Assert.IsTrue(PlayModeSceneGUID.IsValid);
                 var resolvedScene = SceneSystem.LoadSceneAsync(world.Unmanaged, PlayModeSceneGUID, new SceneSystem.LoadParameters {AutoLoad = false, Flags = SceneLoadFlags.BlockOnImport});
+#else
+                Assert.IsTrue(BuildSceneGUID.IsValid);
+                var resolvedScene = SceneSystem.LoadSceneAsync(world.Unmanaged, BuildSceneGUID, new SceneSystem.LoadParameters {AutoLoad = false, Flags = SceneLoadFlags.BlockOnImport});
+#endif
                 world.Update();
 
                 Assert.IsTrue(world.EntityManager.HasComponent<ResolvedSectionEntity>(resolvedScene));
@@ -303,12 +307,9 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                     Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
                 };
 
-                Assert.IsTrue(PlayModeSceneGUID.IsValid);
-
                 var scene1 = world.EntityManager.Instantiate(resolvedScene);
                 world.EntityManager.AddComponentData(scene1, postLoadCommandBuffer1);
                 SceneSystem.LoadSceneAsync(world.Unmanaged, scene1, loadParams);
-
 
                 var scene2 = world.EntityManager.Instantiate(resolvedScene);
                 world.EntityManager.AddComponentData(scene2, postLoadCommandBuffer2);

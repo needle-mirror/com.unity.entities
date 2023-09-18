@@ -13,17 +13,15 @@ namespace Unity.Entities.Tests
         const float k_Tolerance = 0.01f;
 
         // Helpers to compare matrices for nearly-equality
+        // Note: see also functions in TransformDataTests.cs
         static bool AreNearlyEqual(float a, float b, float tolerance)
         {
             return math.abs(a - b) <= tolerance;
         }
+
         static bool AreNearlyEqual(float4 a, float4 b, float tolerance)
         {
             return AreNearlyEqual(a.x, b.x, tolerance) && AreNearlyEqual(a.y, b.y, tolerance) && AreNearlyEqual(a.z, b.z, tolerance) && AreNearlyEqual(a.w, b.w, tolerance);
-        }
-        static bool AreNearlyEqual(float4x4 a, float4x4 b, float tolerance)
-        {
-            return AreNearlyEqual(a.c0, b.c0, tolerance) && AreNearlyEqual(a.c1, b.c1, tolerance) && AreNearlyEqual(a.c2, b.c2, tolerance) && AreNearlyEqual(a.c3, b.c3, tolerance);
         }
 
         [Test]
@@ -33,14 +31,14 @@ namespace Unity.Entities.Tests
             var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalTransform), typeof(Parent));
 
             m_Manager.SetComponentData(parent, LocalTransform.Identity);
-            m_Manager.SetComponentData(child, new Parent {Value = parent});
+            m_Manager.SetComponentData(child, new Parent { Value = parent });
             m_Manager.SetComponentData(child,
                 LocalTransform.FromRotation(quaternion.RotateY(math.PI))
                     .TransformTransform(
                         LocalTransform.FromPosition(new float3(0.0f, 0.0f, 1.0f))));
 
-            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);                // Connect parent and child
-            World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged);    // Write to the child's LocalToWorld
+            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged); // Connect parent and child
+            World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged); // Write to the child's LocalToWorld
             m_Manager.CompleteAllTrackedJobs();
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
@@ -57,12 +55,12 @@ namespace Unity.Entities.Tests
             var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalTransform));
 
             m_Manager.SetComponentData(parent, LocalTransform.Identity);
-            m_Manager.SetComponentData(child, new Parent {Value = parent});
+            m_Manager.SetComponentData(child, new Parent { Value = parent });
             m_Manager.SetComponentData(child,
                 LocalTransform.FromPositionRotation(new float3(0.0f, 0.0f, 1.0f), quaternion.RotateY(math.PI)));
 
-            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);                // Connect parent and child
-            World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged);    // Write to the child's LocalToWorld
+            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged); // Connect parent and child
+            World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged); // Write to the child's LocalToWorld
             m_Manager.CompleteAllTrackedJobs();
 
             var expectedChildWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
@@ -72,8 +70,8 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(parent,
                 LocalTransform.FromPositionRotation(new float3(0.0f, 0.0f, 1.0f), quaternion.RotateY((float)math.PI)));
 
-            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);                // Connect parent and child
-            World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged);    // Write to the child's LocalToWorld
+            World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged); // Connect parent and child
+            World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged); // Write to the child's LocalToWorld
             m_Manager.CompleteAllTrackedJobs();
 
             var childWorldPosition = m_Manager.GetComponentData<LocalToWorld>(child).Position;
@@ -138,9 +136,9 @@ namespace Unity.Entities.Tests
                 // 14:          - R:[0] T:[2]
                 // 15:            - R:[0] T:[2]
 
-                rotationIndices = new int[] {0, 1, 2, 2, 2, 1, 1, 1, 2, 1, 1, 1, 0, 0, 0, 0};
-                translationIndices = new int[] {0, 1, 0, 1, 2, 0, 1, 2, 2, 0, 1, 2, 0, 1, 2, 2};
-                parentIndices = new int[] {-1, 0, 1, 1, 1, 4, 4, 4, 0, 8, 8, 8, 11, 12, 13, 14};
+                rotationIndices = new int[] { 0, 1, 2, 2, 2, 1, 1, 1, 2, 1, 1, 1, 0, 0, 0, 0 };
+                translationIndices = new int[] { 0, 1, 0, 1, 2, 0, 1, 2, 2, 0, 1, 2, 0, 1, 2, 2 };
+                parentIndices = new int[] { -1, 0, 1, 1, 1, 4, 4, 4, 0, 8, 8, 8, 11, 12, 13, 14 };
             }
 
             public int Count => rotationIndices.Length;
@@ -203,14 +201,14 @@ namespace Unity.Entities.Tests
                     var translationIndex = translationIndices[i];
 
                     var transform = LocalTransform.FromPositionRotationScale(
-                            translations[translationIndex], rotations[rotationIndex], scaleValue);
+                        translations[translationIndex], rotations[rotationIndex], scaleValue);
                     m_Manager.SetComponentData(bodyEntities[i], transform);
                 }
 
                 for (int i = 1; i < 16; i++)
                 {
                     var parentIndex = parentIndices[i];
-                    m_Manager.SetComponentData(bodyEntities[i], new Parent() {Value = bodyEntities[parentIndex]});
+                    m_Manager.SetComponentData(bodyEntities[i], new Parent() { Value = bodyEntities[parentIndex] });
                 }
             }
 
@@ -235,7 +233,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(root, LocalTransform.Identity);
 
                 m_Manager.SetComponentData(child, LocalTransform.Identity);
-                m_Manager.SetComponentData(child, new TestWriteGroupComponent{Value = 42});
+                m_Manager.SetComponentData(child, new TestWriteGroupComponent { Value = 42 });
                 m_Manager.SetComponentData(child, new Parent { Value = root });
 
                 m_Manager.SetComponentData(childChild, LocalTransform.Identity);
@@ -246,8 +244,8 @@ namespace Unity.Entities.Tests
 
             public void Update()
             {
-                World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged);                // Connect parent and child
-                World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged);  // Write to the child's LocalToWorld
+                World.GetOrCreateSystem<ParentSystem>().Update(World.Unmanaged); // Connect parent and child
+                World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged); // Write to the child's LocalToWorld
 
                 // Force complete so that main thread (tests) can have access to direct editing.
                 m_Manager.CompleteAllTrackedJobs();
@@ -322,8 +320,8 @@ namespace Unity.Entities.Tests
                 parentIndices[4] = 3;
                 parentIndices[8] = 7;
 
-                m_Manager.SetComponentData<Parent>(Entities[4], new Parent {Value = Entities[3]});
-                m_Manager.SetComponentData<Parent>(Entities[8], new Parent {Value = Entities[7]});
+                m_Manager.SetComponentData<Parent>(Entities[4], new Parent { Value = Entities[3] });
+                m_Manager.SetComponentData<Parent>(Entities[8], new Parent { Value = Entities[7] });
             }
 
             public void DeleteSomeParents()
@@ -448,7 +446,7 @@ namespace Unity.Entities.Tests
                 for (int j = 0; j < childCount; j++)
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalTransform));
-                    m_Manager.SetComponentData(child, new Parent {Value = parent});
+                    m_Manager.SetComponentData(child, new Parent { Value = parent });
                     m_Manager.SetComponentData(child, LocalTransform.Identity);
                 }
             }
@@ -475,7 +473,7 @@ namespace Unity.Entities.Tests
                 for (int j = 0; j < childCount; j++)
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld));
-                    m_Manager.AddComponentData(child, new Parent {Value = parent});
+                    m_Manager.AddComponentData(child, new Parent { Value = parent });
                     m_Manager.AddComponentData(child, LocalTransform.Identity);
                 }
             }
@@ -502,7 +500,7 @@ namespace Unity.Entities.Tests
                 for (int j = 0; j < childCount; j++)
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld));
-                    m_Manager.AddComponentData(child, new Parent {Value = parent});
+                    m_Manager.AddComponentData(child, new Parent { Value = parent });
                     m_Manager.AddComponentData(child, LocalTransform.Identity);
                 }
             }
@@ -516,7 +514,7 @@ namespace Unity.Entities.Tests
                 for (int j = 0; j < childCount; j++)
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld));
-                    m_Manager.AddComponentData(child, new Parent {Value = parent});
+                    m_Manager.AddComponentData(child, new Parent { Value = parent });
                     m_Manager.AddComponentData(child, LocalTransform.Identity);
                 }
             }
@@ -542,13 +540,13 @@ namespace Unity.Entities.Tests
                 for (int j = 0; j < childCount; j++)
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld));
-                    m_Manager.AddComponentData(child, new Parent {Value = parent});
+                    m_Manager.AddComponentData(child, new Parent { Value = parent });
                     m_Manager.AddComponentData(child, LocalTransform.Identity);
 
                     for (int k = 0; k < childCount; k++)
                     {
                         var nextChild = m_Manager.CreateEntity(typeof(LocalToWorld));
-                        m_Manager.AddComponentData(nextChild, new Parent {Value = child});
+                        m_Manager.AddComponentData(nextChild, new Parent { Value = child });
                         m_Manager.AddComponentData(nextChild, LocalTransform.Identity);
                     }
                 }
@@ -577,7 +575,7 @@ namespace Unity.Entities.Tests
                 for (int j = 0; j < childCount; j++)
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalTransform));
-                    m_Manager.SetComponentData(child, new Parent {Value = parent});
+                    m_Manager.SetComponentData(child, new Parent { Value = parent });
                     m_Manager.AddComponentData(child, LocalTransform.Identity);
 
                     children[(i * childCount) + j] = child;
@@ -591,7 +589,7 @@ namespace Unity.Entities.Tests
             {
                 var parent = testHierarchy.Entities[0];
                 var child = children[i];
-                m_Manager.SetComponentData(child, new Parent {Value = parent});
+                m_Manager.SetComponentData(child, new Parent { Value = parent });
             }
 
             testHierarchy.Update();
@@ -616,7 +614,7 @@ namespace Unity.Entities.Tests
                 for (int j = 0; j < childCount; j++)
                 {
                     var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalTransform));
-                    m_Manager.SetComponentData(child, new Parent {Value = parent});
+                    m_Manager.SetComponentData(child, new Parent { Value = parent });
                     children[(i * childCount) + j] = child;
                 }
             }
@@ -630,7 +628,7 @@ namespace Unity.Entities.Tests
                 for (int j = 0; j < childCount; j++)
                 {
                     var child = children[(i * childCount) + j];
-                    m_Manager.SetComponentData(child, new Parent {Value = parent});
+                    m_Manager.SetComponentData(child, new Parent { Value = parent });
                 }
             }
 
@@ -682,6 +680,7 @@ namespace Unity.Entities.Tests
             public LocalTransform ltA, ltB, ltC, ltD, ltE, ltF, ltG, ltH;
             public float4x4 ptmC, ptmD, ptmE, ptmF;
         }
+
         void CreateScaledEntityHierarchy(out ScaledEntityHierarchy h)
         {
             // Create a hierarchy of entities. All have LocalTransform and LocalToWorld. In addition:
@@ -711,15 +710,16 @@ namespace Unity.Entities.Tests
             m_Manager.AddComponentData(h.entF, new Parent { Value = h.entC });
             m_Manager.AddComponentData(h.entG, new Parent { Value = h.entF });
             m_Manager.AddComponentData(h.entH, new Parent { Value = h.entF });
+
             // Initialize LocalTransforms
-            h.ltA = LocalTransform.FromPositionRotationScale(new float3(1,2,3), quaternion.RotateX(math.PI), 1.0f);
-            h.ltB = LocalTransform.FromPositionRotationScale(new float3(1,2,3), quaternion.RotateX(math.PI), 2.0f);
-            h.ltC = LocalTransform.FromPositionRotationScale(new float3(1,2,3), quaternion.RotateX(math.PI), 1.0f);
-            h.ltD = LocalTransform.FromPositionRotationScale(new float3(1,2,3), quaternion.RotateX(math.PI), 1.0f);
-            h.ltE = LocalTransform.FromPositionRotationScale(new float3(1,2,3), quaternion.RotateX(math.PI), 1.0f);
-            h.ltF = LocalTransform.FromPositionRotationScale(new float3(1,2,3), quaternion.RotateX(math.PI), 1.0f);
-            h.ltG = LocalTransform.FromPositionRotationScale(new float3(1,2,3), quaternion.RotateX(math.PI), 3.0f);
-            h.ltH = LocalTransform.FromPositionRotationScale(new float3(1,2,3), quaternion.RotateX(math.PI), 1.0f);
+            h.ltA = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateX(math.PI), 1.0f);
+            h.ltB = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateX(math.PI), 2.0f);
+            h.ltC = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateX(math.PI), 1.0f);
+            h.ltD = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateX(math.PI), 1.0f);
+            h.ltE = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateX(math.PI), 1.0f);
+            h.ltF = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateX(math.PI), 1.0f);
+            h.ltG = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateX(math.PI), 3.0f);
+            h.ltH = LocalTransform.FromPositionRotationScale(new float3(1, 2, 3), quaternion.RotateX(math.PI), 1.0f);
             m_Manager.SetComponentData(h.entA, h.ltA);
             m_Manager.SetComponentData(h.entB, h.ltB);
             m_Manager.SetComponentData(h.entC, h.ltC);
@@ -728,20 +728,21 @@ namespace Unity.Entities.Tests
             m_Manager.SetComponentData(h.entF, h.ltF);
             m_Manager.SetComponentData(h.entG, h.ltG);
             m_Manager.SetComponentData(h.entH, h.ltH);
+
             // Add PostTransformMatrix where applicable
             var ptmTypes = new ComponentTypeSet(typeof(PostTransformMatrix));
             m_Manager.AddComponent(h.entC, ptmTypes);
             m_Manager.AddComponent(h.entD, ptmTypes);
             m_Manager.AddComponent(h.entE, ptmTypes);
             m_Manager.AddComponent(h.entF, ptmTypes);
-            h.ptmC = float4x4.Scale(1,2,3);
-            h.ptmD = float4x4.Scale(4,5,6);
-            h.ptmE = float4x4.Scale(7,8,9);
-            h.ptmF = float4x4.Scale(10,11,12);
-            m_Manager.SetComponentData(h.entC, new PostTransformMatrix{Value = h.ptmC});
-            m_Manager.SetComponentData(h.entD, new PostTransformMatrix{Value = h.ptmD});
-            m_Manager.SetComponentData(h.entE, new PostTransformMatrix{Value = h.ptmE});
-            m_Manager.SetComponentData(h.entF, new PostTransformMatrix{Value = h.ptmF});
+            h.ptmC = float4x4.Scale(1, 2, 3);
+            h.ptmD = float4x4.Scale(4, 5, 6);
+            h.ptmE = float4x4.Scale(7, 8, 9);
+            h.ptmF = float4x4.Scale(10, 11, 12);
+            m_Manager.SetComponentData(h.entC, new PostTransformMatrix { Value = h.ptmC });
+            m_Manager.SetComponentData(h.entD, new PostTransformMatrix { Value = h.ptmD });
+            m_Manager.SetComponentData(h.entE, new PostTransformMatrix { Value = h.ptmE });
+            m_Manager.SetComponentData(h.entF, new PostTransformMatrix { Value = h.ptmF });
         }
 
         void ValidateScaledEntityHierarchy(in ScaledEntityHierarchy h)
@@ -775,8 +776,10 @@ namespace Unity.Entities.Tests
             transformSystemGroup.AddSystemToUpdateList(parentSystem);
             transformSystemGroup.AddSystemToUpdateList(localToWorldSystem);
             transformSystemGroup.SortSystems();
+
             // Create the hierarchy
             CreateScaledEntityHierarchy(out ScaledEntityHierarchy h);
+
             // Tick & validate
             transformSystemGroup.Update();
             ValidateScaledEntityHierarchy(h);
@@ -791,9 +794,9 @@ namespace Unity.Entities.Tests
                 var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalTransform));
 
                 var linkedEntityGroup = m_Manager.GetBuffer<LinkedEntityGroup>(parent);
-                linkedEntityGroup.Add(new LinkedEntityGroup {Value = parent});
-                linkedEntityGroup.Add(new LinkedEntityGroup {Value = child});
-                m_Manager.SetComponentData(child, new Parent {Value = parent});
+                linkedEntityGroup.Add(new LinkedEntityGroup { Value = parent });
+                linkedEntityGroup.Add(new LinkedEntityGroup { Value = child });
+                m_Manager.SetComponentData(child, new Parent { Value = parent });
 
                 return parent;
             }
@@ -831,9 +834,9 @@ namespace Unity.Entities.Tests
                 var child = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(Parent), typeof(LocalTransform));
 
                 var linkedEntityGroup = m_Manager.GetBuffer<LinkedEntityGroup>(parent);
-                linkedEntityGroup.Add(new LinkedEntityGroup {Value = parent});
-                linkedEntityGroup.Add(new LinkedEntityGroup {Value = child});
-                m_Manager.SetComponentData(child, new Parent {Value = parent});
+                linkedEntityGroup.Add(new LinkedEntityGroup { Value = parent });
+                linkedEntityGroup.Add(new LinkedEntityGroup { Value = child });
+                m_Manager.SetComponentData(child, new Parent { Value = parent });
 
                 return parent;
             }
@@ -888,12 +891,12 @@ namespace Unity.Entities.Tests
                 m_Manager.AddComponent<EcsCleanupTag1>(parentA);
             }
 
-            m_Manager.SetComponentData(child, new Parent {Value = parentA});
+            m_Manager.SetComponentData(child, new Parent { Value = parentA });
 
             parentSystem.Update(World.Unmanaged);
 
             m_Manager.DestroyEntity(parentA);
-            m_Manager.SetComponentData(child, new Parent {Value = parentB});
+            m_Manager.SetComponentData(child, new Parent { Value = parentB });
 
             parentSystem.Update(World.Unmanaged);
 
@@ -959,6 +962,7 @@ namespace Unity.Entities.Tests
 
             // Make sure old parent has expected components.
             Assert.IsFalse(m_Manager.HasComponent<Child>(parentA));
+
             // Make sure new parent has expected components
             Assert.IsTrue(m_Manager.HasComponent<Child>(parentB));
             var childrenB = m_Manager.GetBuffer<Child>(parentB);
@@ -1023,7 +1027,7 @@ namespace Unity.Entities.Tests
         {
             var entity = m_Manager.CreateEntity(typeof(LocalToWorld), typeof(LocalTransform), typeof(PostTransformMatrix));
             m_Manager.SetComponentData(entity, LocalTransform.FromRotation(quaternion.Euler(math.radians(new float3(10f, 20f, 30f)))));
-            m_Manager.SetComponentData(entity, new PostTransformMatrix {Value = float4x4.Scale(1f, 2f, 3f)});
+            m_Manager.SetComponentData(entity, new PostTransformMatrix { Value = float4x4.Scale(1f, 2f, 3f) });
             World.GetOrCreateSystem<LocalToWorldSystem>().Update(World.Unmanaged);
             var rotationFromTransform = m_Manager.GetComponentData<LocalTransform>(entity).Rotation;
             var rotationFromMatrix = m_Manager.GetComponentData<LocalToWorld>(entity).Rotation;

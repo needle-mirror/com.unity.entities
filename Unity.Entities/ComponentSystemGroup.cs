@@ -92,9 +92,10 @@ namespace Unity.Entities
         internal UnsafeList<SystemHandle> m_UnmanagedSystemsToRemove;
 
         /// <summary>
-        /// The ordered list of managed systems in this group, sorted by update order.
+        /// The list of managed systems in this group, sorted by update order.
         /// </summary>
         public virtual IReadOnlyList<ComponentSystemBase> ManagedSystems => m_managedSystemsToUpdate;
+
         internal UnsafeList<SystemHandle> UnmanagedSystems => m_UnmanagedSystemsToUpdate;
         /// <summary>
         /// Get the list of unmanaged systems in this group, sorted by update order.
@@ -115,7 +116,7 @@ namespace Unity.Entities
         /// <returns>A NativeList of systems</returns>
         public NativeList<SystemHandle> GetAllSystems(Allocator allocator = Allocator.Temp)
         {
-            var ret = new NativeList<SystemHandle>(m_MasterUpdateList.Length, allocator);
+            var ret = new NativeList<SystemHandle>(16, allocator);
             for (int i = 0; i < m_MasterUpdateList.Length; i++)
             {
                 var entry = m_MasterUpdateList[i];
@@ -123,7 +124,7 @@ namespace Unity.Entities
             }
             return ret;
         }
-        
+
         internal DoubleRewindableAllocators* m_RateGroupAllocators = null;
         internal byte RateGroupAllocatorsCreated { get; set; } = 0;
 
@@ -591,23 +592,6 @@ namespace Unity.Entities
             RecurseUpdate();
         }
 
-#if UNITY_DOTSRUNTIME
-        public void RecursiveLogToConsole()
-        {
-            foreach (var sys in m_managedSystemsToUpdate)
-            {
-                if (sys is ComponentSystemGroup)
-                {
-                    (sys as ComponentSystemGroup).RecursiveLogToConsole();
-                }
-
-                var name = TypeManager.GetSystemName(sys.GetType());
-                Debug.Log(name);
-            }
-        }
-
-#endif
-
         internal override void OnStopRunningInternal()
         {
             OnStopRunning();
@@ -742,13 +726,6 @@ namespace Unity.Entities
                 catch (Exception e)
                 {
                     Debug.LogException(e);
-#if UNITY_DOTSRUNTIME
-                    // When in a DOTS Runtime build, throw this upstream -- continuing after silently eating an exception
-                    // is not what you'll want, except maybe once we have LiveLink.  If you're looking at this code
-                    // because your LiveLink dots runtime build is exiting when you don't want it to, feel free
-                    // to remove this block, or guard it with something to indicate the player is not for live link.
-                    throw;
-#endif
                 }
 
                 if (World.QuitUpdate)

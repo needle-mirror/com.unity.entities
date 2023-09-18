@@ -363,8 +363,6 @@ namespace Unity.Entities.Tests
             public int Value;
         }
 
-#if !NET_DOTS
-// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void CleanupSharedKeepsValueAfterDestroy()
         {
@@ -373,7 +371,5 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
             EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<CleanupEntity>(new CleanupShared { Value = 123 }));
         }
-
-#endif
     }
 }

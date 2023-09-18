@@ -1439,13 +1439,8 @@ namespace Unity.Entities.Tests
 
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
-
-#if UNITY_DOTSRUNTIME
-            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent(query, componentTypes));
-#else
             Assert.That(() => m_Manager.AddComponent(query, componentTypes), Throws.InvalidOperationException
                   .With.Message.StartsWith($"Cannot add more than {EntityComponentStore.kMaxSharedComponentCount} SharedComponent's to a single Archetype"));
-#endif
 
             m_ManagerDebug.CheckInternalConsistency();
 
@@ -1498,7 +1493,7 @@ namespace Unity.Entities.Tests
         {
             var componentTypes = new ComponentTypeSet(typeof(EcsTestDataHuge)); // add really big component(s)
 
-            Assert.AreEqual(16320, Chunk.GetChunkBufferSize());   // if chunk size changes, need to update this test
+            Assert.AreEqual(16320, Chunk.kChunkBufferSize);   // if chunk size changes, need to update this test
 
             var entity1 = m_Manager.CreateEntity(typeof(EcsTestData));
             var entity2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -1509,12 +1504,8 @@ namespace Unity.Entities.Tests
 
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
 
-#if UNITY_DOTSRUNTIME
-            Assert.Throws<InvalidOperationException>(() => m_Manager.AddComponent(query, componentTypes));
-#else
             Assert.That(() => m_Manager.AddComponent(query, componentTypes), Throws.InvalidOperationException
                             .With.Message.Contains("Entity archetype component data is too large."));
-#endif
 
             m_ManagerDebug.CheckInternalConsistency();
 
@@ -1596,7 +1587,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [IgnoreInPortableTests("intermittent crash (likely race condition)")]
         public void RemoveAnyComponent_WithQuery_IgnoresChunksThatDontHaveTheComponent()
         {
             var componentTypes = new ComponentType[]
@@ -1835,7 +1825,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [IgnoreInPortableTests("intermittent crash (likely race condition)")]
         public void RemoveAnyComponent_WithGroup_IgnoresChunksThatDontHaveTheComponent_ManagedComponents()
         {
             var componentTypes = new ComponentType[]

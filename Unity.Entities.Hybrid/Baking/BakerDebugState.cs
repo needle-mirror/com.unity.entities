@@ -70,5 +70,10 @@ namespace Unity.Entities
         {
             addedComponentsByEntity.Clear();
         }
+
+        public bool IsCreated
+        {
+            get { return addedComponentsByEntity.IsCreated; }
+        }
     }
 }

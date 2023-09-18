@@ -97,7 +97,11 @@ namespace Unity.Entities.Editor
                         s_Keywords.Add(attribute.SectionName);
                     }
 
-                    list.Add(new SettingWrapper(setting, type.GetCustomAttributes<InternalSettingAttribute>().Any()));
+                    var wrapper = new SettingWrapper(setting, type.GetCustomAttributes<InternalSettingAttribute>().Any());
+                    list.Add(wrapper);
+                    var keywords = wrapper.Setting.GetSearchKeywords();
+                    if (keywords != null && keywords.Length > 0)
+                        s_Keywords.AddRange(keywords);
                 }
             }
         }

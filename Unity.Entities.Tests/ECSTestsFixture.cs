@@ -4,9 +4,7 @@ using Unity.Entities.CodeGeneratedJobForEach;
 using Unity.Jobs.LowLevel.Unsafe;
 using Assert = FastAssert;
 using Unity.Burst;
-#if !UNITY_DOTSRUNTIME
 using UnityEngine.LowLevel;
-#endif
 
 namespace Unity.Entities.Tests
 {
@@ -80,18 +78,11 @@ namespace Unity.Entities.Tests
         [SetUp]
         public virtual void Setup()
         {
-#if UNITY_DOTSRUNTIME
-            Unity.Runtime.TempMemoryScope.EnterScope();
-            UnityEngine.TestTools.LogAssert.ExpectReset();
-#endif
         }
 
         [TearDown]
         public virtual void TearDown()
         {
-#if UNITY_DOTSRUNTIME
-            Unity.Runtime.TempMemoryScope.ExitScope();
-#endif
         }
 
         [BurstDiscard]
@@ -114,9 +105,7 @@ namespace Unity.Entities.Tests
     {
         protected World m_PreviousWorld;
         protected World World;
-#if !UNITY_DOTSRUNTIME
         protected PlayerLoopSystem m_PreviousPlayerLoop;
-#endif
         protected EntityManager m_Manager;
         protected EntityManager.EntityManagerDebug m_ManagerDebug;
 
@@ -128,11 +117,9 @@ namespace Unity.Entities.Tests
         {
             base.Setup();
 
-#if !UNITY_DOTSRUNTIME
             // unit tests preserve the current player loop to restore later, and start from a blank slate.
             m_PreviousPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
             PlayerLoop.SetPlayerLoop(PlayerLoop.GetDefaultPlayerLoop());
-#endif
 
             m_PreviousWorld = World.DefaultGameObjectInjectionWorld;
             World = World.DefaultGameObjectInjectionWorld = new World("Test World");
@@ -145,9 +132,7 @@ namespace Unity.Entities.Tests
             JobsDebuggerWasEnabled = JobsUtility.JobDebuggerEnabled;
             JobsUtility.JobDebuggerEnabled = true;
 
-#if !UNITY_DOTSRUNTIME
             JobsUtility.ClearSystemIds();
-#endif
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             // In case entities journaling is initialized, clear it
@@ -178,14 +163,9 @@ namespace Unity.Entities.Tests
             }
 
             JobsUtility.JobDebuggerEnabled = JobsDebuggerWasEnabled;
-
-#if !UNITY_DOTSRUNTIME
             JobsUtility.ClearSystemIds();
-#endif
 
-#if !UNITY_DOTSRUNTIME
             PlayerLoop.SetPlayerLoop(m_PreviousPlayerLoop);
-#endif
 
             base.TearDown();
         }

@@ -2,9 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-#endif
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core.Compression;
@@ -27,10 +24,6 @@ namespace Unity.Scenes.Editor
     internal struct WriteEntitySceneSettings
     {
 #pragma warning disable CS0649 // Field is never assigned to, and will always have its default value
-        public bool IsDotsRuntime;
-#if USING_PLATFORMS_PACKAGE
-        public BuildAssemblyCache BuildAssemblyCache;
-#endif
         public string OutputPath;
         public Codec Codec;
         public Entity PrefabRoot;
@@ -89,9 +82,6 @@ namespace Unity.Scenes.Editor
             EntitySceneOptimization.Optimize(world);
 
             var sections = WriteEntitySceneInternalBaking(world.EntityManager, settings.SceneGUID, scene.name, settings.AssetImportContext, sectionRefObjs, writeEntitySettings);
-
-            if (writeEntitySettings.IsDotsRuntime && sectionRefObjs.Count != 0)
-                throw new ArgumentException("We are serializing a world that contains UnityEngine.Object references which are not supported in Dots Runtime.");
 
             if (disposeBlobAssetCache)
                 settings.BlobAssetStore.Dispose();
@@ -171,17 +161,6 @@ namespace Unity.Scenes.Editor
                     writer.WriteLine($"::Exported Types (by stable hash)::");
                     foreach (var typeInfo in typeInfos)
                     {
-                        // For dots runtime only, check if the build assembly cache containing all types from root asmdef, contains the typeinfo. If not throw an exception, the runtime will fail to recognize the type (probably a missing asmdef reference)
-                        #if USING_PLATFORMS_PACKAGE
-                        if (writeEntitySceneSettings.IsDotsRuntime && writeEntitySceneSettings.BuildAssemblyCache != null)
-                        {
-                            var type =typeInfo.Type;
-                            if (!writeEntitySceneSettings.BuildAssemblyCache.HasType(type))
-                                throw new ArgumentException($"The {type.Name} component is defined in the {type.Assembly.GetName().Name} assembly, but that assembly is not referenced by the current build configuration. " +
-                                    $"Either add it as a reference, or ensure that the conversion process that is adding that component does not run.");
-                        }
-                        #endif
-
                         // Record exported types in a separate log file for debug purposes
                         writer.WriteLine($"0x{typeInfo.StableTypeHash:x16} - {typeInfo.StableTypeHash,22} - {typeInfo.Type.FullName}");
                     }
@@ -226,7 +205,9 @@ namespace Unity.Scenes.Editor
             {
                 foreach (var e in entities)
                 {
-                    if (ecs->GetChunk(e)->Archetype == pEmptyArchetype)
+                    var chunk = ecs->GetChunk(e);
+                    var chunkArchetype = ecs->GetArchetype(chunk);
+                    if (chunkArchetype == pEmptyArchetype)
                     {
                         entityManager.DestroyEntity(e);
                     }
@@ -300,8 +281,6 @@ namespace Unity.Scenes.Editor
             var subSectionList = new List<SceneSection>();
             GetSceneSections(entityManager, sceneGUID, ref subSectionList);
 
-            var extRefInfoEntities = new NativeArray<Entity>(subSectionList.Count, Allocator.Temp);
-
             NativeArray<Entity> entitiesInMainSection;
 
             var sectionQuery = entityManager.CreateEntityQuery(
@@ -333,19 +312,6 @@ namespace Unity.Scenes.Editor
                 entitiesInMainSection = sectionQuery.ToEntityArray(Allocator.TempJob);
 
                 // Each section will be serialized in its own world, entities that don't have a section are part of the main scene.
-                // An entity that holds the array of external references to the main scene is required for each section.
-                // We need to create them all before we start moving entities to section scenes,
-                // otherwise they would reuse entities that have been moved and mess up the remapping tables.
-                for (int sectionIndex = 1; sectionIndex < subSectionList.Count; ++sectionIndex)
-                {
-                    if (subSectionList[sectionIndex].Section == 0)
-                        // Main section, the only one that doesn't need an external ref array
-                        continue;
-
-                    var extRefInfoEntity = entityManager.CreateEntity();
-                    entityManager.AddSharedComponentManaged(extRefInfoEntity, subSectionList[sectionIndex]);
-                    extRefInfoEntities[sectionIndex] = extRefInfoEntity;
-                }
 
                 // Public references array, only on the main section.
                 var refInfoEntity = entityManager.CreateEntity();
@@ -413,18 +379,6 @@ namespace Unity.Scenes.Editor
 
                     if (entitiesInSection.Length > 0)
                     {
-                        // Fetch back the external reference entity we created earlier to not disturb the mapping
-                        var refInfoEntity = extRefInfoEntities[subSectionIndex];
-                        entityManager.AddBuffer<ExternalEntityRef>(refInfoEntity);
-                        var externRefs = entityManager.GetBuffer<ExternalEntityRef>(refInfoEntity);
-
-                        // Store the mapping to everything in the main section
-                        //@TODO maybe we don't need all that? is this worth worrying about?
-                        for (int i = 0; i < entitiesInMainSection.Length; ++i)
-                        {
-                            ExternalEntityRef.Add(ref externRefs, new ExternalEntityRef {entityIndex = i});
-                        }
-
                         var entityRemapping = entityManager.CreateEntityRemapArray(Allocator.TempJob);
 
                         // Entities will be remapped to a contiguous range in the section world, but they will
@@ -432,13 +386,6 @@ namespace Unity.Scenes.Editor
                         // the entities in the main section won't be moved over, so there's a free range of that
                         // size at the end of the remapping table. So we use that range for external references.
                         var externEntityIndexStart = entityRemapping.Length - entitiesInMainSection.Length;
-
-                        entityManager.AddComponentData(refInfoEntity,
-                            new ExternalEntityRefInfo
-                            {
-                                SceneGUID = sceneGUID,
-                                EntityIndexStart = externEntityIndexStart
-                            });
 
                         var sectionWorld = new World("SectionWorld");
                         var sectionManager = sectionWorld.EntityManager;
@@ -467,16 +414,6 @@ namespace Unity.Scenes.Editor
 
                         var oldExternEntityIndexStart = externEntityIndexStart;
                         externEntityIndexStart = highestEntityIndexInUse + 1;
-
-                        sectionManager.SetComponentData
-                            (
-                                EntityRemapUtility.RemapEntity(ref entityRemapping, refInfoEntity),
-                                new ExternalEntityRefInfo
-                                {
-                                    SceneGUID = sceneGUID,
-                                    EntityIndexStart = externEntityIndexStart
-                                }
-                            );
 
                         // When writing the scene, references to missing entities are set to Entity.Null by default
                         // (but only if they have been used, otherwise they remain untouched)
@@ -688,16 +625,14 @@ namespace Unity.Scenes.Editor
             using (var writer = new StreamBinaryWriter(entitiesBinaryPath))
             using (var entitiesWriter = new MemoryBinaryWriter())
             {
-                var isDotsRuntime = writeEntitySceneSettings.IsDotsRuntime;
                 var entityRemapInfosCreated = entityRemapInfos.IsCreated;
                 if(!entityRemapInfosCreated)
                     entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(scene.EntityCapacity, Allocator.Temp);
 
                 blobHeader = SerializeUtility.SerializeWorldInternal(scene, entitiesWriter, out var referencedObjects,
-                    entityRemapInfos, weakAssetRefs, serializeSetting, isDotsRuntime, buildBlobHeader);
+                    entityRemapInfos, weakAssetRefs, serializeSetting, buildBlobHeader);
 
-                if(!isDotsRuntime)
-                    SerializeUtilityHybrid.SerializeObjectReferences((UnityEngine.Object[])referencedObjects, out objRefs);
+                SerializeUtilityHybrid.SerializeObjectReferences((UnityEngine.Object[])referencedObjects, out objRefs);
 
                 if (!entityRemapInfosCreated)
                     entityRemapInfos.Dispose();

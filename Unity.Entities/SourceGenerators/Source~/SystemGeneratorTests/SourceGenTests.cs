@@ -19,6 +19,7 @@ using Microsoft.VisualStudio.TestTools.UnitTesting;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Entities.Hybrid;
+using Unity.Entities.SourceGen.Common;
 
 namespace Unity.Entities.SourceGenerators.Test
 {

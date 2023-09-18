@@ -106,7 +106,7 @@ namespace Unity.Entities.Editor
                 {
                     var chunk = ecs->GetChunk(entity);
                     var match = matchingArchetypes.Ptr[matchingArchetypeIndex];
-                    if (!chunk->MatchesFilter(match, ref query._GetImpl()->_Filter))
+                    if (!chunk.MatchesFilter(match, ref query._GetImpl()->_Filter))
                         continue;
                 }
 

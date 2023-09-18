@@ -163,7 +163,7 @@ namespace Unity.Entities
         /// <inheritdoc cref="ComponentSystemGroup.OnUpdate"/>
         protected override void OnUpdate()
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS && !UNITY_DOTSRUNTIME
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
             JobsUtility.ClearSystemIds();
 #endif
             base.OnUpdate();

@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using UnityEngine;
 
 namespace Unity.Entities
@@ -30,4 +29,3 @@ namespace Unity.Entities
         }
     }
 }
-#endif

@@ -157,6 +157,7 @@ namespace Unity.Entities.Editor
 
                 var concatResultsJob = new ConcatResultsJob
                 {
+                    EntityComponentStore = query.GetEntityComponentStore(),
                     TypeIndex = m_TypeIndex,
                     GatheredChanges = m_GatheredChanges,
                     RemovedShadowChunks = m_RemovedShadowChunks.AsDeferredJobArray(),
@@ -284,16 +285,17 @@ namespace Unity.Entities.Editor
             public void Execute(int index)
             {
                 var chunk = Chunks[index].m_Chunk;
-                var archetype = chunk->Archetype;
+                var archetype = Chunks[index].Archetype.Archetype;
                 var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex);
                 if (indexInTypeArray == -1) // Archetype doesn't match required component
                     return;
 
                 var changesForChunk = GatheredChanges + index;
 
-                if (ShadowChunksBySequenceNumber.TryGetValue(chunk->SequenceNumber, out var shadow))
+                if (ShadowChunksBySequenceNumber.TryGetValue(chunk.SequenceNumber, out var shadow))
                 {
-                    if (!ChangeVersionUtility.DidChange(chunk->GetChangeVersion(0), shadow.Version))
+                    var entityVersion = archetype->Chunks.GetChangeVersion(0, chunk.ListIndex);
+                    if (!ChangeVersionUtility.DidChange(entityVersion, shadow.Version))
                         return;
 
                     if (!changesForChunk->AddedEntities.IsCreated)
@@ -303,8 +305,8 @@ namespace Unity.Entities.Editor
                         changesForChunk->RemovedEntities = new UnsafeList<Entity>(0, Allocator.TempJob);
                     }
 
-                    var entityDataPtr = (Entity*)(chunk->Buffer + archetype->Offsets[0]);
-                    var currentCount = chunk->Count;
+                    var entityDataPtr = (Entity*)(chunk.Buffer + archetype->Offsets[0]);
+                    var currentCount = chunk.Count;
                     var previousCount = shadow.EntityCount;
                     var i = 0;
                     for (; i < currentCount && i < previousCount; i++)
@@ -335,9 +337,9 @@ namespace Unity.Entities.Editor
                 else
                 {
                     // This is a new chunk
-                    var addedEntities = new UnsafeList<Entity>(chunk->Count, Allocator.TempJob);
-                    var entityDataPtr = chunk->Buffer + archetype->Offsets[0];
-                    addedEntities.AddRange(entityDataPtr, chunk->Count);
+                    var addedEntities = new UnsafeList<Entity>(chunk.Count, Allocator.TempJob);
+                    var entityDataPtr = chunk.Buffer + archetype->Offsets[0];
+                    addedEntities.AddRange(entityDataPtr, chunk.Count);
                     changesForChunk->Chunk = chunk;
                     changesForChunk->AddedEntities = addedEntities;
                 }
@@ -355,25 +357,26 @@ namespace Unity.Entities.Editor
             public void Execute(int index)
             {
                 var chunk = Chunks[index].m_Chunk;
-                var archetype = chunk->Archetype;
+                var archetype = Chunks[index].Archetype.Archetype;
                 var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex);
                 if (indexInTypeArray == -1) // Archetype doesn't match required component
                     return;
 
-                var sequenceNumber = chunk->SequenceNumber;
+                var sequenceNumber = chunk.SequenceNumber;
                 if (ShadowChunksBySequenceNumber.TryGetValue(sequenceNumber, out var shadow))
                     return;
 
-                var entityDataPtr = chunk->Buffer + archetype->Offsets[0];
+                var entityDataPtr = chunk.Buffer + archetype->Offsets[0];
 
+                var entityCount = chunk.Count;
                 shadow = new ShadowChunk
                 {
-                    EntityCount = chunk->Count,
-                    Version = chunk->GetChangeVersion(0),
-                    EntityDataBuffer = (Entity*)UnsafeUtility.Malloc(sizeof(Entity) * chunk->Capacity, 4, Allocator.Persistent),
+                    EntityCount = entityCount,
+                    Version = archetype->Chunks.GetChangeVersion(0, chunk.ListIndex),
+                    EntityDataBuffer = (Entity*)UnsafeUtility.Malloc(sizeof(Entity) * archetype->ChunkCapacity, 4, Allocator.Persistent),
                 };
 
-                UnsafeUtility.MemCpy(shadow.EntityDataBuffer, entityDataPtr, chunk->Count * sizeof(Entity));
+                UnsafeUtility.MemCpy(shadow.EntityDataBuffer, entityDataPtr, entityCount * sizeof(Entity));
 
                 AllocatedShadowChunks[index] = shadow;
             }
@@ -396,24 +399,24 @@ namespace Unity.Entities.Editor
                 for (var index = 0; index < Chunks.Length; index++)
                 {
                     var chunk = Chunks[index].m_Chunk;
-                    var archetype = chunk->Archetype;
+                    var archetype = Chunks[index].Archetype.Archetype;
                     var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex);
                     if (indexInTypeArray == -1) // Archetype doesn't match required component
                         continue;
 
-                    var version = chunk->GetChangeVersion(0);
-                    var sequenceNumber = chunk->SequenceNumber;
+                    var version = archetype->Chunks.GetChangeVersion(0, chunk.ListIndex);
+                    var sequenceNumber = chunk.SequenceNumber;
                     processedChunks[sequenceNumber] = 0;
-                    var entityDataPtr = chunk->Buffer + archetype->Offsets[0];
+                    var entityDataPtr = chunk.Buffer + archetype->Offsets[0];
 
                     if (ShadowChunksBySequenceNumber.TryGetValue(sequenceNumber, out var shadow))
                     {
                         if (!ChangeVersionUtility.DidChange(version, shadow.Version))
                             continue;
 
-                        UnsafeUtility.MemCpy(shadow.EntityDataBuffer, entityDataPtr, chunk->Count * sizeof(Entity));
+                        UnsafeUtility.MemCpy(shadow.EntityDataBuffer, entityDataPtr, chunk.Count * sizeof(Entity));
 
-                        shadow.EntityCount = chunk->Count;
+                        shadow.EntityCount = chunk.Count;
                         shadow.Version = version;
 
                         ShadowChunksBySequenceNumber[sequenceNumber] = shadow;
@@ -491,6 +494,8 @@ namespace Unity.Entities.Editor
         {
             public TypeIndex TypeIndex;
 
+            [NativeDisableUnsafePtrRestriction] [ReadOnly] public EntityComponentStore* EntityComponentStore;
+
             [ReadOnly] public NativeList<ChangesCollector> GatheredChanges;
             [ReadOnly] public NativeArray<ulong> RemovedShadowChunks;
 
@@ -536,7 +541,7 @@ namespace Unity.Entities.Editor
                     UnsafeUtility.MemCpyReplicate((int*)RemovedEntitiesMappingToComponent.GetUnsafePtr() + removedEntityCurrentCount, &removedSharedComponentsCount, sizeof(int), changes.RemovedEntities.Length);
                     removedEntityCurrentCount += changes.RemovedEntities.Length;
 
-                    IndicesInManagedComponentStore[removedSharedComponentsCount++] = SharedComponentValueIndexByChunk[changes.Chunk->SequenceNumber];
+                    IndicesInManagedComponentStore[removedSharedComponentsCount++] = SharedComponentValueIndexByChunk[changes.Chunk.SequenceNumber];
                 }
 
                 for (var i = 0; i < GatheredChanges.Length; i++)
@@ -545,13 +550,13 @@ namespace Unity.Entities.Editor
                     if (changes.AddedEntities.Length == 0)
                         continue;
 
-                    var chunkSequenceNumber = changes.Chunk->SequenceNumber;
+                    var chunkSequenceNumber = changes.Chunk.SequenceNumber;
 
                     if (changes.AddedEntities.Length > 0)
                     {
-                        var archetype = changes.Chunk->Archetype;
+                        var archetype = EntityComponentStore->GetArchetype(changes.Chunk);
                         var indexInTypeArray = ChunkDataUtility.GetIndexInTypeArray(archetype, TypeIndex);
-                        var sharedComponentValueArray = changes.Chunk->SharedComponentValues;
+                        var sharedComponentValueArray = archetype->Chunks.GetSharedComponentValues(changes.Chunk.ListIndex);
                         var sharedComponentOffset = indexInTypeArray - archetype->FirstSharedComponent;
                         var sharedComponentDataIndex = sharedComponentValueArray[sharedComponentOffset];
 
@@ -571,13 +576,13 @@ namespace Unity.Entities.Editor
 
         unsafe struct ChangesCollector : IDisposable
         {
-            public Chunk* Chunk;
+            public ChunkIndex Chunk;
             public UnsafeList<Entity> AddedEntities;
             public UnsafeList<Entity> RemovedEntities;
 
             public void Dispose()
             {
-                Chunk = null;
+                Chunk = ChunkIndex.Null;
                 if (AddedEntities.IsCreated)
                     AddedEntities.Dispose();
                 if (RemovedEntities.IsCreated)

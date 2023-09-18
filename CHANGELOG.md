@@ -1,5 +1,76 @@
 # Changelog
 
+## [1.1.0-exp.1] - 2023-09-18
+
+### Added
+
+* Added a "Custom Transform System" folder in the assets folder of the "EntitiesSamples" project.
+* missing documentation on search public api
+* Enabled model assets to be baked as prefabs using EntityPrefabReference.
+* Error DC0084 is generated when capturing a local variable in an Entities.ForEach that isn't used.
+* Add GetSharedComponentIndexManaged API
+* Added addition errors around improper use of SystemAPI methods with generic type arguments.
+* Search Keyword registration for entities preferences and settings.
+* `SystemAPI.Query<T>` now supports `WithSharedComponentFilterManaged<T>(T sharedComponent)` and `WithSharedComponentFilterManaged<T1, T2>(T1 sharedComponent1, T2 sharedComponent2)`.
+* `CompleteDependencyBeforeRW(SystemState state)` and `CompleteDependencyBeforeRO(SystemState state)` are added to the public `Unity.Entities.IAspectCreate<T>` interface in order to faciltiate changes to source-generated code. Implementations of these methods, like all existing methods in `Unity.Entities.IAspectCreate<T>`, will automatically be generated on users' behalf by source generators.
+* Added `IBaker.CreateAdditionalEntities` for creating multiple additional entities at once.
+* filter to search with SharedComponent from within the Hierarchy Window
+* filter to search with SharedComponent from within the Search Window
+* New `EntityQuery` component type constraint: `Present` components are required to be present on a query's matching archetypes, whether or not they are enabled or disabled on individual entities. This constraint can be added in all the usual places -- `EntityQueryBuilder.WithPresent<T>()`, `EntityQueryDesc.Present[]`, the `[WithPresent(typeof(T))]` attribute on `IJobEntity`, etc.
+* checks to see if an exclusive transaction is active while scheduling a job.
+* Specific error when capturing a variable in `Entities.ForEach` that relies on relies on source generators (since there is no deterministic order between source generators, this can be an error).
+
+### Changed
+
+* Significantly improved the performance of `EntityManager.SetSharedComponent<T>(EntityQuery,T)` and `EntityManager.SetSharedComponentManaged<T>(EntityQuery,T)`
+* `TypeManager.Initialize` will disable synchronous Burst compilation only during initialization of the TypeManager so that large synchronous compilation stalls when compiling function pointers can be avoided when iterating in the Editor.
+* BlobBuilder is now partial
+* CompanionGameObjectUpdateTransformSystem is now public
+* ResetUpdateAllocator is now public
+* SubSceneInspectorUtility is now public
+* Batch primary entity creation in baking.
+* `HasSingleton<T>()` and `TryGetSingleton<T>()` methods will now throw if they find >1 instance of `T`, instead of returning `false`. Having more than one instance of a singleton component indicates a bug in the program, and should fail more obviously.
+* The visibility of the `EnabledBitUtility` class was changed from `public` to `internal`. This class was never intended to be part of the public API of the Entities package, and should not be used by application code.
+* `EntityManager.AddChunkComponentData(EntityQuery,T)` no longer throws an exception if the component `T` is already present on any of the target chunks. Instead, the new value is assigned to the existing component. This matches the behavior of other AddComponent variants in the Entities package.
+* Text for exception that occurs when an entity doesn't exist during EntityCommandBuffer playback.
+* `IJobChunk` now allows indexed writes to native containers passed in the job struct. Only writes to the element at `unfilteredChunkIndex` are valid. To disable this check on a per-container basis, add `[NativeDisableParallelForRestriction]` to the relevant field in the job struct.
+
+### Deprecated
+
+* Deprecate GetSharedComponentDataIndex as it is a dupplicate of GetSharedComponentIndex
+
+### Removed
+
+* Removed gizmo rendering logic for entities from C#, now this is handled natively in Unity.
+* Marked `EntityManager.Instantiate(NativeArray<Entity> srcEntities, NativeArray<Entity> outputEntities)` as obsolete, with the intention to eventually remove it entirely.
+
+### Fixed
+
+* Code fix now available to rewrite offending code that trigger `CS1654` errors.
+* Fixed a typo in the "LocalTransform" summary comment.
+* Property drawer for arrays and lists of Weak(Object|Scene)Reference types
+* Compilation with DISABLE_ENTITIES_JOURNALING works again.
+* Ensure Component gizmos are rendered for GameObjects in SubScenes when rendered with Entities. That is when using Preferences->Entities->SceneView Mode -> Runtime Data.
+* Added null checks in BlobAssetReferenceData properties to avoid crashing the engine while inspecting variables with the debugger.
+* LocalTransform.FromMatrixSafe would throw exceptions for valid matricies
+* IJobEntity overwriting files due to colliding filenames.
+* Differ discards ChunkComponents added during baking.
+* Fixed issue with BakingVersion(true) triggering warnings in the console log about the attribute being missing on the type you placed this on in cases where named BakingVersion attributes are being used in the containing assembly.
+* A source generator error is not thrown anymore when using the fully qualified name of `SystemAPI.Time` (e.g. `Unity.Entities.SystemAPI.Time`).
+* The main entity in LinkedEntityGroups were not added in incremental baking.
+* Fix memory leak in the BakerEntityUsage not disposing properly the list of ReferencedEntityUsage
+* Fixed `isReadOnly` being ignored in `EntityManager.GetBuffer`.
+* ArgumentException on an unknown type when using the GetComponent API in a baker with an abstract type.
+* Subscenes no longer redundantly rebake on recompile due to type order changes.
+* Serialization of blob asset references in unmanaged shared components
+* `SystemGenerator` in the source-generation solution runs in ~48% less time when tested on a small game project shared by one of our users.
+* You now no longer get a compile error for methods containing SystemAPI, EFE, or IJE scheduling, that include a signature with nullables, multiple generics, or parameter modifiers.
+* KeyNotFoundException thrown by the  Entities.Editor.HierarchyWindow when loading a new gameobject scene
+* Users can now specify duplicate components in the same `IJobEntity.Execute()` method, insofar as exactly one of them is wrapped in `EnabledRef<T>`.
+* Fixed issue where ambiguous types used in a `SystemAPI.Query<T>()` call would generate a compiler error from source generators.
+* Entities Hierarchy: when entering playmode without fast enter playmode the hierarchy was showing the authoring datamode content even though the switch in the window header was showing the mixed datamode.
+* Validation for world's existence before accessing within EntityContainer and EntitySelectionProxy.
+
 
 ## [1.0.16] - 2023-09-11
 
@@ -33,8 +104,6 @@
 * Fixed memory leak in some cases when an `EntityCommandBuffer` containing `DynamicBuffer` commands was disposed before it was played back.
 * `World.AddSystemManaged<T>(T system)` no longer throws an exception if the system type `T` is not registered. Instead, it registers the type just in time. This matches the existing behavior of `World.CreateSystemManaged()`.
 * Fixed a hash mismatch on DependOnParentTransformHierarchy
-* Users can now specify duplicate components in the same `IJobEntity.Execute()` method, insofar as exactly one of them is wrapped in `EnabledRef<T>`.
-* You can now use SystemAPI.GetBufferTypeHandle and SystemAPI.GetSharedComponentTypeHandle with unspecified types coming from systems. Like a `MySystem<TUnspecifiedType>` using SystemAPI.GetBufferTypeHandle<TUnspecifiedType>.
 
 
 ## [1.0.14] - 2023-07-27
@@ -47,6 +116,7 @@
 * Early null entity check in ECB commands
 * More error logging in DotsGlobalSettings
 * Error logging in UpdateLoadOperation()
+* Added `EntityCommandBuffer.MoveComponent<T>(Entity src, Entity dst)`
 
 ### Changed
 
@@ -55,7 +125,6 @@
 * Obsolete API containing `FindObjectsOfType<>()` for `FindObjectsByType<>(FindObjectsSortMode.None)` in SubSceneInspectorUtility.cs and `FindObjectOfType<>()` for `FindFirstObjectByType<>()` in LiveConversionEditorPerformanceTests.cs and LiveConversionEditorTests.cs.
 * Increased allocation size in RuntimeContentManager initialization
 * More informative error message in WriteSceneHeader()
-
 
 ### Removed
 
@@ -83,8 +152,7 @@
 * Fixed stack overflow that was the result of circular dependency data in the content.
 
 
-
-## [1.0.11] - 2023-6-19
+## [1.0.11] - 2023-06-19
 
 ### Added
 
@@ -211,8 +279,6 @@
 
 ### Fixed
 
-* Allow components to contain NativeContainers whose element type is or contains a NativeContainer. Previously the TypeManager would throw during initialization if a component contained a a nested NativeContainer field. Note: NativeContainers still cannot be verified to be safely accessed when used in jobs. Thus, if a component contains a nested NativeContainer field, that component can only be accessed from the main thread.
-* Fixed memory leak in content loading system when scenes are unloaded before fully loading.
 * Allow components to contain NativeContainers whose element type is or contains a NativeContainer. Previously the TypeManager would throw during initialization if a component contained a a nested NativeContainer field. Note: NativeContainers still cannot be verified to be safely accessed when used in jobs. Thus, if a component contains a nested NativeContainer field, that component can only be accessed from the main thread.
 * improved error message when `EntityQuery.GetSingleton()` fails
 * Query window minimum size and scrolling behavior.
@@ -356,7 +422,6 @@
 
 * Stripping (e.g. on IL2CPP) now won't strip whole assemblies that have important systems, like graphics.
 * Generic systems created at runtime no longer break sorting functionality.
-
 
 ## [1.0.0-pre.44] - 2023-02-13
 

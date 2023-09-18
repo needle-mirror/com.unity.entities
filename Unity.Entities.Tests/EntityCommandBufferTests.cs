@@ -273,8 +273,6 @@ namespace Unity.Entities.Tests
 
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        [IgnoreInPortableTests("There are Assert.Throws in the WriteJob, which the runner doesn't find or support.")]
         [Test]
         public void EntityCommandBufferSystem_DisposeAfterPlaybackError_Succeeds()
         {
@@ -300,12 +298,7 @@ namespace Unity.Entities.Tests
             job.Complete();
         }
 
-        // These tests require:
-        // - JobsDebugger support for static safety IDs (added in 2020.1)
-#if !UNITY_DOTSRUNTIME
         [Test]
-        [DotsRuntimeFixme("Static safety IDs - DOTSR-1432")]
-        [IgnoreInPortableTests("There are Assert.Throws which the runner doesn't find or support.")]
         public void EntityCommandBufferConcurrent_PlaybackDuringWrite_UsesCustomOwnerTypeName()
         {
             EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
@@ -317,9 +310,6 @@ namespace Unity.Entities.Tests
             Assert.That(() => cmds.Playback(m_Manager), Throws.InvalidOperationException.With.Message.Contains("EntityCommandBuffer"));
             job.Complete();
         }
-
-#endif
-
 
         [Test]
         public void SingleWriterEnforced()
@@ -603,11 +593,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void TestMultiChunks()
         {
-#if UNITY_DOTSRUNTIME && !DEVELOP    // IL2CPP is a little slow in debug; reduce the number of tests in DEBUG (but not DEVELOP).
-            const int count = 4096;
-#else
             const int count = 65536;
-#endif
 
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator, PlaybackPolicy.MultiPlayback);
             cmds.MinimumChunkSize = 512;
@@ -1045,7 +1031,6 @@ namespace Unity.Entities.Tests
         [Test]
         public void SetSharedComponentNonDefault()
         {
-#if !UNITY_DOTSRUNTIME
             var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator, PlaybackPolicy.MultiPlayback);
             var index = TypeManager.GetTypeIndex<EcsTestSharedComp>();
 
@@ -1070,7 +1055,6 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(2, sharedCompList.Count);
                 Assert.AreEqual(10, sharedCompList[1].value);
             }
-#endif
         }
 
         [Test]
@@ -3584,7 +3568,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [ManagedExceptionInPortableTests] // This test relies on side-effects of running exception generating code
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void EntityCommandBufferSystemPlaybackExceptionIsolation()
         {
@@ -3830,8 +3813,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(12, m_Manager.GetComponentData<EcsTestData2>(realDst1).value1);
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // The portable test runner can't handle the return value from Assert.Throws
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
         public void UninitializedEntityCommandBufferThrows()
@@ -3880,7 +3861,6 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager));
             Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager2));
         }
-#endif
 
         [Test]
         public void AddOrSetBufferWithEntity_NeedsFixup_ContainsRealizedEntity([Values(true, false)] bool setBuffer)
@@ -4321,25 +4301,17 @@ namespace Unity.Entities.Tests
             {
                 var defferedEntity = cmds.CreateEntity();
 
-#if !UNITY_PORTABLE_TEST_RUNNER
                 var addEx = Assert.Throws<ArgumentException>(() => cmds.AddComponentForLinkedEntityGroup(rootEntity, mask, new EcsTestDataEntity{value0 = 42, value1 = defferedEntity}));
                 Assert.IsTrue(addEx.Message.Contains("command contains a reference to a temporary Entity"));
                 var setEx = Assert.Throws<ArgumentException>(() => cmds.SetComponentForLinkedEntityGroup(rootEntity, mask, new EcsTestDataEntity{value0 = 42, value1 = defferedEntity}));
                 Assert.IsTrue(setEx.Message.Contains("command contains a reference to a temporary Entity"));
                 var replaceEx = Assert.Throws<ArgumentException>(() => cmds.ReplaceComponentForLinkedEntityGroup(rootEntity, new EcsTestDataEntity{value0 = 42, value1 = defferedEntity}));
                 Assert.IsTrue(replaceEx.Message.Contains("command contains a reference to a temporary Entity"));
-#else
-                Assert.Throws<ArgumentException>(() => cmds.AddComponentForLinkedEntityGroup(rootEntity, mask, new EcsTestDataEntity{value0 = 42, value1 = defferedEntity}));
-                Assert.Throws<ArgumentException>(() => cmds.SetComponentForLinkedEntityGroup(rootEntity, mask, new EcsTestDataEntity{value0 = 42, value1 = defferedEntity}));
-                Assert.Throws<ArgumentException>(() => cmds.ReplaceComponentForLinkedEntityGroup(rootEntity, new EcsTestDataEntity{value0 = 42, value1 = defferedEntity}));
-#endif
             }
 
             array.Dispose();
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-// https://unity3d.atlassian.net/browse/DOTSR-1432
         void VerifyCommand_Or_CheckThatItThrowsIfEntityIsDeferred(bool shouldThrow, TestDelegate code)
         {
             if (shouldThrow)
@@ -4464,8 +4436,6 @@ namespace Unity.Entities.Tests
                 }
             }
         }
-
-#endif
 
         [Test]
         public void IsEmpty_Works()
@@ -6953,6 +6923,92 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent>(entity));
 
             Assert.DoesNotThrow(() => { DisposeEcb(ref cmds); });
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
+        public void MoveManagedComponent_Works()
+        {
+            var srcEntity = m_Manager.CreateEntity();
+            var dstEntity = m_Manager.CreateEntity();
+            var destroyedEntity = m_Manager.CreateEntity();
+            m_Manager.DestroyEntity(destroyedEntity);
+            {
+                // null src is a recording-time error
+                using var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                Assert.Throws<InvalidOperationException>(() => cmds.MoveComponent<EcsTestDisposableManagedComponent>(Entity.Null, dstEntity));
+            }
+            {
+                // null dst is a recording-time error
+                using var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                Assert.Throws<InvalidOperationException>(() => cmds.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, Entity.Null));
+            }
+            {
+                // invalid but non-null src is a playback-time error
+                using var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                cmds.MoveComponent<EcsTestDisposableManagedComponent>(destroyedEntity, dstEntity);
+                Assert.Throws<ArgumentException>(() => cmds.Playback(m_Manager));
+            }
+            {
+                // invalid but non-null dst is a playback-time error
+                using var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                cmds.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, destroyedEntity);
+                Assert.Throws<ArgumentException>(() => cmds.Playback(m_Manager));
+            }
+            {
+                // missing target component on src is a playback-time error
+                using var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                cmds.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, dstEntity);
+                Assert.Throws<ArgumentException>(() => cmds.Playback(m_Manager));
+            }
+
+            var value1 = new EcsTestDisposableManagedComponent { Value = "value1" };
+            var value2 = new EcsTestDisposableManagedComponent { Value = "value2" };
+            m_Manager.AddComponentData(srcEntity, value1);
+            {
+                // src == dst is a no-op
+                using var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                cmds.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, srcEntity);
+                Assert.DoesNotThrow(() => cmds.Playback(m_Manager));
+                Assert.AreEqual(value1, m_Manager.GetComponentData<EcsTestDisposableManagedComponent>(srcEntity));
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(dstEntity));
+            }
+            {
+                // If dst doesn't have the target component, it's added, and the value is not disposed
+                using var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                cmds.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, dstEntity);
+                Assert.DoesNotThrow(() => cmds.Playback(m_Manager));
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(srcEntity));
+                Assert.AreEqual(value1, m_Manager.GetComponentData<EcsTestDisposableManagedComponent>(dstEntity));
+            }
+            {
+                // dst's T is null / default-initialized should work
+                m_Manager.AddComponentData(srcEntity, value1);
+                m_Manager.AddComponent<EcsTestDisposableManagedComponent>(dstEntity);
+                using var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                cmds.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, dstEntity);
+                Assert.DoesNotThrow(() => cmds.Playback(m_Manager));
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(srcEntity));
+                Assert.AreEqual(value1, m_Manager.GetComponentData<EcsTestDisposableManagedComponent>(dstEntity));
+            }
+            {
+                // dst's T value matches src's: should work
+                m_Manager.AddComponentData(srcEntity, value1);
+                using var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                cmds.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, dstEntity);
+                Assert.DoesNotThrow(() => cmds.Playback(m_Manager));
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(srcEntity));
+                Assert.AreEqual(value1, m_Manager.GetComponentData<EcsTestDisposableManagedComponent>(dstEntity));
+            }
+            {
+                // dst's T value does not match src. In this case, we need to make sure dst's old value is correctly disposed and doesn't leak.
+                m_Manager.AddComponentData(srcEntity, value2);
+                using var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+                cmds.MoveComponent<EcsTestDisposableManagedComponent>(srcEntity, dstEntity);
+                Assert.DoesNotThrow(() => cmds.Playback(m_Manager));
+                Assert.IsFalse(m_Manager.HasComponent<EcsTestDisposableManagedComponent>(srcEntity));
+                Assert.AreEqual(value2, m_Manager.GetComponentData<EcsTestDisposableManagedComponent>(dstEntity));
+            }
         }
 
         [Test]

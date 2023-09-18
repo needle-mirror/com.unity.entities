@@ -1,147 +1,150 @@
 ﻿using System.Collections.Generic;
 using System.Linq;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
 
-namespace Unity.Entities.SourceGen.SystemGenerator.Common
+namespace Unity.Entities.SourceGen.SystemGenerator.Common;
+
+public readonly struct SystemDescription : ISourceGeneratorDiagnosable
 {
-    public enum SystemType
+    public List<Diagnostic> SourceGenDiagnostics { get; }
+
+    public readonly QueriesAndHandles QueriesAndHandles;
+    public readonly TypeDeclarationSyntax SystemTypeSyntax;
+    public readonly SystemType SystemType;
+    public readonly SemanticModel SemanticModel;
+    public readonly INamedTypeSymbol SystemTypeSymbol;
+    public readonly string SystemTypeFullName;
+    public readonly SyntaxTreeInfo SyntaxTreeInfo;
+    public readonly Dictionary<Module, IModuleSyntaxWalker> SyntaxWalkers;
+    public readonly Dictionary<SyntaxNode, CandidateSyntax> CandidateNodes;
+    public readonly Dictionary<string, string> FullEcbSystemTypeNamesToGeneratedFieldNames;
+    public readonly HashSet<string> AdditionalStatementsInOnCreateForCompilerMethod;
+    public readonly List<IMemberWriter> NewMiscellaneousMembers;
+    public readonly PreprocessorInfo PreprocessorInfo;
+
+    public SystemDescription(
+        TypeDeclarationSyntax systemTypeSyntax,
+        SystemType systemType,
+        INamedTypeSymbol systemTypeSymbol,
+        SemanticModel semanticModel,
+        SyntaxTreeInfo syntaxTreeInfo,
+        Dictionary<SyntaxNode, CandidateSyntax> candidateNodes,
+        PreprocessorInfo preprocessorInfo)
     {
-        Unknown,
-        SystemBase,
-        ISystem
+        SystemTypeSyntax = systemTypeSyntax;
+        SemanticModel = semanticModel;
+        SystemTypeSymbol = systemTypeSymbol;
+        SystemType = systemType;
+        SystemTypeFullName = SystemTypeSymbol.ToFullName();
+        SyntaxTreeInfo = syntaxTreeInfo;
+        SourceGenDiagnostics = new List<Diagnostic>();
+        NewMiscellaneousMembers = new List<IMemberWriter>();
+        AdditionalStatementsInOnCreateForCompilerMethod = new HashSet<string>();
+        FullEcbSystemTypeNamesToGeneratedFieldNames = new Dictionary<string, string>();
+        QueriesAndHandles = QueriesAndHandles.Create(systemTypeSyntax);
+        CandidateNodes = candidateNodes ?? new Dictionary<SyntaxNode, CandidateSyntax>();
+        SyntaxWalkers = new Dictionary<Module, IModuleSyntaxWalker>();
+        PreprocessorInfo = preprocessorInfo;
     }
 
-    public static class SystemTypeHelpers
+    public bool ContainsChangesToSystem() =>
+        QueriesAndHandles.QueryFieldsToFieldNames.Any()
+        || QueriesAndHandles.TypeHandleStructNestedFields.Any()
+        || FullEcbSystemTypeNamesToGeneratedFieldNames.Any()
+        || SyntaxWalkers.Any()
+        || NewMiscellaneousMembers.Any();
+
+    public string GetOrCreateEntityCommandBufferSystemField(ITypeSymbol ecbSystemTypeSymbol)
     {
-        public static (bool IsSystemType, SystemType SystemType) TryGetSystemType(this ITypeSymbol namedSystemTypeSymbol)
-        {
-            if (namedSystemTypeSymbol.Is("Unity.Entities.SystemBase"))
-                return (true, SystemType.SystemBase);
-            if (namedSystemTypeSymbol.InheritsFromInterface("Unity.Entities.ISystem"))
-                return (true, SystemType.ISystem);
-            return (false, default);
-        }
-    }
+        string fullEcbSystemTypeName = ecbSystemTypeSymbol.ToFullName();
 
-    public readonly struct SystemDescription : ISourceGeneratorDiagnosable, IAdditionalHandlesInfo
-    {
-        public List<Diagnostic> Diagnostics { get; }
-
-        public HandlesDescription HandlesDescription { get; }
-
-        public TypeDeclarationSyntax TypeSyntax => SystemTypeSyntax;
-
-        public SystemType SystemType { get; }
-        public readonly INamedTypeSymbol SystemTypeSymbol;
-        public readonly TypeDeclarationSyntax SystemTypeSyntax;
-        public SemanticModel SemanticModel { get; }
-        public readonly IReadOnlyCollection<string> PreprocessorSymbolNames;
-        public readonly string SystemTypeFullName;
-        public readonly SyntaxTreeInfo SyntaxTreeInfo;
-        public readonly IReadOnlyCollection<string> FullyQualifiedBaseTypeNames;
-        public readonly List<SystemRewriter> Rewriters;
-        public readonly Dictionary<SyntaxNode, SyntaxNode> NonNestedReplacementsInMethods;
-        public readonly List<MemberDeclarationSyntax> NewMiscellaneousMembers;
-        public readonly Dictionary<string, string> FullEcbSystemTypeNamesToGeneratedFieldNames;
-        public readonly HashSet<string> AdditionalStatementsInOnCreateForCompilerMethod;
-
-        public readonly bool IsForDotsRuntime;
-        public readonly bool IsDotsRuntimeProfilerEnabled;
-        public readonly bool IsProfilerEnabled;
-        public readonly bool IsDotsDebugMode;
-        public readonly bool IsUnityCollectionChecksEnabled;
-
-        public SystemDescription(
-            TypeDeclarationSyntax originalSystemTypeSyntax,
-            SystemType systemType,
-            INamedTypeSymbol systemTypeSymbol,
-            SemanticModel semanticModel,
-            IEnumerable<string> preprocessorSymbolNames,
-            SyntaxTreeInfo syntaxTreeInfo)
-        {
-            SystemTypeSyntax = originalSystemTypeSyntax;
-            SemanticModel = semanticModel;
-            PreprocessorSymbolNames = preprocessorSymbolNames.ToArray();
-            SystemTypeSymbol = systemTypeSymbol;
-            SystemType = systemType;
-            SystemTypeFullName = SystemTypeSymbol.ToFullName();
-            SyntaxTreeInfo = syntaxTreeInfo;
-            FullyQualifiedBaseTypeNames = SystemTypeSymbol.GetAllFullyQualifiedInterfaceAndBaseTypeNames().ToArray();
-            Diagnostics = new List<Diagnostic>();
-            NewMiscellaneousMembers = new List<MemberDeclarationSyntax>();
-            NonNestedReplacementsInMethods = new Dictionary<SyntaxNode, SyntaxNode>();
-            AdditionalStatementsInOnCreateForCompilerMethod = new HashSet<string>();
-            FullEcbSystemTypeNamesToGeneratedFieldNames = new Dictionary<string, string>();
-            HandlesDescription = HandlesDescription.Create(originalSystemTypeSyntax);
-            Rewriters = new List<SystemRewriter>();
-
-            IsUnityCollectionChecksEnabled = false;
-            IsForDotsRuntime = false;
-            IsDotsRuntimeProfilerEnabled = false;
-            IsProfilerEnabled = false;
-            IsDotsDebugMode = false;
-
-            foreach (var name in PreprocessorSymbolNames)
-            {
-                switch (name)
-                {
-                    case "ENABLE_UNITY_COLLECTIONS_CHECKS":
-                        IsUnityCollectionChecksEnabled = true;
-                        break;
-                    case "UNITY_DOTSRUNTIME":
-                        IsForDotsRuntime = true;
-                        break;
-                    case "ENABLE_DOTSRUNTIME_PROFILER":
-                        IsDotsRuntimeProfilerEnabled = true;
-                        break;
-                    case "ENABLE_PROFILER":
-                        IsProfilerEnabled = true;
-                        break;
-                    case "UNITY_DOTS_DEBUG":
-                        IsDotsDebugMode = true;
-                        break;
-                }
-            }
-        }
-
-        /// <summary>
-        /// Please avoid using this method if possible, as it does not support node replacements at arbitrary levels of nesting.
-        /// Instead, implement your own `SystemRewriter` and then add it to the `Rewriters` list.
-        /// Ideally all existing modules will implement their own rewriters to handle replacements, so that we can remove this method once and for all,
-        /// which will also greatly simplify the implementation of `PartialSystemTypeGenerator`.
-        /// </summary>
-        public void ReplaceNodeNonNested(SyntaxNode original, SyntaxNode replacement)
-            => NonNestedReplacementsInMethods[original] = replacement;
-
-        public bool ContainsChangesToSystem() =>
-            NonNestedReplacementsInMethods.Any()
-            || HandlesDescription.QueryFieldsToFieldNames.Any()
-            || HandlesDescription.NonQueryFields.Any()
-            || FullEcbSystemTypeNamesToGeneratedFieldNames.Any()
-            || NewMiscellaneousMembers.Any()
-            || Rewriters.Any();
-
-        public string GetOrCreateEntityCommandBufferSystemField(ITypeSymbol ecbSystemTypeSymbol)
-        {
-            string fullEcbSystemTypeName = ecbSystemTypeSymbol.ToFullName();
-
-            if (FullEcbSystemTypeNamesToGeneratedFieldNames.TryGetValue(fullEcbSystemTypeName, out var generatedFieldName))
-                return generatedFieldName;
-
-            generatedFieldName = $"__{ecbSystemTypeSymbol.ToValidIdentifier()}";
-            FullEcbSystemTypeNamesToGeneratedFieldNames[fullEcbSystemTypeName] = generatedFieldName;
-
+        if (FullEcbSystemTypeNamesToGeneratedFieldNames.TryGetValue(fullEcbSystemTypeName, out var generatedFieldName))
             return generatedFieldName;
+
+        generatedFieldName = $"__{ecbSystemTypeSymbol.ToValidIdentifier()}";
+        FullEcbSystemTypeNamesToGeneratedFieldNames[fullEcbSystemTypeName] = generatedFieldName;
+
+        return generatedFieldName;
+    }
+
+    public string OriginalFilePath => SyntaxTreeInfo.Tree.FilePath.Replace('\\', '/');
+
+    public HashSet<StatementSyntax> GetStatementsRequiringLineDirectives()
+    {
+        var statements = new HashSet<StatementSyntax>();
+
+        foreach (var node in CandidateNodes.Keys)
+        {
+            var containingMember = node.AncestorOfKind<MemberDeclarationSyntax>();
+            if (containingMember is MethodDeclarationSyntax { Body: not null } methodDeclarationSyntax)
+                foreach (var statement in methodDeclarationSyntax.Body.DescendantNodes().OfType<StatementSyntax>())
+                    statements.Add(statement);
         }
 
-        public Dictionary<SyntaxAnnotation, MemberDeclarationSyntax> GetAnnotationsToOriginalSyntaxNodes(TypeDeclarationSyntax typeDeclarationSyntax)
+        return statements;
+    }
+
+    public Dictionary<MemberDeclarationSyntax, Dictionary<SyntaxNode, CandidateSyntax>> CandidateNodesGroupedByMethodOrProperty
+    {
+        get
         {
-            var result = new Dictionary<SyntaxAnnotation, MemberDeclarationSyntax>();
-            foreach (var memberDeclarationSyntax in SystemTypeSyntax.Members)
-                result[typeDeclarationSyntax.GetCurrentNode(memberDeclarationSyntax).GetAnnotations(SourceGenHelpers.TrackedNodeAnnotationUsedByRoslyn).First()] = memberDeclarationSyntax;
-            return result;
+            var candidateNodesGroupedByContainingMember = new Dictionary<MemberDeclarationSyntax, Dictionary<SyntaxNode, CandidateSyntax>>();
+            foreach (var kvp in CandidateNodes)
+            {
+                var node = kvp.Key;
+                var candidate = kvp.Value;
+
+                var containingMember = node.AncestorOfKind<MemberDeclarationSyntax>();
+
+                if (candidateNodesGroupedByContainingMember.TryGetValue(containingMember, out var candidateNodes))
+                    candidateNodes.Add(node, candidate);
+                else
+                    candidateNodesGroupedByContainingMember.Add(containingMember, new()
+                    {
+                        { node, candidate }
+                    });
+            }
+
+            return candidateNodesGroupedByContainingMember;
         }
+    }
+
+    public bool TryGetSystemStateParameterName(ISystemCandidate candidate, out ExpressionSyntax systemStateExpression)
+    {
+        switch (SystemType)
+        {
+            case SystemType.ISystem:
+            {
+                var methodDeclarationSyntax = candidate.Node.AncestorOfKindOrDefault<MethodDeclarationSyntax>();
+                if (methodDeclarationSyntax == null) {
+                    SystemGeneratorErrors.SGSG0001(this, candidate);
+                    systemStateExpression = null;
+                    return false;
+                }
+
+                var containingMethodSymbol = (IMethodSymbol)ModelExtensions.GetDeclaredSymbol(SemanticModel, methodDeclarationSyntax);
+
+                var systemStateParameterName = containingMethodSymbol?.Parameters.FirstOrDefault(p => p.Type.Is("Unity.Entities.SystemState"))?.Name;
+                if (systemStateParameterName != null)
+                {
+                    systemStateExpression = SyntaxFactory.IdentifierName(systemStateParameterName);
+                    return true;
+                }
+
+                SystemGeneratorErrors.SGSG0002(this, candidate);
+                systemStateExpression = null;
+                return false;
+            }
+            case SystemType.Unknown:
+                systemStateExpression = SyntaxFactory.IdentifierName("state");
+                return true;
+        }
+
+        // this.CheckedStateRef
+        systemStateExpression = SyntaxFactory.MemberAccessExpression(SyntaxKind.SimpleMemberAccessExpression, SyntaxFactory.ThisExpression(), SyntaxFactory.IdentifierName("CheckedStateRef"));
+        return true;
     }
 }

@@ -544,7 +544,7 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
-        [UnityTest, Performance, Ignore("DOTS-3826")]
+        [UnityTest, Performance]
         public IEnumerator LiveConversion_Performance_CreateHierarchy([Values(1, 5, 8)]int depth, [Values] ObjectKind kind)
         {
             var subScene = m_Test.CreateEmptySubScene("TestSubScene", true);

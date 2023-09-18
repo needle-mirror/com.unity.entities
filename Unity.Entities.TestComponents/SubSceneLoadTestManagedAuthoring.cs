@@ -15,7 +15,7 @@ namespace Unity.Scenes.Editor.Tests
 
     }
 
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
     public class SubSceneLoadTestManagedComponent : IComponentData
     {
         // Managed components do not support BlobAssetReference typed fields, hence not tested
@@ -30,7 +30,7 @@ namespace Unity.Scenes.Editor.Tests
     {
         public override void Bake(SubSceneLoadTestManagedAuthoring authoring)
         {
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
             // This test shouldn't require transform components
             var entity = GetEntity(TransformUsageFlags.None);
             AddComponentObject(entity, new SubSceneLoadTestManagedComponent

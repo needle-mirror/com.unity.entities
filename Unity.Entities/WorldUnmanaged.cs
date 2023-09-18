@@ -404,7 +404,7 @@ namespace Unity.Entities
             }
             return SystemHandle.Null;
         }
-        
+
         internal SystemHandle GetExistingUnmanagedSystem(SystemTypeIndex t)
         {
             var hash = TypeManager.GetSystemTypeHash(t);
@@ -584,16 +584,13 @@ namespace Unity.Entities
             var systemType = TypeManager.GetSystemType(t);
             if (TypeManager.IsSystemManaged(systemType))
             {
-#if UNITY_DOTSRUNTIME
-                throw new ArgumentException($"The system {t} cannot contain managed fields. If you need have to store managed fields in your system, please use SystemBase instead.");
-#else
                 throw new ArgumentException($"The system {t} cannot contain managed fields. If you need have to store managed fields in your system, please use SystemBase instead. Reason: {UnsafeUtility.GetReasonForTypeNonBlittable(systemType)}");
-#endif
             }
 
 #endif
 
             var untypedHandle = CreateUnmanagedSystemInternal(m_EntityManager.World, TypeManager.GetSystemTypeSize(t), typeHash, t, out _, callOnCreate);
+
 #if ENABLE_PROFILER
             EntitiesProfiler.OnSystemCreated(t, in untypedHandle);
 #endif
@@ -1075,7 +1072,7 @@ namespace Unity.Entities
         /// update.  Therefore user should not cache the world update allocator. </remarks>
         public ref RewindableAllocator UpdateAllocator => ref GetImpl().DoubleUpdateAllocators->Allocator;
 
-        internal void ResetUpdateAllocator()
+        public void ResetUpdateAllocator()
         {
             GetImpl().DoubleUpdateAllocators->Update();
         }
@@ -1099,11 +1096,10 @@ namespace Unity.Entities
         internal SystemHandle GetOrCreateUnmanagedSystem<T>() where T : unmanaged, ISystem =>
             GetImpl().GetOrCreateUnmanagedSystem<T>();
 
-
         [ExcludeFromBurstCompatTesting("Uses managed World under the hood")]
         internal SystemHandle GetOrCreateUnmanagedSystem(SystemTypeIndex unmanagedType) =>
             GetImpl().GetOrCreateUnmanagedSystem(unmanagedType);
-        
+
         [ExcludeFromBurstCompatTesting("Uses managed World under the hood")]
         internal SystemHandle CreateUnmanagedSystem(SystemTypeIndex unmanagedType, bool callOnCreate) =>
             GetImpl().CreateUnmanagedSystem(unmanagedType, callOnCreate);
@@ -1183,8 +1179,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Return an existing instance of a system of type <paramref name="type"/> in this World. Prefer the version
-        /// that takes a SystemTypeIndex to avoid unnecessary reflection.
+        /// Return an existing instance of a system of type <typeparamref name="T"/> in this World.
         /// </summary>
         /// <typeparam name="T">The system type</typeparam>
         /// <returns>The existing instance of system type <typeparamref name="T"/> in this World. If no such instance exists, the method returns default.</returns>
@@ -1203,17 +1198,18 @@ namespace Unity.Entities
             ref GetImpl().GetExistingSystemState<T>();
 
         /// <summary>
-        /// Return an existing instance of a system of type <paramref name="type"/> in this World.
+        /// Return an existing instance of a system of type <paramref name="type"/> in this World. Prefer the version
+        /// that takes a SystemTypeIndex to avoid unnecessary reflection.
         /// </summary>
         /// <param name="type">The system type</param>
         /// <returns>The existing instance of system type <paramref name="type"/> in this World. If no such instance exists, the method returns SystemHandle.Null.</returns>
         [ExcludeFromBurstCompatTesting("Takes System.Type")]
         public SystemHandle GetExistingUnmanagedSystem(Type type) =>
             GetImpl().GetExistingUnmanagedSystem(type);
-        
+
         /// <summary>
         /// Return an existing instance of a system of type <paramref name="type"/> in this World. This avoids
-        /// unnecessary reflection. 
+        /// unnecessary reflection.
         /// </summary>
         /// <param name="type">The system type</param>
         /// <returns>The existing instance of system type <paramref name="type"/> in this World. If no such instance exists, the method returns SystemHandle.Null.</returns>

@@ -55,10 +55,6 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-        // These tests require:
-        // - JobsDebugger support for static safety IDs (added in 2020.1)
-        // - Asserting throws
-#if !UNITY_DOTSRUNTIME
         struct UseComponentLookup : IJob
         {
             public ComponentLookup<EcsTestData> data;
@@ -67,7 +63,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void ComponentLookup_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -82,7 +78,7 @@ namespace Unity.Entities.Tests
                         "ComponentLookup<Unity.Entities.Tests.EcsTestData> which has been invalidated by a structural change"));
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void ComponentLookup_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -108,7 +104,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void BufferLookup_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -123,7 +119,7 @@ namespace Unity.Entities.Tests
                         "BufferLookup<Unity.Entities.Tests.EcsIntElement> which has been invalidated by a structural change."));
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void BufferLookup_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -140,8 +136,6 @@ namespace Unity.Entities.Tests
                     .With.Message.Contains(
                         "BufferLookup<Unity.Entities.Tests.EcsIntElement> UseBufferLookup.data which has been invalidated by a structural change."));
         }
-
-#endif
 
         [Test]
         public void GetComponentCompletesJob()
@@ -225,9 +219,7 @@ namespace Unity.Entities.Tests
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void EntityManagerDestructionDetectsUnregisteredJob()
         {
-#if !NET_DOTS
             LogAssert.Expect(LogType.Error, new System.Text.RegularExpressions.Regex("job is still running"));
-#endif
 
             /*var entity =*/ m_Manager.CreateEntity(typeof(EcsTestData));
             var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
@@ -243,9 +235,7 @@ namespace Unity.Entities.Tests
             // Manually complete the job before cleaning up for real
             jobHandle.Complete();
             CleanupWorld();
-#if !NET_DOTS
             LogAssert.NoUnexpectedReceived();
-#endif
         }
 
         [Test]
@@ -417,7 +407,6 @@ namespace Unity.Entities.Tests
             m_Manager.DestroyEntity(entity);
         }
 
-#if !UNITY_DOTSRUNTIME
         partial struct BufferSafetyJobA : IJobEntity
         {
             public NativeArray<int> MyArray;
@@ -639,7 +628,6 @@ namespace Unity.Entities.Tests
             SetupDynamicBufferJobTestEnvironment();
             _testSystem.BufferSafetyJob_GetUnsafePtrReadWrite_Run();
         }
-#endif // !UNITY_DOTSRUNTIME
 
         public partial class DynamicBufferReadOnlySystem : SystemBase
         {

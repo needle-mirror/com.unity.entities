@@ -1,4 +1,4 @@
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME // UnityEngine.Objects are not allowed in DOTS Runtime.
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
 
 using System;
 using NUnit.Framework;

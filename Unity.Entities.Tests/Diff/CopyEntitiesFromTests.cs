@@ -21,7 +21,6 @@ namespace Unity.Entities.Tests
         }
 
     #if !UNITY_DISABLE_MANAGED_COMPONENTS
-        [DotsRuntimeFixme]
         [Test]
         public void CopyEntitiesToOtherWorld()
         {

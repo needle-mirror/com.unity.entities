@@ -49,11 +49,7 @@ namespace Unity.Entities
         internal const string k_AllocatedMemoryCounterName = "Allocated Memory";
         internal const string k_UnusedMemoryCounterName = "Unused Memory";
 
-#if UNITY_DOTSRUNTIME
-        public static bool Enabled => Profiler.enabled;
-#else
         public static bool Enabled => Profiler.enabled && Profiler.IsCategoryEnabled(Category);
-#endif
         public static Guid Guid { get; private set; }
         public static ProfilerCategory Category { get; private set; }
         public static BytesCounter AllocatedBytesCounter { get; private set; }

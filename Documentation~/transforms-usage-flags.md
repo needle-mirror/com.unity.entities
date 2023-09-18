@@ -23,6 +23,9 @@ Similarly, if the window GameObject is on a GameObject that represents a ship, y
 
 [!code-cs[Transform usage flags](../DocCodeSamples.Tests/TransformUsageFlagsExamples.cs#ship-example)]
 
+>[!IMPORTANT]
+> Entity prefabs are automatically marked as Dynamic so the instances can be placed in the world.
+
 ## Additional resources
 
 * [`TransformUsageFlags` API documentation](xref:Unity.Entities.TransformUsageFlags)

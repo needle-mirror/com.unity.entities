@@ -26,16 +26,17 @@ namespace Unity.Entities.SourceGen.Common
     /// </summary>
     public class DiagnosticLogger : IDiagnosticLogger
     {
-        public GeneratorExecutionContext ExecutionContext;
-        public List<Diagnostic> Diagnostics = new List<Diagnostic>();
-        public DiagnosticLogger(GeneratorExecutionContext executionContext)
-        {
-            ExecutionContext = executionContext;
-        }
+        readonly GeneratorExecutionContext _executionContext;
+        readonly List<Diagnostic> _diagnostics = new();
+
+        public DiagnosticLogger(GeneratorExecutionContext executionContext) =>
+            _executionContext = executionContext;
+
         public void LogError(string errorCode, string title, string errorMessage, Location location, string description = "")
         {
             if (errorCode.Contains("ICE"))
-                errorMessage = CompilerError.WithMessage(errorMessage);
+                errorMessage = "This error indicates a bug in the DOTS source generators. We'd appreciate a bug report (Help -> Report a Bug...). Thanks! " +
+                    $"Error message: '{errorMessage}'";
 
             Log(DiagnosticSeverity.Error, errorCode, title, errorMessage, location, description);
         }
@@ -71,13 +72,13 @@ namespace Unity.Entities.SourceGen.Common
             }
             SourceOutputHelpers.LogInfoToSourceGenLog($"{diagnosticSeverity}: {errorCode}, {title}, {errorMessage}");
             var rule = new DiagnosticDescriptor(errorCode, title, errorMessage, "Source Generator", diagnosticSeverity, true, description);
-            Diagnostics.Add(Diagnostic.Create(rule, location));
+            _diagnostics.Add(Diagnostic.Create(rule, location));
         }
 
         public void Dispose()
         {
-            foreach (var diagnostic in Diagnostics)
-                ExecutionContext.ReportDiagnostic(diagnostic);
+            foreach (var diagnostic in _diagnostics)
+                _executionContext.ReportDiagnostic(diagnostic);
         }
     }
 

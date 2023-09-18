@@ -8,7 +8,7 @@ namespace Unity.Entities.Tests
         public int IntValue;
         public Material Material;
 
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
         public class ManagedTestComponent : IComponentData
         {
             public Material Material;
@@ -29,7 +29,7 @@ namespace Unity.Entities.Tests
                 {
                     IntValue = authoring.IntValue
                 });
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
                 AddComponentObject(entity, new TestComponentAuthoring.ManagedTestComponent
                 {
                     Material = authoring.Material

@@ -641,13 +641,6 @@ namespace Unity.Entities
             if (v == null)
                 throw new ArgumentNullException(nameof(v));
 
-#if NET_DOTS
-            Clear();
-            foreach (var d in v)
-            {
-                Add(d);
-            }
-#else
             ResizeUninitialized(v.Length);
             CheckWriteAccess();
 
@@ -656,13 +649,11 @@ namespace Unity.Entities
 
             UnsafeUtility.MemCpy(BufferHeader.GetElementPointer(m_Buffer), (void*)num, Length * UnsafeUtility.SizeOf<T>());
             gcHandle.Free();
-#endif
         }
     }
 
     internal sealed class DynamicBufferDebugView<T>  where T : unmanaged
     {
-#if !NET_DOTS
         private DynamicBuffer<T> _buffer;
         public DynamicBufferDebugView(DynamicBuffer<T> source)
         {
@@ -670,6 +661,5 @@ namespace Unity.Entities
         }
 
         public T[] Items => _buffer.AsNativeArray().ToArray();
-#endif
     }
 }

@@ -54,8 +54,6 @@ namespace Unity.Entities.Tests
             AssertDoesNotExist(entity1);
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
         [TestCaseGeneric(typeof(EcsTestData))]
         [TestCaseGeneric(typeof(EcsCleanup1))]
         unsafe public void CreateZeroEntities<TComponent>()
@@ -65,8 +63,6 @@ namespace Unity.Entities.Tests
             m_Manager.CreateEntity(m_Manager.CreateArchetype(typeof(TComponent)), array);
             array.Dispose();
         }
-
-#endif
 
         [Test]
         unsafe public void InstantiateZeroEntities()
@@ -161,8 +157,6 @@ namespace Unity.Entities.Tests
             AssertComponentData(entity2, 12);
         }
 
-#if !(UNITY_DOTSRUNTIME && (UNITY_WEBGL || UNITY_LINUX)) // https://unity3d.atlassian.net/browse/DOTSR-2039 for web
-        //https://unity3d.atlassian.net/browse/DOTSR-2653 for linux
         [Test]
         [Ignore("TODO(DOTS-5601): optimize performance and add checks that ensure memory consumption is in reasonable range")]
         public void CreateEntity_CreateAlmostTooManyEntities()
@@ -173,7 +167,6 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(almostTooManyEntities == (int) almostTooManyEntities);
             Assert.DoesNotThrow(() => m_Manager.CreateEntity(archetype, (int)almostTooManyEntities));
         }
-#endif
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
@@ -210,9 +203,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-#if !UNITY_DOTSRUNTIME
         [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
-#endif
         unsafe public void CreateAndDestroyStressTest()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -316,12 +307,6 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             var entity = m_Manager.CreateEntity(archetype);
 
-#if UNITY_DOTSRUNTIME
-            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent<int>(entity));
-            Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent<int>(entity));
-            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(entity, typeof(int)));
-            Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent(entity, typeof(int)));
-#else
             Assert.That(() => { m_Manager.AddComponent<int>(entity); },
                 Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
             Assert.That(() => { m_Manager.RemoveComponent<int>(entity); },
@@ -330,7 +315,6 @@ namespace Unity.Entities.Tests
                 Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
             Assert.That(() => { m_Manager.RemoveComponent(entity, typeof(int)); },
                 Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
-#endif
         }
 
         [Test]
@@ -339,12 +323,6 @@ namespace Unity.Entities.Tests
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             var entity = m_Manager.CreateEntity(archetype);
 
-#if UNITY_DOTSRUNTIME
-            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent<EcsTestNonComponent>(entity));
-            Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent<EcsTestNonComponent>(entity));
-            Assert.Throws<ArgumentException>(() => m_Manager.AddComponent(entity, typeof(EcsTestNonComponent)));
-            Assert.Throws<ArgumentException>(() => m_Manager.RemoveComponent(entity, typeof(EcsTestNonComponent)));
-#else
             Assert.That(() => { m_Manager.AddComponent<EcsTestNonComponent>(entity); },
                 Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
             Assert.That(() => { m_Manager.RemoveComponent<EcsTestNonComponent>(entity); },
@@ -353,7 +331,6 @@ namespace Unity.Entities.Tests
                 Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
             Assert.That(() => { m_Manager.RemoveComponent(entity, typeof(EcsTestNonComponent)); },
                 Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
-#endif
         }
 
         [Test]
@@ -710,10 +687,6 @@ namespace Unity.Entities.Tests
             actualTotalTypes.Dispose();
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // TODO: IL2CPP_TEST_RUNNER can't handle Assert.That Throws
-
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void AddComponent_InvalidEntity1_ShouldThrow()
@@ -749,9 +722,8 @@ namespace Unity.Entities.Tests
 
             entities[0] = invalidEnt;
             Assert.That(() => { m_Manager.AddComponent<EcsTestData>(entities); },
-                Throws.ArgumentException.With.Message.Contains("All entities passed to EntityManager must exist"));
+                Throws.ArgumentException.With.Message.Contains("An EntityManager command is operating on an invalid entity."));
         }
-#endif
 
         [Test]
         public void AddComponent_WithSharedComponents_Works()
@@ -945,16 +917,76 @@ namespace Unity.Entities.Tests
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
-        public void AddChunkComponentToGroupTwice()
+        public void AddChunkComponent_Works()
         {
-            m_Manager.CreateEntity();
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData2));
 
-            m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestTag());
-            Assert.Throws<ArgumentException>(() => m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestTag()));
+            // Adding a chunk component through an entity should be visible through both ArchetypeChunk and EntityManager interfaces
+            Assert.IsTrue(m_Manager.AddChunkComponentData<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.HasChunkComponent<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.GetChunk(entity).HasChunkComponent<EcsTestData>());
+            // Setting the chunk component value through EntityManager should be visible through both chunk and EntityManager interfaces
+            m_Manager.SetChunkComponentData(m_Manager.GetChunk(entity), new EcsTestData { value = 17 });
+            Assert.AreEqual(17, m_Manager.GetChunkComponentData<EcsTestData>(entity).value);
+            Assert.AreEqual(17, m_Manager.GetChunkComponentData<EcsTestData>(m_Manager.GetChunk(entity)).value);
+            var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData>(false);
+            Assert.AreEqual(17, m_Manager.GetChunk(entity).GetChunkComponentData(ref typeHandle).value);
 
-            m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestData {value = 123});
-            Assert.Throws<ArgumentException>(() => m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestData {value = 123}));
-            Assert.Throws<ArgumentException>(() => m_Manager.AddChunkComponentData(m_Manager.UniversalQuery, new EcsTestData {value = 456}));
+            // Adding a second chunk component through a query should be visible through both the ArchetypeChunk and EntityManager interfaces
+            var chunk2 = m_Manager.GetChunk(entity);
+            using var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData2>().Build(m_Manager);
+            m_Manager.AddChunkComponentData(query, new EcsTestDataEnableable{value=23});
+            Assert.IsTrue(m_Manager.HasChunkComponent<EcsTestDataEnableable>(entity));
+            Assert.IsTrue(m_Manager.GetChunk(entity).HasChunkComponent<EcsTestDataEnableable>());
+            Assert.AreEqual(23, m_Manager.GetChunkComponentData<EcsTestDataEnableable>(entity).value);
+            Assert.AreEqual(23, m_Manager.GetChunkComponentData<EcsTestDataEnableable>(m_Manager.GetChunk(entity)).value);
+            var typeHandle2 = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
+            Assert.AreEqual(23, m_Manager.GetChunk(entity).GetChunkComponentData(ref typeHandle2).value);
+
+            // The first chunk component is still present, and its value is preserved in this case, because the adding
+            // the second chunk component didn't change the entity's chunk.
+            Assert.AreEqual(chunk2.m_Chunk, m_Manager.GetChunk(entity).m_Chunk);
+            Assert.IsTrue(m_Manager.HasChunkComponent<EcsTestData>(entity));
+            Assert.IsTrue(m_Manager.GetChunk(entity).HasChunkComponent<EcsTestData>());
+            Assert.AreEqual(17, m_Manager.GetChunkComponentData<EcsTestData>(entity).value);
+            Assert.AreEqual(17, m_Manager.GetChunkComponentData<EcsTestData>(m_Manager.GetChunk(entity)).value);
+            var typeHandle3 = m_Manager.GetComponentTypeHandle<EcsTestData>(false); // typeHandle was invalidated by the AddChunkComponentData call
+            Assert.AreEqual(17, m_Manager.GetChunk(entity).GetChunkComponentData(ref typeHandle3).value);
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
+        public void AddChunkComponent_AlreadyExists_Works()
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData2));
+            using var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData2>().Build(m_Manager);
+
+            m_Manager.AddComponent<EcsTestTag>(query);
+            // Adding a tag component that already exists is not an error
+            Assert.DoesNotThrow(() => m_Manager.AddComponent<EcsTestTag>(query));
+
+            m_Manager.AddComponentData(entity, new EcsTestData{value = 17});
+            // Adding a component that already exists is not an error
+            Assert.DoesNotThrow(() => m_Manager.AddComponent<EcsTestData>(query));
+            // Adding a component value when the component already exists is not an error; it just acts like SetComponentData
+            Assert.DoesNotThrow(() => m_Manager.AddComponentData(entity, new EcsTestData { value = 23 }));
+            Assert.AreEqual(23, m_Manager.GetComponentData<EcsTestData>(entity).value);
+
+            // ...same for shared components.
+            m_Manager.AddSharedComponent(query, new EcsTestSharedComp{value=23});
+            // Adding a shared component value when the component already exists is not an error; it just acts like SetSharedComponentData
+            Assert.DoesNotThrow(() => m_Manager.AddSharedComponent(query, new EcsTestSharedComp{value=37}));
+            Assert.AreEqual(37, m_Manager.GetSharedComponent<EcsTestSharedComp>(entity).value);
+
+            // Everything above should be true for chunk components as well.
+            m_Manager.AddChunkComponentData<AnotherEcsTestTag>(entity);
+            // Adding a tag chunk component that already exists is not an error
+            Assert.DoesNotThrow(() => m_Manager.AddChunkComponentData<AnotherEcsTestTag>(entity));
+
+            m_Manager.AddChunkComponentData(query, new EcsTestFloatData {Value = 123});
+            // Adding a chunk component value when the component already exists is not an error; it just acts like SetChunkComponentData
+            Assert.DoesNotThrow(() => m_Manager.AddChunkComponentData(query, new EcsTestFloatData {Value = 456}));
+            Assert.AreEqual(456, m_Manager.GetChunkComponentData<EcsTestFloatData>(entity).Value);
         }
 
         [Test]

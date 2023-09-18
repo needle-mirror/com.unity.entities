@@ -61,12 +61,7 @@ namespace Unity.Entities
             JobHandle* handles = stackalloc JobHandle[kMaxHandles];
             int* systemIds = stackalloc int[kMaxHandles];
 
-#if !UNITY_DOTSRUNTIME
             int mappingCount = Math.Min(JobsUtility.GetSystemIdMappings(handles, systemIds, kMaxHandles), kMaxHandles);
-#else
-            // FIXME
-            int mappingCount = 0;
-#endif
 
             // Filter out jobs created by current system.
             for (int i = 0; i < mappingCount; ++i)

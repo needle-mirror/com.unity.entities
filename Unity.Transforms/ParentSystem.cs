@@ -435,38 +435,21 @@ namespace Unity.Transforms
         {
             state.Dependency.Complete();
 
-            // TODO: these dotsruntime ifdefs are a workaround for a crash - BUR-1767
-#if !UNITY_DOTSRUNTIME
             k_ProfileDeletedParents.Begin();
-#endif
             UpdateDeletedParents(ref state);
-#if !UNITY_DOTSRUNTIME
             k_ProfileDeletedParents.End();
-#endif
 
-#if !UNITY_DOTSRUNTIME
             k_ProfileRemoveParents.Begin();
-#endif
             UpdateRemoveParents(ref state);
-#if !UNITY_DOTSRUNTIME
             k_ProfileRemoveParents.End();
-#endif
 
-#if !UNITY_DOTSRUNTIME
             k_ProfileNewParents.Begin();
-#endif
             UpdateNewParents(ref state);
-#if !UNITY_DOTSRUNTIME
             k_ProfileNewParents.End();
-#endif
 
-#if !UNITY_DOTSRUNTIME
             k_ProfileChangeParents.Begin();
-#endif
             UpdateChangeParents(ref state);
-#if !UNITY_DOTSRUNTIME
             k_ProfileChangeParents.End();
-#endif
         }
     }
 }

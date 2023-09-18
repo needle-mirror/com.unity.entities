@@ -121,15 +121,10 @@ namespace Unity.Entities.Tests.Types
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component safety checks")]
         public void ComponentTypeSet_DuplicateTypes_Throws()
         {
-#if UNITY_DOTSRUNTIME
-                    Assert.Throws<ArgumentException>(() => new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)));
-                    Assert.Throws<ArgumentException>(() => new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)));
-#else
-                    Assert.That(() => new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)), Throws.ArgumentException
-                        .With.Message.Contains($"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"Unity.Entities.Tests.EcsTestData\""));
-                    Assert.That(() => new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)), Throws.ArgumentException
-                        .With.Message.Contains($"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"Unity.Entities.Tests.EcsTestData\""));
-#endif
+            Assert.That(() => new ComponentTypeSet(typeof(EcsTestData), typeof(EcsTestData2), typeof(EcsTestData)), Throws.ArgumentException
+                .With.Message.Contains($"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"Unity.Entities.Tests.EcsTestData\""));
+            Assert.That(() => new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData), typeof(EcsTestData)), Throws.ArgumentException
+                .With.Message.Contains($"ComponentTypes cannot contain duplicate types. Remove all but one occurrence of \"Unity.Entities.Tests.EcsTestData\""));
         }
 
         [Test]

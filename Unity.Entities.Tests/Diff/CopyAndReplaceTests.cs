@@ -18,7 +18,7 @@ namespace Unity.Entities.Tests
             SrcEntityManager.AddSharedComponent(entity, new EcsTestSharedComp(6));
             SrcEntityManager.AddChunkComponentData(SrcEntityManager.UniversalQuery, new EcsTestData2(7));
 
-            metaEntity = SrcEntityManager.GetChunk(entity).m_Chunk->metaChunkEntity;
+            metaEntity = SrcEntityManager.GetChunk(entity).m_Chunk.MetaChunkEntity;
 
             Assert.AreEqual(7, SrcEntityManager.GetComponentData<EcsTestData2>(metaEntity).value0);
         }
@@ -29,7 +29,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(6, DstEntityManager.GetSharedComponent<EcsTestSharedComp>(entity).value);
             Assert.AreEqual(componentChunkValue, DstEntityManager.GetChunkComponentData<EcsTestData2>(entity).value0);
 
-            Assert.AreEqual(metaEntity, DstEntityManager.GetChunk(entity).m_Chunk->metaChunkEntity);
+            Assert.AreEqual(metaEntity, DstEntityManager.GetChunk(entity).m_Chunk.MetaChunkEntity);
 
             SrcEntityManager.Debug.CheckInternalConsistency();
             DstEntityManager.Debug.CheckInternalConsistency();

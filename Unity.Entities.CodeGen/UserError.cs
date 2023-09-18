@@ -1,7 +1,5 @@
 using System;
-#if !UNITY_DOTSRUNTIME
 using System.IO;
-#endif
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Unity.CompilationPipeline.Common.Diagnostics;
@@ -28,12 +26,8 @@ namespace Unity.Entities.CodeGen
                 result.File = seq.Document.Url;
                 result.Column = seq.StartColumn;
                 result.Line = seq.StartLine;
-#if !UNITY_DOTSRUNTIME
                 var shortenedFilePath = seq.Document.Url.Replace($"{Environment.CurrentDirectory}{Path.DirectorySeparatorChar}", "");
                 result.MessageData = $"{shortenedFilePath}({seq.StartLine},{seq.StartColumn}): {messageData}";
-#else
-                result.MessageData = messageData;
-#endif
             }
             else
             {

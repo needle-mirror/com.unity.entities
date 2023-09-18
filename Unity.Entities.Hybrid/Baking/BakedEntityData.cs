@@ -69,12 +69,12 @@ namespace Unity.Entities
         // GameObject => Entity
         internal UnsafeParallelHashMap<int, Entity>                  _GameObjectToEntity;
         internal EntityManager                               _EntityManager;
-        EntityArchetype                                      _DefaultArchetype;
-        EntityArchetype                                      _DefaultArchetypeAdditionalEntity;
-        EntityArchetype                                      _DefaultArchetypeAdditionalEntityBakeOnly;
-        EntityArchetype                                      _DefaultArchetypePrefab;
-        EntityArchetype                                      _DefaultArchetypePrefabAdditionalEntity;
-        EntityArchetype                                      _DefaultArchetypePrefabAdditionalEntityBakeOnly;
+        internal EntityArchetype                             _DefaultArchetype;
+        internal EntityArchetype                             _DefaultArchetypeAdditionalEntity;
+        internal EntityArchetype                             _DefaultArchetypeAdditionalEntityBakeOnly;
+        internal EntityArchetype                             _DefaultArchetypePrefab;
+        internal EntityArchetype                             _DefaultArchetypePrefabAdditionalEntity;
+        internal EntityArchetype                             _DefaultArchetypePrefabAdditionalEntityBakeOnly;
         EntityQuery                                          _HasRemoveEntityInBake;
         EntityQuery                                          _AllBakedQuery;
         EntityQuery                                          _NewPrimaryEntitiesWithAdditionalEntities;
@@ -202,6 +202,11 @@ namespace Unity.Entities
             _IsReferencedEntitiesDirty = true;
         }
 
+        public bool IsCreated
+        {
+            get { return _AuthoringIDToBakerState.IsCreated; }
+        }
+
         public void ConfigureDefaultArchetypes(BakingSettings settings, Scene scene)
         {
             var types = stackalloc ComponentType[16];
@@ -265,6 +270,75 @@ namespace Unity.Entities
                     baseType[count++] = ComponentType.ReadWrite<Prefab>();
                     baseType[count++] = ComponentType.ReadWrite<AdditionalEntityParent>();
                     baseType[count++] = ComponentType.ReadWrite<BakingOnlyEntity>();
+                    _DefaultArchetypePrefabAdditionalEntityBakeOnly = _EntityManager.CreateArchetype(baseType, count);
+                    break;
+            }
+        }
+
+        //Method used by EntityBehaviour in motion
+        internal void ConfigureEntityBehaviourDefaultArchetypes(BakingSettings settings, Scene scene)
+        {
+            var types = stackalloc ComponentType[16];
+            int count = 0;
+            //types[count++] = ComponentType.ReadWrite<TransformAuthoring>();
+            if ((settings.BakingFlags & BakingUtility.BakingFlags.AddEntityGUID) != 0)
+                types[count++] = ComponentType.ReadWrite<EntityGuid>();
+            if (settings.SceneGUID != default)
+                types[count++] = ComponentType.ReadWrite<SceneSection>();
+
+            // all entities changed by a baker are tagged with the BakedEntity component
+            //types[count++] = ComponentType.ReadWrite<BakedEntity>();
+
+            // Archetypes for additional entities
+            ConfigureEntityBehaviourDefaultArchetype(types, count, DefaultArchetype.AdditionalEntity);
+            ConfigureEntityBehaviourDefaultArchetype(types, count, DefaultArchetype.AdditionalEntityBakeOnly);
+            ConfigureEntityBehaviourDefaultArchetype(types, count, DefaultArchetype.PrefabAdditionalEntity);
+            ConfigureEntityBehaviourDefaultArchetype(types, count, DefaultArchetype.PrefabAdditionalEntityBakeOnly);
+
+            // AdditionalEntitiesBakingData contains a buffer of additional entities on primary entities only
+            // This will add AdditionalEntitiesBakingData to the default and prefab archetypes
+            types[count++] = ComponentType.ReadWrite<AdditionalEntitiesBakingData>();
+
+            ConfigureEntityBehaviourDefaultArchetype(types, count, DefaultArchetype.Default);
+            ConfigureEntityBehaviourDefaultArchetype(types, count, DefaultArchetype.Prefab);
+
+            _EntityGUIDNameSpaceID = settings.NamespaceID ^ (uint) scene.handle;
+            _AssignEntityGUID =
+                (settings.BakingFlags & BakingUtility.BakingFlags.AddEntityGUID) != 0;
+            _SceneGUID = settings.SceneGUID;
+            _ConversionFlags = settings.BakingFlags;
+        }
+
+        //Method used by EntityBehaviour in motion
+        internal void ConfigureEntityBehaviourDefaultArchetype(ComponentType* baseType, int count, DefaultArchetype defaultArchetype)
+        {
+            switch (defaultArchetype)
+            {
+                case DefaultArchetype.Default:
+                    _DefaultArchetype = _EntityManager.CreateArchetype(baseType, count);
+                    break;
+                case DefaultArchetype.AdditionalEntity:
+                    baseType[count++] = ComponentType.ReadWrite<AdditionalEntityParent>();
+                    _DefaultArchetypeAdditionalEntity = _EntityManager.CreateArchetype(baseType, count);
+                    break;
+                case DefaultArchetype.AdditionalEntityBakeOnly:
+                    baseType[count++] = ComponentType.ReadWrite<AdditionalEntityParent>();
+                    //baseType[count++] = ComponentType.ReadWrite<BakingOnlyEntity>();
+                    _DefaultArchetypeAdditionalEntityBakeOnly = _EntityManager.CreateArchetype(baseType, count);
+                    break;
+                case DefaultArchetype.Prefab:
+                    baseType[count++] = ComponentType.ReadWrite<Prefab>();
+                    _DefaultArchetypePrefab = _EntityManager.CreateArchetype(baseType, count);
+                    break;
+                case DefaultArchetype.PrefabAdditionalEntity:
+                    baseType[count++] = ComponentType.ReadWrite<Prefab>();
+                    baseType[count++] = ComponentType.ReadWrite<AdditionalEntityParent>();
+                    _DefaultArchetypePrefabAdditionalEntity = _EntityManager.CreateArchetype(baseType, count);
+                    break;
+                case DefaultArchetype.PrefabAdditionalEntityBakeOnly:
+                    baseType[count++] = ComponentType.ReadWrite<Prefab>();
+                    baseType[count++] = ComponentType.ReadWrite<AdditionalEntityParent>();
+                    //baseType[count++] = ComponentType.ReadWrite<BakingOnlyEntity>();
                     _DefaultArchetypePrefabAdditionalEntityBakeOnly = _EntityManager.CreateArchetype(baseType, count);
                     break;
             }
@@ -399,9 +473,14 @@ namespace Unity.Entities
             // Create primary entity for every game objects that were created
             using (s_CreateEntityForGameObject.Auto())
             {
-                foreach (var gameObject in instructions.CreatedGameObjects)
+                var count = instructions.CreatedGameObjects.Count;
+                var entities = _EntityManager.CreateEntity(_DefaultArchetype, count, Allocator.Temp);
+                for (int index = 0; index < count; ++index)
                 {
-                    var entity = CreateEntityForGameObject(gameObject, 0, _DefaultArchetype);
+                    var gameObject = instructions.CreatedGameObjects[index];
+                    var entity = entities[index];
+                    CreateEntityForGameObject(gameObject, entity, 0);
+
                     var didAdd = _GameObjectToEntity.TryAdd(gameObject.GetInstanceID(), entity);
                     if (!didAdd)
                         Debug.LogError("Internally inconsistent _GameObjectToEntity table");
@@ -448,9 +527,6 @@ namespace Unity.Entities
                 state.DebugState = bakerDebugState;
                 state.BlobAssetStore = blobAssetStore;
 #if UNITY_EDITOR
-#if USING_PLATFORMS_PACKAGE
-                state.BuildConfiguration = bakingSettings.BuildConfiguration;
-#endif
                 state.DotsSettings = bakingSettings.DotsSettings;
 #endif
 
@@ -574,6 +650,7 @@ namespace Unity.Entities
                                 }
                                 else
                                 {
+                                    bool hasBaked = false;
                                     using (s_CreateBakerState.Auto())
                                     {
                                         bakerState = new BakerState(entity, Allocator.Persistent);
@@ -602,6 +679,7 @@ namespace Unity.Entities
 
                                                 // baker.Baker.BakeInternal(ref tempDependencies, ref tempUsage, ref bakerState, ref _BakerDebugState, i, ref this, ref ecb, component.Component, blobAssetStore);
                                                 baker.Baker.InvokeBake(state);
+                                                hasBaked = true;
                                             }
                                             catch (Exception e)
                                             {
@@ -610,12 +688,15 @@ namespace Unity.Entities
                                         }
                                     }
 
-                                    using (s_RegisterDependencies.Auto())
+                                    if (hasBaked)
                                     {
-                                        AddDependencies(ref dependencies, instanceID, ref bakerState, out var revertTransforms);
-                                        if (revertTransforms)
+                                        using (s_RegisterDependencies.Auto())
                                         {
-                                            revertTransformsList.Add(bakerState.PrimaryEntity);
+                                            AddDependencies(ref dependencies, instanceID, ref bakerState, out var revertTransforms);
+                                            if (revertTransforms)
+                                            {
+                                                revertTransformsList.Add(bakerState.PrimaryEntity);
+                                            }
                                         }
                                     }
                                 }
@@ -666,38 +747,37 @@ namespace Unity.Entities
                                 tempUsage.Clear(entity);
 
                                 // We don't bake disabled components
-                                if (!component.Component.IsComponentDisabled())
+                                bool isDisabled = component.Component.IsComponentDisabled();
+
+                                // Rebake all bakers for this component
+                                for (int i = 0, n = bakers.Length; i < n; ++i)
                                 {
-                                    // Rebake all bakers for this component
-                                    for (int i = 0, n = bakers.Length; i < n; ++i)
+                                    var baker = bakers[i];
+
+                                    // We don't run bake if the baker belongs to a disabled assembly, unless this Baker is enforcing it specifically
+                                    if (!baker.AssemblyData.Enabled || (isDisabled && !baker.ForceBakingForDisabledComponents))
+                                        continue;
+
+                                    using (baker.Profiler.Auto())
                                     {
-                                        var baker = bakers[i];
-
-                                        // We don't run bake if the baker belongs to a disabled assembly
-                                        if (!baker.AssemblyData.Enabled)
-                                            continue;
-
-                                        using (baker.Profiler.Auto())
+                                        try
                                         {
-                                            try
-                                            {
-                                                state.Usage = &tempUsage;
-                                                state.Dependencies = &tempDependencies;
-                                                state.DebugIndex.TypeIndex = bakeTypeIndex;
-                                                state.DebugIndex.IndexInBakerArray = i;
-                                                state.BakerState = &bakerState;
-                                                state.AuthoringSource = component.Component;
-                                                state.AuthoringObject = component.Component.gameObject;
-                                                state.AuthoringId = component.Component.GetInstanceID();
-                                                state.PrimaryEntity = entity;
+                                            state.Usage = &tempUsage;
+                                            state.Dependencies = &tempDependencies;
+                                            state.DebugIndex.TypeIndex = bakeTypeIndex;
+                                            state.DebugIndex.IndexInBakerArray = i;
+                                            state.BakerState = &bakerState;
+                                            state.AuthoringSource = component.Component;
+                                            state.AuthoringObject = component.Component.gameObject;
+                                            state.AuthoringId = component.Component.GetInstanceID();
+                                            state.PrimaryEntity = entity;
 
-                                                // baker.Baker.BakeInternal(ref tempDependencies, ref tempUsage, ref bakerState, ref _BakerDebugState, i, ref this, ref ecb, component.Component, blobAssetStore);
-                                                baker.Baker.InvokeBake(state);
-                                            }
-                                            catch (Exception e)
-                                            {
-                                                Debug.LogException(e);
-                                            }
+                                            // baker.Baker.BakeInternal(ref tempDependencies, ref tempUsage, ref bakerState, ref _BakerDebugState, i, ref this, ref ecb, component.Component, blobAssetStore);
+                                            baker.Baker.InvokeBake(state);
+                                        }
+                                        catch (Exception e)
+                                        {
+                                            Debug.LogException(e);
                                         }
                                     }
                                 }
@@ -721,43 +801,48 @@ namespace Unity.Entities
                                 }
 
                                 // We don't bake disabled components
-                                if (!component.Component.IsComponentDisabled())
+                                bool isDisabled = component.Component.IsComponentDisabled();
+                                bool hasBaked = false;
+
+                                // Rebake all bakers for this component
+                                for (int i = 0, n = bakers.Length; i < n; ++i)
                                 {
-                                    // Rebake all bakers for this component
-                                    for (int i = 0, n = bakers.Length; i < n; ++i)
+                                    var baker = bakers[i];
+
+                                    // We don't run bake if the baker belongs to a disabled assembly, unless this Baker is enforcing it specifically
+                                    if (!baker.AssemblyData.Enabled || (isDisabled && !baker.ForceBakingForDisabledComponents))
+                                        continue;
+
+                                    using (baker.Profiler.Auto())
                                     {
-                                        var baker = bakers[i];
-
-                                        // We don't run bake if the baker belongs to a disabled assembly
-                                        if (!baker.AssemblyData.Enabled)
-                                            continue;
-
-                                        using (baker.Profiler.Auto())
+                                        try
                                         {
-                                            try
-                                            {
-                                                state.Usage = &bakerState.Usage;
-                                                state.Dependencies = &bakerState.Dependencies;
-                                                state.DebugIndex.TypeIndex = bakeTypeIndex;
-                                                state.DebugIndex.IndexInBakerArray = i;
-                                                state.BakerState = &bakerState;
-                                                state.AuthoringSource = component.Component;
-                                                state.AuthoringObject = component.Component.gameObject;
-                                                state.AuthoringId = component.Component.GetInstanceID();
-                                                state.PrimaryEntity = entity;
+                                            state.Usage = &bakerState.Usage;
+                                            state.Dependencies = &bakerState.Dependencies;
+                                            state.DebugIndex.TypeIndex = bakeTypeIndex;
+                                            state.DebugIndex.IndexInBakerArray = i;
+                                            state.BakerState = &bakerState;
+                                            state.AuthoringSource = component.Component;
+                                            state.AuthoringObject = component.Component.gameObject;
+                                            state.AuthoringId = component.Component.GetInstanceID();
+                                            state.PrimaryEntity = entity;
 
-                                                baker.Baker.InvokeBake(state);
-                                            }
-                                            catch (Exception e)
-                                            {
-                                                Debug.LogException(e);
-                                            }
+                                            baker.Baker.InvokeBake(state);
+                                            hasBaked = true;
+                                        }
+                                        catch (Exception e)
+                                        {
+                                            Debug.LogException(e);
                                         }
                                     }
+                                }
 
+                                if (hasBaked)
+                                {
                                     using (s_RegisterDependencies.Auto())
                                     {
-                                        AddDependencies(ref dependencies, instanceID, ref bakerState, out var revertTransforms);
+                                        AddDependencies(ref dependencies, instanceID, ref bakerState,
+                                            out var revertTransforms);
                                         if (revertTransforms)
                                         {
                                             revertTransformsList.Add(bakerState.PrimaryEntity);
@@ -963,13 +1048,29 @@ namespace Unity.Entities
             job.Add.Dispose();
         }
 
-        Entity CreateEntityForGameObject(GameObject gameObject, int authoringInstanceId, EntityArchetype archetype, int serial = 0, string entityName = "")
+        internal Entity CreateEntityForGameObject(GameObject gameObject, int authoringInstanceId, EntityArchetype archetype, int serial = 0, string entityName = "")
         {
             if (gameObject == null)
                 throw new ArgumentNullException(nameof(gameObject),
                     $"{nameof(CreateEntityForGameObject)} must be called with a valid UnityEngine.Object");
 
             var entity = _EntityManager.CreateEntity(archetype);
+            CreateEntityForGameObject(gameObject, entity, authoringInstanceId, serial, entityName);
+            return entity;
+        }
+
+        private SceneSection MakeSceneSectionComponent(GameObject gameObject)
+        {
+            var section = gameObject.GetComponentInParent<SceneSectionComponent>(true);
+            var sectionIndex = section != null ? section.SectionIndex : 0;
+            return new SceneSection { SceneGUID = _SceneGUID, Section = sectionIndex };
+        }
+
+        Entity CreateEntityForGameObject(GameObject gameObject, Entity entity, int authoringInstanceId, int serial = 0, string entityName = "")
+        {
+            if (gameObject == null)
+                throw new ArgumentNullException(nameof(gameObject),
+                    $"{nameof(CreateEntityForGameObject)} must be called with a valid UnityEngine.Object");
 
             if (_AssignEntityGUID)
             {
@@ -977,19 +1078,8 @@ namespace Unity.Entities
                 _EntityManager.SetComponentData(entity, entityGuid);
             }
 
-            //@TODO: DOTS-5445
             if (_SceneGUID != default)
-            {
-                int sectionIndex = 0;
-                var section = gameObject.GetComponentInParent<SceneSectionComponent>(true);
-                if (section != null)
-                {
-                    sectionIndex = section.SectionIndex;
-                }
-
-                _EntityManager.SetSharedComponent(entity,
-                    new SceneSection {SceneGUID = _SceneGUID, Section = sectionIndex});
-            }
+                _EntityManager.SetSharedComponent(entity, MakeSceneSectionComponent(gameObject));
 
 #if UNITY_EDITOR
             var AssignName = true;
@@ -1007,6 +1097,38 @@ namespace Unity.Entities
 #endif
 
             return entity;
+        }
+
+        // Batched version of CreateEntityForGameObject
+        void SetupEntitiesForGameObject(NativeArray<Entity> entities, GameObject gameObject, int authoringInstanceId, int serial)
+        {
+            Assert.IsTrue(gameObject != null);
+
+            if (_AssignEntityGUID)
+            {
+                var goInstanceID = gameObject.GetInstanceID();
+                for (int i = 0; i < entities.Length; ++i)
+                {
+                    var entityGuid = new EntityGuid(goInstanceID, authoringInstanceId, _EntityGUIDNameSpaceID, (uint)(serial + i));
+                    _EntityManager.SetComponentData(entities[i], entityGuid);
+                }
+            }
+
+            if (_SceneGUID != default)
+                _EntityManager.SetSharedComponent(entities, MakeSceneSectionComponent(gameObject));
+
+#if UNITY_EDITOR
+            var AssignName = true;
+            if (AssignName)
+            {
+                // Truncate the name to ensure it fits.
+                var fs = new FixedString64Bytes();
+                FixedStringMethods.CopyFromTruncated(ref fs, gameObject.name);
+
+                foreach (var e in entities)
+                    _EntityManager.SetName(e, fs);
+            }
+#endif
         }
 
         public bool HasAdditionalGameObjectsToBake()
@@ -1049,8 +1171,13 @@ namespace Unity.Entities
 
         internal Entity CreateEntityForPrefab(GameObject prefab)
         {
+            var allTransforms = prefab.GetComponentsInChildren<Transform>(true);
+            var count = allTransforms.Length;
+            var entities = _EntityManager.CreateEntity(_DefaultArchetypePrefab, count, Allocator.Temp);
+
             var instanceId = prefab.GetInstanceID();
-            var entity = CreateEntityForGameObject(prefab, 0, _DefaultArchetypePrefab, 0);
+            var entity = entities[0];
+            CreateEntityForGameObject(prefab, entity, 0, 0);
             _GameObjectToEntity[instanceId] = entity;
 
             // Make sure prefab root is dynamic
@@ -1062,16 +1189,15 @@ namespace Unity.Entities
             _AdditionalGameObjectsToBake.Add(instanceId);
 
             // Add all children
-            var allTransforms = prefab.GetComponentsInChildren<Transform>(true);
-            var linkedEntityGroupArray = new NativeArray<LinkedEntityGroupBakingData>(allTransforms.Length, Allocator.Temp);
+            var linkedEntityGroupArray = new NativeArray<LinkedEntityGroupBakingData>(count, Allocator.Temp);
 
             // Assign self to first position in linked entity group
             linkedEntityGroupArray[0] = new LinkedEntityGroupBakingData {Value = entity};
-
-            for(int i = 1; i < allTransforms.Length; i++)
+            for(int i = 1; i < count; i++)
             {
                 var childGameObject = allTransforms[i].gameObject;
-                var childEntity = CreateEntityForGameObject(childGameObject, 0, _DefaultArchetypePrefab, 0);
+                var childEntity = entities[i];
+                CreateEntityForGameObject(childGameObject, childEntity, 0, 0);
 
                 _GameObjectToEntity[childGameObject.GetInstanceID()] = childEntity;
 
@@ -1110,6 +1236,14 @@ namespace Unity.Entities
             return component == null ? Entity.Null : GetEntity(component.gameObject);
         }
 
+        private EntityArchetype GetAdditionalEntityArchetype(GameObject gameObject, bool bakingOnlyEntity)
+        {
+            if (gameObject.IsPrefab())
+                return bakingOnlyEntity ? _DefaultArchetypePrefabAdditionalEntityBakeOnly : _DefaultArchetypePrefabAdditionalEntity;
+            else
+                return bakingOnlyEntity ? _DefaultArchetypeAdditionalEntityBakeOnly : _DefaultArchetypeAdditionalEntity;
+        }
+
         public Entity CreateAdditionalEntity(GameObject gameObject, int authoringInstanceId, bool bakingOnlyEntity, string entityName = "")
         {
             var instanceId = gameObject.GetInstanceID();
@@ -1120,33 +1254,47 @@ namespace Unity.Entities
 
             _ComponentToAdditionalEntityCounter[authoringInstanceId] = counter;
 
-            EntityArchetype entityArchetype;
-            if (gameObject.IsPrefab())
-            {
-                if (bakingOnlyEntity)
-                    entityArchetype = _DefaultArchetypePrefabAdditionalEntityBakeOnly;
-                else
-                    entityArchetype = _DefaultArchetypePrefabAdditionalEntity;
-            }
-            else
-            {
-                if (bakingOnlyEntity)
-                    entityArchetype = _DefaultArchetypeAdditionalEntityBakeOnly;
-                else
-                    entityArchetype = _DefaultArchetypeAdditionalEntity;
-            }
-
+            var entityArchetype = GetAdditionalEntityArchetype(gameObject, bakingOnlyEntity);
             var entity = CreateEntityForGameObject(gameObject, authoringInstanceId, entityArchetype, counter, entityName);
-            _EntityManager.SetComponentData(entity, new AdditionalEntityParent { Parent = primaryEntity, ParentInstanceID = instanceId });
 
+            _EntityManager.SetComponentData(entity, new AdditionalEntityParent { Parent = primaryEntity, ParentInstanceID = instanceId });
             var buffer = _EntityManager.GetBuffer<AdditionalEntitiesBakingData>(primaryEntity);
-            buffer.Add(new AdditionalEntitiesBakingData()
-                {
-                    Value = entity,
-                    AuthoringComponentID = authoringInstanceId
-                });
+            buffer.Add(new AdditionalEntitiesBakingData
+            {
+                Value = entity,
+                AuthoringComponentID = authoringInstanceId
+            });
 
             return entity;
+        }
+
+        public void CreateAdditionalEntities(NativeArray<Entity> outputEntities, GameObject gameObject, int authoringInstanceId, bool bakingOnlyEntity)
+        {
+            if (!outputEntities.IsCreated || outputEntities.Length == 0)
+                return;
+
+            var instanceId = gameObject.GetInstanceID();
+            var primaryEntity = _GameObjectToEntity[instanceId];
+
+            _ComponentToAdditionalEntityCounter.TryGetValue(authoringInstanceId, out var counter);
+            _ComponentToAdditionalEntityCounter[authoringInstanceId] = counter + outputEntities.Length;
+
+            var entityArchetype = GetAdditionalEntityArchetype(gameObject, bakingOnlyEntity);
+            _EntityManager.CreateEntity(entityArchetype, outputEntities);
+            SetupEntitiesForGameObject(outputEntities, gameObject, authoringInstanceId, counter + 1);
+
+            var buffer = _EntityManager.GetBuffer<AdditionalEntitiesBakingData>(primaryEntity);
+            int bufferWritePos = buffer.Length;
+            buffer.ResizeUninitialized(bufferWritePos + outputEntities.Length);
+            foreach (var e in outputEntities)
+            {
+                _EntityManager.SetComponentData(e, new AdditionalEntityParent { Parent = primaryEntity, ParentInstanceID = instanceId });
+                buffer[bufferWritePos++] = new AdditionalEntitiesBakingData
+                {
+                    Value = e,
+                    AuthoringComponentID = authoringInstanceId
+                };
+            }
         }
 
         public UnsafeHashSet<Entity> GetEntitiesForBakers(Component component)
@@ -1166,7 +1314,7 @@ namespace Unity.Entities
             transformAuthoringBaking.UpdateTransforms(_GameObjectToEntity, _ReferencedEntities, ref _IsReferencedEntitiesDirty);
         }
 
-        private void ResetComponentAdditionalEntityCount(int authoringInstanceId, Entity entity)
+        internal void ResetComponentAdditionalEntityCount(int authoringInstanceId, Entity entity)
         {
             _ComponentToAdditionalEntityCounter[authoringInstanceId] = 0;
             if (entity != Entity.Null && _EntityManager.HasBuffer<AdditionalEntitiesBakingData>(entity))

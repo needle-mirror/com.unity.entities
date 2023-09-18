@@ -3,10 +3,6 @@ using Unity.Collections;
 
 namespace Unity.Entities.Tests
 {
-#if !UNITY_PORTABLE_TEST_RUNNER
-    // https://unity3d.atlassian.net/browse/DOTSR-1435
-    // These tests cause crashes in the IL2CPP runner. Cause not yet debugged.
-
     [TestFixture]
     internal sealed class HierarchyIntegrationTest : EntityDifferTestFixture
     {
@@ -159,5 +155,4 @@ namespace Unity.Entities.Tests
             }
         }
     }
-#endif
 }

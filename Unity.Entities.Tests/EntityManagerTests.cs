@@ -9,6 +9,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;
 using Unity.Jobs;
 using UnityEngine;
+using Unity.Jobs.LowLevel.Unsafe;
 
 namespace Unity.Entities.Tests
 {
@@ -160,14 +161,14 @@ namespace Unity.Entities.Tests
             array.Dispose();
         }
 
-        unsafe public bool IndexInChunkIsValid(Entity entity)
+        public unsafe bool IndexInChunkIsValid(Entity entity)
         {
             var entityInChunk = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->GetEntityInChunk(entity);
-            return entityInChunk.IndexInChunk < entityInChunk.Chunk->Count;
+            return entityInChunk.IndexInChunk < entityInChunk.Chunk.Count;
         }
 
         [Test]
-        unsafe public void AddComponentNativeArrayCorrectChunkIndexAfterPacking()
+        public void AddComponentNativeArrayCorrectChunkIndexAfterPacking()
         {
             // This test checks for the bug revealed here https://github.com/Unity-Technologies/dots/issues/2133
             // When packing was done, it was possible for the packed entities to have an incorrect
@@ -188,10 +189,6 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(IndexInChunkIsValid(checkEntity1));
             Assert.IsTrue(IndexInChunkIsValid(checkEntity2));
         }
-
-#if !NET_DOTS
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // In IL2CPP this segfaults at runtime. There is a crash in GetAssignableComponentTypes()
 
         [Test]
         public void FoundComponentInterface()
@@ -216,8 +213,6 @@ namespace Unity.Entities.Tests
             var barTypes = m_Manager.GetAssignableComponentTypes(typeof(IEcsNotUsedInterface), list);
             Assert.AreEqual(0, barTypes.Count);
         }
-
-#endif
 
         [Test]
         public void VersionIsConsistent()
@@ -268,7 +263,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme]
         public void GetComponentBoxedSupportsInterface()
         {
             var entity = m_Manager.CreateEntity();
@@ -281,7 +275,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity data access safety checks")]
         public void GetComponentBoxedThrowsWhenInterfaceNotFound()
         {
@@ -399,10 +392,6 @@ namespace Unity.Entities.Tests
         [MaximumChunkCapacity(3)]
         struct MaxCapacityTag3 : IComponentData {}
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // TODO: IL2CPP_TEST_RUNNER doesn't support TestCase(typeof)
-
         [TestCase(typeof(MaxCapacityTag1))]
         [TestCase(typeof(MaxCapacityTag2))]
         [TestCase(typeof(MaxCapacityTag3))]
@@ -423,8 +412,6 @@ namespace Unity.Entities.Tests
             Assert.True(CollectionHelper.IsAligned(p1, CollectionHelper.CacheLineSize));
             Assert.True(CollectionHelper.IsAligned(p2, CollectionHelper.CacheLineSize));
         }
-
-#endif
 
         struct WillFitWithAlign : IComponentData
         {
@@ -787,8 +774,11 @@ namespace Unity.Entities.Tests
             }
 
             Assert.AreEqual(2, dppArchetype.ChunkCount);
-            for (int i = 0; i < dppArchetype.Archetype->Chunks.Count; ++i)
-                seenChunkBuffers.Add((ulong)dppArchetype.Archetype->Chunks[i]->Buffer);
+            {
+                var chunks = dppArchetype.Archetype->Chunks;
+                for (int i = 0, count = chunks.Count; i < count; ++i)
+                    seenChunkBuffers.Add((ulong)chunks[i].Buffer);
+            }
 
             // Validate the components have the byte pattern we expect
             foreach (var entity in entities)
@@ -823,7 +813,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(entity, component);
             }
             Assert.AreEqual(1, pdpArchetype.ChunkCount);
-            Assert.IsTrue(seenChunkBuffers.Contains((ulong)pdpArchetype.Archetype->Chunks[0]->Buffer));
+            Assert.IsTrue(seenChunkBuffers.Contains((ulong)pdpArchetype.Archetype->Chunks[0].Buffer));
 
             // Validate the components have zero initialized padding bytes and not the poisoned padding
             // i.e. what you store to chunk memory is what you get. You are not affected by the
@@ -856,11 +846,7 @@ namespace Unity.Entities.Tests
             endGroup.Dispose();
         }
 
-        // These tests require:
-        // - JobsDebugger support for static safety IDs (added in 2020.1)
-        // - Asserting throws
-#if !UNITY_DOTSRUNTIME
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Requires Atomic Safety Handles for dispose checks")]
         public void EntityManager_DoubleDispose_UsesCustomOwnerTypeName()
         {
@@ -871,8 +857,6 @@ namespace Unity.Entities.Tests
                 Throws.Exception.TypeOf<ObjectDisposedException>()
                     .With.Message.Contains("EntityManager"));
         }
-
-#endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         class TestInterfaceManagedComponent : TestInterface, IComponentData
@@ -908,7 +892,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme]  // Would need UnsafeUtility.PinSystemObjectAndGetAddress
         public void GetComponentBoxedSupportsInterface_ManagedComponent()
         {
             var entity = m_Manager.CreateEntity();
@@ -1082,10 +1065,7 @@ namespace Unity.Entities.Tests
             public MyClass Class;
         }
 
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // TODO the il2cpp test runner doesn't Assert.AreSame/AreNotSame
         [Test]
-        [DotsRuntimeFixme] // Unity.Properties support
         public void Instantiate_DeepClone_ManagedComponents()
         {
             var entity = m_Manager.CreateEntity();
@@ -1138,12 +1118,7 @@ namespace Unity.Entities.Tests
             public int[] IntArray;
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // TODO: IL2CPP_TEST_RUNNER doesn't broadly support the That / Constraint Model. Note this test case is also flagged DotsRuntimeFixme.
-
         [Test]
-        [DotsRuntimeFixme] // Requires Unity.Properties support
         public void Instantiate_DeepClone_ManagedComponentWithZeroSizedArray()
         {
             var originalEntity = m_Manager.CreateEntity();
@@ -1172,8 +1147,6 @@ namespace Unity.Entities.Tests
             Assert.That(instanceComponent.IntArray, Is.Null);
         }
 
-#endif // UNITY_PORTABLE_TEST_RUNNER
-
         class ManagedComponentWithNestedClass : IComponentData
         {
 #pragma warning disable 649
@@ -1186,9 +1159,6 @@ namespace Unity.Entities.Tests
         }
 #pragma warning restore 649
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // TODO: IL2CPP_TEST_RUNNER doesn't broadly support the That / Constraint Model. Note this is also flagged DotsRuntimeFixme.
         [Test]
         public void Instantiate_DeepClone_ManagedComponentWithNullReferenceType()
         {
@@ -1878,8 +1848,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(new FixedString64Bytes(), newName);
         }
 #endif
-
-#endif // UNITY_PORTABLE_TEST_RUNNER
 #endif
     }
 }

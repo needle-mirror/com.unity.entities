@@ -35,10 +35,12 @@ namespace Unity.Entities.Conversion
             typeof(CapsuleCollider),
             typeof(MeshCollider),
 #endif
+#if HDRP_7_0_0_OR_NEWER || URP_7_0_0_OR_NEWER
+            typeof(DecalProjector),
+#endif
 #if HDRP_7_0_0_OR_NEWER
             typeof(HDAdditionalLightData),
             typeof(HDAdditionalReflectionData),
-            typeof(DecalProjector),
             typeof(PlanarReflectionProbe),
             typeof(LocalVolumetricFog),
 #if PROBEVOLUME_CONVERSION

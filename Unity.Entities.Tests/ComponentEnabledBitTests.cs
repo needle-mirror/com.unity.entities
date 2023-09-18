@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-#if !NET_DOTS && !UNITY_DOTSRUNTIME // DOTS Runtimes does not support regex
 using System.Text.RegularExpressions;
-#endif
 using NUnit.Framework;
 using Unity.Burst;
 using Unity.Burst.Intrinsics;
@@ -231,19 +229,27 @@ namespace Unity.Entities.Tests
         public unsafe void SetComponentEnabled_ChunkChangeVersion_IsChanged()
         {
             var ecs = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore;
+
+            uint ChangeVersion(Entity entity, int typeIndexInArchetype)
+            {
+                var archetype = ecs->GetArchetype(entity);
+                var chunk = ecs->GetChunk(entity);
+                return archetype->Chunks.GetChangeVersion(typeIndexInArchetype, chunk.ListIndex);
+            }
+
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
             var ent = m_Manager.CreateEntity(archetype);
             var typeIndex = TypeManager.GetTypeIndex(typeof(EcsTestDataEnableable));
             var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype.Archetype, typeIndex);
-            var versionBefore = ecs->GetChunk(ent)->GetChangeVersion(typeIndexInArchetype);
+            var versionBefore = ChangeVersion(ent, typeIndexInArchetype);
             // Force a system update on unrelated entities to bump the global system version
             var ent2 = m_Manager.CreateEntity(typeof(EcsTestDataEnableable2));
             var sys = World.CreateSystemManaged<DummySystem>();
             sys.Update();
-            var versionAfterUpdate = ecs->GetChunk(ent)->GetChangeVersion(typeIndexInArchetype);
+            var versionAfterUpdate = ChangeVersion(ent, typeIndexInArchetype);
             Assert.AreEqual(versionBefore, versionAfterUpdate, "Chunk's change version should be the same after unrelated system update");
             m_Manager.SetComponentEnabled<EcsTestDataEnableable>(ent, false);
-            var versionAfterSet = ecs->GetChunk(ent)->GetChangeVersion(typeIndexInArchetype);
+            var versionAfterSet = ChangeVersion(ent, typeIndexInArchetype);
             Assert.AreNotEqual(versionBefore, versionAfterSet, "Chunk's change version should be different after SetComponentEnabled()");
         }
 
@@ -742,12 +748,13 @@ namespace Unity.Entities.Tests
                 for (int chunkIndex = 0; chunkIndex < chunks.Count; ++chunkIndex)
                 {
                     var chunk = chunks[chunkIndex];
-                    for (int i = 0; i < chunk->Count; ++i)
+                    var entityArray = (Entity*)chunk.Buffer;
+
+                    for (int i = 0, count = chunk.Count; i < count; ++i)
                     {
                         var entityIndexInQuery = chunkIndex * archetype.ChunkCapacity + i;
                         var value = GetTestEntityShouldBeEnabled(entityIndexInQuery, chunkIndex);
 
-                        var entityArray = (Entity*) chunk->Buffer;
                         Assert.AreEqual(value, deserializeManager.IsComponentEnabled<EcsTestDataEnableable>(entityArray[i]));
                     }
 
@@ -801,12 +808,13 @@ namespace Unity.Entities.Tests
                 for (int chunkIndex = 0; chunkIndex < chunks.Count; ++chunkIndex)
                 {
                     var chunk = chunks[chunkIndex];
-                    for (int i = 0; i < chunk->Count; ++i)
+                    var entityArray = (Entity*) chunk.Buffer;
+
+                    for (int i = 0, count = chunk.Count; i < count; ++i)
                     {
                         var entityIndexInQuery = chunkIndex * archetype.ChunkCapacity + i;
                         var value = GetTestEntityShouldBeEnabled(entityIndexInQuery, chunkIndex);
 
-                        var entityArray = (Entity*) chunk->Buffer;
                         Assert.AreEqual(value, deserializeManager.IsComponentEnabled<EcsTestDataEnableable>(entityArray[i]));
                     }
 
@@ -1023,6 +1031,26 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(0, b->EnableableComponentsCount_None);
                 Assert.AreEqual(0, b->EnableableComponentsCount_Any);
                 Assert.AreEqual(1, b->EnableableComponentsCount_Disabled);
+            }
+
+            // Enableable components in the WithPresent set should match the expected archetypes, but don't affect the
+            // enableable component counts.
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().WithPresent<EcsTestDataEnableable>().Build(m_Manager))
+            {
+                var queryData = query._GetImpl()->_QueryData;
+                var matchingArchetypes = queryData->MatchingArchetypes;
+                Assert.AreEqual(2, matchingArchetypes.Length);
+
+                var a = matchingArchetypes.Ptr[0];
+                Assert.AreEqual(0, a->EnableableComponentsCount_All);
+                Assert.AreEqual(0, a->EnableableComponentsCount_None);
+                Assert.AreEqual(0, a->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, a->EnableableComponentsCount_Disabled);
+                var b = matchingArchetypes.Ptr[1];
+                Assert.AreEqual(0, b->EnableableComponentsCount_All);
+                Assert.AreEqual(0, b->EnableableComponentsCount_None);
+                Assert.AreEqual(0, b->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, b->EnableableComponentsCount_Disabled);
             }
         }
 
@@ -1988,8 +2016,6 @@ namespace Unity.Entities.Tests
                 sys.ProcessedEntities.ToArray(Allocator.Temp).ToArray());
         }
 
-
-#if !NET_DOTS && !UNITY_DOTSRUNTIME // DOTS Runtimes does not support regex
         struct DataJob_WriteBits_ComponentLookup : IJobChunk
         {
             [ReadOnly]public ComponentLookup<EcsTestDataEnableable> EnableableType;
@@ -2123,6 +2149,5 @@ namespace Unity.Entities.Tests
             LogAssert.Expect(LogType.Exception, new Regex("InvalidOperationException"));
             new BufferJob_WritesBits_ArchetypeChunk(){ EnableableType = m_Manager.GetBufferTypeHandle<EcsIntElementEnableable>(true)}.Run(queryRO);
         }
-#endif
     }
 }

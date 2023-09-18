@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using Unity.Entities.Serialization;
 using UnityEngine.SceneManagement;
@@ -104,5 +103,3 @@ namespace Unity.Entities.Content
         public void Release() { }
     }
 }
-#endif
-

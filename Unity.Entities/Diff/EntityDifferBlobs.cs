@@ -174,7 +174,7 @@ namespace Unity.Entities
             for (var chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
             {
                 var chunk = chunks[chunkIndex].m_Chunk;
-                var archetype = chunk->Archetype;
+                var archetype = entityComponentStore->GetArchetype(chunk);
 
                 // skip this chunk only if we are _certain_ there are no blob asset refs.
                 if (!archetype->HasBlobAssetRefs)
@@ -194,7 +194,7 @@ namespace Unity.Entities
                     if (!typeInfo.HasBlobAssetRefs)
                         continue;
 
-                    var chunkBuffer = chunk->Buffer;
+                    var chunkBuffer = chunk.Buffer;
                     var subArrayOffset = archetype->Offsets[typeIndexInArchetype];
                     var componentArrayStart = chunkBuffer + subArrayOffset;
 
@@ -250,7 +250,7 @@ namespace Unity.Entities
                     }
                 }
 
-                var sharedComponentValues = chunk->SharedComponentValues;
+                var sharedComponentValues = archetype->Chunks.GetSharedComponentValues(chunk.ListIndex);
                 for (var i = 0; i < archetype->NumSharedComponents; i++)
                 {
                     var sharedComponentIndex = sharedComponentValues[i];
@@ -275,8 +275,8 @@ namespace Unity.Entities
             for (var chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
             {
                 var chunk = chunks[chunkIndex].m_Chunk;
-                var archetype = chunk->Archetype;
-                var sharedComponentValues = chunk->SharedComponentValues;
+                var archetype = entityComponentStore->GetArchetype(chunk);
+                var sharedComponentValues = archetype->Chunks.GetSharedComponentValues(chunk.ListIndex);
 
                 for (var i = 0; i < archetype->NumSharedComponents; i++)
                 {

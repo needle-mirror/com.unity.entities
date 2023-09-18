@@ -1,8 +1,6 @@
 using System;
-#if !NET_DOTS
 using System.IO;
 using Unity.Assertions;
-#endif
 using Unity.IO.LowLevel.Unsafe;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -205,7 +203,6 @@ namespace Unity.Entities.Serialization
         }
     }
 
-#if !NET_DOTS
     internal unsafe class StreamBinaryReader : BinaryReader
     {
         internal string FilePath { get; }
@@ -323,7 +320,6 @@ namespace Unity.Entities.Serialization
 
         public long Length => stream.Length;
     }
-#endif
 
     /// <summary>
     /// Provides a writer to write primitive types to a binary buffer in memory.

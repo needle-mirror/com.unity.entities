@@ -63,5 +63,6 @@ namespace Unity.Entities.Streaming
         {
             var systemList = DefaultWorldInitialization.GetAllSystemTypeIndices(WorldSystemFilterFlags.EntitySceneOptimizations);
             OptimizeInternal(world, systemList);
-        }    }
+        }
+    }
 }

@@ -741,7 +741,6 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(typeOverridesNoBlobNoEntityInfo.HasBlobAssetRefs);
         }
 
-#if !UNITY_DOTSRUNTIME // No reflection support in TypeManager in DOTS Runtime even without TinyBCL; no UnityEngine in DOTS Runtime
         [DisableAutoTypeRegistration]
         struct NonBlittableComponentData : IComponentData
         {
@@ -1085,7 +1084,6 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(TypeManager.BuildComponentType(typeof(NestedNativeContainerComponent), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer); 
             });
         }
-#endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         interface IBaseInterface
@@ -1252,8 +1250,7 @@ namespace Unity.Entities.Tests
 #endif
 
 
-        // Tests including Unityengine, or reflection
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
 
 #pragma warning disable 649
         class TestScriptableObjectWithFields : UnityEngine.ScriptableObject

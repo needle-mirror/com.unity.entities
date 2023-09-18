@@ -7,5 +7,7 @@
         <Nullable>disable</Nullable>
         <RootNamespace>Unity.Burst</RootNamespace>
         <AssemblyName>Unity.Burst</AssemblyName>
+        <Deterministic>True</Deterministic>
+        <PlatformTarget>AnyCPU</PlatformTarget>
     </PropertyGroup>
 </Project>

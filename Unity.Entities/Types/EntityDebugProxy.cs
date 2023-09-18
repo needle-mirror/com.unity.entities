@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Diagnostics;
 using Unity.Collections;
 using Unity.Jobs.LowLevel.Unsafe;
@@ -11,7 +11,6 @@ namespace Unity.Entities
     /// </summary>
     class EntityDebugProxy
     {
-#if !NET_DOTS
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         Entity _Entity;
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
@@ -68,10 +67,8 @@ namespace Unity.Entities
                 return proxy.ToArray();
             }
         }
-#endif
     }
 
-#if !NET_DOTS
     /// <summary>
     /// Entity debug proxy when the world is explicitly known
     /// </summary>
@@ -133,5 +130,4 @@ namespace Unity.Entities
         public object[] Components => _Access.GetComponents(_Entity);
         public World World => _Access.GetWorld();
     }
-#endif
 }

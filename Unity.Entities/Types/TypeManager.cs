@@ -1,9 +1,7 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
-#if !NET_DOTS
 using System.Linq;
-#endif
 using Unity.Burst;
 using System.Reflection;
 using System.Runtime.CompilerServices;
@@ -1394,10 +1392,19 @@ namespace Unity.Entities
             if (s_Initialized)
                 return;
 
+#if UNITY_EDITOR
+            // Synchronous Burst compilation takes forever, so in the editor don't waste time for
+            // users who are trying to iterate and turn the option off while we generate type info
+            bool originalBurstCompileSyncValue = BurstCompiler.Options.EnableBurstCompileSynchronously;
+            BurstCompiler.Options.EnableBurstCompileSynchronously = false;
+
+            var stopWatch = new Stopwatch();
+            stopWatch.Start();
+#endif
+
             s_Initialized = true;
             try
             {
-
 #if UNITY_EDITOR
                 if (!UnityEditorInternal.InternalEditorUtility.CurrentThreadIsMainThread())
                     throw new InvalidOperationException("Must be called from the main thread");
@@ -1443,7 +1450,6 @@ namespace Unity.Entities
 
                 FastEquality.Initialize();
                 InitializeSystemsState();
-                InitializeFieldInfoState();
 
                 // There are some types that must be registered first such as a null component and Entity
                 RegisterSpecialComponents();
@@ -1473,6 +1479,16 @@ namespace Unity.Entities
                 Shutdown();
                 throw;
             }
+#if UNITY_EDITOR
+            finally
+            {
+                // Save the time since profiler might not catch the first frame.
+                stopWatch.Stop();
+                Console.WriteLine($"TypeManager.Initialize took: {stopWatch.ElapsedMilliseconds}ms");
+
+                BurstCompiler.Options.EnableBurstCompileSynchronously = originalBurstCompileSyncValue;
+            }
+#endif
         }
 
         static void InitializeSharedStatics()
@@ -1501,7 +1517,7 @@ namespace Unity.Entities
         {
             SharedTypeInfos.Ref.Data = default;
 #if UNITY_DOTSRUNTIME
-            SharedDescendantIndices.Ref.Data = default; 
+            SharedDescendantIndices.Ref.Data = default;
 #endif
             SharedDescendantCounts.Ref.Data = default;
             SharedEntityOffsetInfos.Ref.Data = default;
@@ -1584,7 +1600,6 @@ namespace Unity.Entities
             s_Types.Clear();
 
             ShutdownSystemsState();
-            ShutdownFieldInfoState();
 
 #if !UNITY_DOTSRUNTIME
             s_FailedTypeBuildException = null;
@@ -1737,6 +1752,14 @@ namespace Unity.Entities
             return index;
         }
 
+#if !UNITY_DOTSRUNTIME
+        [BurstDiscard]
+        internal static void ManagedEquals<T>(ref T left, ref T right, TypeIndex typeIndex, out int result) where T : struct
+        {
+            result = FastEquality.ManagedEquals(left, right, GetFastEqualityTypeInfoPointer()[typeIndex.Index]) ? 1 : 0;
+        }
+#endif
+
         /// <summary>
         /// Compares two component instances to one another
         /// </summary>
@@ -1752,7 +1775,16 @@ namespace Unity.Entities
             {
 #if !UNITY_DOTSRUNTIME
                 if (typeIndex.IsManagedType)
-                    return FastEquality.Equals(UnsafeUtility.AddressOf(ref left), UnsafeUtility.AddressOf(ref right), in GetFastEqualityTypeInfoPointer()[typeIndex.Index]);
+                {
+                    int result = -1;
+                    ManagedEquals(ref left, ref right, typeIndex, out result);
+
+                    // We shouldn't be able to hit this codepath since Burst would have complained by now by the managed T use in the method
+                    if(Burst.CompilerServices.Hint.Unlikely(result < 0))
+                        throw new ArgumentException($"Attempted to compare managed component type '{typeof(T)}' from Burst compiled method");
+
+                    return result == 1;
+                }
                 else
 #endif
                 {
@@ -1907,24 +1939,42 @@ namespace Unity.Entities
                 return left == right;
             }
 
-            if (IsManagedComponent(typeIndex))
+            if (IsManagedType(typeIndex))
             {
                 var typeInfo = GetFastEqualityTypeInfoPointer()[typeIndex.Index];
                 return FastEquality.ManagedEquals(left, right, typeInfo);
             }
             else
             {
-                var leftptr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(left, out var lhandle) + ObjectOffset;
-                var rightptr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(right, out var rhandle) + ObjectOffset;
+                // IL2CPP has a bug where we can fail to detect managed types correctly which will
+                // cause the code #else codepath to throw if it contains managed references, so we provide
+                // an alternative path until that is fixed (UUM-43422)
+                #if ENABLE_IL2CPP
+                    var leftptr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(left, out var lhandle) + ObjectOffset;
+                    var rightptr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(right, out var rhandle) + ObjectOffset;
 
-                var result = Equals(leftptr, rightptr, typeIndex);
+                    var result = Equals(leftptr, rightptr, typeIndex);
 
-                UnsafeUtility.ReleaseGCObject(lhandle);
-                UnsafeUtility.ReleaseGCObject(rhandle);
-                return result;
+                    UnsafeUtility.ReleaseGCObject(lhandle);
+                    UnsafeUtility.ReleaseGCObject(rhandle);
+
+                    return result;
+                #else
+                    var leftHandle = GCHandle.Alloc(left, GCHandleType.Pinned);
+                    var rightHandle = GCHandle.Alloc(right, GCHandleType.Pinned);
+                    var leftptr = (byte*)leftHandle.AddrOfPinnedObject();
+                    var rightptr = (byte*)rightHandle.AddrOfPinnedObject();
+
+                    var result = Equals(leftptr, rightptr, typeIndex);
+
+                    leftHandle.Free();
+                    rightHandle.Free();
+
+                    return result;
+                #endif
             }
 #else
-            return GetBoxedEquals(left, right, typeIndex.Index);
+                return GetBoxedEquals(left, right, typeIndex.Index);
 #endif
         }
 
@@ -1938,16 +1988,39 @@ namespace Unity.Entities
         public static bool Equals(object left, void* right, TypeIndex typeIndex)
         {
 #if !UNITY_DOTSRUNTIME
+
+    // IL2CPP has a bug where we can fail to detect managed types correctly which will
+    // cause the code #else codepath to throw if it contains managed references, so we provide
+    // an alternative path until that is fixed (UUM-43422)
+    #if ENABLE_IL2CPP
             var leftptr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(left, out var lhandle) + ObjectOffset;
 
             var result = Equals(leftptr, right, typeIndex);
 
             UnsafeUtility.ReleaseGCObject(lhandle);
             return result;
+    #else
+            var leftHandle = GCHandle.Alloc(left, GCHandleType.Pinned);
+            var leftptr = (byte*)leftHandle.AddrOfPinnedObject();
+
+            var result = Equals(leftptr, right, typeIndex);
+
+            leftHandle.Free();
+            return result;
+    #endif
 #else
             return GetBoxedEquals(left, right, typeIndex.Index);
 #endif
         }
+
+#if !UNITY_DOTSRUNTIME
+        [BurstDiscard]
+        internal static void ManagedGetHashCode<T>(ref T val, TypeIndex typeIndex, out int hash, out int did_work) where T : struct
+        {
+            did_work = 1;
+            hash = FastEquality.ManagedGetHashCode(val, GetFastEqualityTypeInfoPointer()[typeIndex.Index]);
+        }
+#endif
 
         /// <summary>
         /// Generates a hash for a given component instance
@@ -1959,6 +2032,20 @@ namespace Unity.Entities
         public static int GetHashCode<T>(ref T val) where T : struct
         {
             var typeIndex = GetTypeIndex<T>();
+
+#if !UNITY_DOTSRUNTIME
+            if (typeIndex.IsManagedType)
+            {
+                ManagedGetHashCode(ref val, typeIndex, out int hash, out int did_work);
+
+                // We shouldn't be able to hit this codepath since Burst would have complained by now by the managed T use in the method
+                if (Burst.CompilerServices.Hint.Unlikely(did_work == 0))
+                    throw new ArgumentException($"Attempted to GetHashCode using managed component type '{typeof(T)}' from Burst compiled method.");
+
+                return hash;
+            }
+#endif
+
             return GetHashCode(UnsafeUtility.AddressOf(ref val), typeIndex);
 
         }
@@ -1992,21 +2079,34 @@ namespace Unity.Entities
         public static int GetHashCode(object val, TypeIndex typeIndex)
         {
 #if !UNITY_DOTSRUNTIME
-            if (IsManagedComponent(typeIndex))
+            if (IsManagedType(typeIndex))
             {
                 var typeInfo = GetFastEqualityTypeInfoPointer()[typeIndex.Index];
                 return FastEquality.ManagedGetHashCode(val, typeInfo);
             }
             else
             {
+                // IL2CPP has a bug where we can fail to detect managed types correctly which will
+                // cause the code #else codepath to throw if it contains managed references, so we provide
+                // an alternative path until that is fixed (UUM-43422)
+#if ENABLE_IL2CPP
                 var ptr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(val, out var handle) + ObjectOffset;
+
                 var result = GetHashCode(ptr, typeIndex);
 
                 UnsafeUtility.ReleaseGCObject(handle);
                 return result;
+#else
+                var handle = GCHandle.Alloc(val, GCHandleType.Pinned);
+                var ptr = (byte*)handle.AddrOfPinnedObject();
+                var result = GetHashCode(ptr, typeIndex);
+
+                handle.Free();
+                return result;
+#endif
             }
 #else
-            return GetBoxedHashCode(val, typeIndex.Index);
+                return GetBoxedHashCode(val, typeIndex.Index);
 #endif
         }
 
@@ -2187,10 +2287,10 @@ namespace Unity.Entities
             object obj = Activator.CreateInstance(type);
             if (data!=null && tinfo.TypeSize != 0)
             {
-                var ptr = (byte*) UnsafeUtility.PinGCObjectAndGetAddress(obj, out var handle) + ObjectOffset;
-
+                var handle = GCHandle.Alloc(obj, GCHandleType.Pinned);
+                var ptr = ((byte*)handle.AddrOfPinnedObject());
                 UnsafeUtility.MemCpy(ptr, data, tinfo.TypeSize);
-                UnsafeUtility.ReleaseGCObject(handle);
+                handle.Free();
             }
 
             return obj;
@@ -2364,7 +2464,7 @@ namespace Unity.Entities
         {
             if (type.ContainsGenericParameters)
                 return;
-            if (type.IsAbstract)
+            if (type.IsAbstract && !typeof(Component).IsAssignableFrom(type))
                 return;
             componentTypeSet.Add(type);
         }
@@ -2409,10 +2509,6 @@ namespace Unity.Entities
 
         static void InitializeAllComponentTypes()
         {
-#if UNITY_EDITOR
-            var stopWatch = new Stopwatch();
-            stopWatch.Start();
-#endif
             try
             {
                 Profiler.BeginSample(nameof(InitializeAllComponentTypes));
@@ -2517,11 +2613,6 @@ namespace Unity.Entities
 
                 Profiler.EndSample();
             }
-#if UNITY_EDITOR
-            // Save the time since profiler might not catch the first frame.
-            stopWatch.Stop();
-            Console.WriteLine($"TypeManager.Initialize took: {stopWatch.ElapsedMilliseconds}ms");
-#endif
         }
 
         private static void GatherSharedComponentMethods(Dictionary<Type, int> indexByType)
@@ -2897,7 +2988,7 @@ namespace Unity.Entities
             if (cache.TryGetValue(type, out result))
                 return result;
 
-            if (type.GetCustomAttribute<ChunkSerializableAttribute>() != null)
+            if (Attribute.IsDefined(type, typeof(ChunkSerializableAttribute)))
             {
                 result = (true, true);
                 cache.Add(type, result);
@@ -3186,7 +3277,7 @@ namespace Unity.Entities
                 s_FastEqualityTypeInfoList.Add(FastEquality.CreateTypeInfo(type));
 #endif
         }
-        
+
 
         private struct TypeManagerKeyContext { }
         private struct SharedTypeInfos

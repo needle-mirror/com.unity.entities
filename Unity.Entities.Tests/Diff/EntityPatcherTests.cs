@@ -8,9 +8,6 @@ namespace Unity.Entities.Tests
     [TestFixture]
     sealed class EntityPatcherTests : EntityDifferTestFixture
     {
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // https://unity3d.atlassian.net/browse/DOTSR-1435
-        // These tests cause crashes in the IL2CPP runner. Cause not yet debugged.
         [Test]
         public void EntityPatcher_ApplyChanges_NoChanges()
         {
@@ -266,7 +263,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_DOTSRUNTIME  // Related to shared components
         [Test]
         public void EntityPatcher_ApplyChanges_ChangeSharedComponent()
         {
@@ -296,8 +292,6 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(0, DstEntityManager.GetSharedComponentManaged<EcsTestSharedComp>(dstEntity).value);
             }
         }
-
-#endif
 
         [Test]
         public void EntityPatcher_ApplyChanges_ChangeAppliesToAllPrefabInstances([Values] bool prefabTag)
@@ -578,107 +572,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test]
-        public void EntityPatcher_ApplyChanges_WithChunkData()
-        {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
-            {
-                var guid = CreateEntityGuid();
-                var entity = SrcEntityManager.CreateEntity();
-                Entity dstRootEntity;
-                // Chunk component is added but no values are copied
-                // Because chunks are generally caches and thus must be rebuildable automatically.
-                // They are also likely a totally different set of chunks.
-                // Diff & Patch is generally working against entities not on chunk level
-                {
-                    SrcEntityManager.AddComponentData(entity, guid);
-                    SrcEntityManager.AddComponentData(entity, new EcsTestData(1));
-                    SrcEntityManager.AddChunkComponentData<EcsTestData2>(entity);
-                    SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestData2(3));
-
-                    PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
-
-                    dstRootEntity = GetEntity(DstEntityManager, guid);
-                    Assert.AreEqual(1, DstEntityManager.GetComponentData<EcsTestData>(dstRootEntity).value);
-                    Assert.IsTrue(DstEntityManager.HasChunkComponent<EcsTestData2>(dstRootEntity));
-                    Assert.AreEqual(0, DstEntityManager.GetChunkComponentData<EcsTestData2>(dstRootEntity).value0);
-                    Assert.AreEqual(1, DstEntityManager.CreateEntityQuery(typeof(ChunkHeader)).CalculateEntityCount());
-                }
-
-                // Changing Chunk component creates no diff
-                {
-                    SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestData2(7));
-                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
-                    {
-                        Assert.IsFalse(changes.AnyChanges);
-                    }
-                }
-
-                // Removing chunk component, removes chunk component again
-                {
-                    SrcEntityManager.RemoveChunkComponent<EcsTestData2>(entity);
-                    PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
-                    Assert.IsFalse(DstEntityManager.HasChunkComponent<EcsTestData2>(dstRootEntity));
-                    Assert.AreEqual(0, DstEntityManager.CreateEntityQuery(typeof(ChunkHeader)).CalculateEntityCount());
-                }
-            }
-        }
-
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-        [Test]
-        [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
-        public void EntityPatcher_ApplyChanges_WithChunkData_ManagedComponents()
-        {
-            using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
-            {
-                var guid = CreateEntityGuid();
-                var entity = SrcEntityManager.CreateEntity();
-                Entity dstRootEntity;
-                // Chunk component is added but no values are copied
-                // Because chunks are generally caches and thus must be rebuildable automatically.
-                // They are also likely a totally different set of chunks.
-                // Diff & Patch is generally working against entities not on chunk level
-                {
-                    SrcEntityManager.AddComponentData(entity, guid);
-                    SrcEntityManager.AddComponentData(entity, new EcsTestData(1));
-                    SrcEntityManager.AddChunkComponentData<EcsTestData2>(entity);
-                    SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestData2(3));
-                    SrcEntityManager.AddChunkComponentData<EcsTestManagedComponent>(entity);
-                    SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestManagedComponent() { value = "SomeString" });
-
-                    PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
-
-                    dstRootEntity = GetEntity(DstEntityManager, guid);
-                    Assert.AreEqual(1, DstEntityManager.GetComponentData<EcsTestData>(dstRootEntity).value);
-                    Assert.IsTrue(DstEntityManager.HasChunkComponent<EcsTestData2>(dstRootEntity));
-                    Assert.IsTrue(DstEntityManager.HasChunkComponent<EcsTestManagedComponent>(dstRootEntity));
-                    Assert.AreEqual(0, DstEntityManager.GetChunkComponentData<EcsTestData2>(dstRootEntity).value0);
-                    Assert.AreEqual(null, DstEntityManager.GetChunkComponentData<EcsTestManagedComponent>(dstRootEntity));
-                    Assert.AreEqual(1, DstEntityManager.CreateEntityQuery(typeof(ChunkHeader)).CalculateEntityCount());
-                }
-
-                // Changing Chunk component creates no diff
-                {
-                    SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestData2(7));
-                    SrcEntityManager.SetChunkComponentData(SrcEntityManager.GetChunk(entity), new EcsTestManagedComponent() { value = "SomeOtherString" });
-                    using (var changes = differ.GetChanges(EntityManagerDifferOptions.Default, SrcWorld.UpdateAllocator.ToAllocator))
-                    {
-                        Assert.IsFalse(changes.AnyChanges);
-                    }
-                }
-
-                // Removing chunk component, removes chunk component again
-                {
-                    SrcEntityManager.RemoveChunkComponent<EcsTestData2>(entity);
-                    SrcEntityManager.RemoveChunkComponent<EcsTestManagedComponent>(entity);
-                    PushChanges(differ, DstEntityManager, DstWorld.UpdateAllocator.ToAllocator);
-                    Assert.IsFalse(DstEntityManager.HasChunkComponent<EcsTestData2>(dstRootEntity));
-                    Assert.IsFalse(DstEntityManager.HasChunkComponent<EcsTestManagedComponent>(dstRootEntity));
-                    Assert.AreEqual(0, DstEntityManager.CreateEntityQuery(typeof(ChunkHeader)).CalculateEntityCount());
-                }
-            }
-        }
-
         [Test]
         [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void EntityPatcher_ApplyChanges_CreateEntityWithTestData_ManagedComponents()
@@ -722,7 +616,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Requires Unity.Properties
         [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void EntityPatcher_ApplyChanges_RemapEntityReferencesInManagedComponents()
         {
@@ -754,7 +647,6 @@ namespace Unity.Entities.Tests
 
         // https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
-        [DotsRuntimeFixme] // No support for PinGCObject
         [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void EntityPatcher_ApplyChanges_RemapEntityReferencesInManagedComponentCollection()
         {
@@ -1201,7 +1093,5 @@ namespace Unity.Entities.Tests
                 }
             }
         }
-
-#endif    // !UNITY_PORTABLE_TEST_RUNNER
     }
 }

@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using UnityEngine;
 
@@ -11,4 +10,3 @@ namespace Unity.Entities
         public override int GetHashCode() => SceneCullingMask.GetHashCode();
     }
 }
-#endif

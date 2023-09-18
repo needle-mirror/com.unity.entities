@@ -272,21 +272,11 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             if (playbackErrorLog != null)
             {
-#if !NET_DOTS
                 var exceptionMessage = new StringBuilder();
                 foreach (var err in playbackErrorLog)
                 {
                     exceptionMessage.AppendLine(err);
                 }
-#else
-                var exceptionMessage = "";
-                foreach (var err in playbackErrorLog)
-                {
-                    exceptionMessage += err;
-                    exceptionMessage += '\n';
-                }
-#endif
-
                 throw new ArgumentException(exceptionMessage.ToString());
             }
 #endif

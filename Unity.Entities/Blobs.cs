@@ -216,12 +216,13 @@ namespace Unity.Entities
 
         internal BlobAssetHeader* Header
         {
-            get { return ((BlobAssetHeader*) m_Ptr) - 1; }
+            get
+            {
+                ThrowIfNull();
+                return (BlobAssetHeader*) m_Ptr - 1;
+            }
         }
 
-
-
-#if !NET_DOTS
         /// <summary>
         /// This member is exposed to Unity.Properties to support EqualityComparison and Serialization within managed objects.
         /// </summary>
@@ -245,7 +246,6 @@ namespace Unity.Entities
             get => m_Align8Union;
             set => m_Align8Union = value;
         }
-#endif
 
         [BurstDiscard]
         void ValidateNonBurst()
@@ -279,11 +279,17 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void ValidateNotNull()
         {
-            if(m_Ptr == null)
-                throw new InvalidOperationException("The BlobAssetReference is null.");
+            ThrowIfNull();
 
             ValidateNonBurst();
             ValidateBurst();
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        void ThrowIfNull()
+        {
+            if (m_Ptr == null)
+                throw new NullReferenceException("The BlobAssetReference is null.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -371,6 +377,8 @@ namespace Unity.Entities
         {
             get
             {
+                ThrowIfNull();
+
 #if UNITY_64
                 return Header->ValidationPtr == (void*)~(long)m_Ptr;
 #else
@@ -386,16 +394,12 @@ namespace Unity.Entities
     /// <remarks>Create a blob asset using a <see cref="BlobBuilder"/> or by deserializing a serialized blob asset.</remarks>
     /// <typeparam name="T">The struct data type defining the data structure of the blob asset.</typeparam>
     [ChunkSerializable]
-#if !NET_DOTS
     [DebuggerTypeProxy(typeof(DebugProxies.BlobAssetReferenceProxy<>))]
     [DebuggerDisplay(nameof(BlobAssetReference<T>))]
-#endif
     public unsafe struct BlobAssetReference<T> : IDisposable, IEquatable<BlobAssetReference<T>>
         where T : unmanaged
     {
-#if !NET_DOTS
         [Properties.CreateProperty]
-#endif
         internal BlobAssetReferenceData m_data;
         /// <summary>
         /// Reports whether this instance references a valid blob asset.
@@ -543,7 +547,6 @@ namespace Unity.Entities
             return true;
         }
 
-#if !UNITY_DOTSRUNTIME
         /// <summary>
         /// Reads bytes from a fileName, validates the expected serialized version, and deserializes them into a new blob asset.
         /// </summary>
@@ -563,30 +566,6 @@ namespace Unity.Entities
                 return TryRead(binaryReader, version, out result);
             }
         }
-#else
-        /// <summary>
-        /// Reads bytes from a buffer, validates the expected serialized version, and deserializes them into a new blob asset.
-        /// </summary>
-        /// <param name="data">A byte stream of the blob data to read.</param>
-        /// <param name="length">Length in bytes of the data block/param>
-        /// <param name="version">Expected version number of the blob data.</param>
-        /// <param name="result">The resulting BlobAssetReference if the data was read successful.</param>
-        /// <returns>A bool if the read was successful or not.</returns>
-        public static bool TryRead(byte* data, long length, int version, out BlobAssetReference<T> result)
-        {
-            var binaryReader = new MemoryBinaryReader(data, length);
-            var storedVersion = binaryReader.ReadInt();
-            if (storedVersion != version)
-            {
-                result = default;
-                return false;
-            }
-
-            result = binaryReader.Read<T>();
-
-            return true;
-        }
-#endif
 
         /// <summary>
         /// Reads bytes from a buffer, validates the expected serialized version, and deserializes them into a new blob asset.
@@ -644,7 +623,7 @@ namespace Unity.Entities
                 writer.Write(asset);
             }
         }
-#if !NET_DOTS
+
         /// <summary>
         /// Writes the blob data to a path with serialized version.
         /// </summary>
@@ -658,7 +637,6 @@ namespace Unity.Entities
                 Write(writer, builder, version);
             }
         }
-#endif
 
         /// <summary>
         /// A "null" blob asset reference that can be used to test if a BlobAssetReference instance

@@ -62,7 +62,6 @@ namespace Unity.Entities.Tests
 
     partial class ChangeVersionTests : ECSTestsFixture
     {
-#if !UNITY_DOTSRUNTIME
         partial class BumpVersionSystemInJob : SystemBase
         {
             JobHandle UpdateEcsTestData2()
@@ -85,7 +84,6 @@ namespace Unity.Entities.Tests
             {
             }
         }
-#endif
 
         partial class BumpVersionSystem : SystemBase
         {
@@ -131,7 +129,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme("Name of ECSTestData not supported")]
         public void GetLastWriterSystemName()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
@@ -369,7 +366,6 @@ namespace Unity.Entities.Tests
             entities.Dispose();
         }
 
-#if !UNITY_DOTSRUNTIME
         [Test]
         public void CHG_SystemVersionJob()
         {
@@ -379,7 +375,5 @@ namespace Unity.Entities.Tests
             system.Update();
             Assert.AreNotEqual(0, system.LastSystemVersion);
         }
-
-#endif
     }
 }

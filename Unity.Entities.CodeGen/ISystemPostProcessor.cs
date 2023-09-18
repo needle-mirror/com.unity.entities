@@ -184,6 +184,7 @@ namespace Unity.Entities.CodeGen
                 {
                     wrapperName =
                         specializedSystemType.FullName.Replace('/', '_')
+                            .Replace(',', '_')
                             .Replace('`', '_')
                             .Replace('.', '_')
                             .Replace('<', '_')
@@ -220,20 +221,12 @@ namespace Unity.Entities.CodeGen
                     memo.m_BurstCompileBits |= 1 << i;
                 }
 
-#if UNITY_DOTSRUNTIME
-                // Burst CompileFunctionPointer in DOTS Runtime will not currently decorate methods as [MonoPInvokeCallback]
-                // so we add that here until that is supported
-                var monoPInvokeCallbackAttributeConstructor = typeof(Jobs.MonoPInvokeCallbackAttribute).GetConstructor(Type.EmptyTypes);
-                _methodDef.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(monoPInvokeCallbackAttributeConstructor)));
-#else
                 // Adding MonoPInvokeCallbackAttribute needed for IL2CPP to work when burst is disabled
                 var monoPInvokeCallbackAttributeConstructors = typeof(MonoPInvokeCallbackAttribute).GetConstructors(BindingFlags.Public | BindingFlags.NonPublic | BindingFlags.Instance);
                 var monoPInvokeCallbackAttribute = new CustomAttribute(mod.ImportReference(monoPInvokeCallbackAttributeConstructors[0]));
                 monoPInvokeCallbackAttribute.ConstructorArguments.Add(new CustomAttributeArgument(mod.ImportReference(typeof(Type)), mod.ImportReference(typeof(SystemBaseDelegates.Function))));
 
                 _methodDef.CustomAttributes.Add(monoPInvokeCallbackAttribute);
-#endif
-
 
                 var processor = _methodDef.Body.GetILProcessor();
 
@@ -257,7 +250,6 @@ namespace Unity.Entities.CodeGen
             var funcDef = new MethodDefinition("EarlyInit", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig, AssemblyDefinition.MainModule.ImportReference(typeof(void)));
             funcDef.Body.InitLocals = false;
 
-#if !UNITY_DOTSRUNTIME
             if (!Defines.Contains("UNITY_EDITOR"))
             {
                 // Needs to run automatically in the player, but we need to
@@ -269,14 +261,12 @@ namespace Unity.Entities.CodeGen
                 attribute.ConstructorArguments.Add(new CustomAttributeArgument(loadTypeEnumType, UnityEngine.RuntimeInitializeLoadType.AfterAssembliesLoaded));
                 funcDef.CustomAttributes.Add(attribute);
             }
-
-            if (Defines.Contains("UNITY_EDITOR"))
+            else
             {
                 // Needs to run automatically in the editor.
                 var attributeCtor2 = AssemblyDefinition.MainModule.ImportReference(typeof(UnityEditor.InitializeOnLoadMethodAttribute).GetConstructor(Type.EmptyTypes));
                 funcDef.CustomAttributes.Add(new CustomAttribute(attributeCtor2));
             }
-#endif
 
             _registrationClassDef.Methods.Add(funcDef);
 

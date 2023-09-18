@@ -178,12 +178,12 @@ namespace Unity.Entities
         {
             var ecs = m_Access->EntityComponentStore;
             var chunk = ecs->GetChunk(entity);
-            var archetype = chunk->Archetype;
+            var archetype = ecs->GetArchetype(chunk);
             if (Hint.Unlikely(archetype != m_Cache.Archetype))
                 m_Cache.Update(archetype, m_TypeIndex);
             var typeIndexInArchetype = m_Cache.IndexInArchetype;
             if (typeIndexInArchetype == -1) return false;
-            var chunkVersion = chunk->GetChangeVersion(typeIndexInArchetype);
+            var chunkVersion = archetype->Chunks.GetChangeVersion(typeIndexInArchetype, chunk.ListIndex);
 
             return ChangeVersionUtility.DidChange(chunkVersion, version);
         }

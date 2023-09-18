@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using NUnit.Framework;
 using Unity.Entities.Content;
 using Unity.Collections.LowLevel.Unsafe;
@@ -82,4 +81,3 @@ namespace Unity.Entities.Editor.Tests
 
     }
 }
-#endif

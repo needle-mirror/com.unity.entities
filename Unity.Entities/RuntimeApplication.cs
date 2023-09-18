@@ -1,9 +1,7 @@
 using System;
 
-#if !UNITY_DOTSRUNTIME
 using System.Linq;
 using UnityEngine.LowLevel;
-#endif
 
 namespace Unity.Entities
 {
@@ -22,7 +20,6 @@ namespace Unity.Entities
         internal static void InvokePreFrameUpdate() => PreFrameUpdate?.Invoke();
         internal static void InvokePostFrameUpdate() => PostFrameUpdate?.Invoke();
 
-#if !UNITY_DOTSRUNTIME
         sealed class UpdatePreFrame { }
         sealed class UpdatePostFrame { }
 
@@ -59,6 +56,5 @@ namespace Unity.Entities
             playerLoop.subSystemList = playerLoopSystems.ToArray();
             PlayerLoop.SetPlayerLoop(playerLoop);
         }
-#endif
     }
 }

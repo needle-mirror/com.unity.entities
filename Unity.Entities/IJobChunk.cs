@@ -260,13 +260,13 @@ namespace Unity.Entities
             {
                 // Fast path for queries with no filtering and no enableable components
                 var cachedChunkList = queryImpl->GetMatchingChunkCache();
-                var chunkPtr = cachedChunkList.Ptr;
+                var chunkIndices = cachedChunkList.ChunkIndices;
                 int chunkCount = cachedChunkList.Length;
-                ArchetypeChunk chunk = new ArchetypeChunk(null, cachedChunkList.EntityComponentStore);
+                ArchetypeChunk chunk = new ArchetypeChunk(ChunkIndex.Null, cachedChunkList.EntityComponentStore);
                 v128 defaultMask = default;
                 for (int chunkIndex = 0; chunkIndex < chunkCount; ++chunkIndex)
                 {
-                    chunk.m_Chunk = chunkPtr[chunkIndex];
+                    chunk.m_Chunk = chunkIndices[chunkIndex];
                     Assert.AreNotEqual(0, chunk.Count);
                     jobData.Execute(chunk, chunkIndex, false, defaultMask);
                 }
@@ -387,30 +387,34 @@ namespace Unity.Entities
                         // If we have no range to steal, exit the loop.
                         if (!JobsUtility.GetWorkStealingRange(ref ranges, jobIndex, out beginChunkIndex, out endChunkIndex))
                             break;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                        // By default, set a zero-sized range of valid array indices
-                        JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData, UnsafeUtility.AddressOf(ref jobWrapper), 0, 0);
-#endif
                     }
 
                     // Do the actual user work.
                     if (jobWrapper.QueryHasEnableableComponents == 0 && !isFiltering)
                     {
                         // Fast path with no entity/chunk filtering active: we can just iterate over the cached chunk list directly.
-                        var chunkPtr = chunks.Ptr;
-                        ArchetypeChunk chunk = new ArchetypeChunk(null, chunks.EntityComponentStore);
+                        var chunkIndices = chunks.ChunkIndices;
+                        ArchetypeChunk chunk = new ArchetypeChunk(ChunkIndex.Null, chunks.EntityComponentStore);
                         v128 defaultMask = default;
                         for (int chunkIndex = beginChunkIndex; chunkIndex < endChunkIndex; ++chunkIndex)
                         {
-                            chunk.m_Chunk = chunkPtr[chunkIndex];
+                            chunk.m_Chunk = chunkIndices[chunkIndex];
                             Assert.AreNotEqual(0, chunk.Count);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                            // For containers passed in the job struct, parallel jobs can limit writes to a range of indices.
+                            // By default, writes are limited to the element corresponding to the unfiltered chunk index.
+                            // If the user has provided a ChunkBaseEntityIndices array, use that instead (limiting writes to the range of entities within the chunk).
+                            // This range check can be disabled on a per-container basis by adding [NativeDisableParallelForRestriction] to the container field in the job struct.
                             if (Hint.Unlikely(jobWrapper.ChunkBaseEntityIndices != null))
                             {
                                 int chunkBaseEntityIndex = jobWrapper.ChunkBaseEntityIndices[chunkIndex];
                                 JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData,
                                     UnsafeUtility.AddressOf(ref jobWrapper), chunkBaseEntityIndex, chunk.Count);
+                            }
+                            else if (isParallel)
+                            {
+                                JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData,
+                                    UnsafeUtility.AddressOf(ref jobWrapper), chunkIndex, 1);
                             }
 #endif
                             jobWrapper.JobData.Execute(chunk, chunkIndex, false, defaultMask);
@@ -428,11 +432,20 @@ namespace Unity.Entities
                                    out byte useEnabledMask, ref chunkEnabledMask))
                         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                            // For containers passed in the job struct, parallel jobs can limit writes to a range of indices.
+                            // By default, writes are limited to the element corresponding to the unfiltered chunk index.
+                            // If the user has provided a ChunkBaseEntityIndices array, use that instead (limiting writes to the range of entities within the chunk).
+                            // This range check can be disabled on a per-container basis by adding [NativeDisableParallelForRestriction] to the container field in the job struct.
                             if (Hint.Unlikely(jobWrapper.ChunkBaseEntityIndices != null))
                             {
                                 int chunkBaseEntityIndex = jobWrapper.ChunkBaseEntityIndices[chunkIndex];
                                 JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData,
                                     UnsafeUtility.AddressOf(ref jobWrapper), chunkBaseEntityIndex, chunk.Count);
+                            }
+                            else if (isParallel)
+                            {
+                                JobsUtility.PatchBufferMinMaxRanges(bufferRangePatchData,
+                                    UnsafeUtility.AddressOf(ref jobWrapper), chunkIndex, 1);
                             }
 #endif
                             jobWrapper.JobData.Execute(chunk, chunkIndex, useEnabledMask != 0,

@@ -196,7 +196,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithDisabledRW<T1, T2>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Specify all read-only component types that must be present.
+        /// Specify all read-only component types that must be present and enabled on matching entities.
         /// </summary>
         /// <typeparam name="T1">Mandatory component</typeparam>
         /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
@@ -204,7 +204,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAll<T1>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Specify all read-only component types that must be present.
+        /// Specify all read-only component types that must be present and enabled on matching entities.
         /// </summary>
         /// <typeparam name="T1">Mandatory component</typeparam>
         /// <typeparam name="T2">Mandatory component</typeparam>
@@ -213,7 +213,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAll<T1, T2>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Specify all read-only component types that must be present.
+        /// Specify all read-only component types that must be present and enabled on matching entities.
         /// </summary>
         /// <typeparam name="T1">Mandatory component</typeparam>
         /// <typeparam name="T2">Mandatory component</typeparam>
@@ -223,7 +223,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAll<T1, T2, T3>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Specify all read-only component types that must be present.
+        /// Specify all read-only component types that must be present and enabled on matching entities.
         /// </summary>
         /// <typeparam name="T1">Mandatory component</typeparam>
         /// <typeparam name="T2">Mandatory component</typeparam>
@@ -234,7 +234,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAll<T1, T2, T3, T4>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Specify all read-only component types that must be present.
+        /// Specify all read-only component types that must be present and enabled on matching entities.
         /// </summary>
         /// <typeparam name="T1">Mandatory component</typeparam>
         /// <typeparam name="T2">Mandatory component</typeparam>
@@ -246,7 +246,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAll<T1, T2, T3, T4, T5>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Specify all read-only component types that must be present.
+        /// Specify all read-only component types that must be present and enabled on matching entities.
         /// </summary>
         /// <typeparam name="T1">Mandatory component</typeparam>
         /// <typeparam name="T2">Mandatory component</typeparam>
@@ -259,7 +259,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAll<T1, T2, T3, T4, T5, T6>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Specify all read-only component types that must be present.
+        /// Specify all read-only component types that must be present and enabled on matching entities.
         /// </summary>
         /// <typeparam name="T1">Mandatory component</typeparam>
         /// <typeparam name="T2">Mandatory component</typeparam>
@@ -273,7 +273,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAll<T1, T2, T3, T4, T5, T6, T7>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Specify all read-write component types that must be present.
+        /// Specify all read-write component types that must be present and enabled on matching entities.
         /// </summary>
         /// <typeparam name="T1">Mandatory component</typeparam>
         /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
@@ -281,7 +281,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAllRW<T1>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Specify all read-write component types that must be present.
+        /// Specify all read-write component types that must be present and enabled on matching entities.
         /// </summary>
         /// <typeparam name="T1">Mandatory component</typeparam>
         /// <typeparam name="T2">Mandatory component</typeparam>
@@ -290,7 +290,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAllRW<T1, T2>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Add a required [Chunk Component](xref:components-chunk) type to the query.
+        /// Add a required [Chunk Component](xref:components-chunk) type to the query, which must be enabled.
         /// </summary>
         /// <remarks>
         /// Call this method on the query builder to find entities that have all the specified chunk components. Chunk
@@ -305,7 +305,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithAllChunkComponent<T>() => throw ThrowNotBuildException();
 
         /// <summary>
-        /// Add a required [Chunk Component](xref:components-chunk) type to the query.
+        /// Add a required [Chunk Component](xref:components-chunk) type to the query, which must be enabled.
         /// </summary>
         /// <remarks>
         /// Call this method on the query builder to find entities that have all the specified chunk components. Chunk
@@ -540,6 +540,130 @@ namespace Unity.Entities
         /// <returns>The builder object that invoked this method.</returns>
         public SystemAPIQueryBuilder WithNoneChunkComponent<T>() => throw ThrowNotBuildException();
 
+
+        /// <summary>
+        /// Specify all read-only component types that must be present, whether or not they are enabled on matching entities.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithPresent<T1>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must be present, whether or not they are enabled on matching entities.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory component</typeparam>
+        /// <typeparam name="T2">Mandatory component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithPresent<T1, T2>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must be present, whether or not they are enabled on matching entities.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory component</typeparam>
+        /// <typeparam name="T2">Mandatory component</typeparam>
+        /// <typeparam name="T3">Mandatory component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithPresent<T1, T2, T3>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must be present, whether or not they are enabled on matching entities.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory component</typeparam>
+        /// <typeparam name="T2">Mandatory component</typeparam>
+        /// <typeparam name="T3">Mandatory component</typeparam>
+        /// <typeparam name="T4">Mandatory component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithPresent<T1, T2, T3, T4>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must be present, whether or not they are enabled on matching entities.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory component</typeparam>
+        /// <typeparam name="T2">Mandatory component</typeparam>
+        /// <typeparam name="T3">Mandatory component</typeparam>
+        /// <typeparam name="T4">Mandatory component</typeparam>
+        /// <typeparam name="T5">Mandatory component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithPresent<T1, T2, T3, T4, T5>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must be present, whether or not they are enabled on matching entities.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory component</typeparam>
+        /// <typeparam name="T2">Mandatory component</typeparam>
+        /// <typeparam name="T3">Mandatory component</typeparam>
+        /// <typeparam name="T4">Mandatory component</typeparam>
+        /// <typeparam name="T5">Mandatory component</typeparam>
+        /// <typeparam name="T6">Mandatory component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithPresent<T1, T2, T3, T4, T5, T6>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-only component types that must be present, whether or not they are enabled on matching entities.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory component</typeparam>
+        /// <typeparam name="T2">Mandatory component</typeparam>
+        /// <typeparam name="T3">Mandatory component</typeparam>
+        /// <typeparam name="T4">Mandatory component</typeparam>
+        /// <typeparam name="T5">Mandatory component</typeparam>
+        /// <typeparam name="T6">Mandatory component</typeparam>
+        /// <typeparam name="T7">Mandatory component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithPresent<T1, T2, T3, T4, T5, T6, T7>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-write component types that must be present, whether or not they are enabled on matching entities.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithPresentRW<T1>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Specify all read-write component types that must be present, whether or not they are enabled on matching entities.
+        /// </summary>
+        /// <typeparam name="T1">Mandatory component</typeparam>
+        /// <typeparam name="T2">Mandatory component</typeparam>
+        /// <returns>This query builder object, to allow chaining multiple method calls.</returns>
+        /// <exception cref="ThrowNotBuildException"></exception>
+        public SystemAPIQueryBuilder WithPresentRW<T1, T2>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Add a required [Chunk Component](xref:components-chunk) type to the query, whether or not it is enabled.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to find entities that have all the specified chunk components. Chunk
+        /// components are a distinct component type, which are different from adding the same type as a standard
+        /// component.
+        ///
+        /// To add additional required Chunk Components, call this method multiple times.
+        /// </remarks>
+        ///
+        /// <typeparam name="T">Component type to use as a required, read-only Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        public SystemAPIQueryBuilder WithPresentChunkComponent<T>() => throw ThrowNotBuildException();
+
+        /// <summary>
+        /// Add a required [Chunk Component](xref:components-chunk) type to the query, whether or not it is enabled.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to find entities that have all the specified chunk components. Chunk
+        /// components are a distinct component type, which are different from adding the same type as a standard
+        /// component.
+        ///
+        /// To add additional required Chunk Components, call this method multiple times.
+        /// </remarks>
+        ///
+        /// <typeparam name="T">Component type to use as a required, read-write Chunk Component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
+        public SystemAPIQueryBuilder WithPresentChunkComponentRW<T>() => throw ThrowNotBuildException();
 
         /// <summary>
         /// Add component type requirement for a given aspect.

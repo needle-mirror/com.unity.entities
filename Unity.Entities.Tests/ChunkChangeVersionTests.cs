@@ -326,7 +326,7 @@ namespace Unity.Entities.Tests
 
             BumpGlobalSystemVersion();
 
-            ChunkDataUtility.ClearMissingReferences(chunk0.m_Chunk);
+            ChunkDataUtility.ClearMissingReferences(m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->GetArchetype(chunk0.m_Chunk), chunk0.m_Chunk);
 
             AssetHasChangeVersion<EcsTestData>(e1, OldVersion);
             AssetHasChangeVersion<EcsTestDataEntity>(e1, NewVersion);

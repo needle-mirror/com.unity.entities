@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.Linq;
 using Unity.Assertions;
@@ -373,4 +372,3 @@ namespace Unity.Scenes
 #endif
     }
 }
-#endif

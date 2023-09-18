@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using Unity.Collections;
 
@@ -108,9 +107,7 @@ namespace Unity.Entities
             if (TypeIndex == 0)
                 return "None";
 
-#if !NET_DOTS
             return GetManagedType()?.Name ?? string.Empty;
-#endif
         }
 
         /// <summary>
@@ -143,4 +140,3 @@ namespace Unity.Entities
         }
     }
 }
-#endif

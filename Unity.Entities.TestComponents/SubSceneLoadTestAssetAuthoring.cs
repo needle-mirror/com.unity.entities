@@ -11,7 +11,7 @@ namespace Unity.Scenes.Editor.Tests
         public Object Asset;
     }
 
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
     public class SubSceneLoadTestAssetComponent : IComponentData
     {
         public Object Asset;
@@ -22,7 +22,7 @@ namespace Unity.Scenes.Editor.Tests
     {
         public override void Bake(SubSceneLoadTestAssetAuthoring authoring)
         {
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
             // This test shouldn't require transform components
             var entity = GetEntity(TransformUsageFlags.None);
             AddComponentObject(entity, new SubSceneLoadTestAssetComponent

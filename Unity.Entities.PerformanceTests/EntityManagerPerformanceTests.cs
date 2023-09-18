@@ -940,35 +940,34 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
         }
 
-        unsafe void CreateChunks(NativeArray<IntPtr> chunks)
+        unsafe void CreateChunks(NativeArray<ChunkIndex> chunks)
         {
             var chunkStore = (EntityComponentStore.ChunkStore*)UnsafeUtility.AddressOf(ref EntityComponentStore.s_chunkStore.Data);
             for(int i = 0; i < chunks.Length; ++i)
             {
-                chunkStore->AllocateContiguousChunks(out Chunk* chunk, 1, out int _);
-                chunks[i] = (IntPtr)chunk;
+                chunkStore->AllocateContiguousChunks(out ChunkIndex chunk, 1, out int _);
+                chunks[i] = chunk;
             }
         }
 
-        unsafe void DestroyChunks(NativeArray<IntPtr> chunks)
+        unsafe void DestroyChunks(NativeArray<ChunkIndex> chunks)
         {
             var chunkStore = (EntityComponentStore.ChunkStore*)UnsafeUtility.AddressOf(ref EntityComponentStore.s_chunkStore.Data);
             for(int i = chunks.Length; i --> 0;)
             {
-                Chunk* chunk = (Chunk*)chunks[i];
-                chunkStore->FreeContiguousChunks(chunk, 1);
+                chunkStore->FreeContiguousChunks(chunks[i], 1);
             }
         }
 
         [Test, Performance]
         public void CreateChunks([Values(100000)] int size)
         {
-            var chunks = default(NativeArray<IntPtr>);
+            var chunks = default(NativeArray<ChunkIndex>);
             Measure.Method(() =>
             {
                 CreateChunks(chunks);
             })
-            .SetUp(() => { chunks = new NativeArray<IntPtr>(size, Allocator.Persistent); })
+            .SetUp(() => { chunks = new NativeArray<ChunkIndex>(size, Allocator.Persistent); })
             .CleanUp(() => { DestroyChunks(chunks); chunks.Dispose(); })
             .WarmupCount(1)
             .MeasurementCount(10)
@@ -978,12 +977,12 @@ namespace Unity.Entities.PerformanceTests
         [Test, Performance]
         public void DestroyChunks([Values(100000)] int size)
         {
-            var chunks = default(NativeArray<IntPtr>);
+            var chunks = default(NativeArray<ChunkIndex>);
             Measure.Method(() =>
             {
                 DestroyChunks(chunks);
             })
-            .SetUp(() => { chunks = new NativeArray<IntPtr>(size, Allocator.Persistent); CreateChunks(chunks); })
+            .SetUp(() => { chunks = new NativeArray<ChunkIndex>(size, Allocator.Persistent); CreateChunks(chunks); })
             .CleanUp(() => { chunks.Dispose(); })
             .WarmupCount(1)
             .MeasurementCount(10)

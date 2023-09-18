@@ -86,8 +86,6 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(system.Created);
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // TODO: IL2CPP_TEST_RUNNER can't handle Assert.That Throws
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
         public void ComponentSystem_CheckExistsAfterDestroy_CorrectMessage()
@@ -108,8 +106,6 @@ namespace Unity.Entities.Tests
             Assert.That(() => { incompleteSystem.ShouldRunSystem(); },
                 Throws.InvalidOperationException.With.Message.Contains("initialized"));
         }
-
-#endif
 #endif
 
         [Test]
@@ -143,13 +139,11 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(system.Created);
         }
 
-#if !UNITY_DOTSRUNTIME
         [Test]
         public void CreateNonSystemThrows()
         {
             Assert.Throws<ArgumentException>(() => { World.CreateSystemManaged(typeof(Entity)); });
         }
-#endif
 
         [Test]
         public void GetOrCreateNonSystemThrows()
@@ -603,7 +597,6 @@ namespace Unity.Entities.Tests
             World.Update();
         }
 
-#if !UNITY_DOTSRUNTIME // DOTSR doesn't support GetCustomAttributes()
         [DisableAutoCreation]
         class ParentWithDisableAutoCreation
         {
@@ -923,7 +916,6 @@ namespace Unity.Entities.Tests
             // Before the fix, this will pass IndexInArchetype=-1 to SetChangeVersion(), which asserts / stomps unrelated memory.
             Assert.DoesNotThrow(() => { buffer = lookup[entityA]; });
         }
-#endif
 
 #if UNITY_ENTITIES_RUNTIME_TOOLING
         partial class SystemThatTakesTime : SystemBase
@@ -967,8 +959,6 @@ namespace Unity.Entities.Tests
         }
 #endif
 
-#if !UNITY_DOTSRUNTIME
-
         public partial class NonPreservedTestSystem : SystemBase
         {
             public string m_Test;
@@ -989,7 +979,6 @@ namespace Unity.Entities.Tests
             public PreservedTestSystem(string inputParam) { m_Test = inputParam; }
             protected override void OnUpdate() { }
         }
-#endif
 
         partial struct UnmanagedSystemWithSyncPointAfterSchedule : ISystem
         {
@@ -1572,11 +1561,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual((WorldSystemFilterFlags)(1 << 20), TypeManager.GetSystemFilterFlags(typeof(WorldSystemFilterSystem)));
         }
 
-#if !UNITY_DOTSRUNTIME
-        /*
-          Fails with Burst compile errors on DOTS RT use of try/catch
-          Once we have a shared job system between Big Unity and DOTS RT, we should re-evaluate.
-        */
         [BurstCompile]
         partial struct BurstCompiledUnmanagedSystem : ISystem
         {
@@ -1616,9 +1600,7 @@ namespace Unity.Entities.Tests
                 state.EntityManager.CreateEntity();
             }
         }
-#endif
 
-#if !UNITY_DOTSRUNTIME  // Reflection required
         struct UnmanagedSystemHandleData : IComponentData
         {
             public SystemHandle other;
@@ -1656,7 +1638,7 @@ namespace Unity.Entities.Tests
             tmp.Add(TypeManager.GetSystemTypeIndex<UnmanagedSystemWithRefB>());
 
             World.Unmanaged.GetOrCreateUnmanagedSystems(tmp);
-            
+
             var sysA = World.Unmanaged.GetExistingUnmanagedSystem<UnmanagedSystemWithRefA>();
             var sysB = World.Unmanaged.GetExistingUnmanagedSystem<UnmanagedSystemWithRefB>();
 
@@ -1666,6 +1648,80 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(World.EntityManager.GetComponentData<UnmanagedSystemHandleData>(sysA).other == sysB);
             Assert.IsTrue(World.EntityManager.GetComponentData<UnmanagedSystemHandleData>(sysB).other == sysA);
         }
-#endif
+
+        partial class BufferLookup_CacheRegressionTest_System : SystemBase
+        {
+            Entity m_EntityA;
+            Entity m_EntityB;
+            BufferLookup<EcsIntElement> m_BufferLookup;
+
+            protected override void OnCreate()
+            {
+                m_EntityA = EntityManager.CreateEntity(typeof(EcsIntElement));
+                m_EntityB = EntityManager.CreateEntity(typeof(EcsIntElement));
+
+                m_BufferLookup = GetBufferLookup<EcsIntElement>();
+            }
+
+            protected override void OnUpdate()
+            {
+                // This is a regression test for a subtle cache invalidation in component lookup.
+
+                m_BufferLookup.Update(this);
+
+                EntityManager.GetBuffer<EcsIntElement>(m_EntityA).Add(123);
+                EntityManager.GetBuffer<EcsIntElement>(m_EntityB).Add(234);
+
+                // This first test of the contents of the buffers looks pointless, but it is
+                // actually quite relevant because using the lookup initializes the cache it contains.
+
+                {
+                    var arrayA = m_BufferLookup[m_EntityA].Reinterpret<int>().AsNativeArray().ToArray();
+                    CollectionAssert.AreEqual(new[] { 123 }, arrayA);
+
+                    var arrayB = m_BufferLookup[m_EntityB].Reinterpret<int>().AsNativeArray().ToArray();
+                    CollectionAssert.AreEqual(new[] { 234 }, arrayB);
+                }
+
+                // The first two AddComponent below move the entities to a new chunk.
+                // Since the previous chunk is left empty, it gets deallocated.
+
+                EntityManager.AddComponent<EcsTestTag>(m_EntityA);
+                EntityManager.AddComponent<EcsTestTag>(m_EntityB);
+
+                // The next two AddComponent blow move the entities to a new chunk.
+                // But at this point, the previously deallocated chunk gets recycled.
+                // The entities are now back into their initial chunk, but with a different archetype.
+
+                EntityManager.AddComponent<EcsTestData>(m_EntityA);
+                EntityManager.AddComponent<EcsTestData>(m_EntityB);
+
+                m_BufferLookup.Update(this);
+
+                EntityManager.GetBuffer<EcsIntElement>(m_EntityA).Add(1234);
+                EntityManager.GetBuffer<EcsIntElement>(m_EntityB).Add(2345);
+
+                // Because the type indices of buffer components are always larger than the
+                // indices of regular components, the buffers are now located at a different
+                // offset in the chunk.
+                // If the cache in the lookup incorrectly assumes that the same chunk implies
+                // the same archetype, the cache contains an invalid offset.
+
+                {
+                    var arrayA = m_BufferLookup[m_EntityA].Reinterpret<int>().AsNativeArray().ToArray();
+                    CollectionAssert.AreEqual(new[] { 123, 1234 }, arrayA);
+
+                    var arrayB = m_BufferLookup[m_EntityB].Reinterpret<int>().AsNativeArray().ToArray();
+                    CollectionAssert.AreEqual(new[] { 234, 2345 }, arrayB);
+                }
+            }
+        }
+
+        [Test]
+        public void BufferLookup_CacheRegressionTest()
+        {
+            var system = World.CreateSystemManaged<BufferLookup_CacheRegressionTest_System>();
+            system.Update();
+        }
     }
 }

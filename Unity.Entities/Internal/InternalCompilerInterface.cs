@@ -2,9 +2,9 @@ using System;
 using System.Runtime.CompilerServices;
 using Unity.Burst;
 using Unity.Burst.CompilerServices;
+using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Entities.LowLevel.Unsafe;
 using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 
@@ -18,6 +18,216 @@ namespace Unity.Entities.Internal
     [System.ComponentModel.EditorBrowsable(System.ComponentModel.EditorBrowsableState.Never)]
     public static partial class InternalCompilerInterface
     {
+        public interface IAspectLookup<T> where T : IAspect
+        {
+            public void Update(ref SystemState state);
+            public T this[Entity entity] { get; }
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static EntityStorageInfoLookup GetEntityStorageInfoLookup(
+            ref EntityStorageInfoLookup entityStorageInfoLookup, ref SystemState state)
+        {
+            entityStorageInfoLookup.Update(ref state);
+            return entityStorageInfoLookup;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool DoesEntityExist(ref EntityStorageInfoLookup entityStorageInfoLookup, ref SystemState state,
+            Entity entity)
+        {
+            entityStorageInfoLookup.Update(ref state);
+            return entityStorageInfoLookup.Exists(entity);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static EntityTypeHandle GetEntityTypeHandle(ref EntityTypeHandle entityTypeHandle, ref SystemState state)
+        {
+            entityTypeHandle.Update(ref state);
+            return entityTypeHandle;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ComponentLookup<T> GetComponentLookup<T>(ref ComponentLookup<T> componentLookup,
+            ref SystemState state) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            return componentLookup;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static BufferLookup<T> GetBufferLookup<T>(ref BufferLookup<T> bufferLookup, ref SystemState state)
+            where T : unmanaged, IBufferElementData
+        {
+            bufferLookup.Update(ref state);
+            return bufferLookup;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static RefRO<T> GetComponentROAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state,
+            Entity entity) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRO<T>();
+            return componentLookup.GetRefRO(entity);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static RefRW<T> GetComponentRWAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state,
+            Entity entity) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRW<T>();
+            return componentLookup.GetRefRW(entity);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T GetComponentAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state, Entity entity)
+            where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRO<T>();
+            return componentLookup[entity];
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static RefRW<T> GetComponentRWAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state,
+            SystemHandle systemHandle) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRW<T>();
+            return componentLookup.GetRefRW(systemHandle);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T GetComponentAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state,
+            SystemHandle systemHandle) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRO<T>();
+            return componentLookup[systemHandle];
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetComponentAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state, T component,
+            Entity entity) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRW<T>();
+            componentLookup[entity] = component;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetComponentAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state, T component,
+            SystemHandle systemHandle) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRW<T>();
+            componentLookup[systemHandle] = component;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool HasComponentAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state, Entity entity)
+            where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRO<T>();
+            return componentLookup.HasComponent(entity);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool HasComponentAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state,
+            SystemHandle systemHandle) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRO<T>();
+            return componentLookup.HasComponent(systemHandle);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsComponentEnabledAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state,
+            Entity entity) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRO<T>();
+            return componentLookup.IsComponentEnabled(entity);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsComponentEnabledAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state,
+            SystemHandle systemHandle) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRO<T>();
+            return componentLookup.IsComponentEnabled(systemHandle);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetComponentEnabledAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state,
+            Entity entity, bool value) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRW<T>();
+            componentLookup.SetComponentEnabled(entity, value);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetComponentEnabledAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state,
+            SystemHandle systemHandle, bool value) where T : unmanaged, IComponentData
+        {
+            componentLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRW<T>();
+            componentLookup.SetComponentEnabled(systemHandle, value);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static DynamicBuffer<T> GetBufferAfterCompletingDependency<T>(ref BufferLookup<T> bufferLookup, ref SystemState state,
+            Entity entity) where T : unmanaged, IBufferElementData
+        {
+            bufferLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRW<T>();
+            return bufferLookup[entity];
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool HasBufferAfterCompletingDependency<T>(ref BufferLookup<T> bufferLookup, ref SystemState state, Entity entity)
+            where T : unmanaged, IBufferElementData
+        {
+            bufferLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRO<T>();
+            return bufferLookup.HasBuffer(entity);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool IsBufferEnabledAfterCompletingDependency<T>(ref BufferLookup<T> bufferLookup, ref SystemState state, Entity entity)
+            where T : unmanaged, IBufferElementData
+        {
+            bufferLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRO<T>();
+            return bufferLookup.IsBufferEnabled(entity);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static void SetBufferEnabledAfterCompletingDependency<T>(ref BufferLookup<T> bufferLookup, ref SystemState state, Entity entity, bool value) where T : unmanaged, IBufferElementData
+        {
+            bufferLookup.Update(ref state);
+            state.EntityManager.CompleteDependencyBeforeRW<T>();
+            bufferLookup.SetBufferEnabled(entity, value);
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static T GetAspectAfterCompletingDependency<TLookup, T>(ref TLookup aspectLookup, ref SystemState state, bool isAspectReadOnly, Entity entity)
+            where TLookup : struct, IAspectLookup<T>
+            where T : struct, IAspect, IAspectCreate<T>
+        {
+            aspectLookup.Update(ref state);
+            if (isAspectReadOnly)
+                default(T).CompleteDependencyBeforeRO(ref state);
+            else
+                default(T).CompleteDependencyBeforeRW(ref state);
+            return aspectLookup[entity];
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static ComponentTypeHandle<T> GetComponentTypeHandle<T>(ref ComponentTypeHandle<T> componentTypeHandle,
+            ref SystemState state) where T : unmanaged, IComponentData
+        {
+            componentTypeHandle.Update(ref state);
+            return componentTypeHandle;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static BufferTypeHandle<T> GetBufferTypeHandle<T>(ref BufferTypeHandle<T> bufferTypeHandle,
+            ref SystemState state) where T : unmanaged, IBufferElementData
+        {
+            bufferTypeHandle.Update(ref state);
+            return bufferTypeHandle;
+        }
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static SharedComponentTypeHandle<T> GetSharedComponentTypeHandle<T>(
+            ref SharedComponentTypeHandle<T> sharedComponentTypeHandle, ref SystemState state)
+            where T : struct, ISharedComponentData
+        {
+            sharedComponentTypeHandle.Update(ref state);
+            return sharedComponentTypeHandle;
+        }
+
         public static JobRunWithoutJobSystemDelegate BurstCompile(JobRunWithoutJobSystemDelegate d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
         public static JobChunkRunWithoutJobSystemDelegate BurstCompile(JobChunkRunWithoutJobSystemDelegate d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
         public static JobChunkRunWithoutJobSystemDelegateLimitEntities BurstCompile(JobChunkRunWithoutJobSystemDelegateLimitEntities d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
@@ -71,6 +281,10 @@ namespace Unity.Entities.Internal
         public static unsafe IntPtr UnsafeGetChunkNativeArrayIntPtr<T>(ArchetypeChunk chunk, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData =>
             (IntPtr) chunk.GetRequiredComponentDataPtrRW(ref typeHandle);
 
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        public static bool UnsafeTryGetNextEnabledBitRange(v128 mask, int firstIndexToCheck, out int nextRangeBegin, out int nextRangeEnd) =>
+            EnabledBitUtility.TryGetNextRange(mask, firstIndexToCheck, out nextRangeBegin, out nextRangeEnd);
+
         /// <summary>
         /// There is no need to conduct the same checks in this method as we do in `GetRequiredComponentDataPtrRO` and `GetRequiredComponentDataPtrRW` --
         /// the source-generator has already ensured that everything is correctly set up.
@@ -79,7 +293,7 @@ namespace Unity.Entities.Internal
         public static unsafe IntPtr UnsafeGetChunkNativeArrayReadOnlyIntPtrWithoutChecks<T>(in ArchetypeChunk chunk, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData =>
             (IntPtr)ChunkDataUtility.GetComponentDataWithTypeRO(
                 chunk.m_Chunk,
-                chunk.m_Chunk->Archetype,
+                chunk.Archetype.Archetype,
                 0,
                 typeHandle.m_TypeIndex,
                 ref typeHandle.m_LookupCache);
@@ -94,7 +308,7 @@ namespace Unity.Entities.Internal
             byte* ptr =
                 ChunkDataUtility.GetComponentDataWithTypeRW(
                     chunk.m_Chunk,
-                    chunk.m_Chunk->Archetype,
+                    chunk.Archetype.Archetype,
                     0,
                     typeHandle.m_TypeIndex,
                     typeHandle.GlobalSystemVersion,

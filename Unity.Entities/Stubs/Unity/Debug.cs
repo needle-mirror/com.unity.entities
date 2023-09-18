@@ -1,7 +1,5 @@
 using System;
-#if !UNITY_DOTSRUNTIME
 using UnityObject = UnityEngine.Object;
-#endif
 
 namespace Unity
 {
@@ -18,7 +16,6 @@ namespace Unity
         public static void LogException(Exception exception) =>
             UnityEngine.Debug.LogException(exception);
 
-        #if !UNITY_DOTSRUNTIME
         public static void LogError(object message, UnityObject context) =>
             UnityEngine.Debug.LogError(message, context);
         public static void LogWarning(object message, UnityObject context) =>
@@ -27,6 +24,5 @@ namespace Unity
             UnityEngine.Debug.Log(message, context);
         public static void LogException(Exception exception, UnityObject context) =>
             UnityEngine.Debug.LogException(exception, context);
-        #endif
     }
 }

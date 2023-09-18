@@ -119,9 +119,7 @@ namespace Unity.Entities
         {
             public static List<Type> s_StructTypes = null;
             public static List<RegistrationEntry> s_PendingRegistrations;
-    #if !UNITY_DOTSRUNTIME
             public static bool s_DisposeRegistered = false;
-    #endif
         }
 
         struct Dummy
@@ -177,7 +175,6 @@ namespace Unity.Entities
                 data.Construct();
 
                 // Arrange for domain unloads to wipe the pending registration list, which works around multiple domain reloads in sequence
-#if !UNITY_DOTSRUNTIME
                 if (!Managed.s_DisposeRegistered)
                 {
                     Managed.s_DisposeRegistered = true;
@@ -191,7 +188,6 @@ namespace Unity.Entities
                         Managed.s_PendingRegistrations = null;
                     };
                 }
-#endif
             }
 
             // The order/number here must match UnmanagedSystemFunctionType
@@ -242,10 +238,7 @@ namespace Unity.Entities
             }
             else
             {
-#if UNITY_DOTSRUNTIME_IL2CPP || ENABLE_IL2CPP
-                // Tiny IL2CPP does not handle reverse pinvoke wrapping for lambda functions
-                // and since try/catch isn't supported in Tiny IL2CPP either, there is no need
-                // to wrap the managedFn here.
+#if ENABLE_IL2CPP
                 defeatGc = (ulong)GCHandle.ToIntPtr(GCHandle.Alloc(managedFn));
                 result = (ulong)Marshal.GetFunctionPointerForDelegate(managedFn);
 #else

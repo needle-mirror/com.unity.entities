@@ -719,7 +719,6 @@ namespace Unity.Entities
 
     }
 
-#if !NET_DOTS
     [BurstCompile]
     internal static unsafe class EntityChangeSetFormatter
     {
@@ -1073,5 +1072,4 @@ namespace Unity.Entities
             sb.AppendLine(nameInfoSet.Names[c.PackedEntityIndex].ToString());
         }
     }
-#endif
 }

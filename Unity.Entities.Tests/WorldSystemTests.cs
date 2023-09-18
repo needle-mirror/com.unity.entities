@@ -332,8 +332,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixmeAttribute ("Assert.Throws<InvalidOperationException> becomes Assert.Throws<Exception>, probably because of a inconstency in how burst exception handling forwarding works")]
-#if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
+#if !UNITY_WEBGL
         [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
 #endif
         [TestRequiresDotsDebugOrCollectionChecks("Test requires system safety checks")]
@@ -560,7 +559,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixmeAttribute]
         public void ThrowDuringDestroyStillRemovesISystem()
         {
             using (var world = new World("WorldX"))
@@ -571,7 +569,7 @@ namespace Unity.Entities.Tests
                 CheckUnmanagedSystemEmpty<ThrowDuringDestroyISystem>(world);
             }
         }
-
+        
         public void TestCreateISystemAndLogExceptionsFailureIsolation(Type badSystem)
         {
             using (var world = new World("WorldX"))
@@ -579,7 +577,7 @@ namespace Unity.Entities.Tests
                 var unmanagedTypes = new NativeList<SystemTypeIndex>(2, Allocator.Temp);
                 unmanagedTypes.Add(TypeManager.GetSystemTypeIndex(badSystem));
                 unmanagedTypes.Add(TypeManager.GetSystemTypeIndex<EmptyTestISystem>());
-                
+
                 var unmanagedSystemHandles =
                     world.GetOrCreateSystemsAndLogException(unmanagedTypes, unmanagedTypes.Length, Allocator.Temp);
 

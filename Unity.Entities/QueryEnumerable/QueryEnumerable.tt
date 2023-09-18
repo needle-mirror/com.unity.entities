@@ -129,7 +129,7 @@ namespace Unity.Entities
         public QueryEnumerable<<#=typeParamString#>> WithAbsent<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Specify all read-only component types that must be present.
+        /// Specify all read-only component types that must be present AND enabled.
         /// </summary>
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
@@ -137,7 +137,7 @@ namespace Unity.Entities
         public QueryEnumerable<<#=typeParamString#>> WithAll<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Specify all read-only component types that must be present.
+        /// Specify all read-only component types that must be present AND enabled.
         /// </summary>
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <typeparam name="TComponent2">A component type</typeparam>
@@ -146,7 +146,7 @@ namespace Unity.Entities
         public QueryEnumerable<<#=typeParamString#>> WithAll<TComponent1, TComponent2>()  =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Specify all read-only component types that must be present.
+        /// Specify all read-only component types that must be present AND enabled.
         /// </summary>
         /// <typeparam name="TComponent1">A component type</typeparam>
         /// <typeparam name="TComponent2">A component type</typeparam>
@@ -156,7 +156,7 @@ namespace Unity.Entities
         public QueryEnumerable<<#=typeParamString#>> WithAll<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Specify optional read-only component types.
+        /// Specify optional read-only component types (which must be enabled).
         /// </summary>
         /// <typeparam name="TComponent1">Optional component</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
@@ -164,7 +164,7 @@ namespace Unity.Entities
         public QueryEnumerable<<#=typeParamString#>> WithAny<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Specify optional read-only component types.
+        /// Specify optional read-only component types (which must be enabled).
         /// </summary>
         /// <typeparam name="TComponent1">Optional component</typeparam>
         /// <typeparam name="TComponent2">Optional component</typeparam>
@@ -173,7 +173,7 @@ namespace Unity.Entities
         public QueryEnumerable<<#=typeParamString#>> WithAny<TComponent1, TComponent2>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Specify optional read-only component types.
+        /// Specify optional read-only component types (which must be enabled).
         /// </summary>
         /// <typeparam name="TComponent1">Optional component</typeparam>
         /// <typeparam name="TComponent2">Optional component</typeparam>
@@ -183,7 +183,7 @@ namespace Unity.Entities
         public QueryEnumerable<<#=typeParamString#>> WithAny<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Specify component types that must be absent.
+        /// Specify component types that must be absent, or present and disabled.
         /// </summary>
         /// <typeparam name="TComponent1">Absent component</typeparam>
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
@@ -191,7 +191,7 @@ namespace Unity.Entities
         public QueryEnumerable<<#=typeParamString#>> WithNone<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Specify component types that must be absent.
+        /// Specify component types that must be absent, or present and disabled.
         /// </summary>
         /// <typeparam name="TComponent1">Absent component</typeparam>
         /// <typeparam name="TComponent2">Absent component</typeparam>
@@ -200,7 +200,7 @@ namespace Unity.Entities
         public QueryEnumerable<<#=typeParamString#>> WithNone<TComponent1, TComponent2>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
-        /// Specify component types that must be absent.
+        /// Specify component types that must be absent, or present and disabled.
         /// </summary>
         /// <typeparam name="TComponent1">Absent component</typeparam>
         /// <typeparam name="TComponent2">Absent component</typeparam>
@@ -208,6 +208,33 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<<#=typeParamString#>> WithNone<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Specify all read-only component types that must be present, whether enabled or disabled.
+        /// </summary>
+        /// <typeparam name="TComponent1">A component type</typeparam>
+        /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithPresent<TComponent1>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Specify all read-only component types that must be present, whether enabled or disabled.
+        /// </summary>
+        /// <typeparam name="TComponent1">A component type</typeparam>
+        /// <typeparam name="TComponent2">A component type</typeparam>
+        /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithPresent<TComponent1, TComponent2>()  =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Specify all read-only component types that must be present, whether enabled or disabled.
+        /// </summary>
+        /// <typeparam name="TComponent1">A component type</typeparam>
+        /// <typeparam name="TComponent2">A component type</typeparam>
+        /// <typeparam name="TComponent3">A component type</typeparam>
+        /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithPresent<TComponent1, TComponent2, TComponent3>() =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
         /// Only select components in chunks in which the specified component might have changed since the last time the system updated.
@@ -239,6 +266,31 @@ namespace Unity.Entities
         public QueryEnumerable<<#=typeParamString#>> WithOptions(EntityQueryOptions options) =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
+        /// Only select chunks that have a specified value for a managed shared component.
+        /// </summary>
+        /// <typeparam name="TSharedComponent1">The managed shared component type</typeparam>
+        /// <param name="sharedComponent">The value of <typeparamref name="TSharedComponent1"/> which an entity must have in order to match this query</param>
+        /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithSharedComponentFilterManaged<TSharedComponent1>(TSharedComponent1 sharedComponent)
+            where TSharedComponent1 : struct, ISharedComponentData
+                =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
+        /// Only select chunks that have the specified values for two managed shared components.
+        /// </summary>
+        /// <typeparam name="TSharedComponent1">The first managed shared component type</typeparam>
+        /// <typeparam name="TSharedComponent2">The second managed shared component type</typeparam>
+        /// <param name="sharedComponent1">The value of <typeparamref name="TSharedComponent1"/> which an entity must have in order to match this query</param>
+        /// <param name="sharedComponent2">The value of <typeparamref name="TSharedComponent2"/> which an entity must have in order to match this query</param>
+        /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
+        /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
+        public QueryEnumerable<<#=typeParamString#>> WithSharedComponentFilterManaged<TSharedComponent1, TSharedComponent2>(TSharedComponent1 sharedComponent1, TSharedComponent2 sharedComponent2)
+            where TSharedComponent1 : struct, ISharedComponentData
+            where TSharedComponent2 : struct, ISharedComponentData
+                =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
+
+        /// <summary>
         /// Only select chunks that have a specified value for a shared component.
         /// </summary>
         /// <typeparam name="TSharedComponent1">The shared component type</typeparam>
@@ -246,7 +298,7 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<<#=typeParamString#>> WithSharedComponentFilter<TSharedComponent1>(TSharedComponent1 sharedComponent)
-            where TSharedComponent1 : struct, ISharedComponentData
+            where TSharedComponent1 : unmanaged, ISharedComponentData
                 =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -259,8 +311,8 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<<#=typeParamString#>> WithSharedComponentFilter<TSharedComponent1, TSharedComponent2>(TSharedComponent1 sharedComponent1, TSharedComponent2 sharedComponent2)
-            where TSharedComponent1 : struct, ISharedComponentData
-            where TSharedComponent2 : struct, ISharedComponentData
+            where TSharedComponent1 : unmanaged, ISharedComponentData
+            where TSharedComponent2 : unmanaged, ISharedComponentData
                 =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>

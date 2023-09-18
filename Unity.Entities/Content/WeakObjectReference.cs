@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.Runtime.InteropServices;
 using Unity.Collections;
@@ -59,11 +58,10 @@ namespace Unity.Entities.Content
             this.Id = UntypedWeakReferenceId.CreateFromObjectInstance(unityObject);
         }
 #endif
-
         /// <summary>
-        /// Construct a WeakObjectReference with an existing WeakObjectReference id <paramref name="id"/>.
+        /// Weak reference to an object.
         /// </summary>
-        /// <param name="id">Existing id for some weakly referenced data.</param>
+        /// <param name="id">The UntypedWeakReferenceId of the object.</param>
         public WeakObjectReference(UntypedWeakReferenceId id)
         {
             this.Id = id;
@@ -118,4 +116,3 @@ namespace Unity.Entities.Content
         }
     }
 }
-#endif

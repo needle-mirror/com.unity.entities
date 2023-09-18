@@ -197,6 +197,7 @@ namespace Unity.Entities.Editor
         }
     }
 
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
     [QueryListBlock("Record Type", "rt", "rt", "=")]
     class QueryRecordTypeBlock : QueryListBlock
     {
@@ -210,6 +211,7 @@ namespace Unity.Entities.Editor
             return SearchUtils.GetEnumPropositions<EntitiesJournaling.RecordType>(flags, this, "Record Type:");
         }
     }
+#endif
 
     static class SearchUtils
     {
@@ -363,7 +365,7 @@ namespace Unity.Entities.Editor
 
             var regexStr = $"\\b{filter}{op}(\\S*)";
             var regex = new Regex(regexStr);
-            
+
             var newQuery = regex.Replace(originalQuery, newFilter);
             var m = regex.Match(originalQuery);
             if (newQuery == originalQuery)

@@ -1,7 +1,7 @@
 ﻿using Microsoft.CodeAnalysis;
-using Unity.Entities.SourceGen.SystemGenerator.Common;
+using Unity.Entities.SourceGen.Common;
 
-namespace Unity.Entities.SourceGen.Common
+namespace Unity.Entities.SourceGen.SystemGenerator.Common
 {
     public static class QueryConstructionErrors
     {
@@ -45,6 +45,14 @@ namespace Unity.Entities.SourceGen.Common
                 nameof(SGQC004),
                 ErrorTitle,
                 $"You specified the same component type ({componentTypeFullName}) in both {queryGroup1Name} and {queryGroup2Name}, which are mutually exclusive.",
+                location);
+        }
+
+        public static void SGQC005(SystemDescription systemDescription, Location location, string argumentTypeName, string invokedMethodName)
+        {
+            systemDescription.LogError(nameof(SGQC005),
+                ErrorTitle,
+                $"{invokedMethodName}<{argumentTypeName}>() is not supported as {invokedMethodName}'s type argument can not itself be a generic type parameter.",
                 location);
         }
     }

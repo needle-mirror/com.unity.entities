@@ -19,7 +19,7 @@ namespace Unity.Entities.Editor
         internal World World { get; private set; }
         internal EntityContainer EntityContainer { get; private set; }
 
-        internal EntityManager EntityManager => EntityContainer.EntityManager;
+        internal EntityManager EntityManager => EntityContainer.World.EntityManager;
         internal Entity Entity => EntityContainer.Entity;
         internal bool IsReadOnly => EntityContainer.IsReadOnly;
 
@@ -38,12 +38,12 @@ namespace Unity.Entities.Editor
 
             if (forceWritable)
             {
-                EntityContainer = new EntityContainer(World.EntityManager, proxy.Entity, false);
+                EntityContainer = new EntityContainer(World, proxy.Entity, false);
             }
             else
             {
                 var isReadonly = !EditorApplication.isPlaying || IsWorldReadOnly(World);
-                EntityContainer = new EntityContainer(World.EntityManager, proxy.Entity, isReadonly);
+                EntityContainer = new EntityContainer(World, proxy.Entity, isReadonly);
             }
         }
 

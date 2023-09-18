@@ -1,6 +1,3 @@
-#if !NET_DOTS
-// https://unity3d.atlassian.net/browse/DOTSR-1432
-
 using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
@@ -105,6 +102,29 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, query.CalculateChunkCount(), "order filter not working as expected");
             query.ResetFilter();
             Assert.AreEqual(1, query.CalculateChunkCount(), "ResetFilter did not clear order filter");
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks()]
+        public void SetSharedComponentFilter_ComponentNotRequired_Throws()
+        {
+            var filterValue = new EcsTestSharedComp(17);
+            // Setting a shared component filter for a component that is required in the query description should work.
+            using var queryAll = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestSharedComp>().Build(m_Manager);
+            Assert.DoesNotThrow(() => queryAll.SetSharedComponentFilter(filterValue));
+            // WithDisabled<T>() already throws if T is not enableable, and shared components can't currently be enableable, so this
+            // use case is impossible.
+            //using var queryDisabled = new EntityQueryBuilder(Allocator.Temp).WithDisabled<EcsTestSharedComp>().Build(m_Manager);
+            //Assert.DoesNotThrow(() => queryDisabled.SetSharedComponentFilter(filterValue));
+            using var queryPresent = new EntityQueryBuilder(Allocator.Temp).WithPresent<EcsTestSharedComp>().Build(m_Manager);
+            Assert.DoesNotThrow(() => queryPresent.SetSharedComponentFilter(filterValue));
+            // For components that are not required, setting a shared component filter should throw.
+            using var queryAny = new EntityQueryBuilder(Allocator.Temp).WithAny<EcsTestSharedComp,EcsTestSharedComp2>().Build(m_Manager);
+            Assert.Throws<InvalidOperationException>(() => queryAny.SetSharedComponentFilter(filterValue));
+            using var queryNone = new EntityQueryBuilder(Allocator.Temp).WithNone<EcsTestSharedComp>().Build(m_Manager);
+            Assert.Throws<InvalidOperationException>(() => queryNone.SetSharedComponentFilter(filterValue));
+            using var queryAbsent = new EntityQueryBuilder(Allocator.Temp).WithAbsent<EcsTestSharedComp>().Build(m_Manager);
+            Assert.Throws<InvalidOperationException>(() => queryAbsent.SetSharedComponentFilter(filterValue));
         }
 
         [Test]
@@ -1582,7 +1602,7 @@ namespace Unity.Entities.Tests
             var queryFilter = query._GetImpl()->_Filter;
             for (int unfilteredChunkIndex = 0; unfilteredChunkIndex < unfilteredChunks.Length; ++unfilteredChunkIndex)
             {
-                var chunk = unfilteredChunks.Ptr[unfilteredChunkIndex];
+                var chunk = unfilteredChunks.ChunkIndices[unfilteredChunkIndex];
                 int chunkIndexInArchetype = unfilteredChunks.ChunkIndexInArchetype->Ptr[unfilteredChunkIndex];
                 int matchingArchetypeIndex = unfilteredChunks.PerChunkMatchingArchetypeIndex->Ptr[unfilteredChunkIndex];
                 var matchingArchetype = matchingArchetypes.Ptr[matchingArchetypeIndex];
@@ -1663,7 +1683,7 @@ namespace Unity.Entities.Tests
             var queryFilter = query._GetImpl()->_Filter;
             for (int unfilteredChunkIndex = 0; unfilteredChunkIndex < unfilteredChunks.Length; ++unfilteredChunkIndex)
             {
-                var chunk = unfilteredChunks.Ptr[unfilteredChunkIndex];
+                var chunk = unfilteredChunks.ChunkIndices[unfilteredChunkIndex];
                 int chunkIndexInArchetype = unfilteredChunks.ChunkIndexInArchetype->Ptr[unfilteredChunkIndex];
                 int matchingArchetypeIndex = unfilteredChunks.PerChunkMatchingArchetypeIndex->Ptr[unfilteredChunkIndex];
                 var matchingArchetype = matchingArchetypes.Ptr[matchingArchetypeIndex];
@@ -1958,10 +1978,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // https://unity3d.atlassian.net/browse/DOTSR-1432
-        // TODO: IL2CPP_TEST_RUNNER can't handle Assert.That combined with Throws
-
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
         public void GetEntityQueryMaskThrowsOnOverflow()
@@ -1969,8 +1985,6 @@ namespace Unity.Entities.Tests
             Assert.That(() => MakeExtraQueries(1200),
                 Throws.Exception.With.Message.Matches("You have reached the limit of 1024 unique EntityQueryMasks, and cannot generate any more."));
         }
-
-#endif
 
         [Test]
         public unsafe void GetEntityQueryMask_ReturnsCachedMask()
@@ -3114,6 +3128,22 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void EntityQueryBuilder_WithPresent_Works()
+        {
+            var entity1 = m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
+            var entity2 = m_Manager.CreateEntity(typeof(EcsTestDataEnableable2));
+            var entity12 = m_Manager.CreateEntity(typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(entity12,false);
+
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithPresent<EcsTestDataEnableable2>()
+                .Build(EmptySystem);
+
+            CollectionAssert.AreEquivalent(new[]{entity2,entity12},
+                query.ToEntityArray(Allocator.Temp).ToArray());
+        }
+
+        [Test]
         public void EntityQueryBuilder_ConstructedWithoutAllocator_Throws()
         {
             Assert.Throws<NullReferenceException>(() => {
@@ -3324,7 +3354,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(4,systemState->EntityQueries.Capacity);
         }
 
-#if !UNITY_DOTSRUNTIME
         public partial class CachedSystemQueryTestSystem : SystemBase
         {
             protected override void OnCreate()
@@ -3362,8 +3391,6 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(queryA, queryB);
         }
-
-#endif // !UNITY_DOTSRUNTIME
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         private class ManagedComponent : IComponentData
@@ -3985,6 +4012,7 @@ namespace Unity.Entities.Tests
             var builder = new EntityQueryBuilder(Allocator.Temp);
             builder.WithAll<EcsTestData>();
             builder.WithNone<EcsTestData2>();
+            builder.WithPresent<EcsTestDataEnableable>();
 
             var query = builder.Build(EmptySystem);
             var queryData = query._GetImpl()->_QueryData;
@@ -3997,9 +4025,11 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, archetypeQuery.AnyCount);
             Assert.AreEqual(0, archetypeQuery.DisabledCount);
             Assert.AreEqual(0, archetypeQuery.AbsentCount);
+            Assert.AreEqual(1, archetypeQuery.PresentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery.All[0]);
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery.None[0]);
+            Assert.AreEqual(ComponentType.ReadOnly<EcsTestDataEnableable>().TypeIndex, archetypeQuery.Present[0]);
 
             builder.Dispose();
         }
@@ -4010,6 +4040,7 @@ namespace Unity.Entities.Tests
             var query = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<EcsTestData>()
                 .WithNone<EcsTestData2>()
+                .WithPresent<EcsTestDataEnableable>()
                 .Build(EmptySystem);
 
             var queryData = query._GetImpl()->_QueryData;
@@ -4022,9 +4053,11 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, archetypeQuery.AnyCount);
             Assert.AreEqual(0, archetypeQuery.DisabledCount);
             Assert.AreEqual(0, archetypeQuery.AbsentCount);
+            Assert.AreEqual(1, archetypeQuery.PresentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery.All[0]);
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery.None[0]);
+            Assert.AreEqual(ComponentType.ReadOnly<EcsTestDataEnableable>().TypeIndex, archetypeQuery.Present[0]);
         }
 
         [Test]
@@ -4034,6 +4067,7 @@ namespace Unity.Entities.Tests
                 .WithAll<EcsTestData>().WithNone<EcsTestData2>()
                 .AddAdditionalQuery()
                 .WithAll<EcsTestData2>().WithAny<EcsTestData3, EcsTestData4>()
+                .WithPresent<EcsTestDataEnableable>()
                 .Build(EmptySystem);
 
             var queryData = query._GetImpl()->_QueryData;
@@ -4046,6 +4080,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, archetypeQuery1.AnyCount);
             Assert.AreEqual(0, archetypeQuery1.DisabledCount);
             Assert.AreEqual(0, archetypeQuery1.AbsentCount);
+            Assert.AreEqual(0, archetypeQuery1.PresentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery1.All[0]);
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery1.None[0]);
@@ -4057,12 +4092,14 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, archetypeQuery2.AnyCount);
             Assert.AreEqual(0, archetypeQuery2.DisabledCount);
             Assert.AreEqual(0, archetypeQuery2.AbsentCount);
+            Assert.AreEqual(1, archetypeQuery2.PresentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery2.All[0]);
             Assert.That(ToManagedArray(archetypeQuery2.Any, archetypeQuery2.AnyCount), Is.EquivalentTo(new TypeIndex[] {
                     ComponentType.ReadOnly<EcsTestData3>().TypeIndex,
                     ComponentType.ReadOnly<EcsTestData4>().TypeIndex,
             }));
+            Assert.AreEqual(ComponentType.ReadOnly<EcsTestDataEnableable>().TypeIndex, archetypeQuery2.Present[0]);
         }
 
         [Test]
@@ -4087,6 +4124,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, archetypeQuery1.AnyCount);
             Assert.AreEqual(0, archetypeQuery1.DisabledCount);
             Assert.AreEqual(0, archetypeQuery1.AbsentCount);
+            Assert.AreEqual(0, archetypeQuery1.PresentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery1.All[0]);
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery1.None[0]);
@@ -4102,6 +4140,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, archetypeQuery2.AnyCount);
             Assert.AreEqual(0, archetypeQuery2.DisabledCount);
             Assert.AreEqual(0, archetypeQuery2.AbsentCount);
+            Assert.AreEqual(0, archetypeQuery2.PresentCount);
 
             Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery2.All[0]);
             Assert.That(ToManagedArray(archetypeQuery2.Any, archetypeQuery2.AnyCount), Is.EquivalentTo(new TypeIndex[] {
@@ -4245,13 +4284,8 @@ namespace Unity.Entities.Tests
             // access violation or other crash.
             try
             {
-#if UNITY_DOTSRUNTIME
-                Assert.AreEqual((IntPtr)0xECECECECECECECEC, (IntPtr)queryFromEntityManager.__impl->_QueryData);
-                Assert.AreEqual((IntPtr)0xECECECECECECECEC, (IntPtr)queryFromBuild.__impl->_QueryData);
-#else
                 Assert.AreEqual((IntPtr)0, (IntPtr)queryFromEntityManager.__impl->_QueryData);
                 Assert.AreEqual((IntPtr)0, (IntPtr)queryFromBuild.__impl->_QueryData);
-#endif
             }
             catch (AccessViolationException e)
             {
@@ -4263,12 +4297,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        // This system was never calling OnUpdate because the query was empty.
-        // If it does call OnUpdate it fails because burst is disabled for the test config:
-        // Dots Runtime NS2.0 Smoke Tests macos [trunk DOTS Monorepo]
-        // TODO FIXME: Once burst is enabled for this test, remove the #if !UNITY_DOTSRUNTIME || UNITY_WINDOWS
-        // See DotsRuntimeBurstSettings in Unity.Dots.TestRunner.DotsTestRunner.GenerateBuildConfiguration
-#if !UNITY_DOTSRUNTIME || UNITY_WINDOWS
         [BurstCompile(CompileSynchronously = true)]
         public partial struct BurstCompiledUnmanagedSystemEntityQueryBuilder : ISystem
         {
@@ -4327,7 +4355,6 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => group.Update());
             group.CompleteDependencyInternal();
         }
-#endif //!UNITY_DOTSRUNTIME || UNITY_WINDOWS
 
         [Test]
         public void GetEntityQueryDesc()
@@ -4339,6 +4366,7 @@ namespace Unity.Entities.Tests
                 None = new[] { ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadWrite<EcsTestFloatData2>() },
                 Disabled = new[] { ComponentType.ReadOnly<EcsTestTagEnableable>(), ComponentType.ReadWrite<EcsTestDataEnableable>() },
                 Absent = new[] { ComponentType.ReadOnly<EcsIntElement>(), ComponentType.ReadWrite<EcsIntElement2>() },
+                Present = new[] { ComponentType.ReadOnly<EcsTestDataEnableable2>(), ComponentType.ReadWrite<EcsTestFloatData3>() },
                 Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
             };
             using (var query = m_Manager.CreateEntityQuery(queryDesc))
@@ -4798,4 +4826,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-#endif // NET_DOTS

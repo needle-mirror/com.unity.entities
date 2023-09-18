@@ -6,11 +6,8 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;
 using Unity.Jobs;
-#if !UNITY_PORTABLE_TEST_RUNNER
 using System.Reflection;
 using System.Linq;
-#endif
-
 
 namespace Unity.Entities.Tests
 {
@@ -88,7 +85,7 @@ namespace Unity.Entities.Tests
                     for (int j = 0; j < worldBChunks.Length; j++)
                     {
                         var chunkB = worldBChunks[i].m_Chunk;
-                        var sequenceNumberDiff = chunkA->SequenceNumber - chunkB->SequenceNumber;
+                        var sequenceNumberDiff = chunkA.SequenceNumber - chunkB.SequenceNumber;
 
                         // Any chunk sequence numbers in different worlds should be separated by at least 32 bits
                         Assert.IsTrue(sequenceNumberDiff > 1 << 32);
@@ -109,7 +106,7 @@ namespace Unity.Entities.Tests
                 {
                     var entity = worldA.EntityManager.CreateEntity();
                     var chunk = worldA.EntityManager.GetChunk(entity);
-                    lastChunkSequenceNumber = chunk.m_Chunk->SequenceNumber;
+                    lastChunkSequenceNumber = chunk.m_Chunk.SequenceNumber;
 
                     worldA.EntityManager.DestroyEntity(entity);
                 }
@@ -118,7 +115,7 @@ namespace Unity.Entities.Tests
                 {
                     var entity = worldA.EntityManager.CreateEntity();
                     var chunk = worldA.EntityManager.GetChunk(entity);
-                    var chunkSequenceNumber = chunk.m_Chunk->SequenceNumber;
+                    var chunkSequenceNumber = chunk.m_Chunk.SequenceNumber;
 
                     // Sequence numbers should be increasing and should not be reused when chunk is re-used (after zero count)
                     Assert.IsTrue(chunkSequenceNumber > lastChunkSequenceNumber);
@@ -260,8 +257,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void DisposeAllWorlds()
         {
@@ -286,10 +281,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#endif
-
-#if !UNITY_PORTABLE_TEST_RUNNER
-// https://unity3d.atlassian.net/browse/DOTSR-1432
         [Test]
         public void IteratingOverBoxedNoAllocReadOnlyCollectionThrows()
         {
@@ -301,7 +292,6 @@ namespace Unity.Entities.Tests
             Assert.That(ex.Message, Is.EqualTo($"To avoid boxing, do not cast {nameof(World.NoAllocReadOnlyCollection<int>)} to IEnumerable<T>."));
             Assert.That(ex2.Message, Is.EqualTo($"To avoid boxing, do not cast {nameof(World.NoAllocReadOnlyCollection<int>)} to IEnumerable."));
         }
-#endif
 
 #if !DOTS_DISABLE_DEBUG_NAMES
         [Test]
@@ -436,7 +426,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [IgnoreInPortableTests("There is an Assert.AreEqual(object, object) which in the OnStopRunning, which the runner doesn't find.")]
         public void World_Dispose_MultiPhaseSystemDestroy()
         {
             World world = new World("WorldX");

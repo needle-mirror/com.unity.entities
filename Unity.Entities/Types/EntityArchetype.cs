@@ -103,11 +103,7 @@ namespace Unity.Entities
         /// <returns>A string representation of this archetype.</returns>
         public override string ToString()
         {
-#if !NET_DOTS
             return EntityManager.EntityManagerDebug.GetArchetypeDebugString(Archetype);
-#else
-            return String.Empty;
-#endif
         }
 
         /// <summary>

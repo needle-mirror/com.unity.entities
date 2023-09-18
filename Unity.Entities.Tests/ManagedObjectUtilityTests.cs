@@ -6,7 +6,7 @@ using UnityEngine.Profiling;
 
 namespace Unity.Entities.Tests
 {
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
     [TestFixture]
     sealed class ManagedObjectUtilityTests
     {

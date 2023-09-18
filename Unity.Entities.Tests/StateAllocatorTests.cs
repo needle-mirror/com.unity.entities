@@ -103,8 +103,6 @@ namespace Unity.Entities.Tests
             Assert.AreNotEqual(v2, v2_);
         }
 
-
-#if !NET_DOTS
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         private static void ThrowCountIsWrong()
         {
@@ -192,7 +190,5 @@ namespace Unity.Entities.Tests
                 RunStressTest((IntPtr)p, (IntPtr)s);
             }
         }
-
-#endif
     }
 }

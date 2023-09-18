@@ -183,12 +183,12 @@ namespace Unity.Entities
             /// <param name="value">The value to set for any unused chunk data</param>
             public void PoisonUnusedDataInAllChunks(EntityArchetype archetype, byte value)
             {
-                Unity.Entities.EntityComponentStore.AssertValidArchetype(m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore, archetype);
+                EntityComponentStore.AssertValidArchetype(m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore, archetype);
 
                 for (var i = 0; i < archetype.Archetype->Chunks.Count; ++i)
                 {
                     var chunk = archetype.Archetype->Chunks[i];
-                    ChunkDataUtility.MemsetUnusedChunkData(chunk, value);
+                    ChunkDataUtility.MemsetUnusedChunkData(archetype.Archetype, chunk.Buffer, value, chunk.Count);
                 }
             }
 
@@ -211,7 +211,6 @@ namespace Unity.Entities
                 return m_Manager.GetCheckedEntityDataAccess()->ManagedComponentStore.IsEmpty();
             }
 
-#if !NET_DOTS
             internal static string GetArchetypeDebugString(Archetype* a)
             {
                 var buf = new System.Text.StringBuilder();
@@ -229,8 +228,6 @@ namespace Unity.Entities
                 return buf.ToString();
             }
 
-#endif
-
             /// <summary>
             /// The number of entities in the referenced EntityManager
             /// </summary>
@@ -242,6 +239,33 @@ namespace Unity.Entities
                     var count = allEntities.Length;
                     allEntities.Dispose();
                     return count;
+                }
+            }
+
+            public int HighestIndexEntity
+            {
+                get
+                {
+                    var maxIndex = -1;
+
+                    var entityDataAccess = m_Manager.GetCheckedEntityDataAccess();
+                    var archetypes = entityDataAccess->EntityComponentStore->m_Archetypes;
+                    for (int ai = 0, ac = archetypes.Length; ai < ac; ai++)
+                    {
+                        var chunks = archetypes[ai]->Chunks;
+                        for (int ci = 0, cc = chunks.Count; ci < cc; ci++)
+                        {
+                            var chunk = chunks[ci];
+                            var entities = (Entity*)chunk.Buffer;
+                            for (int ei = 0, ec = chunk.Count; ei < ec; ei++)
+                            {
+                                var index = entities[ei].Index;
+                                maxIndex = index > maxIndex ? index : maxIndex;
+                            }
+                        }
+                    }
+
+                    return maxIndex;
                 }
             }
 
@@ -265,12 +289,12 @@ namespace Unity.Entities
 
             internal Entity GetMetaChunkEntity(Entity entity)
             {
-                return m_Manager.GetChunk(entity).m_Chunk->metaChunkEntity;
+                return m_Manager.GetChunk(entity).m_Chunk.MetaChunkEntity;
             }
 
             internal Entity GetMetaChunkEntity(ArchetypeChunk chunk)
             {
-                return chunk.m_Chunk->metaChunkEntity;
+                return chunk.m_Chunk.MetaChunkEntity;
             }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
@@ -339,22 +363,9 @@ namespace Unity.Entities
                 {
                     return "Entity.Invalid";
                 }
-#if !NET_DOTS
                 var str = new System.Text.StringBuilder();
                 GetEntityInfo(entity, false, str);
                 return str.ToString();
-#else
-                // @TODO Tiny really needs a proper string/stringutils implementation
-                var archetype = entityComponentStore->GetArchetype(entity);
-                string str = $"Entity {entity.Index}.{entity.Version}";
-                for (var i = 0; i < archetype->TypesCount; i++)
-                {
-                    var componentTypeInArchetype = archetype->Types[i];
-                    str += "  - {0}" + componentTypeInArchetype.ToString();
-                }
-
-                return str;
-#endif
             }
 
             /// <summary>
@@ -365,11 +376,12 @@ namespace Unity.Entities
             /// <returns>The name of the system that modified it if found</returns>
             public static string GetLastWriterSystemName(ArchetypeChunk chunk, ComponentType componentType)
             {
-                var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk.Archetype.Archetype, componentType.TypeIndex);
+                var archetype = chunk.Archetype.Archetype;
+                var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype, componentType.TypeIndex);
                 if (typeIndexInArchetype == -1)
                     return $"'{componentType}' was not present on the chunk.";
 
-                var changeVersion =  chunk.m_Chunk->GetChangeVersion(typeIndexInArchetype);
+                var changeVersion = archetype->Chunks.GetChangeVersion(typeIndexInArchetype, chunk.m_Chunk.ListIndex);
                 var system = World.FindSystemStateForChangeVersion(chunk.m_EntityComponentStore, changeVersion);
 
                 if (system == null)
@@ -378,7 +390,6 @@ namespace Unity.Entities
                     return system->DebugName.ToString();
             }
 
-#if !NET_DOTS
             internal void GetEntityInfo(Entity entity, bool includeComponentValues, System.Text.StringBuilder str)
             {
                 var entityComponentStore = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore;
@@ -416,7 +427,6 @@ namespace Unity.Entities
                 }
 #endif
             }
-#endif
 
             /// <summary>
             /// Gets the component object of a given entity

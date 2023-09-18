@@ -115,7 +115,6 @@ namespace Unity.Entities.Tests
         #endregion
 
         [Test]
-        [DotsRuntimeFixme("Debug.LogError is not burst compatible (for safety errors reported from bursted code) and LogAssert.Expect is not properly implemented in DOTS Runtime - DOTS-4294")]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void MissedDependencyMakesActionableErrorMessage([Values]bool iSystem)
         {
@@ -148,7 +147,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme("Debug.LogError is not burst compatible (for safety errors reported from bursted code) and LogAssert.Expect is not properly implemented in DOTS Runtime - DOTS-4294")]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void MissedDependencyFromNestedUpdateMakesActionableErrorMessage([Values]bool iSystem)
         {
@@ -229,10 +227,8 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !NET_DOTS
         [Ignore("DOTS-6905 Needs re-evaluated after we solve the NullReferenceException issues")]
         [Test]
-        [DotsRuntimeFixme("Debug.LogError is not burst compatible (for safety errors reported from bursted code) and LogAssert.Expect is not properly implemented in DOTS Runtime - DOTS-4294")]
         public void NoExtraMessageFromForEachSystemRepro([Values]bool iSystem)
         {
             var arch = World.EntityManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -251,7 +247,5 @@ namespace Unity.Entities.Tests
 
             LogAssert.Expect(LogType.Exception, regex);
         }
-#endif
-
     }
 }

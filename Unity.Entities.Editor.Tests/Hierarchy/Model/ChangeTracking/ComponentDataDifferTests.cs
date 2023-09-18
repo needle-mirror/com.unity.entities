@@ -5,7 +5,7 @@ using Unity.Collections;
 
 namespace Unity.Entities.Editor.Tests
 {
-    class ComponentDataDifferTests
+    unsafe class ComponentDataDifferTests
     {
         World m_World;
         NativeList<Entity> m_NewEntities;
@@ -24,7 +24,8 @@ namespace Unity.Entities.Editor.Tests
             m_MissingEntities = new NativeList<Entity>(m_World.UpdateAllocator.ToAllocator);
             m_Storage = new NativeList<byte>(m_World.UpdateAllocator.ToAllocator);
             m_EntityDiffer = new EntityDiffer(m_World);
-            m_ChunkDiffer = new ComponentDataDiffer(typeof(EcsTestData));
+            var ecs = m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+            m_ChunkDiffer = new ComponentDataDiffer(ecs, typeof(EcsTestData));
         }
 
         [TearDown]
@@ -259,11 +260,11 @@ namespace Unity.Entities.Editor.Tests
         }
 
         [Test]
-        public unsafe void ComponentDataDiffer_DetectMissingChunk()
+        public void ComponentDataDiffer_DetectMissingChunk()
         {
             var entityA = CreateEntity(new EcsTestData { value = 12 });
             var entityInChunk = m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->GetEntityInChunk(entityA);
-            Assert.That(entityInChunk.Chunk != null);
+            Assert.That(entityInChunk.Chunk != ChunkIndex.Null);
 
             using (m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {
@@ -274,7 +275,7 @@ namespace Unity.Entities.Editor.Tests
             m_World.EntityManager.DestroyEntity(entityA);
             entityInChunk = m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->GetEntityInChunk(entityA);
 
-            Assert.That(entityInChunk.Chunk == null);
+            Assert.That(entityInChunk.Chunk == ChunkIndex.Null);
 
             using (var result = m_ChunkDiffer.GatherComponentChangesAsync(m_World.EntityManager.UniversalQuery, World.UpdateAllocator.ToAllocator, out var jobHandle))
             {

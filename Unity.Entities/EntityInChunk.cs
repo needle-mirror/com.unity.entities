@@ -9,9 +9,9 @@ namespace Unity.Entities
     /// <summary>
     /// Represents a single entity within a chunk. Mainly used internally to sort lists of entities into chunk order.
     /// </summary>
-    public unsafe struct EntityInChunk : IComparable<EntityInChunk>, IEquatable<EntityInChunk>
+    public struct EntityInChunk : IComparable<EntityInChunk>, IEquatable<EntityInChunk>
     {
-        internal Chunk* Chunk;
+        internal ChunkIndex Chunk;
         internal int IndexInChunk;
 
         /// <summary>
@@ -22,11 +22,9 @@ namespace Unity.Entities
         /// be ordered later than <paramref name="other"/>. 0 if the two entities are equivalent.</returns>
         public int CompareTo(EntityInChunk other)
         {
-            ulong lhs = (ulong)Chunk;
-            ulong rhs = (ulong)other.Chunk;
-            int chunkCompare = lhs < rhs ? -1 : 1;
+            int chunkCompare = Chunk < other.Chunk ? -1 : 1;
             int indexCompare = IndexInChunk - other.IndexInChunk;
-            return (lhs != rhs) ? chunkCompare : indexCompare;
+            return Chunk != other.Chunk ? chunkCompare : indexCompare;
         }
 
         /// <summary>

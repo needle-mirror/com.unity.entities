@@ -259,7 +259,7 @@ namespace Unity.Entities
 
             if (!m_HashLookup.TryGetFirstValue(EntityComponentStore.GetSharedComponentHashKey(typeIndex, hashCode),
                     out itemIndex,
-                    out iter)) 
+                    out iter))
                 return -1;
 
             var infos = SharedComponentInfoPtr;
@@ -384,13 +384,8 @@ namespace Unity.Entities
 
         public object GetSharedComponentDataBoxed(int index, TypeIndex typeIndex)
         {
-#if !NET_DOTS
             if (index == 0)
                 return Activator.CreateInstance(TypeManager.GetType(typeIndex));
-#else
-            if (index == 0)
-                throw new InvalidOperationException("Implement TypeManager.GetType(typeIndex).DefaultValue");
-#endif
             return m_SharedComponentData[index];
         }
 
@@ -443,7 +438,7 @@ namespace Unity.Entities
             if (m_HashLookup.TryGetFirstValue(
                     EntityComponentStore.GetSharedComponentHashKey(typeIndex, hashCode),
                     out itemIndex,
-                    out iter)) 
+                    out iter))
             {
                 do
                 {
@@ -480,7 +475,7 @@ namespace Unity.Entities
                     if (m_HashLookup.TryGetFirstValue(
                             EntityComponentStore.GetSharedComponentHashKey(infos[i].ComponentType, hashCode),
                             out itemIndex,
-                            out iter)) 
+                            out iter))
                     {
                         do
                         {
@@ -579,8 +574,8 @@ namespace Unity.Entities
             for (int i = 0; i < chunks.Length; ++i)
             {
                 var chunk = chunks[i].m_Chunk;
-                var archetype = chunk->Archetype;
-                var sharedComponentValues = chunk->SharedComponentValues;
+                var archetype = chunks[i].Archetype.Archetype;
+                var sharedComponentValues = archetype->Chunks.GetSharedComponentValues(chunk.ListIndex);
                 for (int sharedComponentIndex = 0;
                     sharedComponentIndex < archetype->NumSharedComponents;
                     ++sharedComponentIndex)
@@ -637,9 +632,8 @@ namespace Unity.Entities
             ResetSharedComponentData();
         }
 
-        public void PatchEntities(Archetype* archetype, Chunk* chunk, int entityCount, EntityRemapUtility.EntityRemapInfo* remapping)
+        public void PatchEntities(Archetype* archetype, ChunkIndex chunk, int entityCount, EntityRemapUtility.EntityRemapInfo* remapping)
         {
-#if !UNITY_DOTSRUNTIME
             var firstManagedComponent = archetype->FirstManagedComponent;
             var numManagedComponents = archetype->NumManagedComponents;
 
@@ -649,7 +643,7 @@ namespace Unity.Entities
                 if (!archetype->Types[indexInArchetype].HasEntityReferences)
                     continue;
 
-                var a = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, indexInArchetype);
+                var a = (int*)ChunkDataUtility.GetComponentDataRO(chunk, archetype, 0, indexInArchetype);
                 for (int ei = 0; ei < entityCount; ++ei)
                 {
                     if (a[ei] != 0)
@@ -661,12 +655,10 @@ namespace Unity.Entities
             }
 
             m_ManagedObjectRemap.ClearGCRefs();
-#endif
         }
 
         void PatchEntitiesForPrefab(int* managedComponents, int numManagedComponents, int allocatedCount, int remappingCount, Entity* remapSrc, Entity* remapDst)
         {
-#if !UNITY_DOTSRUNTIME
             for (int i = 0; i < allocatedCount; ++i)
             {
                 for (int c = 0; c < numManagedComponents; c++)
@@ -682,7 +674,6 @@ namespace Unity.Entities
                 remapDst += remappingCount;
             }
             m_ManagedObjectRemap.ClearGCRefs();
-#endif
         }
 
         public void Playback(ref ManagedDeferredCommands managedDeferredCommands)
@@ -719,7 +710,7 @@ namespace Unity.Entities
                     case (ManagedDeferredCommands.Command.PatchManagedEntities):
                     {
                         var archetype = (Archetype*)reader.ReadNext<IntPtr>();
-                        var chunk = (Chunk*)reader.ReadNext<IntPtr>();
+                        var chunk = reader.ReadNext<ChunkIndex>();
                         var entityCount = reader.ReadNext<int>();
                         var remapping = (EntityRemapUtility.EntityRemapInfo*)reader.ReadNext<IntPtr>();
 
@@ -813,9 +804,7 @@ namespace Unity.Entities
                 dstArray += instanceCount;
             }
 
-#if !UNITY_DOTSRUNTIME
             m_ManagedObjectClone.ClearGCRefs();
-#endif
         }
 
         internal void SetManagedComponentValue(int index, object componentObject)
@@ -877,9 +866,7 @@ namespace Unity.Entities
                 m_ManagedComponentData[dstIndex] = clone;
             }
 
-#if !UNITY_DOTSRUNTIME
             m_ManagedObjectClone.ClearGCRefs();
-#endif
         }
 
         public void ResetManagedComponentStoreForDeserialization(int managedComponentCount, ref EntityComponentStore entityComponentStore)

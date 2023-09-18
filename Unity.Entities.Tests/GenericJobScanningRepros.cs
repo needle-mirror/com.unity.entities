@@ -8,11 +8,8 @@ using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
 using Unity.Transforms;
-using Assert = UnityEngine.Assertions.Assert;
-
-#if !NET_DOTS // Regex is not supported in NET_DOTS
 using System.Text.RegularExpressions;
-#endif
+using Assert = UnityEngine.Assertions.Assert;
 
 // This file contains two user examples of generic jobs that we are trying to keep supporting with generic job type detection.
 // Please leave them here.
@@ -252,11 +249,6 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
         }
     }
 
-    // This should work in !NET_DOTS with UNITY_DOTSRUNTIME just fine, but that
-    // actually happening is currently WIP - so disable completely in UNITY_DOTSRUNTIME
-    // temporarily.
-#if !UNITY_DOTSRUNTIME // Regex is not supported in NET_DOTS (and this is totally broken in DOTS Runtime temporarily)
-    //#if !NET_DOTS // Regex is not supported in NET_DOTS
     public class UserGenericJobCode1 : ECSTestsFixture
     {
         [Test]
@@ -284,10 +276,9 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
                 LogAssert.NoUnexpectedReceived();
         }
     }
-#endif
-    }
+}
 
-    namespace Unity.Entities.Tests.CustomerProvided.Forum2
+namespace Unity.Entities.Tests.CustomerProvided.Forum2
 {
     public struct Foo : IComponentData
     {
@@ -338,7 +329,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
 
     public class UserGenericJobCode2 : ECSTestsFixture
     {
-        [Test, DotsRuntimeFixme]
+        [Test]
         public void DoesntCrashEditor()
         {
             var repro = World.GetOrCreateSystemManaged<MySystem>();

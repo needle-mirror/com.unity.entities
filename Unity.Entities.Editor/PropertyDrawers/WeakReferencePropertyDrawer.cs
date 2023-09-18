@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using UnityEditor;
 using UnityEngine;
 using Unity.Entities.Content;
@@ -110,4 +109,3 @@ namespace Unity.Entities.Editor
         public override WeakReferenceGenerationType GenerationType => WeakReferenceGenerationType.EntityPrefab;
     }
 }
-#endif

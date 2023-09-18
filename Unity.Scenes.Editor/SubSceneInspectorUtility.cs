@@ -1,8 +1,5 @@
 using System;
 using System.Collections.Generic;
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-#endif
 using Unity.Collections;
 using Unity.Entities;
 using Unity.Mathematics;
@@ -15,7 +12,7 @@ using Hash128 = Unity.Entities.Hash128;
 namespace Unity.Scenes.Editor
 {
     [InitializeOnLoad]
-    internal static class SubSceneInspectorUtility
+    public static class SubSceneInspectorUtility
     {
         internal delegate void RepaintAction();
 

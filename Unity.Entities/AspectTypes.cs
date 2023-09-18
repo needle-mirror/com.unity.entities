@@ -42,6 +42,18 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="all">The UnsafeList to add the "All" ComponentTypes requirements to</param>
         void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all);
+
+        /// <summary>
+        /// Complete all dependencies for this aspect before a read-only operation.
+        /// </summary>
+        /// <param name="state">SystemState for the system from which the Aspect originates. You should only use Aspects in their originating system.</param>
+        void CompleteDependencyBeforeRO(ref SystemState state);
+
+        /// <summary>
+        /// Complete all dependencies for this aspect before a read-write operation.
+        /// </summary>
+        /// <param name="state">SystemState for the system from which the Aspect originates. You should only use Aspects in their originating system.</param>
+        void CompleteDependencyBeforeRW(ref SystemState state);
     }
 
     /// <summary>

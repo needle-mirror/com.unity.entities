@@ -37,6 +37,14 @@ namespace Unity.Entities
         {
         }
 
+        public void CompleteDependencyBeforeRO(ref SystemState state)
+        {
+        }
+
+        public void CompleteDependencyBeforeRW(ref SystemState state)
+        {
+        }
+
         BurstCompatibleAspect IAspectCreate<BurstCompatibleAspect>.CreateAspect(Entity entity, ref SystemState system)
         {
             throw new System.NotImplementedException();
@@ -47,5 +55,6 @@ namespace Unity.Entities
     [DisableAutoCreation]
     partial struct BurstCompatibleSystem : ISystem
     {
-        }
+
+    }
 }

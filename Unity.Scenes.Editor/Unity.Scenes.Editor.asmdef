@@ -25,12 +25,6 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-  "versionDefines": [
-    {
-      "name": "com.unity.platforms",
-      "expression": "",
-      "define": "USING_PLATFORMS_PACKAGE"
-    }
-  ],
+  "versionDefines": [],
     "noEngineReferences": false
 }

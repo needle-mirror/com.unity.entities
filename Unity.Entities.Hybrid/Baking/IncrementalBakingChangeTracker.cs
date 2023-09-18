@@ -82,38 +82,6 @@ namespace Unity.Entities
             ValidComponents.AddRange(ComponentChanges);
         }
 
-        internal void FillBatch(ref IncrementalConversionBatch batch)
-        {
-            batch.DeletedInstanceIds = DeletedInstanceIds.AsArray();
-            batch.ChangedInstanceIds = ChangedInstanceIds.ToNativeArray(Allocator.Temp);
-
-            // This is how Conversion expects the data, in one array, so we compose it to that
-            // We don't care that this is a bit sloppy, because we just want Conversion to work for comparison, not performance
-            int bakeHierarchyInstanceIdCount = BakeHierarchyInstanceIds.Count();
-            int forceBakeHierarchyInstanceIdCount = ForceBakeHierarchyInstanceIds.Count();
-
-            var reconvertHierarchyInstanceIds = new NativeArray<int>(bakeHierarchyInstanceIdCount + forceBakeHierarchyInstanceIdCount, Allocator.Temp);
-
-            int count = 0;
-            foreach(var id in BakeHierarchyInstanceIds)
-            {
-                reconvertHierarchyInstanceIds[count++] = id;
-            }
-
-            foreach(var id in ForceBakeHierarchyInstanceIds)
-            {
-                reconvertHierarchyInstanceIds[count++] = id;
-            }
-
-            batch.ReconvertHierarchyInstanceIds = reconvertHierarchyInstanceIds;
-            batch.ParentChangeInstanceIds = ParentChangeInstanceIds;
-            batch.ChangedAssets = ChangedAssets.AsArray();
-            batch.DeletedAssets = DeletedAssets.AsArray();
-            batch.ChangedComponents = ValidComponents;
-            ValidComponents.AddRange(ComponentChanges);
-        }
-
-
         public void Dispose()
         {
             if (DeletedInstanceIds.IsCreated)

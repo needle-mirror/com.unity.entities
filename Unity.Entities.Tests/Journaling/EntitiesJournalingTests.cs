@@ -913,7 +913,7 @@ namespace Unity.Entities.Tests
                 m_Manager.AddChunkComponentData<EcsTestData>(entity);
             }
 
-            var chunkEntity = m_Manager.GetChunk(entity).m_Chunk->metaChunkEntity;
+            var chunkEntity = m_Manager.GetChunk(entity).m_Chunk.MetaChunkEntity;
             CheckRecords(
                 new RecordDesc(0, RecordType.AddComponent, World, entities: ToArray(entity), componentTypes: ToArray(ComponentType.ChunkComponent<EcsTestData>())),
                 new RecordDesc(1, RecordType.GetComponentDataRW, World, entities: ToArray(chunkEntity), componentTypes: ToArray(typeof(ChunkHeader)), data: ToArray(ChunkHeader.Null))
@@ -932,7 +932,7 @@ namespace Unity.Entities.Tests
                 }
             }
 
-            var chunkEntity = m_Manager.GetChunk(entity).m_Chunk->metaChunkEntity;
+            var chunkEntity = m_Manager.GetChunk(entity).m_Chunk.MetaChunkEntity;
             CheckRecords(
                 new RecordDesc(0, RecordType.AddComponent, World, entities: ToArray(entity), componentTypes: ToArray(ComponentType.ChunkComponent<EcsTestData2>())),
                 new RecordDesc(1, RecordType.GetComponentDataRW, World, entities: ToArray(chunkEntity), componentTypes: ToArray(typeof(ChunkHeader)), data: ToArray(ChunkHeader.Null)),
@@ -1381,7 +1381,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetChunkComponentData(chunk, new EcsTestData(42));
             }
 
-            var chunkEntity = chunk.m_Chunk->metaChunkEntity;
+            var chunkEntity = chunk.m_Chunk.MetaChunkEntity;
             CheckRecords(
                 new RecordDesc(0, RecordType.GetComponentDataRW, World, entities: ToArray(chunkEntity), componentTypes: ToArray(typeof(EcsTestData)), data: ToArray(new EcsTestData()))
             );

@@ -7,9 +7,7 @@ using Unity.Jobs;
 using Unity.Transforms;
 using UnityEngine;
 using Unity.Mathematics;
-#if !UNITY_PORTABLE_TEST_RUNNER
 using System.Linq;
-#endif
 
 namespace Unity.Entities.Tests.ForEachCodegen
 {
@@ -280,9 +278,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual("Hello hello hello", TestSystem.CaptureAndOperateOnReferenceType());
         }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
-// https://unity3d.atlassian.net/browse/DOTSR-1432
-// OrderBy isn't supported in DOTS-Runtime
         [Test]
         public void IterateSharedComponentDataTest()
         {
@@ -300,8 +295,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual(1, sorted[0].Value);
             Assert.AreEqual(2, sorted[1].Value);
         }
-
-#endif
 
         public struct MyBufferElementData : IBufferElementData
         {
@@ -389,7 +382,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
 #endif
 
-#if !UNITY_DOTSRUNTIME
         [Test]
         public void UseUnityEngineComponent()
         {
@@ -416,7 +408,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
             m_Manager.AddComponent<ParticleSystem>(entity);
             TestSystem.UnityEngineObjectAsWithParam();
         }
-#endif
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [Test]
@@ -1223,7 +1214,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
 #endif
 
-#if !UNITY_DOTSRUNTIME
             public (Camera, Entity) IterateEntitiesWithCameraComponent()
             {
                 (Camera camera, Entity entity)result = default;
@@ -1254,7 +1244,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 }).Run();
                 Assert.AreEqual(1, count);
             }
-#endif
             public void RunForEachWithCustomDelegateTypeWithMoreThan8Parameters()
             {
                 int grabbedData = -1;

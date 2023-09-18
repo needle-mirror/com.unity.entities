@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using Unity.Entities;
 using Unity.Entities.Serialization;
@@ -27,5 +26,4 @@ namespace Unity.Scenes
         public override int GetHashCode() => _sceneBundleHandles.GetHashCode();
     }
 }
-#endif
 

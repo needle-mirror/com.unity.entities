@@ -16,7 +16,7 @@ namespace Unity.Entities
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateAfter(typeof(TransformSystemGroup))]
     [BurstCompile]
-    partial class CompanionGameObjectUpdateTransformSystem : SystemBase
+    public partial class CompanionGameObjectUpdateTransformSystem : SystemBase
     {
         readonly ProfilerMarker s_ProfilerMarkerAddNew = new("AddNew");
         readonly ProfilerMarker s_ProfilerMarkerRemove = new("Remove");

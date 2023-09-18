@@ -792,7 +792,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         public void ACS_UntypedBuffersInvalidationWorks()
         {
             var entity = m_Manager.CreateEntity();
@@ -1206,11 +1206,6 @@ namespace Unity.Entities.Tests
             World.Update();
         }
 
-        // These tests require:
-        // - JobsDebugger support for static safety IDs (added in 2020.1)
-        // - Asserting throws
-        // - JobsDebugger support for testing for nested native containers
-#if !UNITY_DOTSRUNTIME
         struct ComponentTypeHandleContainerJob : IJob
         {
             public ComponentTypeHandle<EcsTestContainerData> handle;
@@ -1272,7 +1267,7 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => job.Schedule().Complete());
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void ComponentTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1289,7 +1284,7 @@ namespace Unity.Entities.Tests
                         "ComponentTypeHandle<Unity.Entities.Tests.EcsTestData> which has been invalidated by a structural change."));
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void ComponentTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1363,7 +1358,7 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => job.Schedule().Complete());
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void DynamicComponentTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1379,7 +1374,7 @@ namespace Unity.Entities.Tests
                     .With.Message.Contains("Unity.Entities.DynamicComponentTypeHandle which has been invalidated by a structural change"));
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void DynamicComponentTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1451,7 +1446,7 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => job.Schedule().Complete());
         }
 
-        [Test, DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void DynamicSharedComponentTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1471,7 +1466,7 @@ namespace Unity.Entities.Tests
 #endif
         }
 
-        [Test, DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void DynamicSharedComponentTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1555,7 +1550,7 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => job.Schedule().Complete());
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void BufferTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1571,7 +1566,7 @@ namespace Unity.Entities.Tests
                         "BufferTypeHandle<Unity.Entities.Tests.EcsIntElement> which has been invalidated by a structural change."));
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void BufferTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1651,7 +1646,7 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => job.Schedule().Complete());
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void SharedComponentTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1671,7 +1666,7 @@ namespace Unity.Entities.Tests
 #endif
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void SharedComponentTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1751,7 +1746,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void EntityTypeHandle_UseAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1768,7 +1763,7 @@ namespace Unity.Entities.Tests
                         "Unity.Entities.EntityTypeHandle which has been invalidated by a structural change."));
         }
 
-        [Test,DotsRuntimeFixme]
+        [Test]
         [TestRequiresCollectionChecks("Relies on static safety id system")]
         public void EntityTypeHandle_UseFromJobAfterStructuralChange_ThrowsCustomErrorMessage()
         {
@@ -1788,6 +1783,5 @@ namespace Unity.Entities.Tests
                     .With.Message.Contains(
                         "Unity.Entities.EntityTypeHandle UseEntityTypeHandle.ecsTestData which has been invalidated by a structural change."));
         }
-#endif
     }
 }

@@ -55,11 +55,6 @@ namespace Unity.Entities.Tests
             {
                 for (int i = 0; i < N; ++i)
                     result[i] = a + b;
-
-#if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS    // TODO: Don't have the library in the editor that grants access.
-                AssertOnThread(result.m_Safety.IsAllowedToWrite());
-                AssertOnThread(!result.m_Safety.IsAllowedToRead());
-#endif
             }
         }
 
@@ -117,16 +112,6 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-#if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS    // Don't have the C# version in the editor.
-                AssertOnThread(!input.m_Safety.IsAllowedToWrite());
-                AssertOnThread(input.m_Safety.IsAllowedToRead());
-                AssertOnThread(result.m_Safety.IsAllowedToWrite());
-                AssertOnThread(!result.m_Safety.IsAllowedToRead());
-
-#if UNITY_SINGLETHREADED_JOBS
-                AssertOnThread(JobsUtility.IsExecutingJob);
-#endif
-#endif
                 for (int i = 0; i < N; ++i)
                     result[i] = a + input[i];
             }
@@ -135,10 +120,6 @@ namespace Unity.Entities.Tests
         [Test]
         public void Run3SimpleJobsInSerial()
         {
-#if UNITY_DOTSRUNTIME
-            // Note the safety handles use Persistent, so only track TempJob
-            long heapMem = UnsafeUtility.GetHeapSize(Allocator.TempJob);
-#endif
             NativeArray<int> input = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddSerial.N, ref World.UpdateAllocator);
             NativeArray<int> jobResult1 = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddSerial.N, ref World.UpdateAllocator);
             NativeArray<int> jobResult2 = CollectionHelper.CreateNativeArray<int, RewindableAllocator>(SimpleAddSerial.N, ref World.UpdateAllocator);
@@ -166,11 +147,6 @@ namespace Unity.Entities.Tests
             {
                 Assert.AreEqual(i + 1 + 2 + 3, jobResult3[i]);
             }
-
-#if UNITY_DOTSRUNTIME
-            long postWork = UnsafeUtility.GetHeapSize(Allocator.TempJob);
-            Assert.IsTrue(heapMem == postWork);    // make sure cleanup happened, including DeallocateOnJobCompletion
-#endif
         }
 
         public struct SimpleAddParallel : IJob
@@ -238,12 +214,6 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-#if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS   // Don't have the C# version in the editor.
-                AssertOnThread(!input.m_Safety.IsAllowedToWrite());
-                AssertOnThread(input.m_Safety.IsAllowedToRead());
-                AssertOnThread(result.m_Safety.IsAllowedToWrite());
-                AssertOnThread(!result.m_Safety.IsAllowedToRead());
-#endif
                 for (int i = 0; i < N; ++i)
                     result.Add(a + input[i]);
             }
@@ -300,14 +270,6 @@ namespace Unity.Entities.Tests
 
             public void Execute(int i)
             {
-#if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS    // Don't have the C# version in the editor.
-                AssertOnThread(!a.m_Safety.IsAllowedToWrite());
-                AssertOnThread(a.m_Safety.IsAllowedToRead());
-                AssertOnThread(!b.m_Safety.IsAllowedToWrite());
-                AssertOnThread(b.m_Safety.IsAllowedToRead());
-                AssertOnThread(result.m_Safety.IsAllowedToWrite());
-                AssertOnThread(!result.m_Safety.IsAllowedToRead());
-#endif
                 result[i] = a[i] + b[i];
             }
         }
@@ -622,10 +584,6 @@ namespace Unity.Entities.Tests
 
             public void Execute()
             {
-#if UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS   // Don't have the C# version in the editor.
-                Assert.IsTrue(result.m_Safety.IsAllowedToWrite());
-                Assert.IsTrue(!result.m_Safety.IsAllowedToRead());
-#endif
                 for (int i = 0; i < N; ++i)
                 {
                     result.TryAdd(i, 47);

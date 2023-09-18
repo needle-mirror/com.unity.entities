@@ -96,9 +96,7 @@ namespace Unity.Entities
         // copies of the root struct when inspecting, and it generally
         // misbehaves from there.
 
-#if !NET_DOTS
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-#endif
         internal EntityComponentStore* EntityComponentStore
         {
             // This is always safe as the EntityDataAccess is always unsafe heap allocated.
@@ -111,9 +109,7 @@ namespace Unity.Entities
             }
         }
 
-#if !NET_DOTS
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-#endif
         internal EntityQueryManager* EntityQueryManager
         {
             // This is always safe as the EntityDataAccess is always unsafe heap allocated.
@@ -126,9 +122,7 @@ namespace Unity.Entities
             }
         }
 
-#if !NET_DOTS
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
-#endif
         internal ComponentDependencyManager* DependencyManager
         {
             // This is always safe as the EntityDataAccess is always unsafe heap allocated.
@@ -1923,13 +1917,9 @@ namespace Unity.Entities
                 }
                 else
                 {
-#if !UNITY_DOTSRUNTIME
                     var componentDataAddr = (byte*)UnsafeUtility.PinGCObjectAndGetAddress(componentData, out var gcHandle) + TypeManager.ObjectOffset;
                     newSharedComponentDataIndex = EntityComponentStore->InsertSharedComponent_Unmanaged(typeIndex, hashCode, componentDataAddr, null);
                     UnsafeUtility.ReleaseGCObject(gcHandle);
-#else
-                    throw new NotSupportedException("This API is not supported when called with unmanaged shared component on DOTS Runtime");
-#endif
                 }
             }
             var componentType = ComponentType.FromTypeIndex(typeIndex);
@@ -2232,8 +2222,8 @@ namespace Unity.Entities
             for (int i = 0; i < chunks.Length; ++i)
             {
                 var chunk = chunks[i].m_Chunk;
-                var archetype = chunk->Archetype;
-                var sharedComponentValues = chunk->SharedComponentValues;
+                var archetype = chunks[i].Archetype.Archetype;
+                var sharedComponentValues = archetype->Chunks.GetSharedComponentValues(chunk.ListIndex);
 
                 for (int sharedComponentValueIndex = 0; sharedComponentValueIndex < archetype->NumSharedComponents; ++sharedComponentValueIndex)
                 {
@@ -2297,7 +2287,6 @@ namespace Unity.Entities
             }
             else
             {
-#if !UNITY_DOTSRUNTIME
                 /*
                  * this is actually used in hybrid to read unmanaged shared components, but it is NOT called in dotsrt
                  */
@@ -2305,9 +2294,6 @@ namespace Unity.Entities
                 var index = EntityComponentStore->InsertSharedComponent_Unmanaged(typeIndex, hashCode, sharedComponentAddr, null);
                 UnsafeUtility.ReleaseGCObject(gcHandle);
                 return index;
-#else
-                throw new InvalidOperationException("This API is not compatible with DotsRuntime when used with an unmanaged shared component, you must a dedicated _Unmanaged API instead.");
-#endif
             }
         }
 
@@ -2781,7 +2767,7 @@ namespace Unity.Entities
 
             var globalSystemVersion = EntityComponentStore->GlobalSystemVersion;
 
-            ChunkDataUtility.SwapComponents(leftChunk.m_Chunk, leftIndex, rightChunk.m_Chunk, rightIndex, 1,
+            ChunkDataUtility.SwapComponents(leftChunk.Archetype.Archetype, leftChunk.m_Chunk, leftIndex, rightChunk.Archetype.Archetype, rightChunk.m_Chunk, rightIndex, 1,
                 globalSystemVersion, globalSystemVersion);
         }
 

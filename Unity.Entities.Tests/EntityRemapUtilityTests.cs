@@ -121,7 +121,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(16, offsets[1].Offset);
         }
 
-#if !UNITY_DOTSRUNTIME && !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
         // Test uses class component types
         [Test]
         public void HasEntityReferencesManaged_Basic()
@@ -225,7 +225,7 @@ namespace Unity.Entities.Tests
 
 
         }
-#endif // !UNITY_DOTSRUNTIME && !UNITY_DISABLE_MANAGED_COMPONENTS
+#endif // !UNITY_DISABLE_MANAGED_COMPONENTS
 
     }
 }

@@ -103,15 +103,16 @@ namespace Unity.Entities
                 var chunk = Chunks[index].m_Chunk;
                 var flags = Flags[index];
                 var startIndex = EntityCounts[index];
+                var chunkBuffer = chunk.Buffer;
 
-                var archetype = chunk->Archetype;
+                var archetype = Chunks[index].Archetype.Archetype;
                 var entityGuidIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype, EntityGuidTypeIndex);
-                var entityGuidBuffer = (EntityGuid*)(ChunkDataUtility.GetChunkBuffer(chunk) + archetype->Offsets[entityGuidIndexInArchetype]);
+                var entityGuidBuffer = (EntityGuid*)(chunkBuffer + archetype->Offsets[entityGuidIndexInArchetype]);
                 var entityIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype, EntityTypeIndex);
-                var entityBuffer = (Entity*)(ChunkDataUtility.GetChunkBuffer(chunk) + archetype->Offsets[entityIndexInArchetype]);
+                var entityBuffer = (Entity*)(chunkBuffer + archetype->Offsets[entityIndexInArchetype]);
 
                 var entitiesIndex = startIndex;
-                for (var i = 0; i < chunk->Count; ++i)
+                for (int i = 0, count = chunk.Count; i < count; ++i)
                 {
                     var entityIndex = entityBuffer[i].Index;
                     int nameIndex = 0;

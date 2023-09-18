@@ -40,7 +40,7 @@ namespace Unity.Entities.Tests
             var chunkComponentType = m_Manager.GetComponentTypeHandle<EcsTestData2>(false);
             var chunk = m_Manager.GetChunk(entity);
 
-            Assert.AreEqual(chunk.m_Chunk->metaChunkEntity, Entity.Null);
+            Assert.AreEqual(chunk.m_Chunk.MetaChunkEntity, Entity.Null);
             Assert.Throws<ArgumentException>(() => chunk.SetChunkComponentData(ref chunkComponentType, new EcsTestData2(12)));
             Assert.Throws<ArgumentException>(() => chunk.GetChunkComponentData(ref chunkComponentType));
         }
@@ -53,7 +53,7 @@ namespace Unity.Entities.Tests
             var chunkComponentType = m_Manager.GetComponentTypeHandle<EcsTestData2>(false);
             var chunk = m_Manager.GetChunk(entity);
 
-            Assert.AreNotEqual(chunk.m_Chunk->metaChunkEntity, Entity.Null);
+            Assert.AreNotEqual(chunk.m_Chunk.MetaChunkEntity, Entity.Null);
             Assert.Throws<ArgumentException>(() => chunk.GetChunkComponentData(ref chunkComponentType));
             Assert.Throws<ArgumentException>(() => chunk.SetChunkComponentData(ref chunkComponentType, new EcsTestData2(12)));
         }
@@ -189,7 +189,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(new float3(10, 10, 10), val.boundsMax);
         }
 
-#if !UNITY_DOTSRUNTIME
         partial struct UpdateChunkBoundsJob : IJobEntity
         {
             [ReadOnly] public ComponentTypeHandle<BoundsComponent> ChunkComponentTypeHandle;
@@ -235,7 +234,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(new float3(-10, -10, -10), val.boundsMin);
             Assert.AreEqual(new float3(10, 10, 10), val.boundsMax);
         }
-#endif
 
         [Test]
         public void ChunkHeaderMustBeQueriedExplicitly()

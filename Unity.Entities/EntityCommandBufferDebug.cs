@@ -493,6 +493,15 @@ namespace Unity.Entities
                 playbackProcessor.AddManagedComponentData(header);
             }
 
+            [BurstDiscard]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void MoveManagedComponentData(BasicCommand* header)
+            {
+                var cmd = (EntityMoveManagedComponentCommand*)header;
+                FixedString64Bytes commandAction = "Moving managed";
+                LogEntityAndComponentCommand(cmd->Header.Entity, cmd->ComponentTypeIndex, in commandAction);
+                playbackProcessor.MoveManagedComponentData(header);
+            }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddUnmanagedSharedComponentData(BasicCommand* header)
@@ -1112,6 +1121,19 @@ namespace Unity.Entities
                 playbackProcessor.AddManagedComponentData(header);
             }
 
+            [BurstDiscard]
+            [MethodImpl(MethodImplOptions.AggressiveInlining)]
+            public void MoveManagedComponentData(BasicCommand* header)
+            {
+                var cmd = (EntityMoveManagedComponentCommand*)header;
+
+                var dstEntity = SelectEntity(cmd->Header.Entity, playbackProcessor.playbackState);
+                ThrowIfPrefab(dstEntity);
+                var srcEntity = SelectEntity(cmd->SrcEntity, playbackProcessor.playbackState);
+                ThrowIfPrefab(srcEntity);
+
+                playbackProcessor.MoveManagedComponentData(header);
+            }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddUnmanagedSharedComponentData(BasicCommand* header)
@@ -1464,6 +1486,11 @@ namespace Unity.Entities
                 commands.Add(header);
             }
 
+            public unsafe void MoveManagedComponentData(BasicCommand* header)
+            {
+                commands.Add(header);
+            }
+
             public unsafe void AddSharedComponentData(BasicCommand* header)
             {
                 commands.Add(header);
@@ -1660,12 +1687,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-#else
-                var typeName = "";
-#endif
                 return (CommandType == ECBCommand.AddComponentForEntityQuery) ? $"Add {typeName}Component to EntityQuery" : $"Remove {typeName}Component from EntityQuery";
             }
         }
@@ -1754,12 +1777,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-#else
-                var typeName = "";
-#endif
                 return (CommandType == ECBCommand.AddComponentForMultipleEntities) ? $"Add {typeName}Component to {EntitiesCount} Entities" : $"Remove {typeName}Component from {EntitiesCount} Entities";
             }
         }
@@ -1794,12 +1813,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if  !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-#else
-                var typeName = "";
-#endif
                 return CommandType == ECBCommand.AddComponentObjectForMultipleEntities ||
                        CommandType == ECBCommand.AddSharedComponentWithValueForMultipleEntities ?
                  $"Add {typeName}Component to {EntitiesCount} Entities" :
@@ -1833,12 +1848,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if  !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-#else
-                var typeName = "";
-#endif
                 return CommandType == ECBCommand.AddSharedComponentWithValueForEntityQuery ||
                         CommandType == ECBCommand.AddComponentObjectForEntityQuery ?
                     $"Add {typeName}Component to EntityQuery" :
@@ -1906,12 +1917,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-                #else
-                var typeName = "";
-#endif
                 switch (CommandType)
                 {
                     case ECBCommand.RemoveComponent: return $"Remove {typeName}Component";
@@ -1963,12 +1970,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-                #else
-                var typeName = "";
-#endif
                 switch (CommandType)
                 {
                     case ECBCommand.AddComponentLinkedEntityGroup: return $"Add {typeName}Component for LinkedEntityGroup";
@@ -2020,13 +2023,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-#else
-                var typeName = "";
-#endif
-
                 return IsEnabled != 1 ? $"{typeName}Component Enabled" : $"{typeName}Component Disabled";
             }
 
@@ -2103,12 +2101,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = " " + type.Name;
-#else
-                var typeName = "";
-#endif
                 return CommandType == ECBCommand.AddBuffer || CommandType == ECBCommand.AddBufferWithEntityFixUp ? $"Add Entity Buffer{typeName}" : $"Set Entity Buffer{typeName}";
             }
         }
@@ -2140,14 +2134,35 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-#else
-                var typeName = "";
-#endif
-
                 return CommandType  == ECBCommand.AddManagedComponentData ? $"Add {typeName}Component (Managed)" : $"Set {typeName}Component (Managed)";
+            }
+        }
+
+        internal class EntityMoveManagedComponentCommandView : EntityCommandView
+        {
+            public TypeIndex ComponentTypeIndex;
+            public Entity SrcEntity;
+
+            public EntityMoveManagedComponentCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity srcEntity,
+                Entity dstEntity, int identityIndex, int batchCount, TypeIndex componentTypeIndex)
+            {
+                CommandType = commandType;
+                SortKey = sortKey;
+                TotalSizeInBytes = totalSize;
+                Entity = dstEntity;
+                IdentityIndex = identityIndex;
+                BatchCount = batchCount;
+                ComponentTypeIndex = componentTypeIndex;
+                SrcEntity = srcEntity;
+            }
+
+            public override string ToString()
+            {
+                var type = TypeManager.GetType(ComponentTypeIndex);
+                var typeName = type.Name + " ";
+                return $"Move {typeName}Component (Managed)";
             }
         }
 
@@ -2184,13 +2199,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-#else
-                var typeName = "";
-#endif
-
                 return CommandType  == ECBCommand.AddUnmanagedSharedComponentData ? $"Add {typeName}UnmanagedSharedComponentData" : $"Set {typeName}UnmanagedSharedComponentData";
             }
         }
@@ -2230,12 +2240,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-#else
-                var typeName = "";
-#endif
                 return (CommandType == ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities)
                     ? $"Add {typeName}Unmanaged Shared Component to {EntitiesCount} Entities"
                     : $"Set {typeName}Unmanaged Shared Component from {EntitiesCount} Entities";
@@ -2270,12 +2276,8 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-#else
-                var typeName = "";
-#endif
                 return (CommandType == ECBCommand.AddUnmanagedSharedComponentValueForEntityQuery)
                     ? $"Add {typeName}Unmanaged Shared Component to EntityQuery"
                     : $"Set {typeName}Unmanaged Shared Component from EntityQuery";
@@ -2311,20 +2313,14 @@ namespace Unity.Entities
 
             public override string ToString()
             {
-#if !NET_DOTS
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = type.Name + " ";
-#else
-                var typeName = "";
-#endif
-
                 return CommandType  == ECBCommand.AddSharedComponentData ? $"Add {typeName}SharedComponentData" : $"Set {typeName}SharedComponentData";
             }
         }
 
         internal sealed class EntityCommandBufferDebugView
         {
-#if !NET_DOTS
             private EntityCommandBuffer m_ecb;
             public EntityCommandBufferDebugView(EntityCommandBuffer ecb)
             {
@@ -2485,9 +2481,17 @@ namespace Unity.Entities
                             entityManagedComponentCommand->Header.BatchCount,
                             entityManagedComponentCommand->ComponentTypeIndex, entityManagedComponentCommand->GCNode);
 
+                    case ECBCommand.MoveManagedComponentData:
+                        var entityMoveManagedComponentCommand = (EntityMoveManagedComponentCommand*) header;
+                        return new EntityMoveManagedComponentCommandView(header->CommandType,
+                            header->SortKey, header->TotalSize, entityMoveManagedComponentCommand->SrcEntity,
+                            entityMoveManagedComponentCommand->Header.Entity,
+                            entityMoveManagedComponentCommand->Header.IdentityIndex,
+                            entityMoveManagedComponentCommand->Header.BatchCount,
+                            entityMoveManagedComponentCommand->ComponentTypeIndex);
+
                     case ECBCommand.AddSharedComponentData:
                     case ECBCommand.SetSharedComponentData:
-
                         var entitySharedComponentCommand = (EntitySharedComponentCommand*) header;
                         return new EntitySharedComponentCommandView(header->CommandType, header->SortKey,
                             header->TotalSize, entitySharedComponentCommand->Header.Entity,
@@ -2584,7 +2588,6 @@ namespace Unity.Entities
                     return commandViewArray;
                 }
             }
-#endif
         }
     }
 }

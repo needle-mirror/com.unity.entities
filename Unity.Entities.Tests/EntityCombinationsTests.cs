@@ -6,7 +6,6 @@ using Assert = FastAssert;
 
 namespace Unity.Entities.Tests
 {
-#if !UNITY_DOTSRUNTIME
     partial class EntityCombinationsTests : ECSTestsFixture
     {
         public enum ProcessMode
@@ -780,5 +779,4 @@ namespace Unity.Entities.Tests
         }
 
     }
-#endif //  UNITY_DOTSRUNTIME
 }

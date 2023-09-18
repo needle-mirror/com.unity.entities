@@ -504,13 +504,13 @@ namespace Unity.Entities.Editor
             // @TODO (UX) Figure out how we want to show additional entities during multi-selection.
             if (bakingDataEntries.Count == 1 && state.ShowAdditionalEntities && state.AdditionalEntityIndex != -1)
             {
-                result.Add(new EntityContainer(root.EntityManager, root.AdditionalEntities[state.AdditionalEntityIndex]));
+                result.Add(new EntityContainer(root.EntityManager.World, root.AdditionalEntities[state.AdditionalEntityIndex]));
                 return;
             }
 
             foreach (var data in bakingDataEntries)
             {
-                result.Add(new EntityContainer(data.EntityManager, data.PrimaryEntity));
+                result.Add(new EntityContainer(data.EntityManager.World, data.PrimaryEntity));
             }
         }
 
@@ -527,7 +527,7 @@ namespace Unity.Entities.Editor
             if (targets.Count == 1)
             {
                 // Fast path for single target.
-                using (var componentTypes = targets[0].EntityManager.GetComponentTypes(targets[0].Entity))
+                using (var componentTypes = targets[0].World.EntityManager.GetComponentTypes(targets[0].Entity))
                 {
                     componentTypes.Sort(s_ComponentTypeNameComparer);
 
@@ -545,7 +545,7 @@ namespace Unity.Entities.Editor
                 {
                     for (var i = 0; i < targets.Count; i++)
                     {
-                        using (var componentTypes = targets[i].EntityManager.GetComponentTypes(targets[i].Entity))
+                        using (var componentTypes = targets[i].World.EntityManager.GetComponentTypes(targets[i].Entity))
                         {
                             if (i == 0)
                             {
@@ -679,17 +679,19 @@ namespace Unity.Entities.Editor
 
                 var chunk = world.EntityManager.GetChunk(m_LastBakingData.PrimaryEntity);
 
-                if (null == chunk.m_Chunk || chunk != m_LastChunk)
+                if (ChunkIndex.Null == chunk.m_Chunk || chunk != m_LastChunk)
                 {
                     m_LastChunk = chunk;
                     return true;
                 }
 
+                var ecs = world.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore;
+                var archetype = ecs->GetArchetype(m_LastChunk.m_Chunk);
                 foreach (var typeIndex in selectedComponentTypes)
                 {
-                    var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(m_LastChunk.m_Chunk->Archetype, typeIndex);
+                    var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex);
                     if (typeIndexInArchetype == -1) continue;
-                    var typeChangeVersion = m_LastChunk.m_Chunk->GetChangeVersion(typeIndexInArchetype);
+                    var typeChangeVersion = archetype->Chunks.GetChangeVersion(typeIndexInArchetype, m_LastChunk.m_Chunk.ListIndex);
 
                     if (ChangeVersionUtility.DidChange(typeChangeVersion, m_LastGlobalSystemVersion))
                     {

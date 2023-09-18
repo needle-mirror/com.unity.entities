@@ -137,8 +137,6 @@ namespace Unity.Entities
             public int ElementStride;
         }
 
-#if !UNITY_DOTSRUNTIME
-
         /// <summary>
         /// Calculates the field offsets.
         /// </summary>
@@ -368,8 +366,6 @@ namespace Unity.Entities
             hasBlobReferences = hasBlobReferences > localHasBlobRefs ?  hasBlobReferences : localHasBlobRefs;
 
         }
-
-#endif
 
         /// <summary>
         /// Adds <see cref="EntityPatchInfo"/> elements for each of the input offsets.

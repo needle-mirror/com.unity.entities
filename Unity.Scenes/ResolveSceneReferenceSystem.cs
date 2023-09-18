@@ -359,13 +359,9 @@ namespace Unity.Scenes
                 {
                     if (!requestHeader.IsCompleted)
                     {
-#if !UNITY_DOTSRUNTIME // DOTS Runtime does not support blocking on IO
                         if((requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) == 0)
                             return;
                         requestHeader.Complete();
-#else
-                        return;
-#endif
                     }
 
                     using(var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader, scene.SceneGUID, SceneSystem.SceneLoadDir))

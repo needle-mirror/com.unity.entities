@@ -120,7 +120,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        [ManagedExceptionInPortableTests]
         [TestRequiresCollectionChecks("Requires Atomic Safety Handle for dispose checks")]
         public void DisposeOnCompletion_DisposesAtEnd([Values] ScheduleType scheduleType)
         {
@@ -147,7 +146,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        [ManagedExceptionInPortableTests]
         [TestRequiresCollectionChecks("Requires Atomic Safety Handle for dispose checks")]
         public void DisposeInsideStructOnJobCompletion_DisposesAtEnd([Values] ScheduleType scheduleType)
         {
@@ -165,7 +163,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        [ManagedExceptionInPortableTests]
         [TestRequiresCollectionChecks("Requires Atomic Safety Handle for dispose checks")]
         public void DisposeInsideClassOnJobCompletion_WithRun_DisposesAtEnd()
         {
@@ -183,7 +180,6 @@ namespace Unity.Entities.Tests.ForEachCodegen
         }
 
         [Test]
-        [ManagedExceptionInPortableTests]
         [TestRequiresCollectionChecks("Requires Atomic Safety Handle for dispose checks")]
         public void DisposeOnCompletion_WithStructuralChanges_Disposes()
         {

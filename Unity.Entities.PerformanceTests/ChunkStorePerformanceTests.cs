@@ -10,14 +10,13 @@ namespace Unity.Entities.PerformanceTests
     {
         unsafe struct ChunkStoreTestHarness : IDisposable
         {
-            public EntityComponentStore.ChunkStore ChunkStore;
-            public NativeList<IntPtr> Chunks;
+            public NativeList<ChunkIndex> Chunks;
             Mathematics.Random Seed;
             readonly int ChunkCount;
             public ChunkStoreTestHarness(int chunkCount, uint seed)
             {
-                ChunkStore = default;
-                Chunks = new NativeList<IntPtr>(chunkCount, Allocator.Persistent);
+                EntityComponentStore.PerChunkArray.Initialize();
+                Chunks = new NativeList<ChunkIndex>(chunkCount, Allocator.Persistent);
                 Seed = new Mathematics.Random(seed);
                 ChunkCount = chunkCount;
                 for(var i = 0; i < ChunkCount; ++i)
@@ -25,14 +24,14 @@ namespace Unity.Entities.PerformanceTests
             }
             public void AllocateOne()
             {
-                var error = ChunkStore.AllocateContiguousChunks(out Chunk* value, 1, out int _);
+                var error = EntityComponentStore.s_chunkStore.Data.AllocateContiguousChunks(out ChunkIndex value, 1, out int _);
                 Assert.AreEqual(0, error);
-                Chunks.Add((IntPtr)value);
+                Chunks.Add(value);
             }
             public void FreeAtIndex(int index)
             {
-                Chunk* value = (Chunk*)Chunks[index];
-                var error = ChunkStore.FreeContiguousChunks(value, 1);
+                var value = Chunks[index];
+                var error = EntityComponentStore.s_chunkStore.Data.FreeContiguousChunks(value, 1);
                 Assert.AreEqual(0, error);
             }
             public void FreeOne()
@@ -52,21 +51,11 @@ namespace Unity.Entities.PerformanceTests
                 for(var i = 0; i < ChunkCount/2; ++i)
                     AllocateOne();
             }
-            public void Free()
-            {
-                for(var i = 0; i < Chunks.Length; ++i)
-                {
-                    Chunk* value = (Chunk*)Chunks[i];
-                    var error = ChunkStore.FreeContiguousChunks(value, 1);
-                    Assert.AreEqual(0, error);
-                }
-            }
             public void Dispose()
             {
                 for(var i = 0; i < Chunks.Length; ++i)
                     FreeAtIndex(i);
                 Chunks.Dispose();
-                ChunkStore.Dispose();
                 this = default;
             }
         }

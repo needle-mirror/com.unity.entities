@@ -108,9 +108,6 @@ namespace Unity.Entities
             s_ComponentDelegates.Clear();
         }
 
-        // While UNITY_DOTSRUNTIME not using Tiny BCL can compile most of this code, UnsafeUtility doesn't currently provide a
-        // FieldOffset method so we disable for UNITY_DOTSRUNTIME rather than NET_DOTS
-#if !UNITY_DOTSRUNTIME
         static readonly ProfilerMarker ManagedEqualsMarker = new ProfilerMarker("FastEquality.ManagedEquals with IPropertyVisitor fallback (Missing IEquatable interface)");
 
         internal static TypeInfo CreateTypeInfo<T>(Dictionary<Type, List<LayoutInfo>> cache = null) where T : struct
@@ -195,7 +192,7 @@ namespace Unity.Entities
             ushort equalsDelegateIndex = TypeInfo.Null.EqualsDelegateIndex;
             ushort getHashCodeDelegateIndex = TypeInfo.Null.GetHashCodeDelegateIndex;
 
-            if (t.IsClass)
+            if (!UnsafeUtility.IsUnmanaged(t))
             {
                 if (typeof(IEquatable<>).MakeGenericType(t).IsAssignableFrom(t))
                 {
@@ -312,10 +309,8 @@ namespace Unity.Entities
             }
             return result;
         }
-#endif
 
-    private const int FNV_32_PRIME = 0x01000193;
-#if !UNITY_DOTSRUNTIME
+        private const int FNV_32_PRIME = 0x01000193;
 
         /// <summary>
         /// Returns the hash code for a managed component. Internally, this is exclusively used for managed shared
@@ -349,9 +344,7 @@ namespace Unity.Entities
 
             return hash;
         }
-#endif
 
-#if !UNITY_DOTSRUNTIME
         [BurstDiscard]
         static unsafe void GetHashCodeUsingDelegate(void* dataPtr, TypeInfo typeInfo, ref bool didWork, ref int hash)
         {
@@ -362,18 +355,15 @@ namespace Unity.Entities
                 didWork = true;
             }
         }
-#endif
 
         [GenerateTestsForBurstCompatibility]
         internal static unsafe int GetHashCode(void* dataPtr, in TypeInfo typeInfo)
         {
-#if !UNITY_DOTSRUNTIME
             int hash = 0;
             bool didWork = false;
             GetHashCodeUsingDelegate(dataPtr, typeInfo, ref didWork, ref hash);
             if(didWork)
                 return hash;
-#endif
 
             return GetHashCodeBlittable(dataPtr, in typeInfo);
         }
@@ -406,7 +396,6 @@ namespace Unity.Entities
             return hash;
         }
 
-#if !UNITY_DOTSRUNTIME
         /// <summary>
         /// Compares two managed component types.
         /// </summary>
@@ -427,9 +416,7 @@ namespace Unity.Entities
                 return new ManagedObjectEqual().CompareEqual(lhs, rhs);
             }
         }
-#endif
 
-#if !UNITY_DOTSRUNTIME
         [BurstDiscard]
         static unsafe void EqualsUsingDelegate(void* lhsPtr, void* rhsPtr, TypeInfo typeInfo, ref bool didWork, ref int result)
         {
@@ -441,7 +428,6 @@ namespace Unity.Entities
                 didWork = true;
             }
         }
-#endif
 
         /// <summary>
         /// Compares two component types.
@@ -453,13 +439,11 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility]
         public static unsafe bool Equals(void* lhsPtr, void* rhsPtr, in TypeInfo typeInfo)
         {
-#if !UNITY_DOTSRUNTIME
             int result = 0;
             bool didWork = false;
             EqualsUsingDelegate(lhsPtr, rhsPtr, typeInfo, ref didWork, ref result);
             if (didWork)
                 return result == 0;
-#endif
             return EqualsBlittable(lhsPtr, rhsPtr, in typeInfo);
         }
 
@@ -481,7 +465,6 @@ namespace Unity.Entities
 
         }
 
-#if !UNITY_DOTSRUNTIME
         private static bool TypeUsesDelegates(Type t)
         {
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -524,6 +507,5 @@ namespace Unity.Entities
                 output.Add(typeof(GetHashCodeImpl<>).MakeGenericType(type).ToString());
             }
         }
-#endif
     }
 }

@@ -11,7 +11,6 @@ namespace Unity.Entities
 {
     sealed class ArchetypeChunkDataDebugView
     {
-#if !NET_DOTS
         private ArchetypeChunkData m_ChunkData;
 
         public ArchetypeChunkDataDebugView(ArchetypeChunkData chunkData)
@@ -29,12 +28,10 @@ namespace Unity.Entities
                 return result;
             }
         }
-#endif
     }
 
     sealed class UnsafeMatchingArchetypePtrListDebugView
     {
-#if !NET_DOTS
         private UnsafeMatchingArchetypePtrList m_MatchingArchetypeList;
 
         public UnsafeMatchingArchetypePtrListDebugView(UnsafeMatchingArchetypePtrList MatchingArchetypeList)
@@ -52,7 +49,6 @@ namespace Unity.Entities
                 return result;
             }
         }
-#endif
     }
 
     internal class Component_E
@@ -82,7 +78,6 @@ namespace Unity.Entities
 
     sealed class EntityManagerDebugView
     {
-#if !NET_DOTS
         private EntityManager m_target;
         public EntityManagerDebugView(EntityManager target)
         {
@@ -157,12 +152,10 @@ namespace Unity.Entities
             }
         }
         public World World => m_target.World;
-#endif //!NET_DOTS
     }
 
     sealed class WorldDebugView
     {
-#if !NET_DOTS
         private World m_world;
         public WorldDebugView(World world)
         {
@@ -186,18 +179,16 @@ namespace Unity.Entities
         public ComponentSystemBase SimulationSystemGroup => m_world.GetExistingSystemManaged<SimulationSystemGroup>();
         public ComponentSystemBase PresentationSystemGroup => m_world.GetExistingSystemManaged<PresentationSystemGroup>();
         public EntityManager EntityManager => m_world.EntityManager;
-#endif //#!NET_DOTS
     }
     sealed class ArchetypeChunkDebugView
     {
-#if !NET_DOTS
         private ArchetypeChunk m_ArchetypeChunk;
         public ArchetypeChunkDebugView(ArchetypeChunk ArchetypeChunk)
         {
             m_ArchetypeChunk = ArchetypeChunk;
         }
 
-        public unsafe EntityArchetype Archetype => new EntityArchetype(m_ArchetypeChunk.m_Chunk->Archetype);
+        public unsafe EntityArchetype Archetype => new EntityArchetype(m_ArchetypeChunk.Archetype.Archetype);
 
 
         public unsafe Entity_[] Entities
@@ -205,13 +196,13 @@ namespace Unity.Entities
             get
             {
                 var chunk = m_ArchetypeChunk.m_Chunk;
-                if (chunk == null)
+                if (chunk == ChunkIndex.Null)
                     return null;
 
                 var length = m_ArchetypeChunk.Count;
                 var result = new Entity_[length];
 
-                var entityPtr = (Entity*) ChunkIterationUtility.GetChunkComponentDataROPtr(chunk, 0);
+                var entityPtr = (Entity*) ChunkIterationUtility.GetChunkComponentDataROPtr(m_ArchetypeChunk.Archetype.Archetype, chunk, 0);
                 for (int i = 0; i < length; i++)
                     result[i] = new Entity_(m_ArchetypeChunk.m_EntityComponentStore, entityPtr[i], false);
 
@@ -224,19 +215,20 @@ namespace Unity.Entities
             get
             {
                 var chunk = m_ArchetypeChunk.m_Chunk;
-                if (chunk == null)
-                    return new object[0];
+                if (chunk == ChunkIndex.Null)
+                    return Array.Empty<object>();
 
-                var archetype = chunk->Archetype;
+                var archetype = m_ArchetypeChunk.Archetype.Archetype;
                 object[] result = new object[archetype->NumSharedComponents];
-                var types = chunk->Archetype->TypesCount;
+                var types = archetype->TypesCount;
                 int sharedIter = 0;
                 for (var i = 0; i < types; ++i)
                 {
-                    var componentType = chunk->Archetype->Types[i];
+                    var componentType = archetype->Types[i];
                     if (componentType.IsSharedComponent)
                     {
-                        result[sharedIter] = new DebuggerDataAccess(m_ArchetypeChunk.m_EntityComponentStore).GetSharedComponentDataBoxed(chunk->SharedComponentValues[sharedIter], componentType.TypeIndex);
+                        var sharedComponentValues = archetype->Chunks.GetSharedComponentValues(chunk.ListIndex);
+                        result[sharedIter] = new DebuggerDataAccess(m_ArchetypeChunk.m_EntityComponentStore).GetSharedComponentDataBoxed(sharedComponentValues[sharedIter], componentType.TypeIndex);
                         sharedIter++;
                     }
                 }
@@ -249,10 +241,10 @@ namespace Unity.Entities
             get
             {
                 var chunk = m_ArchetypeChunk.m_Chunk;
-                if (chunk == null)
+                if (chunk == ChunkIndex.Null)
                     return Entity_.Null;
 
-                return new Entity_(m_ArchetypeChunk.m_EntityComponentStore, m_ArchetypeChunk.m_Chunk->metaChunkEntity, false);
+                return new Entity_(m_ArchetypeChunk.m_EntityComponentStore, m_ArchetypeChunk.m_Chunk.MetaChunkEntity, false);
             }
         }
 
@@ -262,20 +254,19 @@ namespace Unity.Entities
             get
             {
                 var chunk = m_ArchetypeChunk.m_Chunk;
-                if (chunk == null)
+                if (chunk == ChunkIndex.Null)
                     return null;
 
-                var archetype = chunk->Archetype;
+                var archetype = m_ArchetypeChunk.Archetype.Archetype;
                 ComponentType_[] result = new ComponentType_[archetype->TypesCount];
                 for (var i = 0; i < archetype->TypesCount; ++i)
                 {
                     int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[i];
                     var componentType = archetype->Types[i].ToComponentType();
                     result[i].Type = componentType;
-                    result[i].Version = chunk->GetChangeVersion(i);
+                    result[i].Version = archetype->Chunks.GetChangeVersion(i, chunk.ListIndex);
                     result[i].IsEnableable = TypeManager.IsEnableable(componentType.TypeIndex);
-                    result[i].NumDisabledEntitiesInChunk =
-                        chunk->Archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, chunk->ListIndex);
+                    result[i].NumDisabledEntitiesInChunk = archetype->Chunks.GetChunkDisabledCountForType(memoryOrderIndexInArchetype, chunk.ListIndex);
                 }
 
                 return result;
@@ -287,13 +278,12 @@ namespace Unity.Entities
             get
             {
                 var chunk = m_ArchetypeChunk.m_Chunk;
-                if (chunk == null)
+                if (chunk == ChunkIndex.Null)
                     return 0;
-                return chunk->GetOrderVersion();
 
+                return m_ArchetypeChunk.Archetype.Archetype->Chunks.GetOrderVersion(chunk.ListIndex);
             }
         }
-#endif //!NET_DOTS
     }
 
     struct ComponentType_
@@ -314,7 +304,6 @@ namespace Unity.Entities
 
     sealed class ComponentTypeSetDebugView
     {
-#if !NET_DOTS
         private ComponentTypeSet m_ComponentTypeSet;
         public ComponentTypeSetDebugView(in ComponentTypeSet componentTypeSet)
         {
@@ -332,13 +321,10 @@ namespace Unity.Entities
                 return result;
             }
         }
-
-#endif //!NET_DOTS
     }
 
     sealed class EntityArchetypeDebugView
     {
-#if !NET_DOTS
         private EntityArchetype m_EntityArchetype;
         public EntityArchetypeDebugView(EntityArchetype entityArchetype)
         {
@@ -387,15 +373,17 @@ namespace Unity.Entities
                 if (numChunks <= 0)
                     return default;
 
+                var chunkCapacity = (float)archetype->ChunkCapacity;
+
                 var result = new ChunkReport
                 {
                     PerChunk = new List<float>(numChunks),
-                    WorstUtilization = archetype->Chunks[0]->Count / (float) archetype->Chunks[0]->Capacity
+                    WorstUtilization = archetype->Chunks[0].Count / chunkCapacity
                 };
 
                 for (var i = 0; i < numChunks; ++i)
                 {
-                    var avg = archetype->Chunks[i]->Count / (float)archetype->Chunks[i]->Capacity;
+                    var avg = archetype->Chunks[i].Count / chunkCapacity;
                     result.PerChunk.Add(avg);
                     result.AvgUtilization += avg;
                     if (avg < result.WorstUtilization)
@@ -485,13 +473,10 @@ namespace Unity.Entities
                 return result;
             }
         }
-
-#endif //!NET_DOTS
     }
 
     sealed class EntityQueryDebugView
     {
-#if !NET_DOTS
         private EntityQuery m_EntityQuery;
 
         public EntityQueryDesc Desc
@@ -570,13 +555,10 @@ namespace Unity.Entities
         {
             m_EntityQuery = query;
         }
-
-#endif //!NET_DOTS
     }
 
     class SystemDebugView
     {
-#if !NET_DOTS
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         readonly World               m_World;
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
@@ -668,12 +650,10 @@ namespace Unity.Entities
                 return "System has been disposed";
             return type.Name;
         }
-#endif //!NET_DOTS
     }
 
     sealed class ComponentSystemGroupDebugView
     {
-#if !NET_DOTS
         private ComponentSystemGroup m_componentSystemGroup;
 
         public ComponentSystemGroupDebugView(ComponentSystemGroup mComponentSystemGroup)
@@ -708,12 +688,10 @@ namespace Unity.Entities
         public bool Enabled => m_componentSystemGroup.Enabled;
         public bool EnableSystemSorting => m_componentSystemGroup.EnableSystemSorting;
         public World World => m_componentSystemGroup.World;
-#endif //!NET_DOTS
     }
 
     sealed unsafe class SystemState_
     {
-#if !NET_DOTS
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         SystemHandle _SystemHandle;
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
@@ -810,8 +788,5 @@ namespace Unity.Entities
         {
             return GetName(_SystemHandle, _World);
         }
-
-#endif //!NET_DOTS
     }
-
 }

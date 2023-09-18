@@ -91,6 +91,7 @@ namespace Unity.Entities
             AddedComponents.Dispose();
             Entities.Dispose();
             Dependencies.Dispose();
+            Usage.Dispose();
 
 #if UNITY_EDITOR
             ReferencedPrefabs.Dispose();

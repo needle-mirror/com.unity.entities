@@ -134,5 +134,21 @@ namespace Unity.Entities.Tests
                 queryDesc.Validate();
             });
         }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
+        public void EntityQueryFilterCannotContainExcludeComponentType_Present_Throws()
+        {
+            var queryDesc = new EntityQueryDesc
+            {
+                All = new ComponentType[] {typeof(EcsTestData) },
+                Present = new ComponentType[] {typeof(EcsTestData3), ComponentType.Exclude<EcsTestData4>() },
+            };
+
+            Assert.Throws<ArgumentException>(() =>
+            {
+                queryDesc.Validate();
+            });
+        }
     }
 }

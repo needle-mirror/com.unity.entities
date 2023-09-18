@@ -17,9 +17,7 @@ using UnityEngine.Profiling;
 using BinaryReader = Unity.Entities.Serialization.BinaryReader;
 using BinaryWriter = Unity.Entities.Serialization.BinaryWriter;
 using Random = Unity.Mathematics.Random;
-#if !UNITY_PORTABLE_TEST_RUNNER
 using System.IO;
-#endif
 
 namespace Unity.Entities.Tests
 {
@@ -88,7 +86,6 @@ namespace Unity.Entities.Tests
         }
     }
 
-#if !UNITY_PORTABLE_TEST_RUNNER
     internal class YAMLSerializationHelpers
     {
         /// <summary>
@@ -118,7 +115,6 @@ namespace Unity.Entities.Tests
             }
         }
     }
-#endif
 
 #if UNITY_EDITOR
     public static class Hash128Helpers
@@ -1592,10 +1588,8 @@ namespace Unity.Entities.Tests
             }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-#if !NET_DOTS // If memory has been unmapped this can throw exceptions other than InvalidOperation
             float f = 1.0f;
             Assert.Throws<InvalidOperationException>(() => f = arrayComponent.array.Value[0]);
-#endif
 #endif
         }
 
@@ -1784,10 +1778,8 @@ namespace Unity.Entities.Tests
             }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-#if !UNITY_DOTSRUNTIME // If memory has been unmapped this can throw exceptions other than InvalidOperation
             float f = 1.0f;
             Assert.Throws<InvalidOperationException>(() => f = arrayComponent.array.Value[0]);
-#endif
 #endif
         }
 
@@ -1798,7 +1790,6 @@ namespace Unity.Entities.Tests
             byte* m_Data;
         }
 
-#if !UNITY_DOTSRUNTIME // We don't have reflection to validate if a type is serializable in NET_DOTS
         [Test]
         public void SerializeComponentWithPointerField()
         {
@@ -1901,7 +1892,6 @@ namespace Unity.Entities.Tests
                 );
             }
         }
-#endif
 
         [Test]
         public void DeserializedChunksAreConsideredChangedOnlyOnce()
@@ -2508,81 +2498,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if UNITY_EDITOR
-        [Test]
-        public void WorldYamlSerializationTest()
-        {
-            var dummyEntity = CreateEntityWithDefaultData(0); //To ensure entity indices are offset
-            var e1 = CreateEntityWithDefaultData(1);
-            var e2 = CreateEntityWithDefaultData(2);
-            var e3 = CreateEntityWithDefaultData(3);
-            m_Manager.AddComponentData(e1, new TestComponentData1 { value = 10, referencedEntity = e2 });
-            m_Manager.AddComponentData(e2, new TestComponentData2 { value = 20, referencedEntity = e1 });
-            m_Manager.AddComponentData(e3, new TestComponentData1 { value = 30, referencedEntity = Entity.Null });
-            m_Manager.AddComponentData(e3, new TestComponentData2 { value = 40, referencedEntity = Entity.Null });
-            m_Manager.AddBuffer<EcsIntElement>(e1);
-            m_Manager.RemoveComponent<EcsTestData2>(e3);
-            m_Manager.AddBuffer<EcsIntElement>(e3);
-
-            m_Manager.GetBuffer<EcsIntElement>(e1).CopyFrom(new EcsIntElement[] { 1, 2, 3 }); // no overflow
-            m_Manager.GetBuffer<EcsIntElement>(e3).CopyFrom(new EcsIntElement[] { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }); // overflow into heap
-
-            var e4 = m_Manager.CreateEntity();
-            m_Manager.AddBuffer<EcsComplexEntityRefElement>(e4);
-            var ebuf = m_Manager.GetBuffer<EcsComplexEntityRefElement>(e4);
-            ebuf.Add(new EcsComplexEntityRefElement { Entity = e1, Dummy = 1 });
-            ebuf.Add(new EcsComplexEntityRefElement { Entity = e2, Dummy = 2 });
-            ebuf.Add(new EcsComplexEntityRefElement { Entity = e3, Dummy = 3 });
-
-            m_Manager.DestroyEntity(dummyEntity);
-
-            var refFilePathName = @"Packages\com.unity.entities\Unity.Entities.Tests\Serialization\WorldTest.yaml";
-
-            // To generate the file we'll test against
-            using (var sw = new StreamWriter(refFilePathName))
-            {
-                sw.NewLine = "\n";
-                SerializeUtility.SerializeWorldIntoYAML(m_Manager, sw, false);
-            }
-
-            using (var memStream = new MemoryStream())
-            {
-                byte[] testContentBuffer;
-
-                // Save the World to a memory buffer via a a Stream Writer
-                using (var sw = new StreamWriter(memStream))
-                {
-                    sw.NewLine = "\n";
-                    SerializeUtility.SerializeWorldIntoYAML(m_Manager, sw, false);
-                    sw.Flush();
-                    memStream.Seek(0, SeekOrigin.Begin);
-                    testContentBuffer = memStream.ToArray();
-                }
-
-                // Load both reference content and the test one into strings and compare
-                using (var sr = File.OpenRead(refFilePathName))
-                using (var testMemoryStream = new MemoryStream(testContentBuffer))
-                {
-                    Assert.IsTrue(YAMLSerializationHelpers.EqualYAMLFiles(sr, testMemoryStream));
-                }
-            }
-        }
-
-        [Test]
-        public void WorldYamlSerialization_UsingStreamWriterWithCRLF_ThrowsArgumentException()
-        {
-            using (var memStream = new MemoryStream())
-            using (var streamWriter = new StreamWriter(memStream))
-            {
-                streamWriter.NewLine = "\r\n";
-                Assert.Throws<ArgumentException>(() =>
-                {
-                    SerializeUtility.SerializeWorldIntoYAML(m_Manager, streamWriter, false);
-                });
-            }
-        }
-
-#endif // UNITY_EDITOR
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
 
         [Test]
@@ -2679,6 +2594,138 @@ namespace Unity.Entities.Tests
             entityManager.GetAllUniqueSharedComponents<TestUnmanagedStruct>(out var sharedComponents, Allocator.Temp);
             Assert.AreEqual(3, sharedComponents.Length, "Serialization / Deserialization failed - unexpected number of shared components");
             CollectionAssert.AreEquivalent(new[] {default(TestUnmanagedStruct), s1, s2}, sharedComponents.AsArray().ToArray(), "The shared component values are not equal");
+        }
+
+        struct TestUnmanagedBlobStruct : ISharedComponentData
+        {
+            public int Value;
+            public BlobAssetReference<BlobArray<float>> BlobAssetReference;
+        }
+
+        BlobAssetReference<BlobArray<float>> CreateBlobArrayRef(float[] values)
+        {
+            var builder1 = new BlobBuilder(Allocator.Temp);
+            ref var blobArray = ref builder1.ConstructRoot<BlobArray<float>>();
+            var array1 = builder1.Allocate(ref blobArray, values.Length);
+            for (int index = 0; index < values.Length; index++)
+                array1[index] = values[index];
+            var reference = builder1.CreateBlobAssetReference<BlobArray<float>>(Allocator.Temp);
+            builder1.Dispose();
+            return reference;
+        }
+
+        [Test]
+        public void SerializeEntities_WithUnmanagedSharedComponentsDifferentBlob_Works()
+        {
+            float[] array1 = {1.7f, 2.6f};
+            var s1 = new TestUnmanagedBlobStruct
+            {
+                Value = 4,
+                BlobAssetReference = CreateBlobArrayRef(array1)
+            };
+
+            float[] array2 = {2.7f, 3.6f};
+            var s2 = new TestUnmanagedBlobStruct
+            {
+                Value = 6,
+                BlobAssetReference = CreateBlobArrayRef(array2)
+            };
+
+            Entity a = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponent(a, s1);
+
+            Entity b = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponent(b, s2);
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            entityManager.GetAllUniqueSharedComponents<TestUnmanagedBlobStruct>(out var sharedComponents, Allocator.Temp);
+            // Index 0 is reserved for the default value for the shared component
+            Assert.AreEqual(3, sharedComponents.Length, "Serialization / Deserialization failed - unexpected number of shared components");
+
+            var readS1 = sharedComponents[1];
+            Assert.AreEqual(4, readS1.Value, "Expected the same int value for s1");
+            var readArray1 = readS1.BlobAssetReference.Value.ToArray();
+            CollectionAssert.AreEqual(array1, readArray1);
+
+            var readS2 = sharedComponents[2];
+            Assert.AreEqual(6, readS2.Value, "Expected the same int value for s2");
+            var readArray2 = readS2.BlobAssetReference.Value.ToArray();
+            CollectionAssert.AreEqual(array2, readArray2);
+        }
+
+        [Test]
+        public void SerializeEntities_WithUnmanagedSharedComponentsSameBlob_Works()
+        {
+            float[] array = {1.7f, 2.6f};
+            var blobRef = CreateBlobArrayRef(array);
+            var s1 = new TestUnmanagedBlobStruct
+            {
+                Value = 4,
+                BlobAssetReference = blobRef
+            };
+
+            var s2 = new TestUnmanagedBlobStruct
+            {
+                Value = 6,
+                BlobAssetReference = blobRef
+            };
+
+            Entity a = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponent(a, s1);
+
+            Entity b = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponent(b, s2);
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            entityManager.GetAllUniqueSharedComponents<TestUnmanagedBlobStruct>(out var sharedComponents, Allocator.Temp);
+            // Index 0 is reserved for the default value for the shared component
+            Assert.AreEqual(3, sharedComponents.Length, "Serialization / Deserialization failed - unexpected number of shared components");
+
+            var readS1 = sharedComponents[1];
+            Assert.AreEqual(4, readS1.Value, "Expected the same int value for s1");
+            var readArray1 = readS1.BlobAssetReference.Value.ToArray();
+            CollectionAssert.AreEqual(array, readArray1);
+
+            var readS2 = sharedComponents[2];
+            Assert.AreEqual(6, readS2.Value, "Expected the same int value for s2");
+            var readArray2 = readS2.BlobAssetReference.Value.ToArray();
+            CollectionAssert.AreEqual(array, readArray2);
+
+            // Make sure the blob is shared
+            unsafe
+            {
+                Assert.IsTrue((byte*)readS1.BlobAssetReference.GetUnsafePtr() == (byte*)readS2.BlobAssetReference.GetUnsafePtr(), "Both components should point to the same blob");
+            }
         }
 
         struct TestManagedStruct : ISharedComponentData, IEquatable<TestManagedStruct>
@@ -2806,7 +2853,6 @@ namespace Unity.Entities.Tests
         }
 #else
         [Test]
-        [DotsRuntimeIncompatibleTest("We cannot perform the validation checks in DOTS Runtime currently")]
         public void SerializeEntities_WithEntityReferencesInUnmanagedSharedComponents_ThrowsArgumentException()
         {
             {
@@ -2876,7 +2922,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void SerializeEntities_SharedComponentWithEntityThrows()
         {
-            var blobArchetype = m_Manager.CreateArchetype(typeof(SharedComponentWithEntityReference)); 
+            var blobArchetype = m_Manager.CreateArchetype(typeof(SharedComponentWithEntityReference));
             m_Manager.CreateEntity(blobArchetype);
 
             var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);

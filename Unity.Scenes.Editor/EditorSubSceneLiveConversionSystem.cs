@@ -24,8 +24,6 @@ namespace Unity.Scenes.Editor
         NativeList<Hash128>        _UnloadScenes;
         NativeList<Hash128>        _LoadScenes;
 
-        ulong m_GizmoSceneCullingMask = 1UL << 59;
-
         System.Diagnostics.Stopwatch m_Watch;
         internal double MillisecondsTakenByUpdate { get; set; }
 
@@ -101,25 +99,42 @@ namespace Unity.Scenes.Editor
 
                 if (_EditorLiveConversion.HasLoadedScenes())
                 {
-                    // Configure scene culling masks so that game objects & entities are rendered exlusively to each other
+                    // Configure scene culling masks so that gameobjects & entities are rendered exlusively to each other
                     for (int i = 0; i != EditorSceneManager.sceneCount; i++)
                     {
                         var scene = EditorSceneManager.GetSceneAt(i);
 
-                        //this is to avoid trying to get the guid of a scene loaded from a content archive during play mode
-                        if (!scene.path.StartsWith("Assets/", System.StringComparison.OrdinalIgnoreCase) &&
-                            !scene.path.StartsWith("Packages/", System.StringComparison.OrdinalIgnoreCase))
+                        // This is to avoid trying to get the guid of a scene loaded from a content archive during play mode
+                        var scenepath = scene.path;
+                        if (!scenepath.StartsWith("Assets/", System.StringComparison.OrdinalIgnoreCase) &&
+                            !scenepath.StartsWith("Packages/", System.StringComparison.OrdinalIgnoreCase))
                             continue;
 
-                        var sceneGUID = AssetDatabaseCompatibility.PathToGUID(scene.path);
+                        var sceneGUID = AssetDatabaseCompatibility.PathToGUID(scenepath);
                         if (_EditorLiveConversion.HasScene(sceneGUID))
                         {
-                            if (LiveConversionEditorSettings.LiveConversionMode == LiveConversionMode.SceneViewShowsAuthoring)
-                                EditorSceneManager.SetSceneCullingMask(scene, SceneCullingMasks.MainStageSceneViewObjects);
-                            else if (LiveConversionEditorSettings.LiveConversionMode == LiveConversionMode.SceneViewShowsRuntime)
-                                EditorSceneManager.SetSceneCullingMask(scene, m_GizmoSceneCullingMask);
-                            else
-                                EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask);
+                            switch (LiveConversionEditorSettings.LiveConversionMode)
+                            {
+                                case LiveConversionMode.SceneViewShowsAuthoring:
+                                    // Render gameobjects in SceneView but hide them in GameView
+                                    EditorSceneManager.SetSceneCullingMask(scene, SceneCullingMasks.MainStageSceneViewObjects);
+                                    break;
+
+                                case LiveConversionMode.SceneViewShowsRuntime:
+                                    // Hide gameobjects in SceneView and GameView
+                                    EditorSceneManager.SetSceneCullingMask(scene, 0);
+                                    break;
+
+                                case LiveConversionMode.Disabled:
+                                case LiveConversionMode.LiveConvertStandalonePlayer:
+                                    // Render gameobjects in SceneView and GameView
+                                    EditorSceneManager.SetSceneCullingMask(scene, EditorSceneManager.DefaultSceneCullingMask);
+                                    break;
+
+                                default:
+                                    Debug.LogError("Missing handling of: " + LiveConversionEditorSettings.LiveConversionMode);
+                                    break;
+                            }
                         }
                     }
                 }
@@ -133,9 +148,6 @@ namespace Unity.Scenes.Editor
 
         protected override void OnCreate()
         {
-            Camera.onPreCull += OnPreCull;
-            RenderPipelineManager.beginContextRendering += OnPreCull;
-            SceneView.duringSceneGui += SceneViewOnBeforeSceneGui;
             m_Watch = new Stopwatch();
 
             _SceneChangeTracker = new LiveConversionSceneChangeTracker(EntityManager);
@@ -148,60 +160,12 @@ namespace Unity.Scenes.Editor
 
         protected override void OnDestroy()
         {
-            Camera.onPreCull -= OnPreCull;
-            RenderPipelineManager.beginContextRendering -= OnPreCull;
-            SceneView.duringSceneGui -= SceneViewOnBeforeSceneGui;
-
             if (_EditorLiveConversion != null)
                 _EditorLiveConversion.Dispose();
             _SceneChangeTracker.Dispose();
             _Patcher.Dispose();
             _UnloadScenes.Dispose();
             _LoadScenes.Dispose();
-        }
-
-        //@TODO:
-        // * This is a gross hack to show the Transform gizmo even though the game objects used for editing are hidden and thus the tool gizmo is not shown
-        // * Also we are not rendering the selection (Selection must be drawn around live linked object, not the editing object)
-        void SceneViewOnBeforeSceneGui(SceneView sceneView)
-        {
-            if (LiveConversionEditorSettings.LiveConversionMode == LiveConversionMode.SceneViewShowsRuntime)
-            {
-                Camera camera = sceneView.camera;
-                bool sceneViewIsRenderingCustomScene = camera.scene.IsValid();
-                if (!sceneViewIsRenderingCustomScene)
-                {
-                    // Add our gizmo hack bit before gizmo rendering so the SubScene GameObjects are considered visible
-                    ulong newmask = camera.overrideSceneCullingMask | m_GizmoSceneCullingMask;
-                    camera.overrideSceneCullingMask = newmask;
-                }
-            }
-        }
-
-        void OnPreCull(ScriptableRenderContext src, Camera[] cameras)
-        {
-            foreach (Camera camera in cameras)
-            {
-                OnPreCull(camera);
-            }
-        }
-
-        void OnPreCull(ScriptableRenderContext src, List<Camera> cameras)
-        {
-            foreach (Camera camera in cameras)
-            {
-                OnPreCull(camera);
-            }
-        }
-
-        void OnPreCull(Camera camera)
-        {
-            if (camera.cameraType == CameraType.SceneView)
-            {
-                // Ensure to remove our gizmo hack bit before rendering
-                ulong newmask = camera.overrideSceneCullingMask & ~m_GizmoSceneCullingMask;
-                camera.overrideSceneCullingMask = newmask;
-            }
         }
     }
 }

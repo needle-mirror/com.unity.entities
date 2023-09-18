@@ -143,10 +143,11 @@ namespace Unity.Entities.Internal
             if (_QueryHasFilterOrEnableable == 0)
             {
 #if UNITY_BURST_EXPERIMENTAL_PREFETCH_INTRINSIC
-                if (Burst.CompilerServices.Hint.Likely(_ChunkIndex + 1 < _CachedChunkListLength))
-                    Common.Prefetch(_CachedChunkList.Ptr[_ChunkIndex + 1], Common.ReadWrite.Read);
+                if (Hint.Likely(_ChunkIndex + 1 < _CachedChunkListLength))
+                {
+                    Common.Prefetch(&EntityComponentStore.PerChunkArray.ChunkData[_CachedChunkList.MatchingChunks->Ptr[_ChunkIndex + 1]], Common.ReadWrite.Read);
+                }
 #endif
-
                 _ChunkIndex++;
 
                 // If we have iterated through all the chunks
@@ -160,7 +161,7 @@ namespace Unity.Entities.Internal
                     return false;
                 }
 
-                chunk = new ArchetypeChunk(_CachedChunkList.Ptr[_ChunkIndex], _CachedChunkList.EntityComponentStore);
+                chunk = new ArchetypeChunk(_CachedChunkList.ChunkIndices[_ChunkIndex], _CachedChunkList.EntityComponentStore);
                 movedToNewChunk = true;
                 entityStartIndex = 0;
                 entityEndIndex = chunk.Count;
@@ -228,7 +229,7 @@ namespace Unity.Entities.Internal
                     return false;
                 }
 
-                chunk = new ArchetypeChunk(_CachedChunkList.Ptr[_ChunkIndex], _CachedChunkList.EntityComponentStore);
+                chunk = new ArchetypeChunk(_CachedChunkList.ChunkIndices[_ChunkIndex], _CachedChunkList.EntityComponentStore);
                 IndexInChunk = 0;
                 _EndIndexInChunk = chunk.Count;
                 return true;

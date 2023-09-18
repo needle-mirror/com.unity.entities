@@ -151,11 +151,10 @@ namespace Unity.Entities.Tests
                 m_Manager.Instantiate(toInstantiate);
                 m_Manager.Instantiate(toInstantiate, TmpNA(2));
                 m_Manager.Instantiate(toInstantiate, 2, World.UpdateAllocator.ToAllocator);
-                m_Manager.Instantiate(TmpNA(toInstantiate, toInstantiate), TmpNA(2));
             }
 
             Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
-            Assert.AreEqual(OriginalEntitiesCount * 7 + 1, Component01EntitiesCount);
+            Assert.AreEqual(OriginalEntitiesCount * 5 + 1, Component01EntitiesCount);
         }
 
         [Test]
@@ -197,7 +196,6 @@ namespace Unity.Entities.Tests
                 Assert.Throws<InvalidOperationException>(() => m_Manager.Instantiate(toInstantiate));
                 Assert.Throws<InvalidOperationException>(() => m_Manager.Instantiate(toInstantiate, TmpNA(2)));
                 Assert.Throws<InvalidOperationException>(() => m_Manager.Instantiate(toInstantiate, 2, World.UpdateAllocator.ToAllocator));
-                Assert.Throws<InvalidOperationException>(() => m_Manager.Instantiate(TmpNA(toInstantiate, toInstantiate), TmpNA(2)));
             }
 
             Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
@@ -217,7 +215,6 @@ namespace Unity.Entities.Tests
             ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate));
             ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate, TmpNA(2)));
             ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(toInstantiate, 2, World.UpdateAllocator.ToAllocator));
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.Instantiate(TmpNA(toInstantiate, toInstantiate), TmpNA(2)));
 
             Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
         }
@@ -236,10 +233,9 @@ namespace Unity.Entities.Tests
             CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.Instantiate(toInstantiate));
             CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.Instantiate(toInstantiate, TmpNA(2)));
             CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.Instantiate(toInstantiate, 2, World.UpdateAllocator.ToAllocator));
-            CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.Instantiate(TmpNA(toInstantiate, toInstantiate), TmpNA(2)));
 
             Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
-            Assert.AreEqual(OriginalEntitiesCount * 7 + 1, Component01EntitiesCount);
+            Assert.AreEqual(OriginalEntitiesCount * 5 + 1, Component01EntitiesCount);
         }
 
         [Test]
@@ -262,22 +258,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void CopyEntities_WithArchetypeNotMatchingQuery_CompletesAllScheduledJobs()
-        {
-            SetupEntitiesForConsistencyCheck(OriginalEntitiesCount);
-
-            var toCopy = m_Manager.CreateEntity(typeof(Component01));
-
-            var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef);
-            var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>());
-
-            CreateSystemAndAssertAllScheduledJobsAreCompletedAfterRunningCode(query, ref typeHandle, () => m_Manager.Instantiate(TmpNA(toCopy, toCopy), TmpNA(2)));
-
-            Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
-            Assert.AreEqual(OriginalEntitiesCount * 2 + 1, Component01EntitiesCount);
-        }
-
-        [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query enumerator safety checks")]
         public void CopyEntities_WithArchetypeMatchingQuery_Throws()
         {
@@ -291,8 +271,7 @@ namespace Unity.Entities.Tests
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
                 AssertValueConsistency(aspect);
-
-                Assert.Throws<InvalidOperationException>(() => m_Manager.Instantiate(TmpNA(toCopy, toCopy), TmpNA(2)));
+                Assert.Throws<InvalidOperationException>(() => m_Manager.Instantiate(toCopy));
             }
 
             Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
@@ -401,7 +380,6 @@ namespace Unity.Entities.Tests
                 Assert.Throws<InvalidOperationException>(() => m_Manager.Instantiate(prefabEntity));
                 Assert.Throws<InvalidOperationException>(() => m_Manager.Instantiate(prefabEntity, TmpNA(2)));
                 Assert.Throws<InvalidOperationException>(() => m_Manager.Instantiate(prefabEntity, 2, World.UpdateAllocator.ToAllocator));
-                Assert.Throws<InvalidOperationException>(() => m_Manager.Instantiate(TmpNA(prefabEntity, prefabEntity), TmpNA(2)));
             }
         }
 

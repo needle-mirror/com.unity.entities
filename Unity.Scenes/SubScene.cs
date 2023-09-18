@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.Collections.Generic;
 using Unity.Entities;
@@ -415,4 +414,3 @@ namespace Unity.Scenes
         }
     }
 }
-#endif

@@ -94,7 +94,7 @@ namespace Unity.Entities
         {
             [ReadOnly] public NativeList<ArchetypeChunk> Chunks;
             [WriteOnly] public NativeParallelHashMap<ulong, ArchetypeChunk>.ParallelWriter ChunksBySequenceNumber;
-            public void Execute(int index) => ChunksBySequenceNumber.TryAdd(Chunks[index].m_Chunk->SequenceNumber, Chunks[index]);
+            public void Execute(int index) => ChunksBySequenceNumber.TryAdd(Chunks[index].m_Chunk.SequenceNumber, Chunks[index]);
         }
 
         /// <summary>
@@ -129,35 +129,35 @@ namespace Unity.Entities
                     var srcChunk = default(ArchetypeChunk);
 
                     // Any look for a matching chunk in the destination world.
-                    SrcChunksBySequenceNumber.TryGetValue(dstChunk.m_Chunk->SequenceNumber, out srcChunk);
+                    SrcChunksBySequenceNumber.TryGetValue(dstChunk.m_Chunk.SequenceNumber, out srcChunk);
 
-                    if (srcChunk.m_Chunk == null)
+                    if (srcChunk.m_Chunk == ChunkIndex.Null)
                     {
                         // This chunk exists in the destination world but NOT in the source world.
                         // This means the chunk was simply destroyed.
                         DestroyedChunks.Add(dstChunk);
                         DestroyedChunkFlags.Add(ArchetypeChunkChangeFlags.None);
                         DestroyedChunkEntityCounts.Add(destroyedChunkEntityCount);
-                        destroyedChunkEntityCount += dstChunk.m_Chunk->Count;
+                        destroyedChunkEntityCount += dstChunk.m_Chunk.Count;
                     }
                     else
                     {
-                        if (ChunksAreDifferent(dstChunk.m_Chunk, srcChunk.m_Chunk))
+                        if (ChunksAreDifferent(srcChunk.Archetype.Archetype, srcChunk.m_Chunk, dstChunk.Archetype.Archetype, dstChunk.m_Chunk))
                         {
                             // The chunk exists in both worlds, but it has been changed in some way.
                             // Treat this chunk as being destroyed and re-created.
                             DestroyedChunks.Add(dstChunk);
                             DestroyedChunkFlags.Add(ArchetypeChunkChangeFlags.Cloned);
                             DestroyedChunkEntityCounts.Add(destroyedChunkEntityCount);
-                            destroyedChunkEntityCount += dstChunk.m_Chunk->Count;
+                            destroyedChunkEntityCount += dstChunk.m_Chunk.Count;
 
                             CreatedChunks.Add(srcChunk);
                             CreatedChunkFlags.Add(ArchetypeChunkChangeFlags.Cloned);
                             CreatedChunkEntityCounts.Add(createdChunkEntityCounts);
-                            createdChunkEntityCounts += srcChunk.m_Chunk->Count;
+                            createdChunkEntityCounts += srcChunk.m_Chunk.Count;
                         }
 
-                        visitedChunks.TryAdd(srcChunk.m_Chunk->SequenceNumber, 1);
+                        visitedChunks.TryAdd(srcChunk.m_Chunk.SequenceNumber, 1);
                     }
                 }
 
@@ -167,14 +167,14 @@ namespace Unity.Entities
                     var srcChunk = SrcChunks[i];
 
                     // We only care about chunks we have not visited yet.
-                    if (!visitedChunks.TryGetValue(srcChunk.m_Chunk->SequenceNumber, out _))
+                    if (!visitedChunks.TryGetValue(srcChunk.m_Chunk.SequenceNumber, out _))
                     {
                         // This chunk exists in the source world but NOT in the destination world.
                         // This means the chunk was created.
                         CreatedChunks.Add(srcChunk);
                         CreatedChunkFlags.Add(ArchetypeChunkChangeFlags.Cloned);
                         CreatedChunkEntityCounts.Add(createdChunkEntityCounts);
-                        createdChunkEntityCounts += srcChunk.m_Chunk->Count;
+                        createdChunkEntityCounts += srcChunk.m_Chunk.Count;
                     }
                 }
 
@@ -182,22 +182,28 @@ namespace Unity.Entities
                 DestroyedChunkEntityCounts.Add(destroyedChunkEntityCount);
             }
 
-            static bool ChunksAreDifferent(Chunk* srcChunk, Chunk* dstChunk)
+            static bool ChunksAreDifferent(Archetype* srcArchetype, ChunkIndex srcChunk, Archetype* dstArchetype, ChunkIndex dstChunk)
             {
-                if (srcChunk->Count != dstChunk->Count)
+                if (srcChunk.Count != dstChunk.Count)
                     return true;
 
-                if (srcChunk->Archetype->TypesCount != dstChunk->Archetype->TypesCount)
+                if (srcArchetype->TypesCount != dstArchetype->TypesCount)
                     return true;
 
-                var typeCount = srcChunk->Archetype->TypesCount;
+                var typeCount = srcArchetype->TypesCount;
+
+                var srcChunkListIndex = srcChunk.ListIndex;
+                var dstChunkListIndex = dstChunk.ListIndex;
 
                 for (var typeIndex = 0; typeIndex < typeCount; ++typeIndex)
                 {
-                    if (srcChunk->Archetype->Types[typeIndex] != dstChunk->Archetype->Types[typeIndex])
+                    if (srcArchetype->Types[typeIndex] != dstArchetype->Types[typeIndex])
                         return true;
 
-                    if (srcChunk->GetChangeVersion(typeIndex) != dstChunk->GetChangeVersion(typeIndex))
+                    var srcVersion = srcArchetype->Chunks.GetChangeVersion(typeIndex, srcChunkListIndex);
+                    var dstVersion = dstArchetype->Chunks.GetChangeVersion(typeIndex, dstChunkListIndex);
+
+                    if (srcVersion != dstVersion)
                         return true;
                 }
 

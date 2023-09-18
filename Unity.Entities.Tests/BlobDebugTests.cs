@@ -1,4 +1,3 @@
-#if !NET_DOTS
 using UnityEngine;
 using NUnit.Framework;
 using System;
@@ -194,4 +193,3 @@ public class BlobDebugTests
         CollectionAssert.AreEqual(new []{"One", "Two", "Three"}, arr.Entries);
     }
 }
-#endif

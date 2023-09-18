@@ -34,12 +34,6 @@
     "defineConstraints": [
         "UNITY_INCLUDE_TESTS"
     ],
-  "versionDefines": [
-    {
-      "name": "com.unity.platforms",
-      "expression": "",
-      "define": "USING_PLATFORMS_PACKAGE"
-    }
-  ],
+  "versionDefines": [],
     "noEngineReferences": false
 }

@@ -1,13 +1,12 @@
 using System;
 using System.Collections.Generic;
-#if !NET_DOTS
 using System.Linq;
-#endif
 using Unity;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using UnityEngine.Serialization;
 
 namespace Unity.Entities
 {
@@ -144,7 +143,7 @@ namespace Unity.Entities
 
         internal struct SystemElement 
         {
-            public SystemTypeIndex SystemTypeIndex;
+            public int SystemTypeIndex;
             public UpdateIndex Index;
             public int OrderingBucket; // 0 = OrderFirst, 1 = none, 2 = OrderLast
             public NativeList<int> updateBefore;
@@ -198,7 +197,7 @@ namespace Unity.Entities
             var sortedElements = new UnsafeList<SystemElement>(elements.Length,
                 Allocator.Temp);
             sortedElements.Length = elements.Length;
-            var sortedIndices = new UnsafeList<SystemTypeIndex>(elements.Length,
+            var sortedIndices = new UnsafeList<int>(elements.Length,
                 Allocator.Temp);
             sortedIndices.Length = elements.Length;
             
@@ -484,7 +483,8 @@ namespace Unity.Entities
                             for (int i = 0; i < group.m_UnmanagedSystemsToUpdate.Length; i++)
                             {
                                 if (TypeManager.GetSystemType(
-                                        group.World.Unmanaged.ResolveSystemState(group.m_UnmanagedSystemsToUpdate[i])->
+                                        group.World.Unmanaged.ResolveSystemState(
+                                                group.m_UnmanagedSystemsToUpdate[i])->
                                             m_SystemTypeIndex) ==
                                     targetType)
                                 {
@@ -503,10 +503,7 @@ namespace Unity.Entities
                                 continue;
                             }
                         }
-                    }
 
-                    if (group != null)
-                    {
                         var groupTypeIndex = TypeManager.GetSystemTypeIndex(groupType);
                         var thisBucket =
                             ComponentSystemGroup.ComputeSystemOrdering(systemTypeIndex, groupTypeIndex);
@@ -545,7 +542,7 @@ namespace Unity.Entities
 
                 var before = TypeManager.GetSystemAttributes(systemTypeIndex, beforekind);
                 var after = TypeManager.GetSystemAttributes(systemTypeIndex, afterkind);
-                
+
                 for (int j = 0; j < before.Length; j++) 
                 {
                     var attr = before[j];
@@ -567,7 +564,7 @@ namespace Unity.Entities
                     sysElems.ElementAt(i).updateBefore.Add(attr.TargetSystemTypeIndex);
                     sysElems.ElementAt(depIndex).nAfter++;
                 }
-                
+
                 for (int j = 0; j < after.Length; j++) 
                 {
                     var attr = after[j];

@@ -192,15 +192,6 @@ namespace Unity.Entities.CodeGen
                             memo.m_BurstCompileBits |= 1 << i;
                         }
 
-#if UNITY_DOTSRUNTIME
-                        // Burst CompileFunctionPointer in DOTS Runtime will not currently decorate methods as [MonoPInvokeCallback]
-                        // so we add that here until that is supported
-                        var monoPInvokeCallbackAttributeConstructor =
-                            typeof(Jobs.MonoPInvokeCallbackAttribute).GetConstructor(Type.EmptyTypes);
-                        methodDef.CustomAttributes.Add(
-                            new CustomAttribute(mod.ImportReference(monoPInvokeCallbackAttributeConstructor)));
-#else
-
                         // Adding MonoPInvokeCallbackAttribute needed for IL2CPP to work when burst is disabled
                         var monoPInvokeCallbackAttributeConstructors =
                             typeof(MonoPInvokeCallbackAttribute).GetConstructors(BindingFlags.Public |
@@ -212,7 +203,6 @@ namespace Unity.Entities.CodeGen
                         methodDef.CustomAttributes.Add(monoPInvokeCallbackAttribute);
 
                         methodDef.CustomAttributes.Add(new CustomAttribute(preserveAttrCtor));
-#endif
 
                         var processor = methodDef.Body.GetILProcessor();
 

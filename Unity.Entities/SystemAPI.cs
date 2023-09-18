@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using Unity.Core;
 
 namespace Unity.Entities
@@ -727,7 +727,6 @@ namespace Unity.Entities
         public static class ManagedAPI
         {
             #region Query
-#if !UNITY_DOTSRUNTIME
             /// <summary>
             /// Can be used inside <see cref="SystemAPI.Query{T}"/> iteration to retrieve UnityEngine components like
             /// ScriptableObjects, MonoBehaviour and UnityEngine.Transform
@@ -746,7 +745,6 @@ namespace Unity.Entities
                 /// <param name="value"></param>
                 public UnityEngineComponent(T value) => Value = value;
             }
-#endif
             #endregion
 
             #region ComponentData

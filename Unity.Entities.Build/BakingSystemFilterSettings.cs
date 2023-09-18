@@ -80,6 +80,7 @@ namespace Unity.Entities.Build
             return UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEditorInternal.AssemblyDefinitionAsset>(assetPath);
         }
 
+        //todo: add this attribute to GetSystemAttributes, and then stop using reflection here
         internal bool ShouldRunBakingSystem(Type type)
         {
             UpdateIfDirty();

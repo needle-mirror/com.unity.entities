@@ -1,4 +1,4 @@
-namespace Unity.Entities.SourceGen.JobEntityGenerator;
+﻿namespace Unity.Entities.SourceGen.JobEntityGenerator;
 
 public enum ComponentRefWrapperType
 {

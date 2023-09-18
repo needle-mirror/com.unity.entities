@@ -1,44 +1,24 @@
 using Microsoft.CodeAnalysis;
-using Microsoft.CodeAnalysis.CSharp.Syntax;
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
 using System.Threading;
-using static Microsoft.CodeAnalysis.CSharp.SyntaxFactory;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Microsoft.CodeAnalysis.Text;
 
 namespace Unity.Entities.SourceGen.Common
 {
     public static class SourceGenHelpers
     {
-        public const string TrackedNodeAnnotationUsedByRoslyn = "Id";
-
-        public static SyntaxList<AttributeListSyntax> GetCompilerGeneratedAttribute()
-            => AttributeListFromAttributeName("global::System.Runtime.CompilerServices.CompilerGenerated");
-
-        static SyntaxList<AttributeListSyntax> AttributeListFromAttributeName(string attributeName) =>
-            new SyntaxList<AttributeListSyntax>(AttributeList(SingletonSeparatedList(Attribute(IdentifierName(attributeName)))));
-
-        public static class CompilerError
-        {
-            public static string WithMessage(string errorMessage) =>
-                "This error indicates a bug in the DOTS source generators. We'd appreciate a bug report (Help -> Report a Bug...). Thanks! " +
-                $"Error message: '{errorMessage}'";
-        }
-
         public static void LogError(this GeneratorExecutionContext context, string errorCode, string title, string errorMessage, Location location, string description = "")
         {
             if (errorCode.Contains("ICE"))
-                errorMessage = CompilerError.WithMessage(errorMessage);
+                errorMessage = "This error indicates a bug in the DOTS source generators. We'd appreciate a bug report (Help -> Report a Bug...). Thanks! " +
+                    $"Error message: '{errorMessage}'";
 
-            context.Log(DiagnosticSeverity.Error, errorCode, title, errorMessage, location, description);
-        }
-
-        static void Log(this GeneratorExecutionContext context, DiagnosticSeverity diagnosticSeverity, string errorCode, string title, string errorMessage, Location location, string description = "")
-        {
-            SourceOutputHelpers.LogInfoToSourceGenLog($"{diagnosticSeverity}: {errorCode}, {title}, {errorMessage}");
-            var rule = new DiagnosticDescriptor(errorCode, title, errorMessage, "Source Generator", diagnosticSeverity, true, description);
+            SourceOutputHelpers.LogInfoToSourceGenLog($"{DiagnosticSeverity.Error}: {errorCode}, {title}, {errorMessage}");
+            var rule = new DiagnosticDescriptor(errorCode, title, errorMessage, "Source Generator", DiagnosticSeverity.Error, true, description);
             context.ReportDiagnostic(Diagnostic.Create(rule, location));
         }
 
@@ -47,8 +27,6 @@ namespace Unity.Entities.SourceGen.Common
             var unqualifiedEnumValue = value.Split('.').Last();
             return Enum.TryParse(unqualifiedEnumValue, out result) && Enum.IsDefined(typeof(TEnum), result);
         }
-
-        public static IEnumerable<Enum> GetFlags(this Enum e) => Enum.GetValues(e.GetType()).Cast<Enum>().Where(e.HasFlag);
 
         public static SourceText WithInitialLineDirectiveToGeneratedSource(this SourceText sourceText, string generatedSourceFilePath)
         {

@@ -6,9 +6,6 @@ using System.Linq;
 using Unity.Collections;
 using Unity.Collections.NotBurstCompatible;
 using Unity.Entities;
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build.Common;
-#endif
 using Unity.Entities.Conversion;
 using Unity.Entities.Serialization;
 using UnityEditor;

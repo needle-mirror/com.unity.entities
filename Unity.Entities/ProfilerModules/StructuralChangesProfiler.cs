@@ -18,11 +18,7 @@ namespace Unity.Entities
         sealed class SharedInitialized { internal static readonly SharedStatic<bool> Ref = SharedStatic<bool>.GetOrCreate<bool>(); }
         sealed class SharedStaticData { internal static readonly SharedStatic<StaticData> Ref = SharedStatic<StaticData>.GetOrCreate<StaticData>(); }
 
-#if UNITY_DOTSRUNTIME
-        public static bool Enabled => Profiler.enabled;
-#else
         public static bool Enabled => Profiler.enabled && Profiler.IsCategoryEnabled(s_Data.Category);
-#endif
         public static Guid Guid => s_Data.Guid;
         public static ProfilerCategory Category => s_Data.Category;
 

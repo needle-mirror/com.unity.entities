@@ -804,9 +804,6 @@ namespace Unity.Entities.Tests
         }
     }
 
-#if !NET_DOTS
-// https://unity3d.atlassian.net/browse/DOTSR-1432
-
     internal class EcsTestManagedDataEntityCollection : IComponentData
     {
         public List<string> value0;
@@ -824,7 +821,6 @@ namespace Unity.Entities.Tests
             nullField = null;
         }
     }
-#endif
 
     internal class EcsTestManagedComponent : IComponentData
     {

@@ -122,20 +122,20 @@ namespace Unity.Entities
 
         // After cloning two worlds have access to the same malloc'ed buffer pointer leading to double deallocate etc.
         // So after cloning, just allocate all malloc based buffers and copy the data.
-        public static void PatchAfterCloningChunk(Chunk* chunk)
+        public static void PatchAfterCloningChunk(Archetype* archetype, byte* chunkBuffer, int entityCount)
         {
-            for (int i = 0; i < chunk->Archetype->TypesCount; ++i)
+            for (int i = 0, archetypeTypesCount = archetype->TypesCount; i < archetypeTypesCount; ++i)
             {
-                var type = chunk->Archetype->Types[i];
+                var type = archetype->Types[i];
                 if (!type.IsBuffer)
                     continue;
                 ref readonly var ti = ref TypeManager.GetTypeInfo(type.TypeIndex);
-                var sizeOf = chunk->Archetype->SizeOfs[i];
-                var offset = chunk->Archetype->Offsets[i];
-                for (var j = 0; j < chunk->Count; ++j)
+                var sizeOf = archetype->SizeOfs[i];
+                var offset = archetype->Offsets[i];
+                for (var j = 0; j < entityCount; ++j)
                 {
                     var offsetOfBuffer = offset + sizeOf * j;
-                    var header = (BufferHeader*)(chunk->Buffer + offsetOfBuffer);
+                    var header = (BufferHeader*)(chunkBuffer + offsetOfBuffer);
                     if (header->Pointer != null) // hoo boy, it's a malloc
                     {
                         BufferHeader newHeader = *header;

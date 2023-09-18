@@ -14,6 +14,11 @@ namespace Unity.Entities.Editor
         {
         }
 
+        string[] ISetting.GetSearchKeywords()
+        {
+            return ISetting.GetSearchKeywordsFromType(Configuration.GetType());
+        }
+
         [UsedImplicitly]
         class Inspector : PropertyInspector<SystemsWindowPreferenceSettings>
         {

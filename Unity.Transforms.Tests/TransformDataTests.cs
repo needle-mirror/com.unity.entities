@@ -36,6 +36,11 @@ namespace Unity.Entities.Tests
             return AreNearlyEqual(a.c0, b.c0, tolerance) && AreNearlyEqual(a.c1, b.c1, tolerance) && AreNearlyEqual(a.c2, b.c2, tolerance) && AreNearlyEqual(a.c3, b.c3, tolerance);
         }
 
+        static bool AreNearlyEqual(LocalTransform a, LocalTransform b, float tolerance)
+        {
+            return AreNearlyEqual(a.Position, b.Position, tolerance) && AreNearlyEqual(a.Rotation.value, b.Rotation.value, tolerance) && AreNearlyEqual(a.Scale, b.Scale, tolerance);
+        }
+
         static LocalTransform GetTestTransform1()
         {
             var rotation = quaternion.Euler(math.PI / 2, math.PI / 3, math.PI / 4);
@@ -234,25 +239,41 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(AreNearlyEqual(transform.Inverse().ToMatrix(), math.inverse(matrix), k_Tolerance));
         }
 
-        [Test]
-        public void TDT_FromMatrix()
+        static readonly TestCaseData[] k_FromMatrixTestCaseData =
         {
-            var matrix = GetTestMatrix1();
-            var transform = LocalTransform.FromMatrix(matrix);
-            Assert.IsTrue(AreNearlyEqual(transform.ToMatrix(), matrix, k_Tolerance));
+            new (float4x4.identity, new LocalTransform() { Position = float3.zero, Rotation = quaternion.identity, Scale = 1.0f }),
+            new (float4x4.TRS(float3.zero, quaternion.identity, 2.0f), new LocalTransform() { Position = float3.zero, Rotation = quaternion.identity, Scale = 2.0f }),
+            new (float4x4.TRS(new float3(1.0f, 2.0f, 3.0f), quaternion.EulerXYZ(math.radians(new float3(10.0f, 20f, -45f))), 2.0f), new LocalTransform() { Position = new float3(1.0f, 2.0f, 3.0f), Rotation = quaternion.EulerXYZ(math.radians(new float3(10.0f, 20f, -45f))), Scale = 2.0f }),
+            new (new float4x4(2.0f, 0.0f, 0.0f, 0.0f,  0.0f, 2.0f, 0.0f, 0.0f,  0.0f, 0.0f, 2.0f, 0.0f,  0.0f, 0.0f, 0.0f, 1.0f), new LocalTransform() { Position = float3.zero, Rotation = quaternion.identity, Scale = 2.0f }),
+            new (new float4x4(1.0f, 0.0f, 0.0f, 1.0f,  0.0f, 1.0f, 0.0f, 2.0f,  0.0f, 0.0f, 1.0f, 3.0f,  0.0f, 0.0f, 0.0f, 1.0f), new LocalTransform() { Position = new float3(1.0f, 2.0f, 3.0f), Rotation = quaternion.identity, Scale = 1.0f }),
+            new (new float4x4(0.0f, 0.0f, 1.0f, 1.0f,  0.0f, 1.0f, 0.0f, 2.0f,  -1.0f, 0.0f, 0.0f, 3.0f,  0.0f, 0.0f, 0.0f, 1.0f), new LocalTransform() { Position = new float3(1.0f, 2.0f, 3.0f), Rotation = quaternion.RotateY(math.radians(90.0f)), Scale = 1.0f }),
+        };
+
+        static readonly TestCaseData[] k_FromMatrixInvalidTestCaseData =
+        {
+            new (new float4x4(1.0f, 0.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f, 0.0f,  1.0f, 0.0f, 0.0f, 0.0f,  0.0f, 0.0f, 0.0f, 1.0f)),  // Non-scaled, skewed
+            new (new float4x4(1.0f, 0.0f, 0.0f, 0.0f,  1.0f, 2.0f, 0.0f, 0.0f,  1.0f, 0.0f, 2.0f, 0.0f,  0.0f, 0.0f, 0.0f, 1.0f)),  // Non-uniform scaled, skewed
+            new (new float4x4(1.0f, 0.0f, 0.0f, 0.0f,  0.0f, 2.0f, 0.0f, 0.0f,  0.0f, 0.0f, 3.0f, 0.0f,  0.0f, 0.0f, 0.0f, 1.0f)),  // Non-uniform scaled, orthogonal
+        };
+
+        [TestCaseSource(nameof(k_FromMatrixTestCaseData))]
+        public void TDT_FromMatrixSafe(float4x4 input, LocalTransform expected)
+        {
+            LocalTransform localTransform = LocalTransform.FromMatrixSafe(input);
+            Assert.IsTrue(AreNearlyEqual(localTransform, expected, k_Tolerance));
         }
 
-        [Test]
-        public void TDT_FromMatrixSafe()
+        [TestCaseSource(nameof(k_FromMatrixInvalidTestCaseData))]
+        public void TDT_FromMatrixSafe_Throws(float4x4 input)
         {
-            var matrix = GetTestMatrix1();
-            FastAssert.DoesNotThrow(() => { LocalTransform.FromMatrix(matrix); });
-            var nonuniformScaleMatrix = matrix;
-            nonuniformScaleMatrix.c0 *= .5f;
-            FastAssert.Throws<ArgumentException>(() => { LocalTransform.FromMatrixSafe(nonuniformScaleMatrix); });
-            var shearMatrix = matrix;
-            shearMatrix.c0 = shearMatrix.c1;
-            FastAssert.Throws<ArgumentException>(() => { LocalTransform.FromMatrixSafe(shearMatrix); });
+            NUnit.Framework.Assert.Throws<ArgumentException>( () => LocalTransform.FromMatrixSafe(input));
+        }
+
+        [TestCaseSource(nameof(k_FromMatrixTestCaseData))]
+        public void TDT_FromMatrix(float4x4 input, LocalTransform expected)
+        {
+            LocalTransform localTransform = LocalTransform.FromMatrix(input);
+            Assert.IsTrue(AreNearlyEqual(localTransform, expected, k_Tolerance));
         }
 
         [Test]

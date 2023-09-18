@@ -95,6 +95,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void WithAbsent() => GetTestSystemUnsafe().WithAbsent(ref GetSystemStateRef());
 
         [Test]
+        public void WithPresent() => GetTestSystemUnsafe().WithPresent(ref GetSystemStateRef());
+
+        [Test]
         public void WithAny_DoesntExecute_OnEntityWithoutThatComponent() => GetTestSystemUnsafe().WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref GetSystemStateRef());
 
         #region SharedComponent
@@ -231,6 +234,14 @@ namespace Unity.Entities.Tests.ForEachCodegen
         void Execute(ref EcsTestData e1) => e1.value = absentValue;
     }
 
+    [WithPresent(typeof(EcsTestDataEnableable))]
+    partial struct WithPresentJob : IJobEntity
+    {
+        public int presentValue;
+
+        void Execute(ref EcsTestData e1) => e1.value = presentValue;
+    }
+
     [WithAny(typeof(EcsTestData3))]
     partial struct WithAny_DoesntExecute_OnEntityWithoutThatComponentJob : IJobEntity
     {
@@ -365,6 +376,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual(1, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
         }
 
+        public void WithPresent(ref SystemState state)
+        {
+            // Test with the present component disabled
+            state.EntityManager.SetComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity, false);
+            new WithPresentJob{ presentValue= 1}.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(1, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+            // test again with the present component enabled
+            state.EntityManager.SetComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity, true);
+            new WithPresentJob{ presentValue= 2}.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(2, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
         public void WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref SystemState state)
         {
             new WithAny_DoesntExecute_OnEntityWithoutThatComponentJob { one = 1 }.Schedule();
@@ -483,9 +508,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             new SimpleEntityJob().Schedule();
             state.Dependency.Complete();
-#if !UNITY_DOTSRUNTIME
             LogAssert.NoUnexpectedReceived();
-#endif
         }
 
         public void Schedule_CombineDependencies_Works(ref SystemState state)

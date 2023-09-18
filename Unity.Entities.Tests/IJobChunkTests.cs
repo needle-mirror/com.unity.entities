@@ -6,9 +6,7 @@ using Unity.Collections;
 using Unity.Jobs;
 using UnityEngine;
 using UnityEngine.TestTools;
-#if !NET_DOTS
 using System.Text.RegularExpressions;
-#endif
 
 namespace Unity.Entities.Tests
 {
@@ -29,11 +27,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-        static unsafe bool IsChunkInitialized(ArchetypeChunk chunk)
-        {
-            return chunk.m_Chunk != null;
-        }
-
         // Not Burst compiling since we are Asserting in this job
         struct WriteChunkInfoToArray : IJobChunk
         {
@@ -48,7 +41,7 @@ namespace Unity.Entities.Tests
             {
                 // We expect the Chunks array to be uninitialized until written by this job.
                 // If this fires, some other job thread has filled in this batch's info already!
-                Assert.IsFalse(IsChunkInitialized(Chunks[unfilteredChunkIndex]));
+                Assert.IsTrue(Chunks[unfilteredChunkIndex].Invalid());
                 Assert.NotZero(chunk.Count);
 
                 Chunks[unfilteredChunkIndex] = chunk;
@@ -93,6 +86,57 @@ namespace Unity.Entities.Tests
         }
 #endif
 
+        struct ChunkIndexJob : IJobChunk
+        {
+            public NativeArray<int> OutPerChunkData;
+            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            {
+                // If JobsUtility.PatchBufferMinMaxRanges() is not called correctly, this array write will fail
+                OutPerChunkData[unfilteredChunkIndex] = unfilteredChunkIndex;
+            }
+        }
+
+        [Test,TestRequiresCollectionChecks]
+        public void IJobChunk_DefaultArrayRangeCheck_Works([Values] bool enableChunkFilter)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestSharedComp));
+            int entityCount = 1000;
+            using var entities = m_Manager.CreateEntity(archetype, entityCount, World.UpdateAllocator.ToAllocator);
+            using var queryBuilder = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData,EcsTestSharedComp>();
+            using var query = m_Manager.CreateEntityQuery(queryBuilder);
+            int sharedComponentFilterValue = 17;
+            if (enableChunkFilter)
+            {
+                query.SetSharedComponentFilter(new EcsTestSharedComp { value = sharedComponentFilterValue });
+                for (int i = 0; i < entityCount; i += 2)
+                {
+                    m_Manager.SetSharedComponent(entities[i],
+                        new EcsTestSharedComp { value = sharedComponentFilterValue });
+                }
+            }
+
+            int chunkCount = query.CalculateChunkCountWithoutFiltering();
+            var outputPerChunkData = CollectionHelper.CreateNativeArray<int>(chunkCount, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < chunkCount; ++i)
+                outputPerChunkData[i] = -1;
+            var job = new ChunkIndexJob{
+                OutPerChunkData = outputPerChunkData,
+            };
+            job.ScheduleParallelByRef(query, default).Complete();
+
+            query.ResetFilter();
+            using var unfilteredChunks = query.ToArchetypeChunkArray(Allocator.TempJob);
+            var sharedComponentTypeHandle = m_Manager.GetSharedComponentTypeHandle<EcsTestSharedComp>();
+            for (int i = 0; i < chunkCount; ++i)
+            {
+                int expectedValue = i;
+                if (enableChunkFilter)
+                    expectedValue = unfilteredChunks[i].GetSharedComponent(sharedComponentTypeHandle).value == sharedComponentFilterValue ? i : -1;
+                Assertions.Assert.AreEqual(expectedValue, outputPerChunkData[i]);
+            }
+            outputPerChunkData.Dispose();
+        }
+
         struct ChunkBaseEntityIndexJob : IJobChunk
         {
             [ReadOnly] public NativeArray<int> ChunkBaseEntityIndices;
@@ -112,7 +156,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-        [Test]
+        [Test,TestRequiresCollectionChecks]
         public void IJobChunk_OptionalArrayRangeCheck_Works()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -139,8 +183,6 @@ namespace Unity.Entities.Tests
             Parallel, Single, Run, RunWithoutJobs
         }
 
-// TODO(https://unity3d.atlassian.net/browse/DOTSR-2746): [TestCase(args)] is not supported in the portable test runner
-#if !UNITY_PORTABLE_TEST_RUNNER
         [TestCase(ScheduleMode.Parallel)]
         [TestCase(ScheduleMode.Single)]
         [TestCase(ScheduleMode.Run)]
@@ -184,7 +226,7 @@ namespace Unity.Entities.Tests
             for (int chunkIndex = 0; chunkIndex < chunks.Length; ++chunkIndex)
             {
                 var chunk = chunks[chunkIndex];
-                if (!IsChunkInitialized(chunk))
+                if (chunk.Invalid())
                     continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
                 FastAssert.Greater(chunk.Count, 0); // empty batches should not have been Execute()ed
                 FastAssert.AreEqual(chunk.Count, chunk.Count);
@@ -254,7 +296,7 @@ namespace Unity.Entities.Tests
             for (int chunkIndex = 0; chunkIndex < chunks.Length; ++chunkIndex)
             {
                 var chunk = chunks[chunkIndex];
-                if (!IsChunkInitialized(chunk))
+                if (chunk.Invalid())
                     continue; // this is fine; empty/filtered batches will be skipped and left uninitialized.
                 FastAssert.Greater(chunk.Count, 0); // empty batches should not have been Execute()ed
                 FastAssert.AreEqual(chunk.Count, chunk.Count);
@@ -284,7 +326,6 @@ namespace Unity.Entities.Tests
                 }
             }
         }
-#endif
 
         [BurstCompile(CompileSynchronously = true)]
         struct WriteToArray : IJobChunk
@@ -300,7 +341,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !NET_DOTS // DOTS Runtimes does not support regex
         [Test]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void ParallelArrayWriteTriggersSafetySystem()
@@ -318,7 +358,6 @@ namespace Unity.Entities.Tests
                 }.ScheduleParallel(query, default).Complete();
             }
         }
-#endif
 
         [Test]
         public void SingleArrayWriteDoesNotTriggerSafetySystem()
@@ -559,8 +598,6 @@ namespace Unity.Entities.Tests
         }
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-        // TODO(DOTS-6573): This test can be enabled once DOTSRT supports AtomicSafetyHandle.SetExclusiveWeak()
-#if !UNITY_DOTSRUNTIME
         [Test]
         public void ConcurrentJob_WritesToEnableableComponentInQuery_Throws()
         {
@@ -576,7 +613,6 @@ namespace Unity.Entities.Tests
             // With the correct dependency, it's fine.
             Assert.DoesNotThrow(() => job2.Schedule(handle1).Complete());
         }
-#endif
 #endif
     }
 

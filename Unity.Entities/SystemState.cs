@@ -73,8 +73,8 @@ namespace Unity.Entities
         #endregion
 
         #region Rarely accessed during System.OnUpdate depending on what they do (Cold)
-        internal SystemTypeIndex               m_SystemTypeIndex;
-        
+        internal SystemTypeIndex   m_SystemTypeIndex;
+
         internal int                           m_SystemID;
 
         internal EntityManager                 m_EntityManager;
@@ -503,13 +503,11 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
         internal static void InitSystemIdCell()
         {
-#if !UNITY_DOTSRUNTIME
             if (s_SystemIdCellPtr.Data == IntPtr.Zero)
             {
                 s_SystemIdCellPtr.Data = JobsUtility.GetSystemIdCellPtr();
                 SetCurrentSystemIdForJobDebugger(0);
             }
-#endif
         }
 #endif
 
@@ -517,14 +515,10 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
         internal static int SetCurrentSystemIdForJobDebugger(int id)
         {
-#if !UNITY_DOTSRUNTIME
             var ptr = *(int**)s_SystemIdCellPtr.UnsafeDataPointer;
             var old = *ptr;
             *ptr = id;
             return old;
-#else
-            return 0;
-#endif
         }
 #endif
 
@@ -1238,6 +1232,11 @@ namespace Unity.Entities
                     {
                         var componentType = new ComponentType{ TypeIndex = archetypeQuery.Disabled[i], AccessModeType = (ComponentType.AccessMode)archetypeQuery.DisabledAccessMode[i] };
                         builder.WithDisabled(&componentType, 1);
+                    }
+                    for (var i = 0; i < archetypeQuery.PresentCount; i++)
+                    {
+                        var componentType = new ComponentType{ TypeIndex = archetypeQuery.Present[i], AccessModeType = (ComponentType.AccessMode)archetypeQuery.PresentAccessMode[i] };
+                        builder.WithPresent(&componentType, 1);
                     }
                     builder.WithOptions(archetypeQuery.Options);
                     builder.FinalizeQueryInternal();

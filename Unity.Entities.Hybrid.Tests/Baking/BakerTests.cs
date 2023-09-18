@@ -85,6 +85,11 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         public int Field;
     }
 
+    struct ComponentTest4 : IComponentData
+    {
+        public int Field;
+    }
+
     struct UnmanagedSharedComponent : ISharedComponentData
     {
         public int Field;
@@ -2068,6 +2073,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
 
         readonly string kNullEntityException = "InvalidOperationException: Entity Entity.Null doesn't belong to the current authoring component.";
         readonly System.Text.RegularExpressions.Regex kNumberedEntityException = new System.Text.RegularExpressions.Regex(@"InvalidOperationException: Entity Entity\(\d+:\d+\) doesn't belong to the current authoring component.");
+        readonly string kCreateAdditionalEntitiesInvalidArrayException = "ArgumentException: outputEntities is not valid or empty";
 
         [SetUp]
         public override void Setup()
@@ -3644,14 +3650,23 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         [DisableAutoCreation]
         class GameObjectBaker_CreateAdditionalEntities : GameObjectBaker
         {
-            public const int AdditionalEntityCount = 3;
+            public static bool CreateBatched = false;
+            public static int AdditionalEntityCount = 3;
             public override void Bake(GameObject authoring)
             {
-                for (int i = 0; i < AdditionalEntityCount; ++i)
+                var entities = new NativeArray<Entity>(AdditionalEntityCount, Allocator.Temp);
+                if (CreateBatched)
                 {
-                    var entity = CreateAdditionalEntity(TransformUsageFlags.None);
-                    AddComponent<AdditionalEntity>(entity);
+                    CreateAdditionalEntities(entities, TransformUsageFlags.None);
                 }
+                else
+                {
+                    for (int i = 0; i < entities.Length; ++i)
+                        entities[i] = CreateAdditionalEntity(TransformUsageFlags.None);
+                }
+
+                foreach (var entity in entities)
+                    AddComponent<AdditionalEntity>(entity);
             }
         }
 
@@ -3668,6 +3683,50 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                     .Build(World.EntityManager);
                 var entities = query.ToEntityArray(Allocator.Temp);
                 Assert.AreEqual(GameObjectBaker_CreateAdditionalEntities.AdditionalEntityCount, entities.Length);
+            }
+        }
+
+        [Test]
+        public void GameObjectBaker_CreateAdditionalEntitiesBatched_DoesNotThrow()
+        {
+            using (new BakerDataUtility.OverrideBakers(true, typeof(GameObjectBaker_CreateAdditionalEntities)))
+            {
+                GameObjectBaker_CreateAdditionalEntities.CreateBatched = true;
+                try
+                {
+                    BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
+                }
+                finally
+                {
+                    GameObjectBaker_CreateAdditionalEntities.CreateBatched = false;
+                }
+
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<AdditionalEntity>()
+                    .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities)
+                    .Build(World.EntityManager);
+                var entities = query.ToEntityArray(Allocator.Temp);
+                Assert.AreEqual(GameObjectBaker_CreateAdditionalEntities.AdditionalEntityCount, entities.Length);
+            }
+        }
+
+        [Test]
+        public void GameObjectBaker_CreateAdditionalEntitiesBatched_ThrowIfCountIsZero()
+        {
+            using (new BakerDataUtility.OverrideBakers(true, typeof(GameObjectBaker_CreateAdditionalEntities)))
+            {
+                GameObjectBaker_CreateAdditionalEntities.CreateBatched = true;
+                GameObjectBaker_CreateAdditionalEntities.AdditionalEntityCount = 0;
+                try
+                {
+                    UnityEngine.TestTools.LogAssert.Expect(LogType.Exception, kCreateAdditionalEntitiesInvalidArrayException);
+                    BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings);
+                }
+                finally
+                {
+                    GameObjectBaker_CreateAdditionalEntities.CreateBatched = false;
+                    GameObjectBaker_CreateAdditionalEntities.AdditionalEntityCount = 3;
+                }
             }
         }
 
@@ -3739,6 +3798,62 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 var blobRef = GetBakedSingleton<TestComponentWithBlobAssetReference>().Value;
 
                 Assert.Throws<InvalidOperationException>(() => blobRef.Dispose());
+            }
+        }
+
+        public class GetComponent_With_AbstractBaseClass : Authoring_DerivedFromAbstract { }
+
+        public class GetComponent_With_AbstractBaseClass_Baker : Baker<GetComponent_With_AbstractBaseClass>
+        {
+            public override void Bake(GetComponent_With_AbstractBaseClass authoring)
+            {
+                var baseclass = GetComponent<Authoring_Abstract>();
+                if (baseclass != null)
+                {
+                    AddComponent(GetEntity(TransformUsageFlags.None), new ComponentTest4(){Field = baseclass.Field});
+                }
+            }
+        }
+
+        public class GetComponentInParent_With_AbstractBaseClass : MonoBehaviour { }
+
+        public class GetComponentInParent_With_AbstractBaseClass_Baker : Baker<GetComponentInParent_With_AbstractBaseClass>
+        {
+            public override void Bake(GetComponentInParent_With_AbstractBaseClass authoring)
+            {
+                var baseclass = GetComponentInParent<Authoring_Abstract>();
+                if (baseclass != null)
+                {
+                    AddComponent(GetEntity(TransformUsageFlags.None), new ComponentTest4(){Field = baseclass.Field});
+                }
+            }
+        }
+
+        [Test]
+        public void GetComponent_With_Abstract_BaseClass_DoesNotThrow()
+        {
+            m_Prefab.AddComponent<GetComponent_With_AbstractBaseClass>().Field = 3;
+            using (new BakerDataUtility.OverrideBakers(true, typeof(GetComponent_With_AbstractBaseClass_Baker)))
+            {
+                Assert.DoesNotThrow(() => BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings));
+                Assert.AreEqual(GetBakedSingleton<ComponentTest4>().Field, 3);
+            }
+        }
+
+        [Test]
+        public void GetComponentInParent_With_Abstract_BaseClass_DoesNotThrow()
+        {
+            m_Prefab.AddComponent<Authoring_DerivedFromAbstract>().Field = 3;
+            GameObject child = new GameObject();
+            child.transform.SetParent(m_Prefab.transform);
+            child.AddComponent<GetComponentInParent_With_AbstractBaseClass>();
+            using (new BakerDataUtility.OverrideBakers(true, typeof(GetComponentInParent_With_AbstractBaseClass_Baker)))
+            {
+                Assert.DoesNotThrow(() => BakingUtility.BakeGameObjects(World, new[] {m_Prefab}, m_BakingSystem.BakingSettings));
+                var testQuery = m_BakingSystem.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<ComponentTest4>());
+                Assert.AreEqual(1, testQuery.CalculateEntityCount());
+                var entity = testQuery.ToEntityArray(Allocator.Temp)[0];
+                Assert.AreEqual(3, m_BakingSystem.EntityManager.GetComponentData<ComponentTest4>(entity).Field);
             }
         }
     }

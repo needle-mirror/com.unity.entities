@@ -14,10 +14,10 @@ using UnityEngine.Assertions;
 namespace Unity.Entities
 {
     /// <summary>
-    ///     Enables iteration over chunks belonging to a set of archetypes.
+    /// Enables iteration over chunks belonging to a set of archetypes.
     /// </summary>
     [BurstCompile]
-    [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "!NET_DOTS")]
+    [GenerateTestsForBurstCompatibility()]
     internal unsafe partial struct ChunkIterationUtility
     {
         /// <summary>
@@ -108,7 +108,7 @@ namespace Unity.Entities
             in UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, int hasEnableableComponents,
             ref NativeList<ArchetypeChunk> outChunks)
         {
-            var cachedChunksPtr = cachedChunkList.Ptr;
+            var cachedChunkIndices = cachedChunkList.ChunkIndices;
             var matchingArchetypesPtr = matchingArchetypes.Ptr;
             var requiresFilter = filter.RequiresMatchesFilter;
             var hasEnableable = hasEnableableComponents != 0;
@@ -125,7 +125,7 @@ namespace Unity.Entities
             {
                 for (int chunkIndexInCache = 0; chunkIndexInCache < cachedChunkCount; ++chunkIndexInCache)
                 {
-                    outChunks.AddNoResize(new ArchetypeChunk(cachedChunksPtr[chunkIndexInCache], ecs));
+                    outChunks.AddNoResize(new ArchetypeChunk(cachedChunkIndices[chunkIndexInCache], ecs));
                 }
             }
             else if (hasEnableable)
@@ -149,7 +149,7 @@ namespace Unity.Entities
                         out var chunkEnabledMask);
                     if (chunkEnabledMask.ULong0 == 0 && chunkEnabledMask.ULong1 == 0)
                         continue;
-                    outChunks.AddNoResize(new ArchetypeChunk(cachedChunksPtr[chunkIndexInCache], ecs));
+                    outChunks.AddNoResize(new ArchetypeChunk(cachedChunkIndices[chunkIndexInCache], ecs));
                 }
             }
             else
@@ -165,7 +165,7 @@ namespace Unity.Entities
                     int chunkIndexInArchetype = chunkIndexInArchetypePtr[chunkIndexInCache];
                     if (!currentMatchingArchetype->ChunkMatchesFilter(chunkIndexInArchetype, ref filter))
                         continue;
-                    outChunks.AddNoResize(new ArchetypeChunk(cachedChunksPtr[chunkIndexInCache], ecs));
+                    outChunks.AddNoResize(new ArchetypeChunk(cachedChunkIndices[chunkIndexInCache], ecs));
                 }
             }
         }
@@ -180,7 +180,7 @@ namespace Unity.Entities
             v128 chunkEnabledMask = default;
             while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var chunk, out var chunkEntityCount, out byte useEnableBits, ref chunkEnabledMask))
             {
-                Entity* chunkEntities = (Entity*)chunk.m_Chunk->Buffer; // Entity is always the first table in the chunk buffer
+                Entity* chunkEntities = (Entity*)chunk.m_Chunk.Buffer; // Entity is always the first table in the chunk buffer
                 if (useEnableBits == 0)
                 {
                     UnsafeUtility.MemCpy(copyDest, chunkEntities, chunkEntityCount * sizeof(Entity));
@@ -212,7 +212,7 @@ namespace Unity.Entities
             while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var chunk, out int chunkEntityCount,
                        out byte useEnabledBits, ref chunkEnabledBits))
             {
-                Entity* copySrc = (Entity*)chunk.m_Chunk->Buffer; // Entity is always the first table in the chunk buffer
+                Entity* copySrc = (Entity*)chunk.m_Chunk.Buffer; // Entity is always the first table in the chunk buffer
                 UnsafeUtility.MemCpy(copyDest, copySrc, chunkEntityCount*sizeof(Entity));
                 copyDest += chunkEntityCount;
             }
@@ -303,7 +303,7 @@ namespace Unity.Entities
         /// <param name="outJobHandle">Handle to the GatherEntitiesJob job used to fill the output array.</param>
         /// <param name="dependsOn">Handle to a job this GatherEntitiesJob must wait on.</param>
         /// <returns>NativeList of the entities in a given EntityQuery.</returns>
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "!NET_DOTS")]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public static NativeList<Entity> CreateEntityListAsync(AllocatorManager.AllocatorHandle allocator,
             EntityTypeHandle typeHandle,
             EntityQuery entityQuery,
@@ -350,7 +350,7 @@ namespace Unity.Entities
                 var chunkArchetype = chunkCacheIterator._CurrentMatchingArchetype->Archetype;
                 if (chunkArchetype != typeLookupCache.Archetype)
                     typeLookupCache.Update(chunkArchetype, typeIndex);
-                var chunkComponentData = chunk.m_Chunk->Buffer + typeLookupCache.ComponentOffset;
+                var chunkComponentData = chunk.m_Chunk.Buffer + typeLookupCache.ComponentOffset;
 
                 if (useEnableBits == 0)
                 {
@@ -387,7 +387,7 @@ namespace Unity.Entities
                 var chunkArchetype = chunkCacheIterator._CurrentMatchingArchetype->Archetype;
                 if (chunkArchetype != typeLookupCache.Archetype)
                     typeLookupCache.Update(chunkArchetype, typeIndex);
-                var copySrc = chunk.m_Chunk->Buffer + typeLookupCache.ComponentOffset;
+                var copySrc = chunk.m_Chunk.Buffer + typeLookupCache.ComponentOffset;
                 var copySize = typeLookupCache.ComponentSizeOf * chunkEntityCount;
                 UnsafeUtility.MemCpy(copyDest, copySrc, copySize);
                 copyDest += copySize;
@@ -448,7 +448,7 @@ namespace Unity.Entities
         /// <param name="dependsOn">Input job dependencies for the array-populating job.</param>
         /// <param name="outJobHandle">Handle to the job that will populate the output array. The caller must complete this job before the output array contents are valid.</param>
         /// <returns>NativeList of all the chunks in the matchingArchetypes list.</returns>
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "!NET_DOTS")]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public static NativeList<T> CreateComponentDataListAsync<T>(
             AllocatorManager.AllocatorHandle allocator,
             ref DynamicComponentTypeHandle typeHandle,
@@ -492,7 +492,7 @@ namespace Unity.Entities
         /// <param name="entityCount">Number of entities that match the query. Used as the output array size.</param>
         /// <param name="entityQuery">Entities that match this query will be included in the output.</param>
         /// <returns>NativeArray of all the chunks in the matchingArchetypes list.</returns>
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "!NET_DOTS")]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public static NativeArray<T> CreateComponentDataArray<T>(
             AllocatorManager.AllocatorHandle allocator,
             ref ComponentTypeHandle<T> typeHandle,
@@ -600,7 +600,7 @@ namespace Unity.Entities
             jobHandle = job.ScheduleParallel(entityQuery, baseIndexJob);
         }
 
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "!NET_DOTS")]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public static void CopyFromComponentDataListAsync<T>(
             NativeList<T> componentDataList,
             ref DynamicComponentTypeHandle typeHandle,
@@ -630,7 +630,7 @@ namespace Unity.Entities
             outJobHandle = job.ScheduleParallelByRef(entityQuery, baseIndexJob);
         }
 
-        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) }, RequiredUnityDefine = "!NET_DOTS")]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public static void CopyFromComponentDataArray<T>(
             NativeArray<T> componentDataArray,
             ref ComponentTypeHandle<T> typeHandle,
@@ -971,21 +971,20 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) }, RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
-        internal static BufferAccessor<T> GetChunkBufferAccessor<T>(Chunk* chunk, bool isWriting, int typeIndexInArchetype, uint systemVersion, AtomicSafetyHandle safety0, AtomicSafetyHandle safety1)
+        internal static BufferAccessor<T> GetChunkBufferAccessor<T>(Archetype* archetype, ChunkIndex chunk, bool isWriting, int typeIndexInArchetype, uint systemVersion, AtomicSafetyHandle safety0, AtomicSafetyHandle safety1)
 #else
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
-        internal static BufferAccessor<T> GetChunkBufferAccessor<T>(Chunk * chunk, bool isWriting, int typeIndexInArchetype, uint systemVersion)
+        internal static BufferAccessor<T> GetChunkBufferAccessor<T>(Archetype* archetype, ChunkIndex chunk, bool isWriting, int typeIndexInArchetype, uint systemVersion)
 #endif
             where T : unmanaged, IBufferElementData
         {
-            var archetype = chunk->Archetype;
             int internalCapacity = archetype->BufferCapacities[typeIndexInArchetype];
 
             byte* ptr = (!isWriting)
-                ? ChunkDataUtility.GetComponentDataRO(chunk, 0, typeIndexInArchetype)
-                : ChunkDataUtility.GetComponentDataRW(chunk, 0, typeIndexInArchetype, systemVersion);
+                ? ChunkDataUtility.GetComponentDataRO(chunk, archetype, 0, typeIndexInArchetype)
+                : ChunkDataUtility.GetComponentDataRW(chunk, archetype, 0, typeIndexInArchetype, systemVersion);
 
-            var length = chunk->Count;
+            var length = chunk.Count;
             int stride = archetype->SizeOfs[typeIndexInArchetype];
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
@@ -995,8 +994,8 @@ namespace Unity.Entities
                     recordType: EntitiesJournaling.RecordType.GetBufferRW,
                     entityComponentStore: archetype->EntityComponentStore,
                     globalSystemVersion: systemVersion,
-                    chunks: chunk,
-                    chunkCount: 1,
+                    archetype: archetype,
+                    chunk: chunk,
                     types: &archetype->Types[typeIndexInArchetype].TypeIndex,
                     typeCount: 1);
             }
@@ -1009,18 +1008,9 @@ namespace Unity.Entities
 #endif
         }
 
-        internal static void* GetChunkComponentDataPtr(Chunk* chunk, bool isWriting, int indexInArchetype, uint systemVersion)
+        internal static void* GetChunkComponentDataROPtr(Archetype* archetype, ChunkIndex chunk, int indexInArchetype)
         {
-            byte* ptr = (!isWriting)
-                ? ChunkDataUtility.GetComponentDataRO(chunk, 0, indexInArchetype)
-                : ChunkDataUtility.GetComponentDataRW(chunk, 0, indexInArchetype, systemVersion);
-            return ptr;
-        }
-
-        internal static void* GetChunkComponentDataROPtr(Chunk* chunk, int indexInArchetype)
-        {
-            var archetype = chunk->Archetype;
-            return chunk->Buffer + archetype->Offsets[indexInArchetype];
+            return chunk.Buffer + archetype->Offsets[indexInArchetype];
         }
 
         // Helper struct to bundle some invariant data when computing the enabled-bit mask for several chunks within the same archetype
@@ -1167,15 +1157,15 @@ namespace Unity.Entities
         }
 
         [BurstCompile]
-        public static void GetEnabledMask(Chunk* chunk, MatchingArchetype* matchingArchetype, out v128 enabledMask)
+        public static void GetEnabledMask(ChunkIndex chunk, MatchingArchetype* matchingArchetype, out v128 enabledMask)
         {
             Assert.IsTrue(matchingArchetype->Archetype->ChunkCapacity <= 128);
-            GetEnabledMask(chunk->ListIndex, chunk->Count, new EnabledMaskMatchingArchetypeState(matchingArchetype), out enabledMask);
+            GetEnabledMask(chunk.ListIndex, chunk.Count, new EnabledMaskMatchingArchetypeState(matchingArchetype), out enabledMask);
         }
-        internal static void GetEnabledMaskNoBurstForTests(Chunk* chunk, MatchingArchetype* matchingArchetype, out v128 enabledMask)
+        internal static void GetEnabledMaskNoBurstForTests(ChunkIndex chunk, MatchingArchetype* matchingArchetype, out v128 enabledMask)
         {
             Assert.IsTrue(matchingArchetype->Archetype->ChunkCapacity <= 128);
-            GetEnabledMask(chunk->ListIndex, chunk->Count, new EnabledMaskMatchingArchetypeState(matchingArchetype), out enabledMask);
+            GetEnabledMask(chunk.ListIndex, chunk.Count, new EnabledMaskMatchingArchetypeState(matchingArchetype), out enabledMask);
         }
 
 
@@ -1184,7 +1174,7 @@ namespace Unity.Entities
         {
             var chunkList = queryImpl.GetMatchingChunkCache();
             var chunkCount = chunkList.Length;
-            Chunk** chunkListPtr = chunkList.Ptr;
+            var chunkIndices = chunkList.ChunkIndices;
             int* chunkIndexInArchetypePtr = chunkList.ChunkIndexInArchetype->Ptr;
             MatchingArchetype** matchingArchetypesPtr = queryImpl._QueryData->MatchingArchetypes.Ptr;
             int* matchingArchetypeIndicesPtr = chunkList.PerChunkMatchingArchetypeIndex->Ptr;
@@ -1198,7 +1188,7 @@ namespace Unity.Entities
             int* chunkEntityCountsPtr = null;
             for (int chunkIndexInCache = 0; chunkIndexInCache < chunkCount; ++chunkIndexInCache)
             {
-                var chunk = chunkListPtr[chunkIndexInCache];
+                var chunk = chunkIndices[chunkIndexInCache];
                 if (Hint.Unlikely(matchingArchetypeIndicesPtr[chunkIndexInCache] != currentMatchingArchetypeIndex))
                 {
                     // Update per-archetype state
@@ -1214,7 +1204,7 @@ namespace Unity.Entities
                     chunkEnabledBitsIncrement = currentArchetype->Chunks.GetComponentEnabledBitsSizePerChunk() / sizeof(v128);
                 }
 
-                if (requiresFilter && !chunk->MatchesFilter(currentMatchingArchetype, ref queryImpl._Filter))
+                if (requiresFilter && !chunk.MatchesFilter(currentMatchingArchetype, ref queryImpl._Filter))
                     continue;
 
                 int chunkIndexInArchetype = chunkIndexInArchetypePtr[chunkIndexInCache];
@@ -1243,7 +1233,7 @@ namespace Unity.Entities
     /// </summary>
     [GenerateTestsForBurstCompatibility]
     [BurstCompile]
-    public static class EnabledBitUtility
+    internal static class EnabledBitUtility
     {
         /// <summary>
         /// Retrieves the next contiguous range of set bits starting at or after the provided index in the provided mask.
@@ -1256,7 +1246,7 @@ namespace Unity.Entities
         /// <returns>True if another range of contiguous bits was found (in which case, the range info is stored in
         /// <paramref name="nextRangeBegin"/> and <paramref name="nextRangeEnd"/>. Otherwise, false.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        public static bool TryGetNextRange(v128 mask, int firstIndexToCheck, out int nextRangeBegin, out int nextRangeEnd)
+        internal static bool TryGetNextRange(v128 mask, int firstIndexToCheck, out int nextRangeBegin, out int nextRangeEnd)
         {
             mask = ShiftRight(mask, firstIndexToCheck);
 

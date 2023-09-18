@@ -9,6 +9,8 @@ using Unity.Jobs;
 
 namespace Unity.Entities
 {
+    public struct SystemHandle{}
+
     public class EntitiesMock { }
 
     public struct Entity : IQueryTypeParameter { }
@@ -34,7 +36,7 @@ namespace Unity.Entities
         public EntityQueryBuilder WithDisabled<T>() => this;
         public EntityQueryBuilder WithAbsent<T>() => this;
         public EntityQueryBuilder WithAspect<T>() => this;
-        public EntityQueryBuilder WithOptions() => this;
+        public EntityQueryBuilder WithOptions(EntityQueryOptions options) => this;
         public EntityQueryBuilder AddAdditionalQuery() => this;
         public EntityQuery Build(ref SystemState systemState) => default;
     }
@@ -362,9 +364,19 @@ namespace Unity.Entities
 
     public interface IBufferElementData { }
 
-    public struct DynamicBuffer<T> where T : unmanaged
+    public struct DynamicBuffer<T> : IQueryTypeParameter where T : unmanaged
     {
-        public ref T this[int i] => throw new NotImplementedException();
+        public T this[int i]
+        {
+            get
+            {
+                return default;
+            }
+            set
+            {
+                value = default;
+            }
+        }
     }
 
     public struct SystemState
@@ -389,9 +401,18 @@ namespace Unity.Entities
 
     public struct ComponentType
     {
+        public enum AccessMode
+        {
+            ReadWrite,
+            ReadOnly,
+            Exclude
+        }
         public static unsafe ComponentType[] Combine(params ComponentType[][] componentTypes) => default;
         public static ComponentType ReadWrite<T>() => default;
         public static ComponentType ReadOnly<T>() => default;
+        public ComponentType(Type type, AccessMode accessModeType = AccessMode.ReadWrite)
+        {
+        }
     }
 
     public struct EntityQuery
@@ -402,6 +423,10 @@ namespace Unity.Entities
         public T GetSingleton<T>() where T : unmanaged, IComponentData => default;
         public void SetChangedVersionFilter(ComponentType componentType) {}
         public void SetChangedVersionFilter(ComponentType[] componentType) {}
+        public void SetSharedComponentFilter<T>(T sharedComponent) where T : unmanaged, ISharedComponentData
+        {
+        }
+
         public void ResetFilter() {}
         public bool IsEmptyIgnoreFilter => default;
         public NativeArray<int> CalculateBaseEntityIndexArrayAsync(AllocatorHandle allocator, JobHandle additionalInputDep, out JobHandle outJobHandle) => default;
@@ -478,6 +503,8 @@ namespace Unity.Entities
         }
 
         public static bool HasSingleton<T>() where T : unmanaged => throw new Exception();
+        public static bool IsComponentEnabled<T>(Entity entity) where T : unmanaged, IComponentData, IEnableableComponent => throw new Exception();
+        public static void SetComponentEnabled<T>(Entity entity, bool value) where T : unmanaged, IComponentData, IEnableableComponent => throw new Exception();
     }
 
     public struct QueryEnumerable<T> : IEnumerable<T> where T : struct
@@ -487,8 +514,8 @@ namespace Unity.Entities
         public QueryEnumerable<T> WithNone<TComponent>() => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithDisabled<TComponent>() => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithAbsent<TComponent>() => throw ThrowCodeGenException();
-        public QueryEnumerable<T> WithSharedComponentFilter<T1>() => throw ThrowCodeGenException();
-        public QueryEnumerable<T> WithSharedComponentFilter<T1, T2>() => throw ThrowCodeGenException();
+        public QueryEnumerable<T> WithSharedComponentFilter<T1>(T1 sharedComp) => throw ThrowCodeGenException();
+        public QueryEnumerable<T> WithSharedComponentFilter<T1, T2>(T1 sharedComp1, T2 sharedComp2) => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithChangeFilter<T1>() => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithChangeFilter<T1, T2>() => throw ThrowCodeGenException();
         public QueryEnumerable<T> WithFilter(NativeArray<Entity> entities) => throw ThrowCodeGenException();
@@ -522,6 +549,8 @@ namespace Unity.Entities
     {
         T CreateAspect(Entity entity, ref SystemState system);
         void AddComponentRequirementsTo(ref UnsafeList<ComponentType> all);
+        void CompleteDependencyBeforeRO(ref SystemState state);
+        void CompleteDependencyBeforeRW(ref SystemState state);
     }
 
     public interface ISystemCompilerGenerated
@@ -610,16 +639,6 @@ namespace Unity.Entities
 
         public void AddComponent<T>(EntityQuery query) {}
         public void AddComponentData<T>(Entity entity, T componentData) where T : class, IComponentData {}
-    }
-
-    public static class EnabledBitUtility
-    {
-        public static bool TryGetNextRange(v128 mask, int firstIndexToCheck, out int currentRangeBegin, out int currentRangeEnd)
-        {
-            currentRangeBegin = 0;
-            currentRangeEnd = 0;
-            return true;
-        }
     }
 
     namespace Serialization

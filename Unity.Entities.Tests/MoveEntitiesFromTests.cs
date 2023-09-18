@@ -658,12 +658,8 @@ namespace Unity.Entities.Tests
             creationWorld.Dispose();
         }
 
-#if !NET_DOTS
-// https://unity3d.atlassian.net/browse/DOTSR-1432
-
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
-        [DotsRuntimeFixme] // No Unity.Properties Support
         [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void MoveEntitiesPatchesEntityReferences_ManagedComponents([Values] bool useFilteredMove)
         {
@@ -722,7 +718,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // No Unity.Properties Support
         [IgnoreTest_IL2CPP("DOTSE-1903 - Users Properties which is broken in non-generic sharing IL2CPP builds")]
         public void MoveEntitiesPatchesEntityReferencesInCollections_ManagedComponents()
         {
@@ -789,8 +784,6 @@ namespace Unity.Entities.Tests
             sourceEntities.Dispose();
             sourceWorld.Dispose();
         }
-
-#endif
 #endif
     }
 }

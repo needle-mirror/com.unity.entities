@@ -1,8 +1,6 @@
 using NUnit.Framework;
-#if !NET_DOTS
 using System.Linq;
 using Random = System.Random;
-#endif
 
 namespace Unity.Entities.Tests.Types
 {
@@ -37,9 +35,6 @@ namespace Unity.Entities.Tests.Types
                 Is.EqualTo("feebdaed0000000000000000d00fdaab")); // vegan hash
         }
 
-#if !NET_DOTS    // Uses Linq and System.Random
-// https://unity3d.atlassian.net/browse/DOTSR-1432
-
         [Test]
         public void ToString_ReturnsSameAsFramework()
         {
@@ -60,8 +55,6 @@ namespace Unity.Entities.Tests.Types
                 Assert.That(s, Is.EqualTo(f));
             }
         }
-
-#endif
 
         [Test]
         public void Comparisons()
@@ -123,7 +116,6 @@ namespace Unity.Entities.Tests.Types
         }
         #endif // UNITY_EDITOR
 
-        #if !NET_DOTS
         [Test]
         public void Conversions_MatchUnityEngine()
         {
@@ -136,8 +128,6 @@ namespace Unity.Entities.Tests.Types
             Assert.That(hashEntities, Is.EqualTo(hashUnityToEntities));
             Assert.That(hashUnity, Is.EqualTo(hashEntitiesToUnity));
         }
-
-        #endif
 
         [Test]
         public void StringToHash()

@@ -2,10 +2,6 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Collections;
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-using Unity.Build.Common;
-#endif
 using Unity.Entities;
 using Unity.Entities.Build;
 using Unity.Entities.Conversion;
@@ -36,9 +32,6 @@ namespace Unity.Scenes.Editor
         Dictionary<Hash128, Scene>                 _GUIDToEditScene = new Dictionary<Hash128, Scene>();
 
         internal readonly Hash128                  _ConfigurationGUID;
-#if USING_PLATFORMS_PACKAGE
-        BuildConfiguration                         _BuildConfiguration;
-#endif
         IEntitiesPlayerSettings                    _SettingAsset;
         UnityEngine.Hash128                        _BuildConfigurationArtifactHash;
 
@@ -217,17 +210,6 @@ namespace Unity.Scenes.Editor
                 foreach (var diffGenerator in _SceneGUIDToLiveConversion.Values)
                     diffGenerator.ChangeTracker.MarkAssetChanged(assetInstanceId);
             }
-        }
-
-        bool HasAssetDependencies()
-        {
-            foreach (var kvp in _SceneGUIDToLiveConversion)
-            {
-                if (kvp.Value.HasAssetDependencies())
-                    return true;
-            }
-
-            return false;
         }
 
         public static void GlobalDirtyLiveConversion()
@@ -414,11 +396,7 @@ namespace Unity.Scenes.Editor
             try
             {
                 var editScene = _GUIDToEditScene[sceneGUID];
-                var didChange = LiveConversionDiffGenerator.UpdateLiveConversion(editScene, sceneGUID, ref liveConversion, mode, globalArtifactVersion, _ConfigurationGUID,
-#if USING_PLATFORMS_PACKAGE
-                    _BuildConfiguration,
-#endif
-                    _SettingAsset, out var changes);
+                var didChange = LiveConversionDiffGenerator.UpdateLiveConversion(editScene, sceneGUID, ref liveConversion, mode, globalArtifactVersion, _ConfigurationGUID, _SettingAsset, out var changes);
                 if (didChange)
                     changeSets.Add(changes);
             }

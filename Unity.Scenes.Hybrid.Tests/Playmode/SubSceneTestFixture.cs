@@ -7,10 +7,6 @@ using UnityEngine.TestTools;
 using UnityEditor;
 using Unity.Entities.Build;
 using UnityEditor.SceneManagement;
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-using Unity.Build.Common;
-#endif
 #endif
 using Hash128 = Unity.Entities.Hash128;
 

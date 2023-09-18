@@ -25,14 +25,11 @@ namespace Unity.Entities.Tests
             }
         }
 
-        public static IEnumerable<Type> GetDefaultInitSystemsFromEntitiesPackage(WorldSystemFilterFlags flags) => FilterSystemsToPackages(
-            DefaultWorldInitialization.GetAllSystems(flags), EntitiesPackage
-        );
-
         public static World CreateEntityWorld(string name, bool isEditor)
         {
             var systems = DefaultWorldInitialization.GetAllSystemTypeIndices(WorldSystemFilterFlags.Default, true);
             var world = new World(name, isEditor ? WorldFlags.Editor : WorldFlags.Game);
+            
             //currently FilterSystemsToPackages filters assemblies and looks for package names, which means we have to 
             //use the bad reflection path here. at some point, we could have a non-reflection way of doing this, but 
             //today we don't. 

@@ -169,8 +169,6 @@ namespace Unity.Entities.Tests
         }
     }
 
-#if !NET_DOTS
-
     struct ManagedSharedData1 : ISharedComponentData, IEquatable<ManagedSharedData1>
     {
         public Tuple<int, int> value;
@@ -200,7 +198,6 @@ namespace Unity.Entities.Tests
             return (value != null ? value.GetHashCode() : 0);
         }
     }
-#endif
     struct ManagedSharedData2 : ISharedComponentData, IEquatable<ManagedSharedData2>
     {
         public int value;
@@ -312,7 +309,6 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(m_Manager.HasComponent<SharedData1>(ue1));
 
             // Managed path
-#if !NET_DOTS
             m_Manager.AddSharedComponentManaged(me1, new ManagedSharedData1(new Tuple<int, int>(17, 3)));
             m_Manager.AddSharedComponentManaged(me2, new ManagedSharedData1(new Tuple<int, int>(17, 3)));
 
@@ -322,7 +318,6 @@ namespace Unity.Entities.Tests
 
             m_Manager.RemoveComponent<ManagedSharedData1>(me1);
             m_Manager.RemoveComponent<ManagedSharedData1>(me2);
-#endif
 
             // Unmanaged path
             m_Manager.AddSharedComponentManaged(ue1, new SharedData1());
@@ -379,10 +374,9 @@ namespace Unity.Entities.Tests
             m_Manager.AddSharedComponentManaged(ue1, new SharedData2(18));
             Assert.AreEqual(startCount + 2, m_Manager.GetSharedComponentCount());
 
-#if !NET_DOTS
             m_Manager.AddSharedComponentManaged(ue1, new ManagedSharedData1(new Tuple<int, int>(2, 3)));
             Assert.AreEqual(startCount + 3, m_Manager.GetSharedComponentCount());
-#endif
+
             // ###REVIEW NOTE### Managed Path doesn't clear the SharedDataComponent when they're no longer referenced, should we fix this behavior or keep it?
             // m_Manager.RemoveComponent<SharedData1>(ue1);
             // Assert.AreEqual(startCount + 2, m_Manager.GetSharedComponentCount());
@@ -1095,8 +1089,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(17, ((SharedData1)sharedComponentValue).value);
         }
 
-#if !NET_DOTS //custom equality / iequatable shared components not supported in dotsrt yet
-
         [Test]
         public void Case1085730()
         {
@@ -1130,7 +1122,6 @@ namespace Unity.Entities.Tests
 
             Assert.IsTrue(iseq);
         }
-#endif
 
         public struct CustomEquality : ISharedComponentData, IEquatable<CustomEquality>
         {

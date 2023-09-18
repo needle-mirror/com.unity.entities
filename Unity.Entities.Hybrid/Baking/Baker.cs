@@ -4,9 +4,6 @@ using System.Collections.Generic;
 using System.Text;
 using System.Xml;
 #if UNITY_EDITOR
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-#endif
 using Unity.Entities.Build;
 #endif
 using Unity.Collections.LowLevel.Unsafe;
@@ -52,9 +49,6 @@ namespace Unity.Entities
             internal BlobAssetStore                           BlobAssetStore;
             internal World                                    World;
 #if UNITY_EDITOR
-#if USING_PLATFORMS_PACKAGE
-            internal BuildConfiguration                       BuildConfiguration;
-#endif
             internal IEntitiesPlayerSettings                  DotsSettings;
 #endif
         }
@@ -1321,10 +1315,14 @@ namespace Unity.Entities
             var bakerName = this.GetType().FullName;
 
             var previousBakers = BakerDataUtility.GetBakers(debugIndex.TypeIndex);
-            var previousBaker = previousBakers[debugIndex.IndexInBakerArray].Baker;
-            var previousBakerName = previousBaker.GetType().FullName;
-            var authoringComponentName = _State.AuthoringSource.GetType().FullName;
-            throw new InvalidOperationException($"Baking error: Attempt to add duplicate component {TypeManager.GetTypeInfo(typeIndex).DebugTypeName} for Baker {bakerName} with authoring component {authoringComponentName}.  Previous component added by Baker {previousBakerName}");
+            if (previousBakers != null)
+            {
+                var previousBaker = previousBakers[debugIndex.IndexInBakerArray].Baker;
+                var previousBakerName = previousBaker.GetType().FullName;
+                var authoringComponentName = _State.AuthoringSource.GetType().FullName;
+                throw new InvalidOperationException(
+                    $"Baking error: Attempt to add duplicate component {TypeManager.GetTypeInfo(typeIndex).DebugTypeName} for Baker {bakerName} with authoring component {authoringComponentName}.  Previous component added by Baker {previousBakerName}");
+            }
         }
 
         /// <summary>
@@ -2014,6 +2012,33 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Creates an array of additional Entities tied to the primary entity.
+        /// </summary>
+        /// <param name="outputEntities">The output array which will be filled with the additional Entities created. The size of the array specifies the
+        /// number of additional entities to be created. The function throws <see cref="ArgumentException"/> if the array is not created yet or is empty.</param>
+        /// <param name="transformUsageFlags">The <see cref="TransformUsageFlags"/> of the additional Entity.</param>
+        /// <param name="bakingOnlyEntity">Whether to mark the additional Entity as BakingOnly.</param>
+        /// <remarks>
+        /// Additional entities are automatically reverted by the baking system if the source primary entity is removed in a new baking pass.
+        /// Additional entities are created with the same active or static state as the Primary Entity. For example, if the authoring object is disabled,
+        /// the new additional entity will also have the <see cref="Disabled"/> tag component.
+        ///
+        /// Baking only additional entities are not exported in the runtime data.
+        /// </remarks>
+        public void CreateAdditionalEntities(NativeArray<Entity> outputEntities, TransformUsageFlags transformUsageFlags, bool bakingOnlyEntity = false)
+        {
+            if (!outputEntities.IsCreated || outputEntities.Length == 0)
+                throw new ArgumentException($"{nameof(outputEntities)} is not valid or empty");
+
+            _State.BakedEntityData->CreateAdditionalEntities(outputEntities, _State.AuthoringObject, _State.AuthoringId, bakingOnlyEntity);
+            foreach (var e in outputEntities)
+            {
+                _State.BakerState->Entities.Add(e);
+                _State.Usage->ReferencedEntityUsages.Add(new BakerEntityUsage.ReferencedEntityUsage(e, transformUsageFlags));
+            }
+        }
+
+        /// <summary>
         /// Ensures that the Prefab will be baked into a Prefab and present at Runtime
         /// </summary>
         /// <param name="authoring">The Prefab to bake</param>
@@ -2071,24 +2096,6 @@ namespace Unity.Entities
         }
 
 #if UNITY_EDITOR
-#if USING_PLATFORMS_PACKAGE
-        /// <summary>
-        /// Get the Build Configuration Component of the GameObject
-        /// </summary>
-        /// <param name="component">The Build Configuration Component</param>
-        /// <typeparam name="T">The type of Build Configuration Component to get</typeparam>
-        /// <returns>True if the Build Configuration Component is found, False otherwise</returns>
-        public bool TryGetBuildConfigurationComponent<T>(out T component) where T : Unity.Build.IBuildComponent
-        {
-            if (_State.BuildConfiguration == null)
-            {
-                component = default;
-                return false;
-            }
-            return _State.BuildConfiguration.TryGetComponent(out component);
-        }
-#endif
-
         /// <summary>
         /// Gets the Settings of the DOTS player
         /// </summary>

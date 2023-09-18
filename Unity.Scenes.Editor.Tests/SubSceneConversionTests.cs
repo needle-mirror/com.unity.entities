@@ -262,7 +262,7 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void SubScene_WithNullAsset_ImportsAndLoads([Values]TestWorldSetup.TestWorldSystemFilterFlags testFilterFlags)
             => SubScene_WithAsset_ImportsAndLoads(null, testFilterFlags);
@@ -459,7 +459,7 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
-#if !NET_DOTS && !UNITY_DISABLE_MANAGED_COMPONENTS
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void SubScene_WithComplexComponents_ImportsAndLoads([Values]TestWorldSetup.TestWorldSystemFilterFlags testFilterFlags)
         {

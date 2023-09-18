@@ -27,54 +27,68 @@ namespace Unity.Entities.Baking
         //UnsafeParallelMultiHashMap<int, TransformData>      _TransformData;
         // GameObject InstanceID -> Component Type + component InstanceID
         // Used to keep the last converted state of each game object.
-        UnsafeParallelMultiHashMap<int, ComponentData> _GameObjectComponentMetaData;
+        UnsafeParallelHashMap<int, UnsafeList<ComponentData>> _GameObjectComponentMetaData;
 
 
         public GameObjectComponents(Allocator allocator)
         {
-            _GameObjectComponentMetaData = new UnsafeParallelMultiHashMap<int, ComponentData>(1024, allocator);
+            _GameObjectComponentMetaData = new UnsafeParallelHashMap<int, UnsafeList<ComponentData>>(1024, allocator);
         }
 
-        public UnsafeParallelMultiHashMap<int, ComponentData>.Enumerator GetComponents(int instanceID)
+        public UnsafeList<ComponentData>.ReadOnly GetComponents(int instanceID)
         {
-            return _GameObjectComponentMetaData.GetValuesForKey(instanceID);
+            _GameObjectComponentMetaData.TryGetValue(instanceID, out var componentList);
+            return componentList.AsReadOnly();
         }
 
         public bool HasComponent (int gameObjectInstanceID, int componentInstanceID)
         {
-            foreach(var com in _GameObjectComponentMetaData.GetValuesForKey(gameObjectInstanceID))
+            if (_GameObjectComponentMetaData.TryGetValue(gameObjectInstanceID, out var componentList))
             {
-                if (com.InstanceID == componentInstanceID)
-                    return true;
+                foreach (var com in componentList)
+                {
+                    if (com.InstanceID == componentInstanceID)
+                        return true;
+                }
             }
+
             return false;
         }
 
         public int GetComponent (int gameObjectInstanceID, TypeIndex componentType)
         {
-            foreach(var com in _GameObjectComponentMetaData.GetValuesForKey(gameObjectInstanceID))
+            if (_GameObjectComponentMetaData.TryGetValue(gameObjectInstanceID, out var componentList))
             {
-                if (com.TypeIndex == componentType || TypeManager.IsDescendantOf(com.TypeIndex, componentType))
-                    return com.InstanceID;
+                foreach (var com in componentList)
+                {
+                    if (com.TypeIndex == componentType || TypeManager.IsDescendantOf(com.TypeIndex, componentType))
+                        return com.InstanceID;
+                }
             }
             return 0;
         }
 
         public void GetComponents (int gameObjectInstanceID, TypeIndex componentType, ref UnsafeList<int> results)
         {
-            foreach(var com in _GameObjectComponentMetaData.GetValuesForKey(gameObjectInstanceID))
+            if (_GameObjectComponentMetaData.TryGetValue(gameObjectInstanceID, out var componentList))
             {
-                if (com.TypeIndex == componentType || TypeManager.IsDescendantOf(com.TypeIndex, componentType))
-                    results.Add(com.InstanceID);
+                foreach (var com in componentList)
+                {
+                    if (com.TypeIndex == componentType || TypeManager.IsDescendantOf(com.TypeIndex, componentType))
+                        results.Add(com.InstanceID);
+                }
             }
         }
 
         private void GetComponentsHash(int gameObjectInstanceID, TypeIndex componentType, ref xxHash3.StreamingState hash)
         {
-            foreach(var com in _GameObjectComponentMetaData.GetValuesForKey(gameObjectInstanceID))
+            if (_GameObjectComponentMetaData.TryGetValue(gameObjectInstanceID, out var componentList))
             {
-                if (com.TypeIndex == componentType || TypeManager.IsDescendantOf(com.TypeIndex, componentType))
-                    hash.Update(com.InstanceID);
+                foreach (var com in componentList)
+                {
+                    if (com.TypeIndex == componentType || TypeManager.IsDescendantOf(com.TypeIndex, componentType))
+                        hash.Update(com.InstanceID);
+                }
             }
         }
 
@@ -115,9 +129,15 @@ namespace Unity.Entities.Baking
         public void AddGameObject(GameObject gameObject, List<Component> components)
         {
             var instanceID = gameObject.GetInstanceID();
-
+            if (!_GameObjectComponentMetaData.TryGetValue(instanceID, out var componentDataList))
+            {
+                componentDataList = new UnsafeList<ComponentData>(components.Count, Allocator.Persistent);
+            }
             foreach (var com in components)
-                _GameObjectComponentMetaData.Add(instanceID, new ComponentData(com));
+            {
+                componentDataList.Add(new ComponentData(com));
+            }
+            _GameObjectComponentMetaData[instanceID] = componentDataList;
         }
 
         private static int GetComponentInChildrenInternal(ref GameObjectComponents components, ref SceneHierarchy hierarchy, int index, TypeIndex type)
@@ -263,45 +283,60 @@ namespace Unity.Entities.Baking
             //TODO: DOTS-5453
 
             var instanceID = gameObject.GetInstanceID();
+            int removedCount = 0;
 
-            // Find the components that were added, and thus need to be baked
-            foreach (var newComponent in currentComponentsOnGameObject)
+            if (_GameObjectComponentMetaData.TryGetValue(instanceID, out var componentDataList))
             {
-                bool found = false;
-                foreach (var oldComponent in _GameObjectComponentMetaData.GetValuesForKey (instanceID))
-                {
-                    if (oldComponent.InstanceID == newComponent.GetInstanceID())
-                    {
-                        outExistingComponents.Add(newComponent);
-                        found = true;
-                        break;
-                    }
-                }
-
-                if (!found)
-                    outAddedComponents.Add(newComponent);
-            }
-
-            foreach (var oldComponent in _GameObjectComponentMetaData.GetValuesForKey (instanceID))
-            {
-                bool found = false;
+                // Record added components, that need to be baked
                 foreach (var newComponent in currentComponentsOnGameObject)
                 {
-                    if (oldComponent.InstanceID == newComponent.GetInstanceID())
+                    bool found = false;
+                    foreach (var oldComponent in componentDataList)
                     {
-                        found = true;
-                        break;
+                        if (oldComponent.InstanceID == newComponent.GetInstanceID())
+                        {
+                            outExistingComponents.Add(newComponent);
+                            found = true;
+                            break;
+                        }
                     }
+
+                    if (!found)
+                        outAddedComponents.Add(newComponent);
                 }
 
-                if (!found)
-                    removed.Add(oldComponent.InstanceID);
+                // Record removed components
+                foreach (var oldComponent in componentDataList)
+                {
+                    bool found = false;
+                    foreach (var newComponent in currentComponentsOnGameObject)
+                    {
+                        if (oldComponent.InstanceID == newComponent.GetInstanceID())
+                        {
+                            found = true;
+                            break;
+                        }
+                    }
+
+                    if (!found)
+                        removed.Add(oldComponent.InstanceID);
+                }
+
+                removedCount = componentDataList.Length;
+                componentDataList.Clear();
+            }
+            else
+            {
+                // There are no previous components recorded, so all current are new
+                outAddedComponents.AddRange(currentComponentsOnGameObject);
+                componentDataList = new UnsafeList<ComponentData>(currentComponentsOnGameObject.Count, Allocator.Persistent);
             }
 
-            int gameObjectInstanceID = gameObject.GetInstanceID();
-            var removedCount  = _GameObjectComponentMetaData.Remove(gameObjectInstanceID);
             foreach (var com in currentComponentsOnGameObject)
-                _GameObjectComponentMetaData.Add(instanceID, new ComponentData(com));
+            {
+                componentDataList.Add(new ComponentData(com));
+            }
+            _GameObjectComponentMetaData[instanceID] = componentDataList;
 
             return removedCount == 0;
         }
@@ -313,13 +348,27 @@ namespace Unity.Entities.Baking
         /// <returns>Returns true if the game object was still alive.</returns>
         public bool DestroyGameObject(int gameObjectInstanceID)
         {
-            return _GameObjectComponentMetaData.Remove(gameObjectInstanceID) != 0;
+            int length = 0;
+            if (_GameObjectComponentMetaData.TryGetValue(gameObjectInstanceID, out var componentDataList))
+            {
+                length = componentDataList.Length;
+                componentDataList.Dispose();
+                _GameObjectComponentMetaData.Remove(gameObjectInstanceID);
+            }
+            return length != 0;
         }
 
         public void Dispose()
         {
             if (_GameObjectComponentMetaData.IsCreated)
+            {
+                // We need to release the individual lists
+                foreach (var list in _GameObjectComponentMetaData.GetValueArray(Allocator.Temp))
+                {
+                    list.Dispose();
+                }
                 _GameObjectComponentMetaData.Dispose();
+            }
         }
     }
 }

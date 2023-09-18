@@ -1,12 +1,12 @@
 # Custom transforms
 
-You can customize the built-in transform system to address the specific transform functionality needs of your project. This section explains how to create a custom transform system, and uses the [2D custom transform system](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/EntitiesSamples) as a concrete example of one.
+You can customize the built-in transform system to address the specific transform functionality needs of your project. This section explains how to create a custom transform system, and uses the [2D custom transform system](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/EntitiesSamples/Assets/Miscellaneous/CustomTransforms) as a concrete example of one.
 
 ## Write groups
 
-[Write groups](systems-write-groups.md) enable you to override the built-in transform system with your own transforms. The built-in transform system uses write groups internally and you can configure them to make the built-in transform system ignore entities that you want your custom transform system to use.
+[Write groups](systems-write-groups.md) enable you to override the built-in transform system with your own transforms. The built-in transform system uses write groups internally and you can configure them to make the built-in transform system ignore entities that you want to process with your custom transform system.
 
-More precisely, write groups exclude specific entities from queries. These queries are passed to the jobs that the built-in transform system uses. You can use write groups on certain components to exclude entities with those components from being processed by the jobs of the built-in transform system and instead processed by your own transform system. For more information, refer to the documentation on [write groups](systems-write-groups.md).
+More precisely, write groups exclude specific entities from queries. These queries are passed to the jobs that the built-in transform system uses. You can use write groups on certain components to exclude entities with those components from being processed by the jobs of the built-in transform system, and those entities can instead be processed by your own transform systems. For more information, refer to the documentation on [write groups](systems-write-groups.md).
 
 ## Create a custom transform system
 
@@ -18,20 +18,19 @@ The following steps outline how to create a custom transform system:
 
 ### Substitute the LocalTransform component
 
-The built-in transform system adds a [`LocalTransform`](xref:Unity.Transforms.LocalTransform) component to each entity by default. It stores the data that represents an entity's position, rotation, and scale. There are also a variety of static helper methods defined on it.
+The built-in transform system adds a [`LocalTransform`](xref:Unity.Transforms.LocalTransform) component to each entity by default. It stores the data that represents an entity's position, rotation, and scale. There are also a variety of static helper methods defined on this component.
 
 To create your own custom transform system, you have to substitute the `LocalTransform` component with your own.
 
 1. Create a .cs file that defines a substitute for the built-in `LocalTransform` component. You can copy the built-in `LocalTransform.cs` file from the Entities package into your assets folder and then edit the contents. To do this, go to **Packages &gt; Entities &gt; Unity.Transforms** in your project, copy the `LocalTransform.cs` file, and rename it.
-1. Change the properties and methods to suit your needs. For example:
-
+1. Change the properties and methods to suit your needs. See the following example of a custom `LocalTransform2D` component:
+ 
    ```c#
    using System.Globalization;
    using Unity.Entities;
    using Unity.Mathematics;
    using Unity.Properties;
    using Unity.Transforms;
-
 
    [WriteGroup(typeof(LocalToWorld))]
    public struct LocalTransform2D : IComponentData
@@ -66,12 +65,12 @@ To create your own custom transform system, you have to substitute the `LocalTra
 The above example modifies the built-in `LocalTransform` in the following ways:
 
 * Adds the `[WriteGroup(typeof(LocalToWorld))]` attribute.
-* Reduces the `Position` field from a `float3` to a `float2`. This is because in the 2D sample, entities should only move along the XY plane.
-* Reduces the `Rotation` field to a `float` that represents the number of degrees around the z-axis. The built-in transform system's `Rotation` property is a quaternion that represents a rotation in 3D space.
+* Reduces the `Position` field from a `float3` to a `float2`. This is because in the 2D sample, entities only move along the XY plane.
+* Reduces the `Rotation` field to a `float` that represents the number of degrees of rotation around the z-axis. The built-in transform system's `Rotation` property is a quaternion that represents a rotation in 3D space.
 * Removed all methods apart from `ToMatrix` and `ToString`. The `ToMatrix` method has been modified to work in 2D. The other methods aren't needed for the custom 2D transform system.
 
 > [!NOTE]
-> `LocalTransform2D` is in the global namespace. In the sample project it's in a `TransformSystem2D` namespace to ensure that it doesn't interfere with the other samples in the same project. Both options work as long as all the files of the custom transform system are within the same namespace.
+> `LocalTransform2D` is in the global namespace. In the above linked sample project it's in a sub-namespace to ensure that it doesn't interfere with the other samples in the same project. Both options work as long as all the files of the custom transform system are within the same namespace.
 
 ### Create an authoring component
 

@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME // No UnsafeUtility.GetFieldOffset, so FastEquality doesn't implement CreateTypeInfo() even with Tiny BCL
 using System.Linq;
 using System.Runtime.InteropServices;
 using NUnit.Framework;
@@ -474,4 +473,3 @@ namespace Unity.Entities.Tests
 #endif
     }
 }
-#endif

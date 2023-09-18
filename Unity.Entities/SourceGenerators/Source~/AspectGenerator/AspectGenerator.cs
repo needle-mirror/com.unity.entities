@@ -470,7 +470,7 @@ namespace Unity.Entities.SourceGen.Aspect
                     var code = syntaxTreeSourceBuilder.ToString();
 
                     SourceOutputHelpers.OutputSourceToFile(
-                        syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly.Name, s_GeneratorName),
+                        syntaxTree.GetGeneratedSourceFilePath(context.Compilation.Assembly.Name, s_GeneratorName).FullFilePath,
                         () => code);
 
                     var generatedSourceHint = syntaxTree.GetGeneratedSourceFileName(s_GeneratorName);

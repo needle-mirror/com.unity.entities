@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System.Collections.Generic;
 using Unity.Entities.Serialization;
 
@@ -40,4 +39,3 @@ namespace Unity.Entities.Content
         IEnumerable<(UntypedWeakReferenceId, string)> GetScenes(ContentFileId fileId);
     }
 }
-#endif

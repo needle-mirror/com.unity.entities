@@ -75,11 +75,7 @@ namespace Unity.Assertions
         {
             if(value != null)
             {
-#if UNITY_DOTSRUNTIME
-            IsTrue(ReferenceEquals(value, null));
-#else
                 UnityEngine.Assertions.Assert.IsNull(value);
-#endif
             }
         }
 
@@ -94,11 +90,7 @@ namespace Unity.Assertions
         {
             if (value != null)
             {
-#if UNITY_DOTSRUNTIME
-            IsTrue(ReferenceEquals(value, null), message);
-#else
                 UnityEngine.Assertions.Assert.IsNull(value, message);
-#endif
             }
         }
 
@@ -112,11 +104,7 @@ namespace Unity.Assertions
         {
             if (value == null)
             {
-#if UNITY_DOTSRUNTIME
-            IsFalse(ReferenceEquals(value, null));
-#else
                 UnityEngine.Assertions.Assert.IsNotNull(value);
-#endif
             }
         }
 
@@ -131,11 +119,7 @@ namespace Unity.Assertions
         {
             if (value == null)
             {
-#if UNITY_DOTSRUNTIME
-            IsFalse(ReferenceEquals(value, null), message);
-#else
                 UnityEngine.Assertions.Assert.IsNotNull(value, message);
-#endif
             }
         }
 
@@ -200,11 +184,7 @@ namespace Unity.Assertions
         {
             if (!expected.Equals(actual))
             {
-#if UNITY_DOTSRUNTIME
-                UnityEngine.Assertions.Assert.AreEqual(expected, actual);
-#else
                 UnityEngine.Assertions.Assert.AreEqual(expected, actual, message);
-#endif
             }
         }
 
@@ -233,11 +213,7 @@ namespace Unity.Assertions
         {
             if (expected.Equals(actual))
             {
-#if UNITY_DOTSRUNTIME
-                UnityEngine.Assertions.Assert.AreNotEqual(expected, actual);
-#else
                 UnityEngine.Assertions.Assert.AreNotEqual(expected, actual, message);
-#endif
             }
         }
 

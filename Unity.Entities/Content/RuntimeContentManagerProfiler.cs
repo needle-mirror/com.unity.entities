@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 #define ENABLE_PROFILER
 #if ENABLE_PROFILER
 using System;
@@ -206,5 +205,4 @@ namespace Unity.Entities.Content
         }
     }
 }
-#endif
 #endif

@@ -204,7 +204,7 @@ namespace Unity.Entities.Editor
                 return;
 
             World = world;
-            Container = new EntityContainer(world.EntityManager, Entity);
+            Container = new EntityContainer(world, Entity);
         }
 
         /// <summary>Returns a hash code.</summary>
@@ -219,8 +219,8 @@ namespace Unity.Entities.Editor
             const uint WorldNumberBitMask = (1 << 4) - 1;
 
             uint entityIndexU32 = (uint)entityIndex;
-            uint worldNumberU32 = (uint)World.SequenceNumber;
 
+            uint worldNumberU32 = World is not { IsCreated: true } ? 0 : (uint)World.SequenceNumber;
             uint entityIndexBits = entityIndexU32 & EntityBitMask;
             uint worldNumberBits = (worldNumberU32 & WorldNumberBitMask) << 28;
 

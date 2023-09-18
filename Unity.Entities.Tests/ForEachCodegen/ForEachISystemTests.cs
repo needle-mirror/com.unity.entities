@@ -307,10 +307,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void ForEach_EntityParameter_NoWarnings(ref SystemState systemState)
         {
             systemState.Entities.ForEach((Entity entity) => {}).Run();
-#if !UNITY_DOTSRUNTIME
             LogAssert.NoUnexpectedReceived();
-#endif
         }
+
         public void DisposeNativeArray(ref SystemState systemState, bool useSystemStateForEach)
         {
             var testArray = new NativeArray<int>(100, Allocator.Temp);

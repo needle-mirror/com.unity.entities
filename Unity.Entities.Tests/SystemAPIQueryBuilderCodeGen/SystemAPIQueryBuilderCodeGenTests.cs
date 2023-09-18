@@ -50,6 +50,7 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                     .WithNone<EcsTestData3>()
                     .WithDisabled<EcsTestDataEnableable>()
                     .WithAbsent<EcsTestData5>()
+                    .WithPresent<EcsTestDataEnableable2>()
                     .WithOptions(EntityQueryOptions.IncludeDisabledEntities)
                     .Build();
                 var queryData = query._GetImpl()->_QueryData;
@@ -63,12 +64,14 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(1, archetypeQuery.AnyCount);
                 Assert.AreEqual(1, archetypeQuery.DisabledCount);
                 Assert.AreEqual(1, archetypeQuery.AbsentCount);
+                Assert.AreEqual(1, archetypeQuery.PresentCount);
 
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery.All[0]);
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery.Any[0]);
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData3>().TypeIndex, archetypeQuery.None[0]);
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestDataEnableable>().TypeIndex, archetypeQuery.Disabled[0]);
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData5>().TypeIndex, archetypeQuery.Absent[0]);
+                Assert.AreEqual(ComponentType.ReadOnly<EcsTestDataEnableable2>().TypeIndex, archetypeQuery.Present[0]);
 
                 Assert.AreEqual(EntityQueryOptions.IncludeDisabledEntities, archetypeQuery.Options);
             }
@@ -92,6 +95,7 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(0, archetypeQuery1.AnyCount);
                 Assert.AreEqual(0, archetypeQuery1.DisabledCount);
                 Assert.AreEqual(0, archetypeQuery1.AbsentCount);
+                Assert.AreEqual(0, archetypeQuery1.PresentCount);
 
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData>().TypeIndex, archetypeQuery1.All[0]);
                 Assert.AreEqual(ComponentType.ReadOnly<EcsTestData2>().TypeIndex, archetypeQuery1.None[0]);
@@ -103,6 +107,7 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(2, archetypeQuery2.AnyCount);
                 Assert.AreEqual(0, archetypeQuery2.DisabledCount);
                 Assert.AreEqual(0, archetypeQuery2.AbsentCount);
+                Assert.AreEqual(0, archetypeQuery2.PresentCount);
 
                 Assert.AreEqual(ComponentType.ReadWrite<EcsTestData2>().TypeIndex, archetypeQuery2.All[0]);
                 Assert.That(ToManagedArray(archetypeQuery2.Any, archetypeQuery2.AnyCount), Is.EquivalentTo(new TypeIndex[] {
@@ -160,6 +165,7 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(0, archetypeQuery.AnyCount);
                 Assert.AreEqual(0, archetypeQuery.DisabledCount);
                 Assert.AreEqual(0, archetypeQuery.AbsentCount);
+                Assert.AreEqual(0, archetypeQuery.PresentCount);
 
                 Assert.AreEqual(ComponentType.ReadWrite<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
             }
@@ -191,6 +197,7 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(0, archetypeQuery.AnyCount);
                 Assert.AreEqual(0, archetypeQuery.DisabledCount);
                 Assert.AreEqual(0, archetypeQuery.AbsentCount);
+                Assert.AreEqual(0, archetypeQuery.PresentCount);
             }
 
             public unsafe void WithAspectAliased()
@@ -208,6 +215,7 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
                 Assert.AreEqual(0, archetypeQuery.AnyCount);
                 Assert.AreEqual(0, archetypeQuery.DisabledCount);
                 Assert.AreEqual(0, archetypeQuery.AbsentCount);
+                Assert.AreEqual(0, archetypeQuery.PresentCount);
 
                 Assert.AreEqual(ComponentType.ReadWrite<EcsTestData>(), archetypeQuery.GetComponentTypeAllAt(0));
             }

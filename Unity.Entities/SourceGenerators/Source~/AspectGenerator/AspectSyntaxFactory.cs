@@ -164,7 +164,7 @@ public static class AspectSyntaxFactory
             printer.PrintLine(@"/// A container type that provides access to instances of the enclosing Aspect type, indexed by <see cref=""Unity.Entities.Entity""/>.");
             printer.PrintLine(@"/// Equivalent to <see cref=""global::Unity.Entities.ComponentLookup{T}""/> but for aspect types.");
             printer.PrintLine(@"/// Constructed from an system state via its constructor.");
-            printer.PrintBeginLine("public struct Lookup");
+            printer.PrintBeginLine($"public struct Lookup : global::Unity.Entities.Internal.InternalCompilerInterface.IAspectLookup<{aspect.Name}>");
             {
                 printer.OpenScope();
                 // Declare all lookup primitives
@@ -371,7 +371,7 @@ public static class AspectSyntaxFactory
             printer.PrintLine(@$"/// So it completes all write dependencies of the components, buffers, etc. to allow for reading.");
             printer.PrintLine(@$"/// </summary>");
             printer.PrintLine(@$"/// <param name=""state"">The <see cref=""global::Unity.Entities.SystemState""/> containing an <see cref=""global::Unity.Entities.EntityManager""/> storing all dependencies.</param>");
-            printer.PrintBeginLine($"public static void CompleteDependencyBeforeRO(ref global::Unity.Entities.SystemState state)");
+            printer.PrintBeginLine($"public void CompleteDependencyBeforeRO(ref global::Unity.Entities.SystemState state)");
             printer.OpenScope();
             aspect.PrimitivesRouter.PrintCompleteDependency(printer, true);
             printer.CloseScope();
@@ -382,7 +382,7 @@ public static class AspectSyntaxFactory
             printer.PrintLine(@$"/// and it completes all read dependencies, so we can write to it.");
             printer.PrintLine(@$"/// </summary>");
             printer.PrintLine(@$"/// <param name=""state"">The <see cref=""global::Unity.Entities.SystemState""/> containing an <see cref=""global::Unity.Entities.EntityManager""/> storing all dependencies.</param>");
-            printer.PrintBeginLine(@$"public static void CompleteDependencyBeforeRW(ref global::Unity.Entities.SystemState state)");
+            printer.PrintBeginLine(@$"public void CompleteDependencyBeforeRW(ref global::Unity.Entities.SystemState state)");
             printer.OpenScope();
             aspect.PrimitivesRouter.PrintCompleteDependency(printer, false);
             printer.CloseScope();

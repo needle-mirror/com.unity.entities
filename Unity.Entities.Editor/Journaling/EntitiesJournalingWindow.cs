@@ -1,3 +1,4 @@
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -493,3 +494,4 @@ namespace Unity.Entities.Editor
         }
     }
 }
+#endif

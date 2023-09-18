@@ -1,7 +1,3 @@
-#if !UNITY_DOTSRUNTIME
-// TODO: IL2CPP_TEST_RUNNER doesn't support TextFixture with argument and other calls. Note these
-// are also generally flagged with DotsRuntimeFixme.
-
 using System;
 using NUnit.Framework;
 using Unity.Collections;
@@ -176,4 +172,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-#endif // !UNITY_DOTSRUNTIME

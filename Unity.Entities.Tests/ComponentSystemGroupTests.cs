@@ -10,11 +10,8 @@ using UnityEngine.TestTools;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Transforms;
-
-#if !UNITY_PORTABLE_TEST_RUNNER
 using System.Text.RegularExpressions;
 using System.Linq;
-#endif
 
 namespace Unity.Entities.Tests
 {
@@ -232,7 +229,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_DOTSRUNTIME // DOTS Runtime does not eat the Exception so this test can not pass (the 3rd assert will always fail)
         [Test]
         public void SystemInGroupThrows_LaterSystemsRun()
         {
@@ -250,7 +246,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, child2.CompleteUpdateCount);
             Assert.AreEqual(1, child3.CompleteUpdateCount);
         }
-#endif
 
         [Test]
         public void SystemThrows_SystemNotRemovedFromUpdate()
@@ -259,17 +254,9 @@ namespace Unity.Entities.Tests
             var child = World.CreateSystemManaged<ThrowingSystem>();
             parent.AddSystemToUpdateList(child);
             LogAssert.Expect(LogType.Exception, new Regex(child.ExceptionMessage));
-#if UNITY_DOTSRUNTIME
-            Assert.Throws<InvalidOperationException>(() => parent.Update());
-#else
             parent.Update();
-#endif
             LogAssert.Expect(LogType.Exception, new Regex(child.ExceptionMessage));
-#if UNITY_DOTSRUNTIME
-            Assert.Throws<InvalidOperationException>(() => parent.Update());
-#else
             parent.Update();
-#endif
             LogAssert.NoUnexpectedReceived();
 
             Assert.AreEqual(0, child.CompleteUpdateCount);
@@ -575,13 +562,9 @@ namespace Unity.Entities.Tests
         {
             World w = new World("Test World");
 
-#if !UNITY_PORTABLE_TEST_RUNNER
             // In hybrid, IsSystemAGroup() returns false for non-system inputs
             Assert.That(() => DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, typeof(GroupIsntAComponentSystem)),
                 Throws.InvalidOperationException.With.Message.Contains("must be derived from ComponentSystemGroup"));
-#else
-            Assert.Throws<InvalidOperationException>(() => DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, typeof(GroupIsntAComponentSystem)));
-#endif
 
             w.Dispose();
         }
@@ -595,14 +578,8 @@ namespace Unity.Entities.Tests
         public void UpdateInGroup_TargetNotAGroup_Throws()
         {
             World w = new World("Test World");
-#if NET_DOTS
-            Assert.Throws<InvalidOperationException>(() =>
-                DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w,
-                    typeof(GroupIsntAComponentSystemGroup)));
-#else
             Assert.That(() => DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, typeof(GroupIsntAComponentSystemGroup)),
                 Throws.InvalidOperationException.With.Message.Contains("must be derived from ComponentSystemGroup"));
-#endif
             w.Dispose();
         }
 
@@ -616,13 +593,8 @@ namespace Unity.Entities.Tests
         {
             World w = new World("Test World");
             var systemTypes = new[] {typeof(FirstAndLast), typeof(TestGroup)};
-#if NET_DOTS
-            Assert.Throws<InvalidOperationException>(() =>
-                DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, systemTypes));
-#else
             Assert.That(() => DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, systemTypes),
                 Throws.InvalidOperationException.With.Message.Contains("can not specify both OrderFirst=true and OrderLast=true"));
-#endif
             w.Dispose();
         }
 
@@ -693,8 +665,6 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(systems, parent.ManagedSystems);
             LogAssert.NoUnexpectedReceived();
         }
-
-#if !UNITY_DOTSRUNTIME_IL2CPP
 
         // Invalid constraints
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
@@ -803,8 +773,6 @@ namespace Unity.Entities.Tests
             LogAssert.NoUnexpectedReceived();
             CollectionAssert.AreEqual(systems, parent.ManagedSystems);
         }
-
-#endif
 
         [UpdateInGroup(typeof(TestGroup), OrderFirst = true)]
         public partial class OFL_A : EmptySystem
@@ -1253,7 +1221,7 @@ namespace Unity.Entities.Tests
                 SystemTypeList.Add(idx);
             }
 
-            SystemOrderInfoMap = new NativeParallelHashMap<ulong, OrderInfo>(SystemTypeList.Length, Allocator.Persistent);            
+            SystemOrderInfoMap = new NativeParallelHashMap<ulong, OrderInfo>(SystemTypeList.Length, Allocator.Persistent);
             SystemSequenceNo = 0;
 
             // Make a custom world and manually add the systems
@@ -1268,12 +1236,14 @@ namespace Unity.Entities.Tests
             // Normally this happens when fetching all systems based on world filter flags
             // but since we want to be very specific about which systems are registered with the world while using the machinery to do so
             // we sort them here like what would happen normally
+
             var copy = new NativeList<SystemTypeIndex>(systemList.Length, Allocator.Temp);
             copy.CopyFrom(systemList);
 
             TypeManager.SortSystemTypesInCreationOrder(copy);
 
             DefaultWorldInitialization.AddSystemToRootLevelSystemGroupsInternal(world, copy);
+
             return world;
         }
 
@@ -1458,7 +1428,6 @@ OnCreate: TestSystemOrder8_10                - UpdateAfter 7_8
             var systemList = new NativeList<SystemTypeIndex>(SystemTypeList.Length, Allocator.Temp);
             systemList.CopyFrom(SystemTypeList);
             TypeManager.SortSystemTypesInCreationOrder(systemList);
-
 
             // Confirm CreateBefore|After attributes influence create order
             {

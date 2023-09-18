@@ -1,5 +1,3 @@
-#if !NET_DOTS
-// https://unity3d.atlassian.net/browse/DOTSR-1432
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
@@ -161,10 +159,8 @@ namespace Unity.Entities.Tests
 
                 if (Data is object[] objects)
                     str += $"=len:{objects.Length}";
-                #if !UNITY_DOTSRUNTIME
                 else if (Data is UnityEngine.Component component)
                     str += $"={component.gameObject.name}";
-                #endif
                 else if (!dataType.IsValueType || !Equals(Data, Activator.CreateInstance(dataType)))
                 {
                     var dataStr = Data.ToString();
@@ -226,4 +222,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-#endif

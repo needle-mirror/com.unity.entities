@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Mathematics;
@@ -6,7 +6,7 @@ using Unity.PerformanceTesting;
 
 namespace Unity.Entities.PerformanceTests
 {
-#if !UNITY_DISABLE_MANAGED_COMPONENTS && !UNITY_DOTSRUNTIME
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
     [TestFixture]
     [Category("Performance")]
     public class ManageObjectUtilityPerformanceTests

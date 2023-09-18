@@ -241,9 +241,13 @@ namespace Unity.Entities.Tests
 
                 EntityManager.CreateEntity(typeof(EcsTestData));
                 Assert.IsTrue(SystemAPI.HasSingleton<EcsTestData>());
+            }
 
+            public void HasSingleton_MoreThanOneInstance_Throws()
+            {
                 EntityManager.CreateEntity(typeof(EcsTestData));
-                Assert.IsFalse(SystemAPI.HasSingleton<EcsTestData>());
+                EntityManager.CreateEntity(typeof(EcsTestData));
+                Assert.Throws<InvalidOperationException>(() => SystemAPI.HasSingleton<EcsTestData>());
             }
 
             public void GetSingletonEntityWorks()
@@ -354,6 +358,10 @@ namespace Unity.Entities.Tests
 
         [Test]
         public void SystemBase_HasSingleton_ReturnsTrueWithEntityWithOnlyComponent() => TestSystem.HasSingleton_ReturnsTrueWithEntityWithOnlyComponent();
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("requires opt-in debug checks")]
+        public void SystemBase_HasSingleton_MoreThanOneInstance_Throws() => TestSystem.HasSingleton_MoreThanOneInstance_Throws();
 
         [Test]
         public void SystemBase_GetSingletonEntityWorks() => TestSystem.GetSingletonEntityWorks();

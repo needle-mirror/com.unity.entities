@@ -153,7 +153,7 @@ namespace Unity.Entities.Tests
             var nullBlob = default(BlobAssetReference<int>);
 
             Assert.Throws<ArgumentException>(() => m_Store.TryAdd(ref tempBlob));
-            Assert.Throws<InvalidOperationException>(() => m_Store.TryAdd(ref nullBlob));
+            Assert.Throws<NullReferenceException>(() => m_Store.TryAdd(ref nullBlob));
         }
         #endif
     }

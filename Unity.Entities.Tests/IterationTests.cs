@@ -274,7 +274,6 @@ namespace Unity.Entities.Tests
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-#if !UNITY_PORTABLE_TEST_RUNNER            // Does not support managed components.
         [Test]
         public void CreateEntityQuery_ManagedComponents()
         {
@@ -505,7 +504,6 @@ namespace Unity.Entities.Tests
 
             query.Dispose();
         }
-#endif
 #endif
     }
 }

@@ -7,9 +7,7 @@ namespace Unity.Entities.LowLevel
     [GenerateTestsForBurstCompatibility]
     internal struct SpinLock
     {
-#if !NET_DOTS
         int m_Lock;
-#endif
 
         /// <summary>
         /// Continually spin until the lock can be acquired.
@@ -17,7 +15,6 @@ namespace Unity.Entities.LowLevel
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Acquire()
         {
-#if !NET_DOTS
             for (;;)
             {
                 // Optimistically assume the lock is free on the first try.
@@ -34,7 +31,6 @@ namespace Unity.Entities.LowLevel
                 // and you don't care about power efficiency, using the 'pause' instruction will slow down lock
                 // acquisition in the contended scenario.
             }
-#endif
         }
 
         /// <summary>
@@ -44,13 +40,9 @@ namespace Unity.Entities.LowLevel
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool TryAcquire()
         {
-#if !NET_DOTS
             // First do a memory load (read) to check if lock is free in order to prevent unnecessary cache misses.
             return Volatile.Read(ref m_Lock) == 0 &&
                 Interlocked.CompareExchange(ref m_Lock, 1, 0) == 0;
-#else
-            return false;
-#endif
         }
 
         /// <summary>
@@ -75,9 +67,7 @@ namespace Unity.Entities.LowLevel
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public void Release()
         {
-#if !NET_DOTS
             Volatile.Write(ref m_Lock, 0);
-#endif
         }
     }
 }

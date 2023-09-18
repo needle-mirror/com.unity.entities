@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using UnityEngine;
 using UnityEngine.Scripting.APIUpdating;
 
@@ -21,4 +20,3 @@ namespace Unity.Scenes
         public int[] CompanionObjectIndices;
     }
 }
-#endif

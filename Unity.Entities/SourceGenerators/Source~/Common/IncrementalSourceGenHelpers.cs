@@ -26,17 +26,14 @@ namespace Unity.Entities.SourceGen.Common
             var parseOptionConfigProvider = context.ParseOptionsProvider.Select((options, token) =>
                 {
                     var parseOptionsConfig = new ParseOptionConfig();
-                    var isDotsRuntime = false;
-
                     SourceOutputHelpers.Setup(options);
 
                     foreach (var symbolName in options.PreprocessorSymbolNames)
                     {
-                        isDotsRuntime |= symbolName == "UNITY_DOTSRUNTIME";
                         parseOptionsConfig.performSafetyChecks |= symbolName == "ENABLE_UNITY_COLLECTIONS_CHECKS";
                         parseOptionsConfig.isDotsDebugMode |= symbolName == "UNITY_DOTS_DEBUG";
                     }
-                    parseOptionsConfig.PathIsInFirstAdditionalTextItem = !isDotsRuntime;
+                    parseOptionsConfig.PathIsInFirstAdditionalTextItem = true;
 
                     return parseOptionsConfig;
                 });

@@ -28,7 +28,6 @@ namespace Unity.Entities
             {
                 var srcChunk = archetype->Chunks[i];
                 Chunks[offset + i] = new ArchetypeChunk(srcChunk, entityComponentStore);
-
             }
         }
     }
@@ -145,7 +144,7 @@ namespace Unity.Entities
             var matchingArchetypesPtr = MatchingArchetypes.Ptr;
             var requiresFilter = Filter.RequiresMatchesFilter;
             var hasEnableableComponents = QueryContainsEnableableComponents == 1;
-            var cachedChunksPtr = ChunkCache.Ptr;
+            var cachedChunksIndices = ChunkCache.ChunkIndices;
             var chunkMatchingArchetypeIndexPtr = ChunkCache.PerChunkMatchingArchetypeIndex->Ptr;
             var chunkIndexInArchetypePtr = ChunkCache.ChunkIndexInArchetype->Ptr;
             int cachedChunkCount = ChunkCache.Length;
@@ -168,7 +167,7 @@ namespace Unity.Entities
             {
                 for (int chunkIndexInCache = 0; chunkIndexInCache < cachedChunkCount; ++chunkIndexInCache)
                 {
-                    outChunks[chunkIndexInCache] = new ArchetypeChunk(cachedChunksPtr[chunkIndexInCache], ecs);
+                    outChunks[chunkIndexInCache] = new ArchetypeChunk(cachedChunksIndices[chunkIndexInCache], ecs);
                 }
                 filteredChunkCount = cachedChunkCount;
             }
@@ -194,7 +193,7 @@ namespace Unity.Entities
                         out var chunkEnabledMask);
                     if (chunkEnabledMask.ULong0 == 0 && chunkEnabledMask.ULong1 == 0)
                         continue;
-                    outChunks[filteredChunkCount++] = new ArchetypeChunk(cachedChunksPtr[chunkIndexInCache], ecs);
+                    outChunks[filteredChunkCount++] = new ArchetypeChunk(cachedChunksIndices[chunkIndexInCache], ecs);
                 }
             }
             else
@@ -210,7 +209,7 @@ namespace Unity.Entities
                     int chunkIndexInArchetype = chunkIndexInArchetypePtr[chunkIndexInCache];
                     if (!currentMatchingArchetype->ChunkMatchesFilter(chunkIndexInArchetype, ref Filter))
                         continue;
-                    outChunks[filteredChunkCount++] = new ArchetypeChunk(cachedChunksPtr[chunkIndexInCache], ecs);
+                    outChunks[filteredChunkCount++] = new ArchetypeChunk(cachedChunksIndices[chunkIndexInCache], ecs);
                 }
             }
             *OutFilteredChunksList.Length = filteredChunkCount;
@@ -306,7 +305,7 @@ namespace Unity.Entities
             ushort typeSize = archetype->SizeOfs[indexInTypeArray];
 
             int baseEntityIndexInQuery = ChunkBaseEntityIndices[unfilteredChunkIndex];
-            byte* srcBytes = chunk.m_Chunk->Buffer + typeOffset;
+            byte* srcBytes = chunk.m_Chunk.Buffer + typeOffset;
             byte* dstBytes = ComponentData + (baseEntityIndexInQuery * typeSize);
             if (useEnabledMask)
             {
@@ -341,7 +340,7 @@ namespace Unity.Entities
 
             int baseEntityIndexInQuery = ChunkBaseEntityIndices[unfilteredChunkIndex];
             byte* dstBytes = OutputList.Ptr + (baseEntityIndexInQuery * typeSize);
-            byte* srcBytes = ChunkDataUtility.GetComponentDataWithTypeRO(chunk.m_Chunk, 0, TypeHandle.m_TypeIndex);
+            byte* srcBytes = ChunkDataUtility.GetComponentDataWithTypeRO(chunk.m_Chunk, archetype, 0, TypeHandle.m_TypeIndex);
             int chunkEntityCount = chunk.Count;
             int copyCount = useEnabledMask ? EnabledBitUtility.countbits(chunkEnabledMask) : chunkEntityCount;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
@@ -388,7 +387,7 @@ namespace Unity.Entities
             ushort typeSize = archetype->SizeOfs[indexInTypeArray];
 
             int baseEntityIndexInQuery = ChunkBaseEntityIndices[unfilteredChunkIndex];
-            var dstBytes = ChunkDataUtility.GetComponentDataWithTypeRW(chunk.m_Chunk, 0, TypeIndex, GlobalSystemVersion);
+            var dstBytes = ChunkDataUtility.GetComponentDataWithTypeRW(chunk.m_Chunk, archetype, 0, TypeIndex, GlobalSystemVersion);
             var srcBytes = ComponentData + (baseEntityIndexInQuery * typeSize);
             if (useEnabledMask)
             {
@@ -421,7 +420,7 @@ namespace Unity.Entities
             ushort typeSize = archetype->SizeOfs[indexInTypeArray];
 
             int baseEntityIndexInQuery = ChunkBaseEntityIndices[unfilteredChunkIndex];
-            byte* dstBytes = ChunkDataUtility.GetComponentDataWithTypeRW(chunk.m_Chunk, 0, TypeHandle.m_TypeIndex, TypeHandle.GlobalSystemVersion);
+            byte* dstBytes = ChunkDataUtility.GetComponentDataWithTypeRW(chunk.m_Chunk, archetype, 0, TypeHandle.m_TypeIndex, TypeHandle.GlobalSystemVersion);
             byte* srcBytes = InputList.Ptr + (baseEntityIndexInQuery * typeSize);
             int chunkEntityCount = chunk.Count;
             int copyCount = useEnabledMask ? EnabledBitUtility.countbits(chunkEnabledMask) : chunkEntityCount;

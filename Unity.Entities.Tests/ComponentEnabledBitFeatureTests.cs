@@ -374,7 +374,7 @@ namespace Unity.Entities.Tests
             var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
-            var chunk = queryChunkCache.Ptr[0];
+            var chunk = queryChunkCache.ChunkIndices[0];
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var chunkEnabledMask);
             Assert.AreEqual(0, chunkEnabledMask.ULong0);
             Assert.AreEqual(0, chunkEnabledMask.ULong1);
@@ -402,7 +402,7 @@ namespace Unity.Entities.Tests
             var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
-            var chunk = queryChunkCache.Ptr[0];
+            var chunk = queryChunkCache.ChunkIndices[0];
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var chunkEnabledMask);
             Assert.AreEqual(0, chunkEnabledMask.ULong0);
             Assert.AreEqual(0, chunkEnabledMask.ULong1);
@@ -431,7 +431,7 @@ namespace Unity.Entities.Tests
             var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
-            var chunk = queryChunkCache.Ptr[0];
+            var chunk = queryChunkCache.ChunkIndices[0];
             // The chunk should be half-full, with the first entity not enabled (it has the required component disabled)
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var chunkEnabledMask);
             Assert.AreEqual(0xFFFFFFFFFFFFFFFE, chunkEnabledMask.ULong0);
@@ -457,7 +457,7 @@ namespace Unity.Entities.Tests
             var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
-            var chunk = queryChunkCache.Ptr[0];
+            var chunk = queryChunkCache.ChunkIndices[0];
             // All entities have the required component enabled, but only the first has the excluded component disabled
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var chunkEnabledMask);
             Assert.AreEqual(0x1, chunkEnabledMask.ULong0);
@@ -483,7 +483,7 @@ namespace Unity.Entities.Tests
             var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
-            var chunk = queryChunkCache.Ptr[0];
+            var chunk = queryChunkCache.ChunkIndices[0];
             // All entities have the required component enabled, but only the first has the excluded component disabled
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var chunkEnabledMask);
             Assert.AreEqual(0x1, chunkEnabledMask.ULong0);
@@ -512,7 +512,7 @@ namespace Unity.Entities.Tests
             var queryChunkCache = queryImpl->GetMatchingChunkCache();
             var matchIndex = queryChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
             var matchingArchetype = queryData->MatchingArchetypes.Ptr[matchIndex];
-            var chunk = queryChunkCache.Ptr[0];
+            var chunk = queryChunkCache.ChunkIndices[0];
             // All entities have the required component enabled, but only the first has the excluded component disabled
             ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var chunkEnabledMask);
             Assert.AreEqual(ulong.MaxValue, chunkEnabledMask.ULong0);

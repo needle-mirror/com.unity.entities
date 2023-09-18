@@ -141,6 +141,21 @@ namespace Unity.Entities
     }
 
     /// <summary>
+    /// Specify that an IJobEntity should include all of the component types specified as part of the attribute, whether or not the components
+    /// are enabled on individual entities.
+    /// </summary>
+    [AttributeUsage(AttributeTargets.Struct, AllowMultiple = true)]
+    public sealed class WithPresentAttribute : Attribute
+    {
+        /// <summary>
+        /// Specifies that this IJobEntity should include all of the component types specified as part of the attribute, whether or not the components
+        /// are enabled on individual entities.
+        /// </summary>
+        /// <param name="types">Present component types</param>
+        public WithPresentAttribute(params Type[] types){}
+    }
+
+    /// <summary>
     /// Specifies that this IJobEntity should include all ComponentTypes found as attributes of the IJobEntity
     /// </summary>
     /// <seealso cref="IJobEntity"/>

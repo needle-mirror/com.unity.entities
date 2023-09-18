@@ -11,9 +11,7 @@ using Unity.Entities;
 using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.TestTools;
-#if !UNITY_DOTSRUNTIME
 using System.Text.RegularExpressions;
-#endif
 
 namespace Unity.Entities.Tests
 {
@@ -222,7 +220,7 @@ namespace Unity.Entities.Tests
             element.Destroy();
         }
 
-        [Test, DotsRuntimeFixme("Job system update required to support nested container safety")]
+        [Test]
         [TestRequiresCollectionChecks("Relies on jobs debugger")]
         public void DynamicBuffer_ElementWithContainerInJob_Throws()
         {
@@ -366,7 +364,6 @@ namespace Unity.Entities.Tests
            Assert.AreEqual(0, buffer.Length);
        }
 
-#if !UNITY_DOTSRUNTIME // DOTS Runtime does not support regex
         [Test]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void WritingToReadOnlyBufferTriggersSafetySystem()
@@ -464,9 +461,6 @@ namespace Unity.Entities.Tests
         {
             World.GetOrCreateSystemManaged<DynamicBufferTestsSystem>().Update();
         }
-#endif
-
-#if !UNITY_DOTSRUNTIME  // No GCAlloc access
 
         // @TODO: when 2019.1 support is dropped this can be shared with the collections tests:
         // until then the package validation will fail otherwise when collections is not marked testable
@@ -525,8 +519,5 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, count);
             Assert.AreEqual(8, sum);
         }
-
-
-#endif
     }
 }

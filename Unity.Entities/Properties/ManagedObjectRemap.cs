@@ -1,12 +1,9 @@
 using System;
-#if !NET_DOTS
 using System.Collections.Generic;
 using Unity.Properties;
-#endif
 
 namespace Unity.Entities
 {
-#if !UNITY_DOTSRUNTIME
     interface ITypedVisit<TValue>
     {
         void Visit<TContainer>(Property<TContainer, TValue> property, ref TContainer container, ref TValue value);
@@ -131,10 +128,8 @@ namespace Unity.Entities
                     return;
             }
 
-#if !UNITY_DOTSRUNTIME
             if (value is UnityEngine.Object)
                 return;
-#endif
 
             if (this is ITypedVisit<TValue> typed)
             {
@@ -169,23 +164,4 @@ namespace Unity.Entities
             m_References?.Clear();
         }
     }
-#else
-    unsafe class ManagedObjectRemap
-    {
-        public void RemapEntityReferences(object obj, EntityRemapUtility.EntityRemapInfo* entityRemapInfo)
-        {
-            // Not supported in DOTS Runtime.
-        }
-
-        public void RemapEntityReferencesForPrefab(object obj, Entity* remapSrc, Entity* remapDst, int remapInfoCount)
-        {
-            // Not supported in DOTS Runtime.
-        }
-
-        public void ClearGCRefs()
-        {
-            //no-op, no references to clear
-        }
-    }
-#endif
 }

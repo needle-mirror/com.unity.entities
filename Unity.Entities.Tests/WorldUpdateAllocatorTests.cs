@@ -5,7 +5,7 @@ using Unity.Collections;
 namespace Unity.Entities.Tests
 {
 
-#if !UNITY_DOTSRUNTIME && ENABLE_UNITY_COLLECTIONS_CHECKS
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
 
     public class WorldUpdateAllocatorTests : ECSTestsCommonBase
     {

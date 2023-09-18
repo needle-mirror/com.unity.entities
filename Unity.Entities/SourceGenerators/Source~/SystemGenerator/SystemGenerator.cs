@@ -7,160 +7,183 @@ using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.Common;
 using Unity.Entities.SourceGen.SystemGenerator.Common;
-using Unity.Entities.SourceGen.SystemGenerator.EntityQueryBulkOperations;
 
-namespace Unity.Entities.SourceGen.SystemGenerator
+namespace Unity.Entities.SourceGen.SystemGenerator;
+
+[Generator]
+public class SystemGenerator : ISourceGenerator
 {
-    [Generator]
-    public class SystemGenerator : ISourceGenerator
+    const string GeneratorName = "System";
+
+    public void Initialize(GeneratorInitializationContext context) =>
+        context.RegisterForSyntaxNotifications(() => new SystemSyntaxReceiver(context.CancellationToken));
+
+    public void Execute(GeneratorExecutionContext context)
     {
-        const string GeneratorName = "System";
-        public void Initialize(GeneratorInitializationContext context) =>
-            context.RegisterForSyntaxNotifications(() => new SystemSyntaxReceiver(context.CancellationToken));
+        if (!SourceGenHelpers.IsBuildTime || !SourceGenHelpers.ShouldRun(context.Compilation, context.CancellationToken))
+            return;
 
-        public void Execute(GeneratorExecutionContext context)
+        SourceOutputHelpers.Setup(context.ParseOptions, context.AdditionalFiles);
+
+        Location lastLocation = null;
+        SourceOutputHelpers.LogInfoToSourceGenLog($"Source generating assembly {context.Compilation.Assembly.Name}...");
+
+        var stopwatch = Stopwatch.StartNew();
+
+        try
         {
-            if (!SourceGenHelpers.IsBuildTime || !SourceGenHelpers.ShouldRun(context.Compilation, context.CancellationToken))
-                return;
+            var systemReceiver = (SystemSyntaxReceiver)context.SyntaxReceiver;
+            var allModules = systemReceiver.SystemModules;
+            var syntaxTreesWithCandidate = SystemGeneratorHelper.GetSyntaxTreesWithCandidates(allModules);
+            var assemblyHasReferenceToBurst = context.Compilation.ReferencedAssemblyNames.Any(n => n.Name == "Unity.Burst");
+            var assemblyHasReferenceToCollections = context.Compilation.ReferencedAssemblyNames.Any(n => n.Name == "Unity.Collections");
+            var requiresMissingReferenceToBurst = false;
+            var preprocessorInfo = PreprocessorInfo.From(context.ParseOptions.PreprocessorSymbolNames);
 
-            SourceOutputHelpers.Setup(context.ParseOptions, context.AdditionalFiles);
+            // If multiple user-written parts exist for a given partial type, then each part might have its own syntax tree and semantic model, and thus its own `SystemDescription`.
+            // Therefore we cannot group `SystemDescription`s by syntax tree or by semantic model, because we might end up wrongly treating partial parts of the same type
+            // as distinct types. Instead, we group `SystemDescription`s by the fully qualified names of the system types they handle.
+            var systemTypeFullNamesToDescriptions = new Dictionary<string, List<SystemDescription>>();
 
-            Location lastLocation = null;
-            SourceOutputHelpers.LogInfoToSourceGenLog($"Source generating assembly {context.Compilation.Assembly.Name}...");
-
-            var stopwatch = Stopwatch.StartNew();
-
-            try
+            // Process all candidates and create `SystemDescription`s for viable candidates
+            // Store results in `systemTypeFullNamesToDescriptions`.
+            foreach (var syntaxTree in syntaxTreesWithCandidate)
             {
-                var systemReceiver = (SystemSyntaxReceiver)context.SyntaxReceiver;
-                var allModules = systemReceiver.SystemModules;
-                var syntaxTreesWithCandidate = SystemGeneratorHelper.GetSyntaxTreesWithCandidates(allModules);
-                var assemblyHasReferenceToBurst = context.Compilation.ReferencedAssemblyNames.Any(n => n.Name == "Unity.Burst");
-                var assemblyHasReferenceToCollections = context.Compilation.ReferencedAssemblyNames.Any(n => n.Name == "Unity.Collections");
-                var requiresMissingReferenceToBurst = false;
+                context.CancellationToken.ThrowIfCancellationRequested();
 
-                // If multiple user-written parts exist for a given partial type, then each part might have its own syntax tree and semantic model, and thus its own `SystemDescription`.
-                // Therefore we cannot group `SystemDescription`s by syntax tree or by semantic model, because we might end up wrongly treating partial parts of the same type
-                // as distinct types. Instead, we group `SystemDescription`s by the fully qualified names of the system types they handle.
-                var systemTypeFullNamesToDescriptions = new Dictionary<string, List<SystemDescription>>();
+                var syntaxTreeInfo = new SyntaxTreeInfo { Tree = syntaxTree, IsSourceGenerationSuccessful = true };
+                var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
 
-                // Process all candidates and create `SystemDescription`s for viable candidates
-                // Store results in `systemTypeFullNamesToDescriptions`.
-                foreach (var syntaxTree in syntaxTreesWithCandidate)
+                foreach (var systemTypeSyntax in SystemGeneratorHelper.GetSystemTypesInTree(syntaxTree, allModules))
                 {
                     context.CancellationToken.ThrowIfCancellationRequested();
+                    if (systemTypeSyntax.Identifier.ValueText == "SystemBase")
+                        continue;
 
-                    var syntaxTreeInfo = new SyntaxTreeInfo { Tree = syntaxTree, IsSourceGenerationSuccessful = true };
-                    var semanticModel = context.Compilation.GetSemanticModel(syntaxTree);
+                    lastLocation = systemTypeSyntax.GetLocation();
 
-                    foreach (var systemTypeSyntax in SystemGeneratorHelper.GetSystemTypesInTree(syntaxTree, allModules))
+                    if (systemReceiver.ISystemDefinedAsClass.Contains(systemTypeSyntax))
+                        continue;
+
+                    var systemTypeSymbol = semanticModel.GetDeclaredSymbol(systemTypeSyntax);
+                    var systemTypeInfo = systemTypeSymbol.TryGetSystemType();
+                    if (!systemTypeInfo.IsSystemType)
+                        continue;
+
+                    SystemDescription systemDescription;
+                    if (systemReceiver.CandidateNodesGroupedBySystemType.TryGetValue(systemTypeSyntax, out var candidates))
+                    {
+                        systemDescription =
+                            new SystemDescription(
+                                systemTypeSyntax,
+                                systemTypeInfo.SystemType,
+                                systemTypeSymbol,
+                                semanticModel,
+                                syntaxTreeInfo,
+                                candidates,
+                                preprocessorInfo);
+                    }
+                    else
+                    {
+                        systemDescription =
+                            new SystemDescription(
+                                systemTypeSyntax,
+                                systemTypeInfo.SystemType,
+                                systemTypeSymbol,
+                                semanticModel,
+                                syntaxTreeInfo,
+                                default,
+                                preprocessorInfo);
+                    }
+
+                    foreach (var module in SystemGeneratorHelper.GetAllModulesWithCandidatesInSystemType(systemTypeSyntax, allModules, context))
                     {
                         context.CancellationToken.ThrowIfCancellationRequested();
-                        if (systemTypeSyntax.Identifier.ValueText == "SystemBase")
+
+                        if (!module.RegisterChangesInSystem(systemDescription))
                             continue;
 
-                        lastLocation = systemTypeSyntax.GetLocation();
-
-                        if (systemReceiver.ISystemDefinedAsClass.Contains(systemTypeSyntax))
-                            continue;
-
-                        var systemTypeSymbol = semanticModel.GetDeclaredSymbol(systemTypeSyntax);
-                        var systemTypeInfo = systemTypeSymbol.TryGetSystemType();
-                        if (!systemTypeInfo.IsSystemType)
-                            continue;
-
-                        var systemDescription = new SystemDescription(systemTypeSyntax, systemTypeInfo.SystemType, systemTypeSymbol, semanticModel, context.ParseOptions.PreprocessorSymbolNames, syntaxTreeInfo);
-
-                        foreach (var module in SystemGeneratorHelper.GetAllModulesWithCandidatesInSystemType(systemTypeSyntax, allModules, context))
+                        if (module.RequiresReferenceToBurst && !assemblyHasReferenceToBurst)
                         {
-                            context.CancellationToken.ThrowIfCancellationRequested();
-
-                            if (!module.RegisterChangesInSystem(systemDescription))
-                                continue;
-
-                            if (module.RequiresReferenceToBurst && !assemblyHasReferenceToBurst)
-                            {
-                                requiresMissingReferenceToBurst = true;
-                                syntaxTreeInfo.IsSourceGenerationSuccessful = false;
-                            }
+                            requiresMissingReferenceToBurst = true;
+                            syntaxTreeInfo.IsSourceGenerationSuccessful = false;
                         }
-
-                        foreach (var systemDescriptionDiagnostic in systemDescription.Diagnostics)
-                            context.ReportDiagnostic(systemDescriptionDiagnostic);
-                        systemDescription.Diagnostics.Clear();
-
-                        if (!systemDescription.ContainsChangesToSystem())
-                            continue;
-
-                        systemTypeFullNamesToDescriptions.Add(systemDescription.SystemTypeFullName, systemDescription);
                     }
-                }
 
-                var partialSystemTypesGroupedBySyntaxTrees = new Dictionary<SyntaxTreeInfo, Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax>>();
-
-                // Generate partial types and store results in `partialSystemTypesGroupedBySyntaxTrees`
-                foreach (var kvp in systemTypeFullNamesToDescriptions)
-                {
-                    var allDescriptionsForSameSystemType = kvp.Value;
-                    var generatedPart = PartialSystemTypeGenerator.Generate(allDescriptionsForSameSystemType.ToArray());
-                    foreach (var systemDescriptionDiagnostic in allDescriptionsForSameSystemType.SelectMany(d=>d.Diagnostics))
+                    foreach (var systemDescriptionDiagnostic in systemDescription.SourceGenDiagnostics)
                         context.ReportDiagnostic(systemDescriptionDiagnostic);
 
-                    if (partialSystemTypesGroupedBySyntaxTrees.TryGetValue(generatedPart.SyntaxTreeInfo,
-                            out var foundDict)) {
-                        foundDict[generatedPart.OriginalSystem] = generatedPart.GeneratedPartialSystem;
-                    } else {
-                        partialSystemTypesGroupedBySyntaxTrees.Add(generatedPart.SyntaxTreeInfo,
-                            new Dictionary<TypeDeclarationSyntax, TypeDeclarationSyntax>
-                                { { generatedPart.OriginalSystem, generatedPart.GeneratedPartialSystem } });
-                    }
+                    systemDescription.SourceGenDiagnostics.Clear();
+
+                    if (!systemDescription.ContainsChangesToSystem())
+                        continue;
+
+                    systemTypeFullNamesToDescriptions.Add(systemDescription.SystemTypeFullName, systemDescription);
                 }
+            }
 
-                // Generate source files in parallel for debugging purposes (very useful to be able to visually inspect generated code!).
-                // Add generated source to compilation only if there are no errors.
-                foreach (var kvp in partialSystemTypesGroupedBySyntaxTrees)
+            var partialSystemTypesGroupedBySyntaxTrees = new Dictionary<SyntaxTreeInfo, Dictionary<TypeDeclarationSyntax, string>>();
+
+            // Generate partial types and store results in `partialSystemTypesGroupedBySyntaxTrees`
+            foreach (var kvp in systemTypeFullNamesToDescriptions)
+            {
+                var allDescriptionsForSameSystemType = kvp.Value;
+                var generatedPart = PartialSystemTypeGenerator.Generate(allDescriptionsForSameSystemType.ToArray());
+
+                foreach (var desc in allDescriptionsForSameSystemType)
+                foreach (var diag in desc.SourceGenDiagnostics)
+                    context.ReportDiagnostic(diag);
+
+                if (partialSystemTypesGroupedBySyntaxTrees.TryGetValue(generatedPart.SyntaxTreeInfo, out var partialSystemTypes))
+                    partialSystemTypes[generatedPart.OriginalSystem] = generatedPart.GeneratedSyntaxTreeContainingGeneratedPartialSystem;
+                else
                 {
-                    var syntaxTreeInfo = kvp.Key;
-                    var replacements = kvp.Value;
+                    partialSystemTypesGroupedBySyntaxTrees.Add(
+                        generatedPart.SyntaxTreeInfo, new Dictionary<TypeDeclarationSyntax, string>
+                            { { generatedPart.OriginalSystem, generatedPart.GeneratedSyntaxTreeContainingGeneratedPartialSystem } });
+                }
+            }
 
-                    var rootNodes = TypeCreationHelpers.GetReplacedRootNodes(syntaxTreeInfo.Tree, replacements);
-                    if (rootNodes.Count == 0)
-                        return;
+            // Generate source files in parallel for debugging purposes (very useful to be able to visually inspect generated code!).
+            // Add generated source to compilation only if there are no errors.
+            foreach (var kvp in partialSystemTypesGroupedBySyntaxTrees)
+            {
+                var syntaxTreeInfo = kvp.Key;
+                var originalSystemToGeneratedPartialSystem = kvp.Value;
 
-                    context.CancellationToken.ThrowIfCancellationRequested();
-                    var outputSource = TypeCreationHelpers.GenerateSourceTextForRootNodes(GeneratorName, context, syntaxTreeInfo.Tree, rootNodes);
+                for (int i = 0; i < originalSystemToGeneratedPartialSystem.Count; i++)
+                {
+                    var originalToGeneratedPartial = originalSystemToGeneratedPartialSystem.ElementAt(i);
+                    var generatedFile = syntaxTreeInfo.Tree.GetGeneratedSourceFilePath(context.Compilation.Assembly.Name, GeneratorName, salting: i);
+                    var outputSource = TypeCreationHelpers.FixUpLineDirectivesAndOutputSource(generatedFile.FullFilePath, originalToGeneratedPartial.Value);
 
-                    // Only output source to compilation if we are successful (failing early in this case will speed up compilation and avoid non-useful errors)
                     if (syntaxTreeInfo.IsSourceGenerationSuccessful)
-                        context.AddSource(syntaxTreeInfo.Tree.GetGeneratedSourceFileName(GeneratorName), outputSource);
+                        context.AddSource(generatedFile.FileNameOnly, outputSource);
 
                     SourceOutputHelpers.OutputSourceToFile(
-                        syntaxTreeInfo.Tree.GetGeneratedSourceFilePath(context.Compilation.Assembly.Name, GeneratorName),
+                        generatedFile.FullFilePath,
                         () => outputSource.ToString());
                 }
-
-                foreach (var iSystemDefinedAsClass in systemReceiver.ISystemDefinedAsClass)
-                {
-                    SystemGeneratorErrors.DC0065(context, iSystemDefinedAsClass.GetLocation(),
-                        iSystemDefinedAsClass.Identifier.ValueText);
-                }
-
-                if (requiresMissingReferenceToBurst)
-                    SystemGeneratorErrors.DC0060(context, context.Compilation.SyntaxTrees.First().GetRoot().GetLocation(), context.Compilation.AssemblyName);
-                else if (!assemblyHasReferenceToCollections)
-                    SystemGeneratorErrors.DC0061(context, context.Compilation.SyntaxTrees.First().GetRoot().GetLocation(), context.Compilation.AssemblyName);
-
-                stopwatch.Stop();
-                SourceOutputHelpers.LogInfoToSourceGenLog(
-                    $"TIME : SystemGenerator : {context.Compilation.Assembly.Name} : {stopwatch.ElapsedMilliseconds}ms");
             }
-            catch (Exception exception)
-            {
-                if (exception is OperationCanceledException)
-                    throw;
 
-                context.LogError("SGICE002", "SystemGenerator", exception.ToUnityPrintableString(), lastLocation ?? context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
-            }
+            foreach (var iSystemDefinedAsClass in systemReceiver.ISystemDefinedAsClass)
+                SystemGeneratorErrors.DC0065(context, iSystemDefinedAsClass.GetLocation(), iSystemDefinedAsClass.Identifier.ValueText);
+
+            if (requiresMissingReferenceToBurst)
+                SystemGeneratorErrors.DC0060(context, context.Compilation.SyntaxTrees.First().GetRoot().GetLocation(), context.Compilation.AssemblyName);
+            else if (!assemblyHasReferenceToCollections)
+                SystemGeneratorErrors.DC0061(context, context.Compilation.SyntaxTrees.First().GetRoot().GetLocation(), context.Compilation.AssemblyName);
+
+            stopwatch.Stop();
+
+            SourceOutputHelpers.LogInfoToSourceGenLog($"TIME : SystemGenerator : {context.Compilation.Assembly.Name} : {stopwatch.ElapsedMilliseconds}ms");
+        }
+        catch (Exception exception)
+        {
+            if (exception is OperationCanceledException)
+                throw;
+
+            context.LogError("SGICE002", "SystemGenerator", exception.ToUnityPrintableString(), lastLocation ?? context.Compilation.SyntaxTrees.First().GetRoot().GetLocation());
         }
     }
 }

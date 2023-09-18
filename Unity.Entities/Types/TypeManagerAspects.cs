@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.Linq;
 using System.Reflection;
@@ -72,4 +71,3 @@ namespace Unity.Entities
         }
     }
 }
-#endif

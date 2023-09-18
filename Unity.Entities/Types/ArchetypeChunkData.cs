@@ -11,7 +11,7 @@ namespace Unity.Entities
     [DebuggerTypeProxy(typeof(ArchetypeChunkDataDebugView))]
     internal unsafe struct ArchetypeChunkData
     {
-        private Chunk** p;
+        void* m_Data;
         public int Capacity { get; private set; } // maximum number of chunks that can be tracked before Grow() must be called
         public int Count { get; private set; } // number of chunks currently tracked [0..Capacity]
 
@@ -24,21 +24,23 @@ namespace Unity.Entities
         //    type2: chunk0 chunk1 chunk2 ...
         //    ...
 
-        ulong ChunkPtrSize => (ulong)(sizeof(Chunk*) * Capacity);
+        ulong ChunkIndicesSize => (ulong)(sizeof(ChunkIndex) * Capacity);
         ulong ChangeVersionSize  => (ulong)(sizeof(uint) * ComponentCount * Capacity);
         ulong EntityCountSize => (ulong)(sizeof(int) * Capacity);
         ulong SharedComponentValuesSize => (ulong)(sizeof(int) * SharedComponentCount * Capacity);
         const ulong ComponentEnabledBitsSizePerComponentInChunk = (2 * sizeof(ulong)); // size of bits for ONE component in a chunk
-        ulong PaddingForEnabledBitAlignmentSize => 16 - ((ChunkPtrSize + ChangeVersionSize + EntityCountSize + SharedComponentValuesSize) % 16); // enabled bits must be 16-byte aligned
+        ulong PaddingForEnabledBitAlignmentSize => 16 - ((ChunkIndicesSize + ChangeVersionSize + EntityCountSize + SharedComponentValuesSize) % 16); // enabled bits must be 16-byte aligned
         public ulong ComponentEnabledBitsSizeTotalPerChunk => ComponentEnabledBitsSizePerComponentInChunk * (ulong)ComponentCount; // size of bits for ALL components in a chunk
         ulong ComponentEnabledBitsSize => ComponentEnabledBitsSizeTotalPerChunk * (ulong)Capacity; // size of bits for ALL components of ALL chunks
         public ulong ComponentEnabledBitsHierarchicalDataSizePerChunk => (ulong)(sizeof(int) * ComponentCount); // size of enabled bits hierarchical data for ONE chunk
         ulong ComponentEnabledBitsHierarchicalDataSize => (ComponentEnabledBitsHierarchicalDataSizePerChunk * (ulong) Capacity); // size of enabled bits hierarchical data for ALL chunks
-        ulong BufferSize => ChunkPtrSize + ChangeVersionSize + EntityCountSize + SharedComponentValuesSize + PaddingForEnabledBitAlignmentSize + ComponentEnabledBitsSize + ComponentEnabledBitsHierarchicalDataSize;
+        ulong BufferSize => ChunkIndicesSize + ChangeVersionSize + EntityCountSize + SharedComponentValuesSize + PaddingForEnabledBitAlignmentSize + ComponentEnabledBitsSize + ComponentEnabledBitsHierarchicalDataSize;
+
+        ChunkIndex* ChunkIndices => (ChunkIndex*)m_Data;
 
         // ChangeVersions[ComponentCount * Capacity]
         //   - Order version is ChangeVersion[0] which is ChangeVersion[Entity]
-        uint* ChangeVersions => (uint*)(((ulong)p) + ChunkPtrSize);
+        uint* ChangeVersions => (uint*)(((ulong)m_Data) + ChunkIndicesSize);
 
         // EntityCount[Capacity]
         int* EntityCount => (int*)(((ulong)ChangeVersions) + ChangeVersionSize);
@@ -69,31 +71,31 @@ namespace Unity.Entities
 
         public ArchetypeChunkData(int componentCount, int sharedComponentCount)
         {
-            p = null;
+            m_Data = null;
             Capacity = 0;
             Count = 0;
             SharedComponentCount = sharedComponentCount;
             ComponentCount = componentCount;
         }
 
-        public Chunk* this[int index] => p[index];
+        public ChunkIndex this[int index] => ChunkIndices[index];
 
         public void Grow(int nextCapacity)
         {
             Assert.IsTrue(nextCapacity > Capacity);
 
-            ulong nextChunkPtrSize = (ulong)(sizeof(Chunk*) * nextCapacity);
+            ulong nextChunkIndicesSize = (ulong)(sizeof(ChunkIndex) * nextCapacity);
             ulong nextChangeVersionSize  = (ulong)(sizeof(uint) * ComponentCount * nextCapacity);
             ulong nextEntityCountSize = (ulong)(sizeof(int) * nextCapacity);
             ulong nextSharedComponentValuesSize = (ulong)(sizeof(int) * SharedComponentCount * nextCapacity);
-            ulong paddingForEnabledBitAlignmentSize = 16 - ((nextChunkPtrSize + nextChangeVersionSize + nextEntityCountSize + nextSharedComponentValuesSize) % 16); // enabled bits must be 16-byte aligned
+            ulong paddingForEnabledBitAlignmentSize = 16 - ((nextChunkIndicesSize + nextChangeVersionSize + nextEntityCountSize + nextSharedComponentValuesSize) % 16); // enabled bits must be 16-byte aligned
             ulong nextComponentEnabledBitsSize = ComponentEnabledBitsSizeTotalPerChunk * (ulong)nextCapacity;
             ulong nextComponentEnabledBitsHierarchicalDataSize = ComponentEnabledBitsHierarchicalDataSizePerChunk * (ulong) nextCapacity;
-            ulong nextBufferSize = nextChunkPtrSize + nextChangeVersionSize + nextEntityCountSize + nextSharedComponentValuesSize + paddingForEnabledBitAlignmentSize + nextComponentEnabledBitsSize + nextComponentEnabledBitsHierarchicalDataSize;
+            ulong nextBufferSize = nextChunkIndicesSize + nextChangeVersionSize + nextEntityCountSize + nextSharedComponentValuesSize + paddingForEnabledBitAlignmentSize + nextComponentEnabledBitsSize + nextComponentEnabledBitsHierarchicalDataSize;
             ulong nextBufferPtr = (ulong)Memory.Unmanaged.Allocate((long)nextBufferSize, 16, Allocator.Persistent);
 
-            Chunk** nextChunkData = (Chunk**)nextBufferPtr;
-            nextBufferPtr += nextChunkPtrSize;
+            var nextChunkData = (void*)nextBufferPtr;
+            nextBufferPtr += nextChunkIndicesSize;
             uint* nextChangeVersions = (uint*)nextBufferPtr;
             nextBufferPtr += nextChangeVersionSize;
             int* nextEntityCount = (int*)nextBufferPtr;
@@ -105,18 +107,18 @@ namespace Unity.Entities
             byte* nextComponentEnabledBitsValues = (byte*)nextBufferPtr;
             nextBufferPtr += nextComponentEnabledBitsSize;
             int* nextComponentEnabledBitsHierarchicalDataValues = (int*)nextBufferPtr;
-            nextBufferPtr += nextComponentEnabledBitsHierarchicalDataSize;
+            // nextBufferPtr += nextComponentEnabledBitsHierarchicalDataSize;
 
             int prevCount = Count;
             int prevCapacity = Capacity;
-            Chunk** prevChunkData = p;
+            var prevChunkData = m_Data;
             uint* prevChangeVersions = ChangeVersions;
             int* prevEntityCount = EntityCount;
             int* prevSharedComponentValues = SharedComponentValues;
             v128* prevComponentEnabledBitsValues = ComponentEnabledBits;
             int* prevComponentEnabledBitsHierarchicalDataValues = ComponentEnabledBitsHierarchicalData;
 
-            UnsafeUtility.MemCpy(nextChunkData, prevChunkData, (sizeof(Chunk*) * prevCount));
+            UnsafeUtility.MemCpy(nextChunkData, prevChunkData, sizeof(ChunkIndex) * prevCount);
 
             for (int i = 0; i < ComponentCount; i++)
                 UnsafeUtility.MemCpy(nextChangeVersions + (i * nextCapacity), prevChangeVersions + (i * prevCapacity), sizeof(uint) * Count);
@@ -130,15 +132,15 @@ namespace Unity.Entities
 
             UnsafeUtility.MemCpy(nextComponentEnabledBitsHierarchicalDataValues, prevComponentEnabledBitsHierarchicalDataValues, (long)ComponentEnabledBitsHierarchicalDataSize);
 
-            Memory.Unmanaged.Free(p, Allocator.Persistent);
+            Memory.Unmanaged.Free(m_Data, Allocator.Persistent);
 
-            p = nextChunkData;
+            m_Data = nextChunkData;
             Capacity = nextCapacity;
         }
 
         public bool InsideAllocation(ulong addr)
         {
-            ulong startAddr = (ulong)p;
+            ulong startAddr = (ulong)m_Data;
             return (addr >= startAddr) && (addr <= (startAddr + BufferSize));
         }
 
@@ -316,11 +318,11 @@ namespace Unity.Entities
             EntityCount[chunkIndex] = count;
         }
 
-        public void Add(Chunk* chunk, SharedComponentValues sharedComponentIndices, uint changeVersion)
+        public void Add(ChunkIndex chunk, SharedComponentValues sharedComponentIndices, uint changeVersion)
         {
             var chunkIndex = Count++;
 
-            p[chunkIndex] = chunk;
+            ChunkIndices[chunkIndex] = chunk;
 
             for (int i = 0; i < SharedComponentCount; i++)
                 SharedComponentValues[(i * Capacity) + chunkIndex] = sharedComponentIndices[i];
@@ -329,7 +331,7 @@ namespace Unity.Entities
             for (int i = 0; i < ComponentCount; i++)
                 ChangeVersions[(i * Capacity) + chunkIndex] = changeVersion;
 
-            EntityCount[chunkIndex] = chunk->Count;
+            EntityCount[chunkIndex] = chunk.Count;
         }
 
         public void MoveChunks(in ArchetypeChunkData srcChunks)
@@ -337,14 +339,14 @@ namespace Unity.Entities
             if (Capacity < Count + srcChunks.Count)
                 Grow(Count + srcChunks.Count);
 
-            UnsafeUtility.MemCpy(p + Count, srcChunks.p, sizeof(Chunk*) * srcChunks.Count);
+            UnsafeUtility.MemCpy(ChunkIndices + Count, srcChunks.ChunkIndices, sizeof(ChunkIndex) * srcChunks.Count);
 
             Count += srcChunks.Count;
         }
 
         public void AddToCachedChunkList(ref UnsafeCachedChunkList chunkList, int matchingArchetypeIndex, int startIndex = 0)
         {
-            chunkList.Append(p + startIndex, Count - startIndex, matchingArchetypeIndex);
+            chunkList.Append(ChunkIndices + startIndex, Count - startIndex, matchingArchetypeIndex);
         }
 
         public void RemoveAtSwapBack(int chunkIndex)
@@ -354,7 +356,7 @@ namespace Unity.Entities
             if (chunkIndex == Count)
                 return;
 
-            p[chunkIndex] = p[Count];
+            ChunkIndices[chunkIndex] = ChunkIndices[Count];
 
             for (int i = 0; i < SharedComponentCount; i++)
                 SharedComponentValues[(i * Capacity) + chunkIndex] = SharedComponentValues[(i * Capacity) + Count];
@@ -376,8 +378,8 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            Memory.Unmanaged.Free(p, Allocator.Persistent);
-            p = null;
+            Memory.Unmanaged.Free(m_Data, Allocator.Persistent);
+            m_Data = null;
             Capacity = 0;
             Count = 0;
         }

@@ -180,7 +180,7 @@ namespace Unity.Entities
             m_StaticSafetyIdData.Data.m_StaticSafetyIdsForArchetypeChunkArrays =
                 (int*)Memory.Unmanaged.Allocate(sizeof(int) * kMaxTypes, 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_StaticSafetyIdData.Data.m_StaticSafetyIdsForArchetypeChunkArrays, sizeof(int) * kMaxTypes);
-#if !UNITY_DOTSRUNTIME
+
             if (!s_AppDomainUnloadRegistered)
             {
                 // important: this will always be called from a special unload thread (main thread will be blocking on this)
@@ -190,7 +190,6 @@ namespace Unity.Entities
                 System.AppDomain.CurrentDomain.ProcessExit += (_, __) => { Shutdown(); };
                 s_AppDomainUnloadRegistered = true;
             }
-#endif
         }
 
         static void Shutdown()

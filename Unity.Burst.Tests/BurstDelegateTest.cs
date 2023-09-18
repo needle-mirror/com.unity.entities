@@ -67,7 +67,7 @@ public unsafe class BurstDelegateTest
     }
 
     [Test]
-#if !UNITY_DOTSRUNTIME && !UNITY_WEBGL
+#if !UNITY_WEBGL
     [ConditionalIgnore("IgnoreForCoverage", "Fails randonly when ran with code coverage enabled")]
 #endif
     public void CompileMissingBurstCompile()

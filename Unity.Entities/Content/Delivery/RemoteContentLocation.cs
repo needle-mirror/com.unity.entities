@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using Unity.Collections;
 
@@ -71,4 +70,3 @@ namespace Unity.Entities.Content
         }
     }
 }
-#endif

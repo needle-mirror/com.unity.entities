@@ -2,17 +2,12 @@ using System;
 using NUnit.Framework;
 using Unity.Burst;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 using Unity.Core;
-using Unity.Entities;
-using Unity.Entities.Tests;
-using Unity.Entities.Tests.TestSystemAPI;
 using Unity.Mathematics;
 using Unity.Transforms;
 using static Unity.Entities.SystemAPI;
-
-[assembly: RegisterGenericSystemType(typeof(TestISystemSystem.TestGenericISystem_MyInterface<MyInterfaceImpl>))]
-[assembly: RegisterGenericSystemType(typeof(TestISystemSystem.TestGenericISystem_BufferElement<EcsIntElement>))]
-
+using Random = Unity.Mathematics.Random;
 namespace Unity.Entities.Tests.TestSystemAPI
 {
     /// <summary>
@@ -22,7 +17,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
     public class TestISystem : ECSTestsFixture
     {
         [SetUp]
-        public void SetUp() => World.CreateSystem<TestISystemSystem>();
+        public void SetUp() {
+            World.CreateSystem<TestISystemSystem>();
+        }
 
         unsafe ref TestISystemSystem GetTestSystemUnsafe()
         {
@@ -40,6 +37,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
                 throw new InvalidOperationException("No system state exists any more for this SystemRef");
             return ref *statePtr;
         }
+
         #region Query Access
         [Test]
         public void Query([Values] SystemAPIAccess access, [Values(1,2,3,4,5,6,7)] int queryArgumentCount) => GetTestSystemUnsafe().QuerySetup(ref GetSystemStateRef(), queryArgumentCount, access);
@@ -177,25 +175,10 @@ namespace Unity.Entities.Tests.TestSystemAPI
         public void PropertyWithOnlyGetter() => World.CreateSystem<TestISystemSystem.PropertyWithOnlyGetterSystem>().Update(World.Unmanaged);
 
         [Test]
-        public void GenericSystem1() => World.CreateSystem<TestISystemSystem.TestGenericISystem_MyInterface<MyInterfaceImpl>>().Update(World.Unmanaged);
-
-        [Test]
-        public void GenericSystem2() => World.CreateSystem<TestISystemSystem.TestGenericISystem_BufferElement<EcsIntElement>>().Update(World.Unmanaged);
-
-        [Test]
         public void ExplicitInterfaceImplementation() => World.CreateSystem<TestISystemSystem.ExplicitInterfaceImplementationSystem>().Update(World.Unmanaged);
         #endregion
     }
 
-    public interface IMyInterface : IBufferElementData
-    {
-        public int Value { get; set; }
-    }
-
-    struct MyInterfaceImpl : IMyInterface
-    {
-        public int Value { get; set; }
-    }
     [BurstCompile]
     partial struct TestISystemSystem : ISystem
     {
@@ -1379,8 +1362,6 @@ namespace Unity.Entities.Tests.TestSystemAPI
         [BurstCompile]
         public partial struct ExplicitInterfaceImplementationSystem : ISystem
         {
-            public void OnCreate(ref SystemState state) => state.RequireForUpdate<EcsTestData>();
-
             [BurstCompile]
             void ISystem.OnUpdate(ref SystemState state)
             {
@@ -1412,35 +1393,6 @@ namespace Unity.Entities.Tests.TestSystemAPI
             }
         }
 
-        [BurstCompile]
-        public partial struct TestGenericISystem_MyInterface<T> : ISystem where T : unmanaged, IMyInterface
-        {
-            public void OnUpdate(ref SystemState state)
-            {
-                var e = state.EntityManager.CreateEntity();
-                var buffer = state.EntityManager.AddBuffer<T>(e);
-                buffer.Add(new T { Value = 1 });
-                var handle = SystemAPI.GetBufferTypeHandle<T>();
-                Assert.That(state.EntityManager.GetChunk(e).GetBufferAccessor(ref handle)[0][0].Value == 1);
-            }
-        }
-
-        // We specify T as EcsIntElement in our test
-        public partial struct TestGenericISystem_BufferElement<T> : ISystem where T : unmanaged, IBufferElementData
-        {
-            public void OnUpdate(ref SystemState state)
-            {
-                var e = state.EntityManager.CreateEntity();
-
-                var buffer = state.EntityManager.AddBuffer<EcsIntElement>(e);
-                buffer.Add(new EcsIntElement { Value = 1 });
-
-                var handle = GetBufferTypeHandle<T>();
-                var bufferElementData = state.EntityManager.GetChunk(e).GetBufferAccessor(ref handle)[0][0];
-
-                Assert.That(bufferElementData is EcsIntElement { Value: 1 });
-            }
-        }
         #endregion
     }
 }

@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections.LowLevel.Unsafe.NotBurstCompatible;
@@ -137,4 +136,3 @@ namespace Unity.Scenes
         }
     }
 }
-#endif

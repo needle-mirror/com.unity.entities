@@ -1,25 +1,24 @@
-﻿namespace Unity.Entities.SourceGen.LambdaJobs
+﻿namespace Unity.Entities.SourceGen.SystemGenerator.LambdaJobs;
+
+public enum ScheduleMode
 {
-    public enum ScheduleMode
-    {
-        ScheduleParallel,
-        Schedule,
-        Run
-    }
+    ScheduleParallel,
+    Schedule,
+    Run
+}
 
-    public enum BurstFloatMode
-    {
-        Default,
-        Strict,
-        Deterministic,
-        Fast,
-    }
+public enum BurstFloatMode
+{
+    Default,
+    Strict,
+    Deterministic,
+    Fast,
+}
 
-    public enum BurstFloatPrecision
-    {
-        Standard,
-        High,
-        Medium,
-        Low,
-    }
+public enum BurstFloatPrecision
+{
+    Standard,
+    High,
+    Medium,
+    Low,
 }

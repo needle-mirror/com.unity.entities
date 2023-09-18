@@ -339,7 +339,7 @@ namespace Unity.Entities.Editor.Tests
             m_Manager.SetComponentData(entity, new ClassComponentData { Category = Category.ClassData });
 #endif
             m_Manager.SetComponentData(entity, new StructComponentData { Category = Category.StructData });
-            PropertyContainer.Accept(new TestComponentCategoryVisitor { GameObject = _gameObject}, new EntityContainer(m_Manager, entity, true));
+            PropertyContainer.Accept(new TestComponentCategoryVisitor { GameObject = _gameObject}, new EntityContainer(m_Manager.World, entity, true));
         }
 
          [Test]
@@ -372,27 +372,27 @@ namespace Unity.Entities.Editor.Tests
 #endif
             m_Manager.SetComponentData(entity, new StructComponentData { Category = Category.StructData });
 
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.StructChunkData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.StructChunkData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.ClassChunkData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.ClassChunkData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.StructData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.StructData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.ClassData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.ClassData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.SharedData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.SharedData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.BufferData), new EntityContainer(m_Manager, entity, false));
-            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.BufferData), new EntityContainer(m_Manager, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.StructChunkData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.StructChunkData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.ClassChunkData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.ClassChunkData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.StructData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.StructData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.ClassData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.ClassData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.SharedData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.SharedData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(false, 25, Category.BufferData), new EntityContainer(m_Manager.World, entity, false));
+            PropertyContainer.Accept(new TestDataWriteBackVisitor(true, 25, Category.BufferData), new EntityContainer(m_Manager.World, entity, false));
         }
 
         [Test]
         public void EntityContainer_WhenVisitingAnInvalidEntity_DoesNotThrow()
         {
-            Assert.DoesNotThrow(() => PropertyContainer.Accept(new InvalidEntityVisitor(), new EntityContainer(m_Manager, Entity.Null, false)));
+            Assert.DoesNotThrow(() => PropertyContainer.Accept(new InvalidEntityVisitor(), new EntityContainer(m_Manager.World, Entity.Null, false)));
 
             var entity = m_Manager.CreateEntity(typeof(StructComponentData), typeof(BufferElement));
-            var container = new EntityContainer(m_Manager, entity, false);
+            var container = new EntityContainer(m_Manager.World, entity, false);
 
             // Validate that we are actually visiting something.
             Assert.Throws<InvalidOperationException>(() => PropertyContainer.Accept(new InvalidEntityVisitor(), container));
@@ -419,7 +419,7 @@ namespace Unity.Entities.Editor.Tests
                 buffer.Add(new BufferElement { Category = Category.BufferData, FloatValue = i });
 
             var visitor = new TestDynamicBufferContainerVisitor();
-            PropertyContainer.Accept(visitor, new EntityContainer(m_Manager, entity, true));
+            PropertyContainer.Accept(visitor, new EntityContainer(m_Manager.World, entity, true));
 
             Assert.That(visitor.Container.Count, Is.EqualTo(50));
 

@@ -1,8 +1,8 @@
-﻿using System.Threading.Tasks;
+using System.Threading.Tasks;
 using Microsoft.VisualStudio.TestTools.UnitTesting;
 using VerifyCS =
     Unity.Entities.SourceGenerators.Test.CSharpIncrementalGeneratorVerifier<
-        Unity.Entities.SourceGen.JobEntity.JobEntityGenerator>;
+        Unity.Entities.SourceGen.JobEntityGenerator.JobEntityGenerator>;
 
 namespace Unity.Entities.SourceGenerators;
 
@@ -77,9 +77,7 @@ public class JobEntityVerify
         const string source = @"
             using Unity.Entities;
             #if !UNITY_EDITOR
-            #if !UNITY_DOTSRUNTIME
             class MyClass {}
-            #endif
             #endif
 
             public partial struct MyJob : IJobEntity
@@ -100,9 +98,7 @@ public class JobEntityVerify
                 #endregion
                 #region ManagedComponents
                 #if UNITY_DISABLE_MANAGED_COMPONENTS
-                #if !UNITY_DOTSRUNTIME
                     void MyFunc1(){}
-                #endif
                     void MyFunc2(){}
                 #endif
                 public partial struct MyJob : IJobEntity

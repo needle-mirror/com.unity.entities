@@ -169,6 +169,14 @@ namespace Unity.Entities.Tests
             all.Add(ComponentType.ReadWrite<EcsTestData>());
         }
 
+        public void CompleteDependencyBeforeRO(ref SystemState state)
+        {
+        }
+
+        public void CompleteDependencyBeforeRW(ref SystemState state)
+        {
+        }
+
         public readonly RefRW<EcsTestData> Data;
     }
 

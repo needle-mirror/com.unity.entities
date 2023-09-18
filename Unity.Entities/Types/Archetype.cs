@@ -26,7 +26,7 @@ namespace Unity.Entities
     internal unsafe struct Archetype
     {
         public ArchetypeChunkData Chunks;
-        public UnsafePtrList<Chunk> ChunksWithEmptySlots;
+        public UnsafeList<ChunkIndex> ChunksWithEmptySlots;
 
         public ChunkListMap FreeChunksBySharedComponents;
         public ComponentTypeInArchetype* Types; // Array with TypeCount elements
@@ -134,9 +134,9 @@ namespace Unity.Entities
             return info;
         }
 
-        public void AddToChunkList(Chunk *chunk, SharedComponentValues sharedComponentIndices, uint changeVersion, ref EntityComponentStore.ChunkListChanges changes)
+        public void AddToChunkList(ChunkIndex chunk, SharedComponentValues sharedComponentIndices, uint changeVersion, ref EntityComponentStore.ChunkListChanges changes)
         {
-            chunk->ListIndex = Chunks.Count;
+            chunk.ListIndex = Chunks.Count;
             if (Chunks.Count == Chunks.Capacity)
             {
                 var newCapacity = (Chunks.Capacity == 0) ? 1 : (Chunks.Capacity * 2);
@@ -162,11 +162,12 @@ namespace Unity.Entities
             }
         }
 
-        public void RemoveFromChunkList(Chunk* chunk, ref EntityComponentStore.ChunkListChanges changes)
+        public void RemoveFromChunkList(ChunkIndex chunk, ref EntityComponentStore.ChunkListChanges changes)
         {
-            Chunks.RemoveAtSwapBack(chunk->ListIndex);
-            var chunkThatMoved = Chunks[chunk->ListIndex];
-            chunkThatMoved->ListIndex = chunk->ListIndex;
+            var chunkListIndex = chunk.ListIndex;
+            Chunks.RemoveAtSwapBack(chunkListIndex);
+            var chunkThatMoved = Chunks[chunkListIndex];
+            chunkThatMoved.ListIndex = chunkListIndex;
 
             fixed(Archetype* archetype = &this)
             {
@@ -174,23 +175,23 @@ namespace Unity.Entities
             }
         }
 
-        void AddToChunkListWithEmptySlots(Chunk *chunk)
+        void AddToChunkListWithEmptySlots(ChunkIndex chunk)
         {
-            chunk->ListWithEmptySlotsIndex = ChunksWithEmptySlots.Length;
+            chunk.ListWithEmptySlotsIndex = ChunksWithEmptySlots.Length;
             ChunksWithEmptySlots.Add(chunk);
         }
 
-        void RemoveFromChunkListWithEmptySlots(Chunk *chunk)
+        void RemoveFromChunkListWithEmptySlots(ChunkIndex chunk)
         {
-            var index = chunk->ListWithEmptySlotsIndex;
+            var index = chunk.ListWithEmptySlotsIndex;
             Assert.IsTrue(index >= 0 && index < ChunksWithEmptySlots.Length);
             Assert.IsTrue(ChunksWithEmptySlots.Ptr[index] == chunk);
             ChunksWithEmptySlots.RemoveAtSwapBack(index);
 
-            if (chunk->ListWithEmptySlotsIndex < ChunksWithEmptySlots.Length)
+            if (index < ChunksWithEmptySlots.Length)
             {
-                var chunkThatMoved = ChunksWithEmptySlots.Ptr[chunk->ListWithEmptySlotsIndex];
-                chunkThatMoved->ListWithEmptySlotsIndex = chunk->ListWithEmptySlotsIndex;
+                var chunkThatMoved = ChunksWithEmptySlots.Ptr[index];
+                chunkThatMoved.ListWithEmptySlotsIndex = index;
             }
         }
 
@@ -200,11 +201,11 @@ namespace Unity.Entities
         /// - Does not check if chunk is locked.
         /// </summary>
         /// <param name="chunk"></param>
-        internal void EmptySlotTrackingRemoveChunk(Chunk* chunk)
+        internal void EmptySlotTrackingRemoveChunk(ChunkIndex chunk)
         {
             fixed (Archetype* archetype = &this)
             {
-                Assert.AreEqual((ulong)archetype, (ulong)chunk->Archetype);
+                Assert.AreEqual((ulong)archetype, (ulong)EntityComponentStore->GetArchetype(chunk));
             }
             if (NumSharedComponents == 0)
                 RemoveFromChunkListWithEmptySlots(chunk);
@@ -218,11 +219,11 @@ namespace Unity.Entities
         /// - Does not check if chunk is locked.
         /// </summary>
         /// <param name="chunk"></param>
-        internal void EmptySlotTrackingAddChunk(Chunk* chunk)
+        internal void EmptySlotTrackingAddChunk(ChunkIndex chunk)
         {
             fixed (Archetype* archetype = &this)
             {
-                Assert.AreEqual((ulong)archetype, (ulong)chunk->Archetype);
+                Assert.AreEqual((ulong)archetype, (ulong)EntityComponentStore->GetArchetype(chunk));
             }
             if (NumSharedComponents == 0)
                 AddToChunkListWithEmptySlots(chunk);
@@ -230,27 +231,20 @@ namespace Unity.Entities
                 FreeChunksBySharedComponents.Add(chunk);
         }
 
-        internal Chunk* GetExistingChunkWithEmptySlots(SharedComponentValues sharedComponentValues)
+        internal ChunkIndex GetExistingChunkWithEmptySlots(SharedComponentValues sharedComponentValues)
         {
             if (NumSharedComponents == 0)
             {
                 if (ChunksWithEmptySlots.Length != 0)
                 {
-                    var chunk = ChunksWithEmptySlots.Ptr[0];
-                    Assert.AreNotEqual(chunk->Count, chunk->Capacity);
-                    return chunk;
-                }
-            }
-            else
-            {
-                var chunk = FreeChunksBySharedComponents.TryGet(sharedComponentValues, NumSharedComponents);
-                if (chunk != null)
-                {
+                    var chunk = ChunksWithEmptySlots[0];
+                    Assert.AreNotEqual(chunk.Count, ChunkCapacity);
                     return chunk;
                 }
             }
 
-            return null;
+            // note: will be ChunkIndex.Null if none available.
+            return FreeChunksBySharedComponents.TryGet(sharedComponentValues, NumSharedComponents);
         }
 
         internal bool CompareMask(EntityQueryMask mask)

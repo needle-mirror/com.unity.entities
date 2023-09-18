@@ -11,10 +11,6 @@ namespace Unity.Entities.Tests
     [TestFixture]
     sealed class EntityDifferTests : EntityDifferTestFixture
     {
-#if !UNITY_PORTABLE_TEST_RUNNER
-        // https://unity3d.atlassian.net/browse/DOTSR-1435
-        // These tests cause crashes in the IL2CPP runner. Cause not yet debugged.
-
         [Test]
         public void EntityDiffer_GetChanges_NoChanges()
         {
@@ -547,7 +543,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme("Do not support EntityNames - DOTS-3862")]
         public void EntityDifferDetectsNameChanges()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -1433,7 +1428,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Requires Unity.Properties support for cloning the managed components
         public void GetComponentData_WithManagedComponent_IsDetectedBy_GetChanges()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -1800,7 +1794,6 @@ namespace Unity.Entities.Tests
         // this requires the magic values to be updated in this test every time. This test needs some re-thinking.
         /*
         [Test]
-        [DotsRuntimeFixme]
         public unsafe void EntityDiffer_GetChanges_BlobAssets_SetComponent_TypeMemoryOrdering()
         {
             using (var differ = new EntityManagerDiffer(SrcEntityManager, SrcWorld.UpdateAllocator.ToAllocator))
@@ -1870,7 +1863,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Requires Unity.Properties support
 #if ENABLE_IL2CPP
         [Ignore("DOTS-7524 - \"System.ExecutionEngineException : An unresolved indirect call lookup failed\" is thrown when executed with an IL2CPP build")]
 #endif
@@ -1932,7 +1924,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // Requires Unity.Properties support
 #if ENABLE_IL2CPP
         [Ignore("DOTS-7524 - \"System.ExecutionEngineException : An unresolved indirect call lookup failed\" is thrown when executed with an IL2CPP build")]
 #endif
@@ -1997,7 +1988,6 @@ namespace Unity.Entities.Tests
             }
         }
 
-#if !UNITY_DOTSRUNTIME
         class ManagedComponentWithScriptableObject: IComponentData
         {
             public ScriptableObjectWithBlobAssetRef Value;
@@ -2040,8 +2030,6 @@ namespace Unity.Entities.Tests
                 UnityEngine.Object.DestroyImmediate(scriptableObject);
             }
         }
-#endif // !UNITY_DOTSRUNTIME
-
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
 
         [Test]
@@ -2145,6 +2133,5 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(c, removals[0].ChildEntityGuid);
             }
         }
-#endif // !UNITY_DOTSRUNTIME_IL2CPP
     }
 }

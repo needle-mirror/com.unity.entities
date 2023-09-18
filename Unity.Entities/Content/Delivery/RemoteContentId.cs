@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using Unity.Collections;
 
@@ -60,4 +59,3 @@ namespace Unity.Entities.Content
         public override int GetHashCode() => Hash.GetHashCode();
     }
 }
-#endif

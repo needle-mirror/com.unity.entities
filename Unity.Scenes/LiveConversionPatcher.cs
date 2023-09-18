@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using Unity.Assertions;
 using Unity.Burst.Intrinsics;
@@ -259,4 +258,3 @@ namespace Unity.Scenes
         }
     }
 }
-#endif

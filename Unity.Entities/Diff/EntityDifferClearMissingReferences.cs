@@ -16,7 +16,7 @@ namespace Unity.Entities
             {
                 var chunk = Chunks[index].m_Chunk;
 
-                ChunkDataUtility.ClearMissingReferences(chunk);
+                ChunkDataUtility.ClearMissingReferences(Chunks[index].Archetype.Archetype, chunk);
             }
         }
 

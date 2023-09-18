@@ -126,8 +126,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [IgnoreInPortableTests("Throws a NotImplemented exception")]
-        public void InstantiateExplicitEntitySet([Values] bool instantiate)
+        public void CopyExplicitEntitySet()
         {
             var external = m_Manager.CreateEntity();
             var a = m_Manager.CreateEntity();
@@ -138,16 +137,8 @@ namespace Unity.Entities.Tests
             using (var inputs = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(new[] { a, b }, ref World.UpdateAllocator))
             using (var outputs = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(2, ref World.UpdateAllocator))
             {
-                if (instantiate)
-                {
-                    m_Manager.Instantiate(inputs, outputs);
-                    Assert.IsFalse(m_Manager.HasComponent<Prefab>(outputs[1]));
-                }
-                else
-                {
-                    m_Manager.CopyEntities(inputs, outputs);
-                    Assert.IsTrue(m_Manager.HasComponent<Prefab>(outputs[1]));
-                }
+                m_Manager.CopyEntities(inputs, outputs);
+                Assert.IsTrue(m_Manager.HasComponent<Prefab>(outputs[1]));
 
                 Assert.AreEqual(outputs[1], m_Manager.GetComponentData<EcsTestDataEntity>(outputs[0]).value1);
                 Assert.AreEqual(external, m_Manager.GetComponentData<EcsTestDataEntity>(outputs[1]).value1);
@@ -217,7 +208,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // No Unity.Properties support
         public void InstantiateLinkedGroup_ManagedComponents()
         {
             var external = m_Manager.CreateEntity();
@@ -236,7 +226,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [DotsRuntimeFixme] // No Unity.Properties support
         public void InstantiateLinkedGroupStressTest_ManagedComponents([Values(1, 1023)] int count)
         {
             var external = m_Manager.CreateEntity();

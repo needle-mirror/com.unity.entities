@@ -59,7 +59,7 @@ namespace Unity.Entities.Serialization
         public Hash128 AssetGUID => Id.GlobalId.AssetGUID;
 
         /// <summary>
-        /// Returns true if the reference has a valid id.  In the editor, additional checks for the correct GenerationType and the existence of the referenced asset are performed.
+        /// Returns true if the reference has a valid id.  In the editor, additional checks for the correct GenerationType and the existence of the referenced asset are performed. 
         /// </summary>
         public bool IsReferenceValid
         {

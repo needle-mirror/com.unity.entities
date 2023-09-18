@@ -1,8 +1,6 @@
 using System;
 using System.Collections.Generic;
-#if !UNITY_DOTSRUNTIME
 using System.Reflection;
-#endif
 using Unity.Serialization.Binary;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
@@ -12,9 +10,6 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.IO.LowLevel.Unsafe;
 using Unity.Mathematics;
-
-// Remove this once DOTSRuntime can use Unity.Properties
-[assembly: InternalsVisibleTo("Unity.Entities.Runtime.Build")]
 
 namespace Unity.Entities.Serialization
 {
@@ -50,12 +45,12 @@ namespace Unity.Entities.Serialization
                 }
 
                 ReadCommand cmd;
-                cmd.Buffer = chunks;
+                cmd.Buffer = chunks.GetPtr();
                 cmd.Offset = readOffset;
                 cmd.Size = Chunk.kChunkSize * allocatedCount;
                 readCommands->Add(cmd);
 
-                megaChunkInfo->Add(new SerializeUtility.MegaChunkInfo((byte*)chunks, allocatedCount));
+                megaChunkInfo->Add(new SerializeUtility.MegaChunkInfo(chunks, allocatedCount));
                 chunkCountRead += allocatedCount;
                 readOffset += Chunk.kChunkSize * allocatedCount;
             }
@@ -64,9 +59,9 @@ namespace Unity.Entities.Serialization
         }
 
         [BurstCompile]
-        internal static void AddExistingChunk(Chunk* chunk, int* sharedComponentIndices, byte* enabledBitsValuesForChunk, int* perComponentDisabledBitCount)
+        internal static void AddExistingChunk(Archetype* archetype, ChunkIndex chunk, int* sharedComponentIndices, byte* enabledBitsValuesForChunk, int* perComponentDisabledBitCount)
         {
-            ChunkDataUtility.AddExistingChunk(chunk, sharedComponentIndices, enabledBitsValuesForChunk, perComponentDisabledBitCount);
+            ChunkDataUtility.AddExistingChunk(archetype, chunk, sharedComponentIndices, enabledBitsValuesForChunk, perComponentDisabledBitCount);
         }
 
         [BurstCompile]
@@ -93,18 +88,38 @@ namespace Unity.Entities.Serialization
                 throw new InvalidOperationException("Internal deserialization error: total chunk count doesn't match");
             }
 
+            // The entity counts for each chuck are stored in the chunk metadata for serialization.
+            // They need to be hoisted out and stored in the global per chunk metadata array.
+
+            var megaChunkInfoList = status->MegaChunkInfoList;
+            var megaChunkInfoLength = megaChunkInfoList.Length;
+            for (int i = 0; i < megaChunkInfoLength; i++)
+            {
+                var chunkCount = megaChunkInfoList[i].MegaChunkSize;
+                var megaChunkIndex = megaChunkInfoList[i].MegaChunkIndex;
+                var chunkPointer = megaChunkIndex.GetPtr();
+
+                for (int j = 0; j < chunkCount; j++)
+                {
+                    var chunkIndex = new ChunkIndex(megaChunkIndex + j);
+                    chunkIndex.Count = chunkPointer->CountForSerialization;
+                    chunkPointer = (Chunk*)((byte*)chunkPointer + Chunk.kChunkSize);
+                }
+            }
+
             var curMegaChunkIndex = 0;
             var megaChunkInfo = status->MegaChunkInfoList;
             var chunkLeftToLoad = megaChunkInfo[0].MegaChunkSize;
-            var chunk = (Chunk*) megaChunkInfo[0].MegaChunkAddress;
+            var chunk = megaChunkInfo[0].MegaChunkIndex;
             var sharedComponentArraysIndex = 0;
             var enabledBitsForChunk = componentEnabledBits;
             var enabledBitsHierarchicalDataForChunk = enabledBitsHierarchicalData;
             var remapedSharedComponentValues = stackalloc int[EntityComponentStore.kMaxSharedComponentCount];
             for (int i = 0; i < totalChunkCount; ++i)
             {
-                var archetype = chunk->Archetype = archetypes->ElementAt((int) chunk->Archetype).Archetype;
-                var numSharedComponentsInArchetype = chunk->Archetype->NumSharedComponents;
+                var archetype = archetypes->ElementAt(chunk.GetPtr()->ArchetypeIndexForSerialization).Archetype;
+                ecs->SetArchetype(chunk, archetype);
+                var numSharedComponentsInArchetype = archetype->NumSharedComponents;
                 int* sharedComponentValueArray = sharedComponentArray + sharedComponentArraysIndex;
 
                 for (int j = 0; j < numSharedComponentsInArchetype; ++j)
@@ -129,7 +144,7 @@ namespace Unity.Entities.Serialization
                     {
                         var chunkOffset = bufferReader.ReadInt();
                         var allocSizeBytes = bufferReader.ReadInt();
-                        var target = (BufferHeader*) OffsetFromPointer(chunk->Buffer, chunkOffset);
+                        var target = (BufferHeader*) OffsetFromPointer(chunk.Buffer, chunkOffset);
 
                         // TODO: Alignment
                         target->Pointer = (byte*) Memory.Unmanaged.Allocate(allocSizeBytes, 8, Allocator.Persistent);
@@ -141,25 +156,28 @@ namespace Unity.Entities.Serialization
                 if (totalBlobAssetSize != 0 && archetype->HasBlobAssetRefs)
                 {
                     blobAssetRefChunks->Add(new ArchetypeChunk(chunk, ecs));
-                    PatchBlobAssetsInChunkAfterLoad(chunk, (byte*) blobAssetBuffer);
+                    PatchBlobAssetsInChunkAfterLoad(archetype, chunk.Buffer, chunk.Count, (byte*) blobAssetBuffer);
                 }
 
-                chunk->SequenceNumber = ecs->AllocateSequenceNumber();
+                chunk.SequenceNumber = ecs->AllocateSequenceNumber();
 
-                SerializeUtilityInterop.AddExistingChunk(chunk, remapedSharedComponentValues, enabledBitsForChunk, enabledBitsHierarchicalDataForChunk);
+                SerializeUtilityInterop.AddExistingChunk(archetype, chunk, remapedSharedComponentValues, enabledBitsForChunk, enabledBitsHierarchicalDataForChunk);
                 enabledBitsForChunk += archetype->Chunks.ComponentEnabledBitsSizeTotalPerChunk;
                 enabledBitsHierarchicalDataForChunk += archetype->TypesCount;
 
-                if (chunk->metaChunkEntity != Entity.Null)
+                if (chunk.MetaChunkEntity != Entity.Null)
                 {
                     chunksWithMetaChunkEntities->Add(new ArchetypeChunk(chunk, ecs));
                 }
 
-                chunk = (Chunk*) ((byte*) chunk + Chunk.kChunkSize);
                 if (--chunkLeftToLoad == 0 && (i + 1) != totalChunkCount)
                 {
-                    chunk = (Chunk*) megaChunkInfo[++curMegaChunkIndex].MegaChunkAddress;
+                    chunk = megaChunkInfo[++curMegaChunkIndex].MegaChunkIndex;
                     chunkLeftToLoad = megaChunkInfo[curMegaChunkIndex].MegaChunkSize;
+                }
+                else
+                {
+                    chunk = new ChunkIndex(chunk + 1);
                 }
             }
         }
@@ -178,11 +196,9 @@ namespace Unity.Entities.Serialization
             return ((byte*)ptr) + offset;
         }
 
-        private static void PatchBlobAssetsInChunkAfterLoad(Chunk* chunk, byte* allBlobAssetData)
+        private static void PatchBlobAssetsInChunkAfterLoad(Archetype* archetype, byte* chunkBuffer, int entityCount, byte* allBlobAssetData)
         {
-            var archetype = chunk->Archetype;
             var typeCount = archetype->TypesCount;
-            var entityCount = chunk->Count;
             for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
             {
                 var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
@@ -196,7 +212,6 @@ namespace Unity.Entities.Serialization
                     continue;
 
                 var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
-                var chunkBuffer = chunk->Buffer;
                 int subArrayOffset = archetype->Offsets[ti];
                 byte* componentArrayStart = OffsetFromPointer(chunkBuffer, subArrayOffset);
 
@@ -663,15 +678,16 @@ namespace Unity.Entities.Serialization
         internal static Hash128 BufferDataNodeType                 = new Hash128("E33124BFAC2649D792DE36E4611DDD70");
         internal static Hash128 PrefabNodeType                     = new Hash128("2A84A183583A4FAD8CB7105AE3C47598");
 
-        internal unsafe struct MegaChunkInfo
+        internal struct MegaChunkInfo
         {
-            public byte* MegaChunkAddress;
             public int MegaChunkSize;
+            public ChunkIndex MegaChunkIndex;
 
-            public MegaChunkInfo(byte* chunks, int size)
+            public MegaChunkInfo(ChunkIndex fistChunkIndex, int chunkCount)
             {
-                MegaChunkAddress = chunks;
-                MegaChunkSize = size;
+                Assert.IsTrue(chunkCount > 0);
+                MegaChunkSize = chunkCount;
+                MegaChunkIndex = fistChunkIndex;
             }
         }
 
@@ -874,7 +890,7 @@ namespace Unity.Entities.Serialization
             // Note, do not move this code to "using (var sharedComponentReader = status.SharedComponentPrefetchState.CreateStream()) {}"
             // until UUM-27771 is resolved.
             var sharedComponentReader = status.SharedComponentPrefetchState.CreateStream();
-            
+
             // read the full index list
             int sharedComponentArraysLength = sharedComponentReader.ReadInt();
             sharedComponentArray = new NativeArray<int>(sharedComponentArraysLength, Allocator.Temp);
@@ -884,7 +900,8 @@ namespace Unity.Entities.Serialization
             // Also see below the offset + 1 indices for the same reason
             sharedComponentRemap.Add(0);
 
-            var unmanagedSharedComponentCount = ReadUnmanagedSharedComponents(manager, sharedComponentReader, sharedComponentRemap);
+            var unmanagedSharedComponentCount = ReadUnmanagedSharedComponents(manager, sharedComponentReader, sharedComponentRemap,
+                (WorldDeserializationStatus*)UnsafeUtility.AddressOf(ref status));
 
             var managedSharedComponentCount = ReadManagedSharedComponents(manager, sharedComponentReader, sharedComponentRemap, unityObjects, blobAssetBuffer);
             numSharedComponents = unmanagedSharedComponentCount + managedSharedComponentCount;
@@ -923,7 +940,7 @@ namespace Unity.Entities.Serialization
                 for (int i = 0; i < chunksWithMetaChunkEntities.Length; ++i)
                 {
                     var chunkw = chunksWithMetaChunkEntities[i].m_Chunk;
-                    manager.SetComponentData(chunkw->metaChunkEntity, new ChunkHeader {ArchetypeChunk = chunksWithMetaChunkEntities[i]});
+                    manager.SetComponentData(chunkw.MetaChunkEntity, new ChunkHeader { ArchetypeChunk = chunksWithMetaChunkEntities[i] });
                 }
                 chunksWithMetaChunkEntities.Dispose();
                 archetypes.Dispose();
@@ -974,7 +991,6 @@ namespace Unity.Entities.Serialization
         internal static unsafe void DeserializeWorldInternal(ExclusiveEntityTransaction manager, BinaryReader reader, out WorldDeserializationResult deserializationResult, object[] unityObjects = null)
         {
 
-#if !UNITY_DOTSRUNTIME
             if (reader is StreamBinaryReader)
             {
                 using (var dotsReader = DotsSerialization.CreateReader(reader))
@@ -987,7 +1003,7 @@ namespace Unity.Entities.Serialization
                     return;
                 }
             }
-#endif
+
             using(var dotsReader = DotsSerialization.CreateReader(reader))
             {
                 var readCommands = new UnsafeList<ReadCommand>(1, Allocator.Temp);
@@ -1002,12 +1018,12 @@ namespace Unity.Entities.Serialization
         }
 
         internal static void SerializeWorldInternal(EntityManager entityManager, BinaryWriter writer, out object[] referencedObjects,
-            NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, bool isDOTSRuntime = false)
+            NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
         {
-            SerializeWorldInternal(entityManager, writer, out referencedObjects, entityRemapInfos, default, new Settings(), isDOTSRuntime);
+            SerializeWorldInternal(entityManager, writer, out referencedObjects, entityRemapInfos, default, new Settings());
         }
 
-        internal static unsafe BlobAssetReference<DotsSerialization.BlobHeader> SerializeWorldInternal(EntityManager entityManager, BinaryWriter writer, out object[] referencedObjects, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs, Settings settings, bool isDOTSRuntime = false, bool buildBlobHeader = false)
+        internal static unsafe BlobAssetReference<DotsSerialization.BlobHeader> SerializeWorldInternal(EntityManager entityManager, BinaryWriter writer, out object[] referencedObjects, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs, Settings settings, bool buildBlobHeader = false)
         {
             BlobAssetReference<DotsSerialization.BlobHeader> blobHeader = default;
             using (var dotsWriter = DotsSerialization.CreateWriter(writer, WorldFileType, "EntityBinaryFile"))
@@ -1173,32 +1189,35 @@ namespace Unity.Entities.Serialization
                     {
                         var chunk = archetype->Chunks[ci];
 
-                        UnsafeUtility.MemCpy(tempChunk, chunk, Chunk.kChunkSize);
-                        tempChunk->ChunkstoreIndex = 0;
+                        UnsafeUtility.MemCpy(tempChunk, chunk.GetPtr(), Chunk.kChunkSize);
+
+                        var tempChunkBuffer = tempChunk->Buffer;
+                        var entityCount = chunk.Count;
+
+                        tempChunk->CountForSerialization = entityCount;
                         tempChunk->metaChunkEntity = EntityRemapUtility.RemapEntity(ref entityRemapInfos, tempChunk->metaChunkEntity);
 
                         // Prevent patching from touching buffers allocated memory
-                        BufferHeader.PatchAfterCloningChunk(tempChunk);
-                        PatchManagedComponentIndices(tempChunk, archetype, ref currentManagedComponentIndex, mcs);
+                        BufferHeader.PatchAfterCloningChunk(archetype, tempChunkBuffer, entityCount);
+                        PatchManagedComponentIndices(tempChunkBuffer, entityCount, archetype, ref currentManagedComponentIndex, mcs);
 
-                        byte* tempChunkBuffer = tempChunk->Buffer;
                         EntityRemapUtility.PatchEntities(archetype->ScalarEntityPatches, archetype->ScalarEntityPatchCount, archetype->BufferEntityPatches, archetype->BufferEntityPatchCount,
-                            tempChunkBuffer, tempChunk->Count, ref entityRemapInfos);
+                            tempChunkBuffer, entityCount, ref entityRemapInfos);
                         if (archetype->HasBlobAssetRefs)
-                            PatchBlobAssetsInChunkBeforeSave(tempChunk, chunk, blobAssetOffsets, blobAssetMap);
+                            PatchBlobAssetsInChunkBeforeSave(archetype, tempChunkBuffer, entityCount, blobAssetOffsets, blobAssetMap);
 
                         if (archetype->HasWeakAssetRefs)
-                            GetWeakAssetRefsInChunk(tempChunk, weakAssetRefs);
+                            GetWeakAssetRefsInChunk(archetype, tempChunkBuffer, entityCount, weakAssetRefs);
 
-                        ClearChunkHeaderComponents(tempChunk);
-                        ChunkDataUtility.MemsetUnusedChunkData(tempChunk, 0);
+                        ClearChunkHeaderComponents(archetype, tempChunkBuffer, entityCount);
+                        ChunkDataUtility.MemsetUnusedChunkData(archetype, tempChunkBuffer, 0, entityCount);
                         var startPatchesIndex = bufferPatches.Length;
-                        FillBufferPatchRecordsAndClearBufferPointer(tempChunk, bufferPatches, bufferDataList);
+                        FillBufferPatchRecordsAndClearBufferPointer(archetype, tempChunkBuffer, entityCount, bufferPatches, bufferDataList);
 
                         var recordCount = bufferPatches.Length - startPatchesIndex;
                         bufferPatchesCountPerChunk.Add(recordCount);
 
-                        tempChunk->Archetype = (Archetype*) a;
+                        tempChunk->ArchetypeIndexForSerialization = a;
 
                         w.WriteBytes(tempChunk, Chunk.kChunkSize);
                     }
@@ -1491,13 +1510,15 @@ namespace Unity.Entities.Serialization
             return (x + 15) & ~15;
         }
 
-        unsafe static void PatchManagedComponentIndices(Chunk* chunk, Archetype* archetype, ref int currentManagedIndex, ManagedComponentStore managedComponentStore)
+        static unsafe void PatchManagedComponentIndices(byte* chunkBuffer, int entityCount, Archetype* archetype, ref int currentManagedIndex, ManagedComponentStore managedComponentStore)
         {
             for (int i = 0; i < archetype->NumManagedComponents; ++i)
             {
-                var index = archetype->TypeMemoryOrderIndexToIndexInArchetype[i + archetype->FirstManagedComponent];
-                var managedComponentIndices = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, index);
-                for (int ei = 0; ei < chunk->Count; ++ei)
+                var indexInTypeArray = archetype->TypeMemoryOrderIndexToIndexInArchetype[i + archetype->FirstManagedComponent];
+                var offset = archetype->Offsets[indexInTypeArray];
+                var managedComponentIndices = (int*)(chunkBuffer + offset);
+
+                for (int ei = 0; ei < entityCount; ++ei)
                 {
                     if (managedComponentIndices[ei] == 0)
                         continue;
@@ -1573,10 +1594,10 @@ namespace Unity.Entities.Serialization
                     for (int i = 0; i < archetype->NumManagedComponents; ++i)
                     {
                         var index = archetype->TypeMemoryOrderIndexToIndexInArchetype[i + archetype->FirstManagedComponent];
-                        var managedComponentIndices = (int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, index);
+                        var managedComponentIndices = (int*)ChunkDataUtility.GetComponentDataRO(chunk, archetype, 0, index);
                         ref readonly var cType = ref TypeManager.GetTypeInfo(archetype->Types[index].TypeIndex);
 
-                        for (int ei = 0; ei < chunk->Count; ++ei)
+                        for (int ei = 0, count = chunk.Count; ei < count; ++ei)
                         {
                             if (managedComponentIndices[ei] == 0)
                                 continue;
@@ -1681,8 +1702,11 @@ namespace Unity.Entities.Serialization
             return record;
         }
 
-        static unsafe int ReadUnmanagedSharedComponents(ExclusiveEntityTransaction manager, BinaryReader reader, NativeList<int> sharedComponentRemap)
+        static unsafe int ReadUnmanagedSharedComponents(ExclusiveEntityTransaction manager, BinaryReader reader, NativeList<int> sharedComponentRemap,
+            SerializeUtility.WorldDeserializationStatus* status)
         {
+            byte* blobAssetBuffer = (byte*)status->BlobAssetBuffer;
+
             var unmanagedSharedComponentCount = ReadSharedComponentMetadata(reader, out var sharedComponentRecordArray);
 
             int dataSize = reader.ReadInt();
@@ -1699,7 +1723,28 @@ namespace Unity.Entities.Serialization
                 var typeIndex = TypeManager.GetTypeIndexFromStableTypeHash(record.StableTypeHash);
                 int sharedComponentIndex;
                 {
-                    void* data = unmanagedStream.ReadNext(record.ComponentSize);
+                    byte* data = (byte*)unmanagedStream.ReadNext(record.ComponentSize);
+
+                    var ct = TypeManager.GetTypeInfo(typeIndex);
+                    var blobAssetRefCount = ct.BlobAssetRefOffsetCount;
+                    if (blobAssetRefCount > 0)
+                    {
+                        var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
+
+                        // We patch the blob asset ref
+                        for (int blobIndex = 0; blobIndex < blobAssetRefCount; ++blobIndex)
+                        {
+                            var offset = blobAssetRefOffsets[blobIndex].Offset;
+                            var blobAssetRefPtr = (BlobAssetReferenceData*)(data + offset);
+                            int value = (int)blobAssetRefPtr->m_Ptr;
+                            byte* ptr = null;
+                            if (value != -1)
+                            {
+                                ptr = blobAssetBuffer + value;
+                            }
+                            blobAssetRefPtr->m_Ptr = ptr;
+                        }
+                    }
 
                     var hashCode = TypeManager.GetHashCode(data, typeIndex);
                     sharedComponentIndex = access->EntityComponentStore->InsertSharedComponent_Unmanaged(typeIndex, hashCode, data, null);
@@ -1768,8 +1813,6 @@ namespace Unity.Entities.Serialization
             }
         }
 
-#if !UNITY_DOTSRUNTIME
-
         // True when a component is valid to using in world serialization. A component IsSerializable when it is valid to blit
         // the data across storage media. Thus components containing pointers have an IsSerializable of false as the component
         // is blittable but no longer valid upon deserialization.
@@ -1800,7 +1843,6 @@ namespace Unity.Entities.Serialization
 
             return true;
         }
-#endif // !UNITY_DOTSRUNTIME
 
         [BurstDiscard]
         private static void ValidateTypeForSerialization(TypeManager.TypeInfo typeInfo)
@@ -1853,7 +1895,7 @@ namespace Unity.Entities.Serialization
                 for (var ci = 0; ci < archetype->Chunks.Count; ++ci)
                 {
                     var chunk = archetype->Chunks[ci];
-                    var entityCount = chunk->Count;
+                    var entityCount = chunk.Count;
                     for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
                     {
                         var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
@@ -1867,7 +1909,7 @@ namespace Unity.Entities.Serialization
                             continue;
 
                         var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
-                        var chunkBuffer = chunk->Buffer;
+                        var chunkBuffer = chunk.Buffer;
 
                         if (blobAssetRefCount > 0)
                         {
@@ -1904,7 +1946,7 @@ namespace Unity.Entities.Serialization
                         }
                     }
 
-                    var sharedComponentValues = chunk->SharedComponentValues;
+                    var sharedComponentValues = archetype->Chunks.GetSharedComponentValues(chunk.ListIndex);
                     for (var i = 0; i < archetype->NumSharedComponents; i++)
                     {
                         var sharedComponentIndex = sharedComponentValues[i];
@@ -1957,10 +1999,10 @@ namespace Unity.Entities.Serialization
                     for (var unorderedTypeIndexInArchetype = 0; unorderedTypeIndexInArchetype < archetype->NumManagedComponents; ++unorderedTypeIndexInArchetype)
                     {
                         var typeIndexInArchetype = archetype->TypeMemoryOrderIndexToIndexInArchetype[archetype->FirstManagedComponent + unorderedTypeIndexInArchetype];
-                        var managedComponentIndices = (int*) ChunkDataUtility.GetComponentDataRO(chunk, 0, typeIndexInArchetype);
+                        var managedComponentIndices = (int*) ChunkDataUtility.GetComponentDataRO(chunk, archetype, 0, typeIndexInArchetype);
                         ref readonly var typeInfo = ref TypeManager.GetTypeInfo(archetype->Types[typeIndexInArchetype].TypeIndex);
 
-                        for (var entityIndex = 0; entityIndex < chunk->Count; entityIndex++)
+                        for (int entityIndex = 0, count = chunk.Count; entityIndex < count; entityIndex++)
                         {
                             if (managedComponentIndices[entityIndex] == 0)
                                 continue;
@@ -2003,11 +2045,9 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        private static unsafe void GetWeakAssetRefsInChunk(Chunk* chunk, NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
+        private static unsafe void GetWeakAssetRefsInChunk(Archetype* archetype, byte* chunkBuffer, int entityCount, NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
         {
-            var archetype = chunk->Archetype;
             var typeCount = archetype->TypesCount;
-            var entityCount = chunk->Count;
             for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
             {
                 var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
@@ -2022,7 +2062,6 @@ namespace Unity.Entities.Serialization
                     continue;
 
                 var weakAssetRefOffsets = TypeManager.GetWeakAssetRefOffsets(ct);
-                var chunkBuffer = chunk->Buffer;
                 int subArrayOffset = archetype->Offsets[ti];
                 byte* componentArrayStart = OffsetFromPointer(chunkBuffer, subArrayOffset);
 
@@ -2066,12 +2105,10 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        private static unsafe void PatchBlobAssetsInChunkBeforeSave(Chunk* tempChunk, Chunk* originalChunk,
+        private static unsafe void PatchBlobAssetsInChunkBeforeSave(Archetype* archetype, byte* chunkBuffer, int entityCount,
             NativeArray<int> blobAssetOffsets, NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap)
         {
-            var archetype = originalChunk->Archetype;
             var typeCount = archetype->TypesCount;
-            var entityCount = originalChunk->Count;
             for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
             {
                 var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
@@ -2085,7 +2122,6 @@ namespace Unity.Entities.Serialization
                     continue;
 
                 var blobAssetRefOffsets = TypeManager.GetBlobAssetRefOffsets(ct);
-                var chunkBuffer = tempChunk->Buffer;
                 int subArrayOffset = archetype->Offsets[ti];
                 byte* componentArrayStart = OffsetFromPointer(chunkBuffer, subArrayOffset);
 
@@ -2136,17 +2172,13 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        private static unsafe void FillBufferPatchRecordsAndClearBufferPointer(Chunk* chunk, NativeList<BufferPatchRecord> bufferPatches, NativeList<IntPtr> bufferPtrs)
+        private static unsafe void FillBufferPatchRecordsAndClearBufferPointer(Archetype* archetype, byte* chunkBuffer, int entityCount, NativeList<BufferPatchRecord> bufferPatches, NativeList<IntPtr> bufferPtrs)
         {
-            byte* tempChunkBuffer = chunk->Buffer;
-            int entityCount = chunk->Count;
-            Archetype* archetype = chunk->Archetype;
-
             // Find all buffer pointer locations and work out how much memory the deserializer must allocate on load.
             for (int ti = 0; ti < archetype->TypesCount; ++ti)
             {
-                int index = archetype->TypeMemoryOrderIndexToIndexInArchetype[ti];
-                var type = archetype->Types[index];
+                int indexInTypeArray = archetype->TypeMemoryOrderIndexToIndexInArchetype[ti];
+                var type = archetype->Types[indexInTypeArray];
 
                 if (type.IsBuffer)
                 {
@@ -2157,14 +2189,17 @@ namespace Unity.Entities.Serialization
 
                     for (int bi = 0; bi < entityCount; ++bi)
                     {
-                        var header = (BufferHeader*)ChunkDataUtility.GetComponentDataRO(chunk, bi, index);
+                        var offset = archetype->Offsets[indexInTypeArray];
+                        var sizeOf = archetype->SizeOfs[indexInTypeArray];
+
+                        var header = (BufferHeader*)(chunkBuffer + (offset + sizeOf * bi));
 
                         if (header->Pointer != null)
                         {
                             int capacityInBytes = elementSize * header->Capacity;
                             bufferPatches.Add(new BufferPatchRecord
                             {
-                                ChunkOffset = (int)(((byte*)header) - tempChunkBuffer),
+                                ChunkOffset = (int)((byte*)header - chunkBuffer),
                                 AllocSizeBytes = capacityInBytes
                             });
                             bufferPtrs.Add((IntPtr)header->Pointer);
@@ -2198,9 +2233,10 @@ namespace Unity.Entities.Serialization
                     continue;
 
                 FillSharedComponentIndexRemap(sharedComponentIndexRemap, archetype);
-                for (int iChunk = 0; iChunk < archetype->Chunks.Count; ++iChunk)
+                var archetypeChunkData = archetype->Chunks;
+                for (int iChunk = 0; iChunk < archetypeChunkData.Count; ++iChunk)
                 {
-                    var sharedComponents = archetype->Chunks[iChunk]->SharedComponentValues;
+                    var sharedComponents = archetypeChunkData.GetSharedComponentValues(archetypeChunkData[iChunk].ListIndex);
                     for (int iType = 0; iType < numSharedComponents; iType++)
                     {
                         int remappedIndex = sharedComponentIndexRemap[iType];
@@ -2240,19 +2276,16 @@ namespace Unity.Entities.Serialization
             return sharedIndexToSerialize;
         }
 
-        private static unsafe void ClearChunkHeaderComponents(Chunk* chunk)
+        private static unsafe void ClearChunkHeaderComponents(Archetype* archetype, byte* chunkBuffer, int entityCount)
         {
             var chunkHeaderTypeIndex = TypeManager.GetTypeIndex<ChunkHeader>();
-            var archetype = chunk->Archetype;
-            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(chunk->Archetype, chunkHeaderTypeIndex);
+            var typeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype, chunkHeaderTypeIndex);
             if (typeIndexInArchetype == -1)
                 return;
 
-            var buffer = chunk->Buffer;
-            var length = chunk->Count;
             var startOffset = archetype->Offsets[typeIndexInArchetype];
-            var chunkHeaders = (ChunkHeader*)(buffer + startOffset);
-            for (int i = 0; i < length; ++i)
+            var chunkHeaders = (ChunkHeader*)(chunkBuffer + startOffset);
+            for (int i = 0; i < entityCount; ++i)
             {
                 chunkHeaders[i] = ChunkHeader.Null;
             }
@@ -2295,9 +2328,9 @@ namespace Unity.Entities.Serialization
                 for (int i = 0; i < archetype->Chunks.Count; ++i)
                 {
                     var chunk = archetype->Chunks[i];
-                    for (int iEntity = 0; iEntity < chunk->Count; ++iEntity)
+                    for (int iEntity = 0, count = chunk.Count; iEntity < count; ++iEntity)
                     {
-                        var entity = *(Entity*)ChunkDataUtility.GetComponentDataRO(chunk, iEntity, 0);
+                        var entity = *(Entity*)ChunkDataUtility.GetComponentDataRO(chunk, archetype, iEntity, 0);
                         EntityRemapUtility.AddEntityRemapping(ref entityRemapInfos, entity, new Entity { Version = 1, Index = nextEntityId });
                         ++nextEntityId;
                     }

@@ -35,6 +35,12 @@ In subscenes, ECS components can only contain references to:
 >[!IMPORTANT]
 > References to entities that are in a different section from the component, or aren't in section 0, are set to `Entity.Null` when they're loaded.
 
+## Entity Prefabs and sections
+
+All the entities in a scene have a SceneSection component that links them to a section in the scene. When that section or the scene is unloaded, all the entities with a matching SceneSection component will be unloaded too. This applies to entity prefabs as well.
+
+When an entity prefab is instantiated, its SceneSection is added to the instanced entity. This means that unloading a scene will destroy all the prefabs instances associated with it. If this is not the desired behaviour, you can manually remove the SceneSection component from the prefab instances.
+
 ## Section loading
 
 You can load or unload individual sections of a scene independently, but section 0 must always load first. Similarly, you can only unload section 0 once all the other sections in the scene are already unloaded.

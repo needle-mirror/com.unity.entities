@@ -1,6 +1,3 @@
-#if !NET_DOTS
-// https://unity3d.atlassian.net/browse/DOTSR-1432
-
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -348,4 +345,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-#endif // NET_DOTS

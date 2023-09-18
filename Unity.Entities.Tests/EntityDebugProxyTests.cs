@@ -3,8 +3,6 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Jobs;
 
-#if !NET_DOTS
-
 namespace Unity.Entities.Tests
 {
     partial class EntityDebugProxyTests : ECSTestsFixture
@@ -253,5 +251,3 @@ namespace Unity.Entities.Tests
         }
     }
 }
-
-#endif

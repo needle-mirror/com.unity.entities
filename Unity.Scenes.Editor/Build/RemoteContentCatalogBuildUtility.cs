@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -12,12 +11,6 @@ using UnityEditor;
 using System.Linq;
 using Unity.Entities.Build;
 
-#if USING_PLATFORMS_PACKAGE
-using Unity.Build;
-using Unity.Build.Common;
-using Unity.Build.Classic;
-#endif
-
 namespace Unity.Entities.Content
 {
     /// <summary>
@@ -28,78 +21,40 @@ namespace Unity.Entities.Content
         [MenuItem("Assets/Publish/Existing Build")]
         static void ExistingBuildMenuItem()
         {
-#if USING_PLATFORMS_PACKAGE
-            if (Selection.assetGUIDs.Length == 1 && AssetDatabase.GetMainAssetTypeAtPath(AssetDatabase.GUIDToAssetPath(Selection.assetGUIDs[0])) == typeof(BuildConfiguration))
+            var buildFolder = EditorUtility.OpenFolderPanel("Select Build To Publish", Path.GetDirectoryName(Application.dataPath), "Builds");
+            if (!string.IsNullOrEmpty(buildFolder))
             {
-                var buildConfigPath = AssetDatabase.GUIDToAssetPath(Selection.assetGUIDs[0]);
-                var buildConfig = AssetDatabase.LoadAssetAtPath<BuildConfiguration>(buildConfigPath);
-                var buildConfigName = Path.GetFileNameWithoutExtension(buildConfigPath);
-                var buildFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildConfigName}/{buildConfig.GetComponent<GeneralSettings>().ProductName}_Data/StreamingAssets");
-                var publishFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildConfigName}-RemoteContent");
-                PublishContent(buildFolder, publishFolder, f => new string[] { "all" });
-            }
-            else
-#endif
-            {
-                var buildFolder = EditorUtility.OpenFolderPanel("Select Build To Publish", Path.GetDirectoryName(Application.dataPath), "Builds");
-                if (!string.IsNullOrEmpty(buildFolder))
-                {
-                    var streamingAssetsPath = $"{buildFolder}/{PlayerSettings.productName}_Data/StreamingAssets";
-                    PublishContent(streamingAssetsPath, $"{buildFolder}-RemoteContent", f => new string[] { "all" });
-                }
+                var streamingAssetsPath = $"{buildFolder}/{PlayerSettings.productName}_Data/StreamingAssets";
+                PublishContent(streamingAssetsPath, $"{buildFolder}-RemoteContent", f => new string[] { "all" });
             }
         }
 
         [MenuItem("Assets/Publish/Content Update")]
         static void ContentUpdateMenuItem()
         {
-#if USING_PLATFORMS_PACKAGE
-            if (Selection.assetGUIDs.Length == 1 && AssetDatabase.GetMainAssetTypeAtPath(AssetDatabase.GUIDToAssetPath(Selection.assetGUIDs[0])) == typeof(BuildConfiguration))
+            var buildFolder = EditorUtility.OpenFolderPanel("Select Build To Publish", Path.GetDirectoryName(Application.dataPath), "Builds");
+            if (!string.IsNullOrEmpty(buildFolder))
             {
+                var buildTarget = EditorUserBuildSettings.activeBuildTarget;
+                var tmpBuildFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), $"/Library/ContentUpdateBuildDir/{PlayerSettings.productName}");
+
+                var instance = DotsGlobalSettings.Instance;
+                var playerGuid = instance.GetPlayerType() == DotsGlobalSettings.PlayerType.Client ? instance.GetClientGUID() : instance.GetServerGUID();
+                if (!playerGuid.IsValid)
+                    throw new Exception("Invalid Player GUID");
+
                 var subSceneGuids = new HashSet<Hash128>();
-                var buildConfigPath = AssetDatabase.GUIDToAssetPath(Selection.assetGUIDs[0]);
-                var buildConfigName = Path.GetFileNameWithoutExtension(buildConfigPath);
-                var buildConfig = AssetDatabase.LoadAssetAtPath<BuildConfiguration>(buildConfigPath);
-                var rootSceneInfos = buildConfig.GetComponent<SceneList>().GetSceneInfosForBuild();
-                foreach (var s in rootSceneInfos)
-                    foreach (var h in EditorEntityScenes.GetSubScenes(s.Scene.assetGUID))
-                        subSceneGuids.Add(h);
-                var platform = buildConfig.GetComponent<ClassicBuildProfile>().Platform;
-                var buildTarget = platform.GetBuildTarget();
-                var buildFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildConfigName}-ContentUpdate");
-                var id = GlobalObjectId.GetGlobalObjectIdSlow(BuildConfiguration.GetActive());
-                BuildContent(subSceneGuids, id.assetGUID, buildTarget, buildFolder);
-
-                var publishFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildConfigName}-RemoteContent");
-                PublishContent(buildFolder, publishFolder, f => new string[] { "all" });
-            }
-            else
-#endif
-            {
-                var buildFolder = EditorUtility.OpenFolderPanel("Select Build To Publish", Path.GetDirectoryName(Application.dataPath), "Builds");
-                if (!string.IsNullOrEmpty(buildFolder))
+                for (int i = 0; i < EditorBuildSettings.scenes.Length; i++)
                 {
-                    var buildTarget = EditorUserBuildSettings.activeBuildTarget;
-                    var tmpBuildFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), $"/Library/ContentUpdateBuildDir/{PlayerSettings.productName}");
-
-                    var instance = DotsGlobalSettings.Instance;
-                    var playerGuid = instance.GetPlayerType() == DotsGlobalSettings.PlayerType.Client ? instance.GetClientGUID() : instance.GetServerGUID();
-                    if (!playerGuid.IsValid)
-                        throw new Exception("Invalid Player GUID");
-
-                    var subSceneGuids = new HashSet<Hash128>();
-                    for (int i = 0; i < EditorBuildSettings.scenes.Length; i++)
-                    {
-                        var ssGuids = EditorEntityScenes.GetSubScenes(EditorBuildSettings.scenes[i].guid);
-                        foreach (var ss in ssGuids)
-                            subSceneGuids.Add(ss);
-                    }
-
-                    BuildContent(subSceneGuids, playerGuid, buildTarget, tmpBuildFolder);
-
-                    var publishFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildFolder}-RemoteContent");
-                    PublishContent(tmpBuildFolder, publishFolder, f => new string[] { "all" });
+                    var ssGuids = EditorEntityScenes.GetSubScenes(EditorBuildSettings.scenes[i].guid);
+                    foreach (var ss in ssGuids)
+                        subSceneGuids.Add(ss);
                 }
+
+                BuildContent(subSceneGuids, playerGuid, buildTarget, tmpBuildFolder);
+
+                var publishFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildFolder}-RemoteContent");
+                PublishContent(tmpBuildFolder, publishFolder, f => new string[] { "all" });
             }
         }
 
@@ -252,4 +207,3 @@ namespace Unity.Entities.Content
         }
     }
 }
-#endif

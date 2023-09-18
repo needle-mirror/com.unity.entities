@@ -192,7 +192,6 @@ namespace Unity.Entities.Tests
                 deltaCheckSystem.UpdateExpectedResults(nothing);
         }
 
-#if !UNITY_DOTSRUNTIME
         public partial class DeltaProcessComponentSystem : SystemBase
         {
             protected override void OnUpdate()
@@ -663,7 +662,6 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(100, m_Manager.GetComponentData<EcsTestData>(e).value);
         }
-#endif
 
         partial class SpawnerSystem : SystemBase
         {

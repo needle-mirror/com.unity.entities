@@ -1,4 +1,3 @@
-#if !NET_DOTS
 using System;
 using System.Diagnostics;
 using System.Reflection;
@@ -232,4 +231,3 @@ namespace Unity.Entities.DebugProxies
         }
     }
 }
-#endif

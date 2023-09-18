@@ -6,10 +6,6 @@ using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
 using Unity.Entities.Serialization;
 
-#if UNITY_DOTSRUNTIME
-using Unity.Runtime.IO;
-#endif
-
 namespace Unity.Scenes
 {
     internal struct ResolveSceneSectionArchetypes
@@ -38,7 +34,6 @@ namespace Unity.Scenes
             };
         }
 
-#if !UNITY_DOTSRUNTIME
         internal static bool ResolveSceneSections(EntityManager manager, Entity sceneEntity, Hash128 sceneGUID, RequestSceneLoaded requestSceneLoaded, Hash128 artifactHash, string sceneLoadDir)
         {
             var bufLen = manager.AddBuffer<ResolvedSectionEntity>(sceneEntity).Length;
@@ -64,7 +59,6 @@ namespace Unity.Scenes
 
             return ResolveSceneSections(manager, sceneEntity, requestSceneLoaded, ref sceneMetaData.Value, resolveSceneSectionArchetypes, sectionPaths, headerBlobOwner);
         }
-#endif
 
         internal static unsafe bool ResolveSceneSections(EntityManager entityManager, Entity sceneEntity, RequestSceneLoaded requestSceneLoaded, ref SceneMetaData sceneMetaData, ResolveSceneSectionArchetypes sectionArchetypes, UnsafeList<ResolvedSectionPath> sectionPaths, BlobAssetOwner headerBlobOwner)
         {
@@ -121,7 +115,6 @@ namespace Unity.Scenes
             return true;
         }
 
-#if !UNITY_DOTSRUNTIME
         internal static unsafe bool ReadHeader(string sceneHeaderPath, out BlobAssetReference<SceneMetaData> sceneMetaDataRef, Hash128 sceneGUID) =>
             ReadHeader(sceneHeaderPath, out sceneMetaDataRef, sceneGUID, out _, false);
 
@@ -167,36 +160,6 @@ namespace Unity.Scenes
             }
             return true;
         }
-#else
-        internal static unsafe bool ReadHeader(byte* data, long length, out BlobAssetReference<SceneMetaData> sceneMetaDataRef, Hash128 sceneGUID, out BlobAssetOwner headerBlobOwner)
-        {
-            headerBlobOwner = default;
-
-            var binaryReader = new MemoryBinaryReader(data, length);
-            var storedVersion = binaryReader.ReadInt();
-            if (storedVersion != SceneMetaDataSerializeUtility.CurrentFileFormatVersion)
-            {
-                sceneMetaDataRef = default;
-                Debug.LogError($"Loading Entity Scene failed because the entity header file was an old version or doesn't exist: {sceneGUID}\nNOTE: In order to load SubScenes in the player you have to use the new BuildConfiguration asset based workflow to build & run your player.");
-                return false;
-            }
-
-            sceneMetaDataRef = binaryReader.Read<SceneMetaData>();
-
-            //Load header blob batch
-            var dataSize = sceneMetaDataRef.Value.HeaderBlobAssetBatchSize;
-            void* blobAssetBatch = Memory.Unmanaged.Allocate(dataSize, 16, Allocator.Persistent);
-
-            binaryReader.ReadBytes(blobAssetBatch, dataSize);
-            headerBlobOwner =  new BlobAssetOwner(blobAssetBatch, dataSize);
-
-            for(int i=0;i<sceneMetaDataRef.Value.Sections.Length;++i)
-            {
-                sceneMetaDataRef.Value.Sections[i].BlobHeader = sceneMetaDataRef.Value.Sections[i].BlobHeader.Resolve(headerBlobOwner);
-            }
-            return true;
-        }
-#endif
         internal static unsafe void AddSectionMetadataComponents(Entity sectionEntity, ref BlobArray<SceneSectionCustomMetadata> sectionMetaDataArray, EntityManager entityManager)
         {
             // Deserialize the SceneSection custom metadata

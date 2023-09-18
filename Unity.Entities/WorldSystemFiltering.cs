@@ -102,6 +102,14 @@ namespace Unity.Entities
         /// </summary>
         Streaming                       = 1 << 13,
         /// <summary>
+        /// Worlds baking EntityBehaviours in motion
+        /// </summary>
+        EntityProxy                     = 1 << 14,
+        /// <summary>
+        /// Worlds baking EntityBehaviours in preview mode in motion
+        /// </summary>
+        EntityProxyPreview                     = 1 << 15,
+        /// <summary>
         /// Flag to include all system groups defined above as well as systems decorated with [DisableAutoCreation].
         /// </summary>
         All                             = ~0u

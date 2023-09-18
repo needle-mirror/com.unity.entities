@@ -11,16 +11,14 @@ namespace Unity.Entities.SourceGen.Common
         public bool Equals(SyntaxTreeInfo other)
         {
             if (ReferenceEquals(null, other)) return false;
-            if (ReferenceEquals(this, other)) return true;
-            return Equals(Tree, other.Tree);
+            return ReferenceEquals(this, other) || Equals(Tree, other.Tree);
         }
 
         public override bool Equals(object obj)
         {
             if (ReferenceEquals(null, obj)) return false;
             if (ReferenceEquals(this, obj)) return true;
-            if (obj.GetType() != this.GetType()) return false;
-            return Equals((SyntaxTreeInfo)obj);
+            return obj.GetType() == GetType() && Equals((SyntaxTreeInfo)obj);
         }
 
         public override int GetHashCode() => Tree != null ? Tree.GetHashCode() : 0;

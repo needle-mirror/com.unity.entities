@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 using System;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -23,4 +22,3 @@ namespace Unity.Entities
         }
     }
 }
-#endif

@@ -16,13 +16,8 @@ using Unity.Entities.Serialization;
 using Unity.Entities.LowLevel.Unsafe;
 using Unity.IO.LowLevel.Unsafe;
 
-#if UNITY_DOTSRUNTIME
-using Unity.Runtime.IO;
-#endif
-
 public partial class BlobTests : ECSTestsFixture
 {
-#if !UNITY_DOTSRUNTIME
     BlobTestSystemEFE _blobTestSystemEFE => World.CreateSystemManaged<BlobTestSystemEFE>();
     partial class BlobTestSystemEFE : SystemBase
     {
@@ -69,12 +64,11 @@ public partial class BlobTests : ECSTestsFixture
         }
         protected override void OnUpdate() {}
     }
-#endif
-                    //@TODO: Test Prevent NativeArray and other containers inside of Blob data
-                    //@TODO: Test Prevent BlobPtr, BlobArray onto job struct
-                    //@TODO: Various tests trying to break the Allocator. eg. mix multiple BlobAllocator in the same BlobRoot...
+    //@TODO: Test Prevent NativeArray and other containers inside of Blob data
+    //@TODO: Test Prevent BlobPtr, BlobArray onto job struct
+    //@TODO: Various tests trying to break the Allocator. eg. mix multiple BlobAllocator in the same BlobRoot...
 
-            struct MyData
+    struct MyData
     {
         public BlobArray<float> floatArray;
         public BlobPtr<float> nullPtr;
@@ -216,7 +210,7 @@ public partial class BlobTests : ECSTestsFixture
         Assert.Throws<InvalidOperationException>(() => { var p = blobCopy.Value.embeddedFloat; });
 
         Assert.Throws<InvalidOperationException>(() => { blobCopy.Dispose(); });
-        Assert.Throws<InvalidOperationException>(() => { blob.Dispose(); });
+        Assert.Throws<NullReferenceException>(() => { blob.Dispose(); });
     }
 
     struct ComponentWithBlobData : IComponentData
@@ -243,7 +237,6 @@ public partial class BlobTests : ECSTestsFixture
         new ConstructAccessAndDisposeBlobData().Schedule().Complete();
     }
 
-#if !UNITY_DOTSRUNTIME
     [Test]
     public  void ReadAndDestroyBlobDataFromBurstJob()
     {
@@ -279,7 +272,6 @@ public partial class BlobTests : ECSTestsFixture
         var handle = _blobTestSystemIJobEntity.ValidateBlobInComponent(expectException: true);
         handle.Complete();
     }
-#endif
 
     [Test]
     public void BlobAssetReferenceIsComparable()
@@ -607,7 +599,7 @@ public partial class BlobTests : ECSTestsFixture
     const int kVersion = 51;
     const int kIncorrectVersion = 13;
 
-#if !UNITY_DOTSRUNTIME && !UNITY_GAMECORE // (disabled as gamecore has permission issues DOTS-7038)
+#if !UNITY_GAMECORE // (disabled as gamecore has permission issues DOTS-7038)
     [Test]
     // Unstable on PS4: https://jira.unity3d.com/browse/DOTS-7693
     [UnityEngine.TestTools.UnityPlatform(exclude = new [] { RuntimePlatform.PS4 })]
@@ -781,7 +773,6 @@ public partial class BlobTests : ECSTestsFixture
         Assert.Throws<InvalidOperationException>(() => blobRef.Value.ToArray(), "No exception was thrown when creating array copy from BlobArray<BlobPtr<>>.");
     }
 
-#if !UNITY_DOTSRUNTIME
     // Not running on DOTS runtime because the temp allocator isn't predictably generating contiguous allocations
     // and only contiguous allocations can trigger the issue that this regression test is guarding against
     [Test]
@@ -840,5 +831,4 @@ public partial class BlobTests : ECSTestsFixture
         // addresses, they usually end up after each other in the finalized blob, causing the off by one error
         // to be completely harmless.
     }
-#endif
 }

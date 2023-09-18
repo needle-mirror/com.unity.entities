@@ -46,6 +46,7 @@ namespace Unity.Entities
     /// * None - Excludes archetypes that have any component in this set, but includes entities which have the component disabled.
     /// * Disabled - Includes archetypes that have every component in this set, but only matches entities where the component is disabled.
     /// * Absent - Excludes archetypes that have any component in this set.
+    /// * Present - Includes archetypes that have every component in this set, whether or not the component is enabled.
     ///
     /// For example, given entities with the following components:
     ///
@@ -89,6 +90,10 @@ namespace Unity.Entities
         /// </summary>
         public ComponentType[] Absent = Array.Empty<ComponentType>();
         /// <summary>
+        /// Include archetypes that contain these component types, whether or not the component is enabled.
+        /// </summary>
+        public ComponentType[] Present = Array.Empty<ComponentType>();
+        /// <summary>
         /// Specialized query options.
         /// </summary>
         /// <remarks>
@@ -119,7 +124,7 @@ namespace Unity.Entities
         public void Validate()
         {
             // Determine the number of ComponentTypes contained in the filters
-            var itemCount = None.Length + All.Length + Any.Length + Disabled.Length + Absent.Length;
+            var itemCount = None.Length + All.Length + Any.Length + Disabled.Length + Absent.Length + Present.Length;
 
             // Project all the ComponentType Ids of None, All, Any queryDesc filters into the same array to identify duplicated later on
 
@@ -130,6 +135,7 @@ namespace Unity.Entities
             AddComponentTypeIndicesToArray(Any, ref allComponentTypeIds, ref curComponentTypeIndex);
             AddComponentTypeIndicesToArray(Disabled, ref allComponentTypeIds, ref curComponentTypeIndex);
             AddComponentTypeIndicesToArray(Absent, ref allComponentTypeIds, ref curComponentTypeIndex);
+            AddComponentTypeIndicesToArray(Present, ref allComponentTypeIds, ref curComponentTypeIndex);
 
             // Check for duplicate, only if necessary
             if (itemCount > 1)
@@ -144,14 +150,9 @@ namespace Unity.Entities
                     var curId = allComponentTypeIds[i];
                     if (curId == refId)
                     {
-#if NET_DOTS
-                        throw new EntityQueryDescValidationException(
-                            $"The component type with index {curId} appears multiple times in an EntityQueryDesc. Duplicate component types are not allowed within an EntityQueryDesc.");
-#else
                         var compType = TypeManager.GetType(curId);
                         throw new EntityQueryDescValidationException(
                             $"The component type {compType.Name} appears multiple times in an EntityQueryDesc. Duplicate component types are not allowed within an EntityQueryDesc.");
-#endif
                     }
 
                     refId = curId;
@@ -194,6 +195,8 @@ namespace Unity.Entities
                 return false;
             if (!ArraysEquivalent(Absent, other.Absent))
                 return false;
+            if (!ArraysEquivalent(Present, other.Present))
+                return false;
             return true;
         }
 
@@ -235,6 +238,7 @@ namespace Unity.Entities
             result = (result * 397) ^ (None ?? Array.Empty<ComponentType>()).GetHashCode();
             result = (result * 397) ^ (Disabled ?? Array.Empty<ComponentType>()).GetHashCode();
             result = (result * 397) ^ (Absent ?? Array.Empty<ComponentType>()).GetHashCode();
+            result = (result * 397) ^ (Present ?? Array.Empty<ComponentType>()).GetHashCode();
             return result;
         }
 
@@ -292,6 +296,7 @@ namespace Unity.Entities
         /// - Entities with all required enableable components will be matched, even if the components are disabled.
         /// - Entities with any optional enableable components will be matched, even if the components are disabled.
         /// - Entities with any excluded enableable component will be matched, even if the components are enabled.
+        /// - Entities with any excluded non-enableable component will NOT be matched; their archetype is not in the potentially matching set.
         /// - Entities missing a required component will NOT be matched; their archetype is not in the potentially matching set.
         /// - Entities missing all the optional components will NOT be matched; their archetype is not in the potentially matching set.
         /// </remarks>
@@ -377,7 +382,7 @@ namespace Unity.Entities
         /// would not.</returns>
         public bool MatchesIgnoreFilter(ArchetypeChunk chunk)
         {
-            return chunk.m_Chunk->Archetype->CompareMask(this);
+            return chunk.Archetype.Archetype->CompareMask(this);
         }
         /// <summary> Obsolete. Use <see cref="MatchesIgnoreFilter(ArchetypeChunk)"/> instead.</summary>
         /// <param name="chunk">The chunk to check.</param>
@@ -510,6 +515,15 @@ namespace Unity.Entities
                     for (var j = 0; j < _QueryData->ArchetypeQueries[i].AbsentCount; ++j)
                     {
                         types.Add(ComponentType.Exclude(TypeManager.GetType(_QueryData->ArchetypeQueries[i].Absent[j])));
+                    }
+                    for (var j = 0; j < _QueryData->ArchetypeQueries[i].PresentCount; ++j)
+                    {
+                        var accessMode = (ComponentType.AccessMode)_QueryData->ArchetypeQueries[i].PresentAccessMode[j];
+                        var type = TypeManager.GetType(_QueryData->ArchetypeQueries[i].Present[j]);
+
+                        types.Add(accessMode == ComponentType.AccessMode.ReadOnly
+                            ? ComponentType.ReadOnly(type)
+                            : ComponentType.ReadWrite(type));
                     }
                 }
 
@@ -1120,7 +1134,7 @@ namespace Unity.Entities
                 var chunkArchetype = chunkCacheIterator._CurrentMatchingArchetype->Archetype;
                 if (chunkArchetype != typeLookupCache.Archetype)
                     typeLookupCache.Update(chunkArchetype, typeIndex);
-                var chunkManagedComponentArray = (int*)ChunkDataUtility.GetComponentDataRO(chunk.m_Chunk, 0, typeLookupCache.IndexInArchetype);
+                var chunkManagedComponentArray = (int*)ChunkDataUtility.GetComponentDataRO(chunk.m_Chunk, chunkArchetype, 0, typeLookupCache.IndexInArchetype);
                 if (useEnableBits == 0)
                 {
                     for (int entityIndex = 0; entityIndex < chunkEntityCount; ++entityIndex)
@@ -1276,29 +1290,30 @@ namespace Unity.Entities
                 throw new InvalidOperationException($"Can't call GetSingletonEntity() on queries containing enableable component types.");
 #endif
             GetSingletonChunk(TypeManager.GetTypeIndex<Entity>(), out var indexInArchetype, out var chunk);
-            return UnsafeUtility.AsRef<Entity>(ChunkIterationUtility.GetChunkComponentDataROPtr(chunk, 0));
+            var archetype = _Access->EntityComponentStore->GetArchetype(chunk);
+            return UnsafeUtility.AsRef<Entity>(ChunkIterationUtility.GetChunkComponentDataROPtr(archetype, chunk, 0));
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        internal void GetSingletonChunk(TypeIndex typeIndex, out int outIndexInArchetype, out Chunk* outChunk)
+        internal void GetSingletonChunk(TypeIndex typeIndex, out int outIndexInArchetype, out ChunkIndex outChunk)
         {
             if (!_Filter.RequiresMatchesFilter && _QueryData->RequiredComponentsCount <= 2 && _QueryData->RequiredComponents[1].TypeIndex == typeIndex)
             {
                 // Fast path with no filtering
                 var matchingChunkCache = GetMatchingChunkCache();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                if (matchingChunkCache.Length != 1 || matchingChunkCache.Ptr[0]->Count != 1)
+                if (matchingChunkCache.Length != 1 || matchingChunkCache.ChunkIndices[0].Count != 1)
                 {
                     _QueryData->CheckChunkListCacheConsistency(false);
                     var typeName = typeIndex.ToFixedString();
-                    if (matchingChunkCache.Length == 0 || matchingChunkCache.Ptr[0]->Count == 0)
+                    if (matchingChunkCache.Length == 0 || matchingChunkCache.ChunkIndices[0].Count == 0)
                         throw new InvalidOperationException($"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are none. Are you missing a call to RequireForUpdate<T>()? You could also use TryGetSingleton<T>()");
                     else
                         throw new InvalidOperationException(@$"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are {CalculateEntityCountWithoutFiltering()} entities in {matchingChunkCache.Length} chunks.
-First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matchingChunkCache.Ptr[0]->Archetype->ToString()}.");
+First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={_Access->EntityComponentStore->GetArchetype(matchingChunkCache.ChunkIndices[0])->ToString()}.");
                 }
 #endif
-                outChunk = matchingChunkCache.Ptr[0]; // only one matching chunk
+                outChunk = matchingChunkCache.ChunkIndices[0]; // only one matching chunk
                 var matchIndex = matchingChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
                 var match = _QueryData->MatchingArchetypes.Ptr[matchIndex];
                 outIndexInArchetype = match->IndexInArchetype[1];
@@ -1328,7 +1343,7 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
                     var chunk = chunkList[i];
                     var matchIndex = matchingArchetypeIndices[i];
                     var match = matchingArchetypes[matchIndex];
-                    if (match->ChunkMatchesFilter(chunk->ListIndex, ref _Filter))
+                    if (match->ChunkMatchesFilter(chunk.ListIndex, ref _Filter))
                     {
                         outIndexInArchetype = match->IndexInArchetype[indexInQuery];
                         outChunk = chunk;
@@ -1359,7 +1374,8 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
 
             GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
 
-            var data = ChunkDataUtility.GetComponentDataRW(chunk, 0, indexInArchetype, _Access->EntityComponentStore->GlobalSystemVersion);
+            var archetype = _Access->EntityComponentStore->GetArchetype(chunk);
+            var data = ChunkDataUtility.GetComponentDataRW(chunk, archetype, 0, indexInArchetype, _Access->EntityComponentStore->GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(_Access->EntityComponentStore->m_RecordToJournal != 0))
@@ -1376,14 +1392,14 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
         [MethodImpl(MethodImplOptions.NoInlining)]
-        internal void RecordSingletonJournalRW(Chunk* chunk, TypeIndex typeIndex, EntitiesJournaling.RecordType type, void* data = null, int size = 0)
+        internal void RecordSingletonJournalRW(ChunkIndex chunk, TypeIndex typeIndex, EntitiesJournaling.RecordType type, void* data = null, int size = 0)
         {
             EntitiesJournaling.AddRecord(
                 recordType: type,
                 worldSequenceNumber: _Access->m_WorldUnmanaged.SequenceNumber,
                 executingSystem: _Access->m_WorldUnmanaged.ExecutingSystem,
-                chunks: chunk,
-                chunkCount: 1,
+                archetype: _Access->EntityComponentStore->GetArchetype(chunk),
+                chunk: chunk,
                 types: &typeIndex,
                 typeCount: 1,
                 data: data,
@@ -1420,26 +1436,28 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
             {
                 var matchingChunkCache = GetMatchingChunkCache();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                if (matchingChunkCache.Length != 1 || matchingChunkCache.Ptr[0]->Count != 1)
+                if (matchingChunkCache.Length != 1 || matchingChunkCache.ChunkIndices[0].Count != 1)
                 {
                     _QueryData->CheckChunkListCacheConsistency(false);
                     var typeName = typeIndex.ToFixedString();
-                    if (matchingChunkCache.Length == 0 || matchingChunkCache.Ptr[0]->Count == 0)
+                    if (matchingChunkCache.Length == 0 || matchingChunkCache.ChunkIndices[0].Count == 0)
                         throw new InvalidOperationException($"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are none. Are you missing a call to RequireForUpdate<T>()? You could also use TryGetSingleton<T>()");
                     else
                         throw new InvalidOperationException(@$"GetSingleton<{typeName}>() requires that exactly one entity exists that match this query, but there are {CalculateEntityCountWithoutFiltering()} entities in {matchingChunkCache.Length} chunks.
-First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matchingChunkCache.Ptr[0]->Archetype->ToString()}.");
+First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={_Access->EntityComponentStore->GetArchetype(matchingChunkCache.ChunkIndices[0])->ToString()}.");
                 }
 #endif
-                var chunk = matchingChunkCache.Ptr[0]; // only one matching chunk
+                var chunk = matchingChunkCache.ChunkIndices[0]; // only one matching chunk
                 var matchIndex = matchingChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
                 var match = _QueryData->MatchingArchetypes.Ptr[matchIndex];
-                return UnsafeUtility.AsRef<T>(ChunkIterationUtility.GetChunkComponentDataROPtr(chunk, match->IndexInArchetype[1]));
+                var archetype = _Access->EntityComponentStore->GetArchetype(chunk);
+                return UnsafeUtility.AsRef<T>(ChunkIterationUtility.GetChunkComponentDataROPtr(archetype, chunk, match->IndexInArchetype[1]));
             }
             else
             {
                 GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
-                return UnsafeUtility.AsRef<T>(ChunkIterationUtility.GetChunkComponentDataROPtr(chunk, indexInArchetype));
+                var archetype = _Access->EntityComponentStore->GetArchetype(chunk);
+                return UnsafeUtility.AsRef<T>(ChunkIterationUtility.GetChunkComponentDataROPtr(archetype, chunk, indexInArchetype));
             }
         }
 
@@ -1465,13 +1483,14 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
             if (Hint.Unlikely(_Access->EntityComponentStore->m_RecordToJournal != 0) && !isReadOnly)
                 RecordSingletonJournalRW(chunk, typeIndex, EntitiesJournaling.RecordType.GetBufferRW);
 #endif
+            var archetype = _Access->EntityComponentStore->GetArchetype(chunk);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var safetyHandles = &_Access->DependencyManager->Safety;
-            var bufferAccessor = ChunkIterationUtility.GetChunkBufferAccessor<T>(chunk, !isReadOnly, indexInArchetype,
+            var bufferAccessor = ChunkIterationUtility.GetChunkBufferAccessor<T>(archetype, chunk, !isReadOnly, indexInArchetype,
                 _Access->EntityComponentStore->GlobalSystemVersion, safetyHandles->GetSafetyHandle(typeIndex, isReadOnly),
                 safetyHandles->GetBufferSafetyHandle(typeIndex));
 #else
-            var bufferAccessor = ChunkIterationUtility.GetChunkBufferAccessor<T>(chunk, !isReadOnly, indexInArchetype,
+            var bufferAccessor = ChunkIterationUtility.GetChunkBufferAccessor<T>(archetype, chunk, !isReadOnly, indexInArchetype,
                 _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
             return bufferAccessor[0];
@@ -1510,8 +1529,16 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
                     $"Can't call HasSingleton<{typeName}>() with enableable component type {typeName}.");
             }
 #endif
-
-            return CalculateEntityCount() == 1;
+            int matchingEntityCount = CalculateEntityCount();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(matchingEntityCount > 1))
+            {
+                var typeName = typeIndex.ToFixedString();
+                throw new InvalidOperationException(
+                    $"HasSingleton<{typeName}>() found {matchingEntityCount} instances of {typeName}; there must only be either zero or one.");
+            }
+#endif
+            return matchingEntityCount == 1;
         }
 
         public bool TryGetSingletonBuffer<T>(out DynamicBuffer<T> value, bool isReadOnly = false)
@@ -1781,13 +1808,13 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
                 {
                     var chunk = archetype->Chunks[c];
 
-                    if (!chunk->MatchesFilter(matchingArchetype, ref _Filter))
+                    if (!chunk.MatchesFilter(matchingArchetype, ref _Filter))
                         continue;
 
-                    var chunkEntities = (Entity*)ChunkDataUtility.GetComponentDataRO(chunk, 0, 0);
+                    var chunkEntities = (Entity*)ChunkDataUtility.GetComponentDataRO(chunk, archetype, 0, 0);
                     ChunkIterationUtility.GetEnabledMask(chunk, matchingArchetype, out var enabledMask);
 
-                    int entityCount = chunk->Count;
+                    int entityCount = chunk.Count;
                     if (entityCount > TypeManager.MaximumChunkCapacity)
                         return false;
                     if (EnabledBitUtility.countbits(enabledMask) == 0)
@@ -1837,14 +1864,15 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
             if (hasFilter || hasEnableableComponents)
             {
                 var chunk = ecs->GetChunk(e);
+                var archetype = ecs->GetArchetype(chunk);
                 // TODO(DOTS-6802): most of this work could be amortized, if we knew Matches() was being called on entities in the same chunk.
                 var matchingArchetype = _QueryData->MatchingArchetypes.Ptr[
-                    EntityQueryManager.FindMatchingArchetypeIndexForArchetype(ref _QueryData->MatchingArchetypes, chunk->Archetype)];
+                    EntityQueryManager.FindMatchingArchetypeIndexForArchetype(ref _QueryData->MatchingArchetypes, archetype)];
                 // Is the chunk filtered out?
                 if (hasFilter)
                 {
                     SyncChangeFilterTypes();
-                    if (!chunk->MatchesFilter(matchingArchetype, ref _Filter))
+                    if (!chunk.MatchesFilter(matchingArchetype, ref _Filter))
                         return false;
                 }
                 // Does the entity have all required components enabled?
@@ -1935,6 +1963,16 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
                 };
             }
 
+            var presentComponentTypes = new ComponentType[archetypeQuery->PresentCount];
+            for (var i = 0; i < archetypeQuery->PresentCount; ++i)
+            {
+                presentComponentTypes[i] = new ComponentType
+                {
+                    TypeIndex = archetypeQuery->Present[i],
+                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->PresentAccessMode[i]
+                };
+            }
+
             return new EntityQueryDesc
             {
                 All = allComponentTypes,
@@ -1942,6 +1980,7 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
                 None = noneComponentTypes,
                 Disabled = disabledComponentTypes,
                 Absent = absentComponentTypes,
+                Present = presentComponentTypes,
                 Options = archetypeQuery->Options
             };
         }
@@ -2005,9 +2044,12 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
     /// A query description provides a flexible query mechanism to specify which archetypes to select
     /// based on the following sets of components:
     ///
-    /// * `All` = All component types in this array must exist in the archetype
-    /// * `Any` = At least one of the component types in this array must exist in the archetype
-    /// * `None` = None of the component types in this array can exist in the archetype
+    /// * `All` = All component types in this array must exist in the archetype, and must be enabled on matching entities.
+    /// * `Any` = At least one of the component types in this array must exist in the archetype, and must be enabled on matching entities.
+    /// * `None` = None of the component types in this array can exist in the archetype, or they must be present and disabled on matching entities.
+    /// * `Disabled` = All component types in this array must exist in the archetype, and must be disabled on matching entities.
+    /// * `Absent` = None of the component types in this array can exist in the archetype
+    /// * `Present` = All of the component types in this array must exist in the archetype, whether or not they are enabled.
     ///
     /// For example, the following query includes archetypes containing Rotation and
     /// RotationSpeed components, but excludes any archetypes containing a Static component:
@@ -2683,7 +2725,7 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
         /// <remarks>A singleton component is a component of which only one instance exists that satisfies this query.</remarks>
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>A copy of the singleton component.</returns>
-        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="InvalidOperationException">Thrown if the number of entities that match this query is not exactly one.</exception>
         /// <seealso cref="SetSingleton{T}(T)"/>
         /// <seealso cref="GetSingletonEntity"/>
         /// <seealso cref="GetSingletonBuffer"/>
@@ -2699,10 +2741,10 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
         /// <remarks>A singleton component is a component of which only one instance exists that satisfies this query.</remarks>
         /// <typeparam name="T">The component type.</typeparam>
         /// <returns>A copy of the singleton component.</returns>
-        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="InvalidOperationException">Thrown if the number of entities that match this query is not exactly one.</exception>
         /// <seealso cref="SetSingleton{T}(T)"/>
         /// <seealso cref="GetSingletonEntity"/>
-        /// <seealso cref="GetSingletonBuffer"/>
+        /// <seealso cref="GetSingletonBuffer{T}"/>
         /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public RefRW<T> GetSingletonRW<T>() where T : unmanaged, IComponentData
@@ -2716,6 +2758,7 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
         /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
         /// <param name="value">The component. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</param>
         /// <returns>True, if exactly one <see cref="Entity"/> exists in the <see cref="World"/> with the provided component type.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the number of entities that match this query is greater than one.</exception>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public bool TryGetSingleton<T>(out T value)
             where T : unmanaged, IComponentData
@@ -2729,7 +2772,7 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
         /// <typeparam name="T">The component type.</typeparam>
         /// <param name="value">The reference of the component</param>
         /// <returns>A reference to the singleton component.</returns>
-        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="InvalidOperationException">Thrown if the number of entities that match this query is greater than one.</exception>
         /// <seealso cref="GetSingletonRW{T}"/>
         /// <seealso cref="SetSingleton{T}(T)"/>
         /// <seealso cref="GetSingletonEntity"/>
@@ -2746,6 +2789,7 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
         /// <typeparam name="T">The <see cref="IComponentData"/> subtype of the singleton component.
         /// This component type must not implement <see cref="IEnableableComponent"/></typeparam>
         /// <returns>True, if a singleton is found to match exactly once with the specified type<see cref="EntityQuery"/>.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the number of entities that match this query is greater than one.</exception>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public bool HasSingleton<T>()
             => _GetImpl()->HasSingleton<T>();
@@ -2759,6 +2803,7 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
         /// <param name="value">The buffer. if an <see cref="Entity"/> with the specified type does not exist in the <see cref="World"/>, this is assigned a default value</param>
         /// <param name="isReadOnly">Whether the buffer data is read-only or not. Set to false by default.</param>
         /// <returns>True, if exactly one <see cref="Entity"/> matches the <see cref="EntityQuery"/> with the provided component type.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the number of entities that match this query is greater than one.</exception>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
         public bool TryGetSingletonBuffer<T>(out DynamicBuffer<T> value, bool isReadOnly = false)
             where T : unmanaged, IBufferElementData
@@ -2772,6 +2817,7 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
         /// <param name="value">The <see cref="Entity"/> associated with the specified singleton component.
         ///  If a singleton of the specified types does not exist in the current <see cref="World"/>, this is set to Entity.Null</param>
         /// <returns>True, if exactly one <see cref="Entity"/> matches the <see cref="EntityQuery"/> with the provided component type.</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the number of entities that match this query is greater than one.</exception>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public bool TryGetSingletonEntity<T>(out Entity value)
             => _GetImpl()->TryGetSingletonEntity<T>(out value);
@@ -2786,7 +2832,7 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
         /// <typeparam name="T">The buffer element type.</typeparam>
         /// <param name="isReadOnly">If the caller does not need to modify the buffer contents, pass true here.</param>
         /// <returns>The singleton buffer.</returns>
-        /// <exception cref="InvalidOperationException"></exception>
+        /// <exception cref="InvalidOperationException">Thrown if the number of entities that match this query is not exactly one.</exception>
         /// <seealso cref="GetSingletonEntity"/>
         /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleBufferElement) })]
@@ -3169,6 +3215,12 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
             return __impl;
         }
 
+        internal EntityComponentStore* GetEntityComponentStore()
+        {
+            _CheckSafetyHandle();
+            return __impl->_Access->EntityComponentStore;
+        }
+
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS")]
         private void _CheckSafetyHandle()
         {
@@ -3242,7 +3294,8 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
 
             impl->GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
 
-            int managedComponentIndex = *(int*)ChunkDataUtility.GetComponentDataRO(chunk, 0, indexInArchetype);
+            var archetype = query.GetEntityComponentStore()->GetArchetype(chunk);
+            int managedComponentIndex = *(int*)ChunkDataUtility.GetComponentDataRO(chunk, archetype, 0, indexInArchetype);
             return (T)access->ManagedComponentStore.GetManagedComponent(managedComponentIndex);
         }
 
@@ -3298,8 +3351,9 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
 #endif
 
             impl->GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
+            var archetype = access->EntityComponentStore->GetArchetype(chunk);
 
-            int managedComponentIndex = *(int*)ChunkDataUtility.GetComponentDataRW(chunk, 0, indexInArchetype, access->EntityComponentStore->GlobalSystemVersion);
+            int managedComponentIndex = *(int*)ChunkDataUtility.GetComponentDataRW(chunk, archetype, 0, indexInArchetype, access->EntityComponentStore->GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             var store = access->EntityComponentStore;
@@ -3309,8 +3363,8 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
                     recordType: EntitiesJournaling.RecordType.GetComponentObjectRW,
                     worldSequenceNumber: access->m_WorldUnmanaged.SequenceNumber,
                     executingSystem: access->m_WorldUnmanaged.ExecutingSystem,
-                    chunks: chunk,
-                    chunkCount: 1,
+                    archetype: access->EntityComponentStore->GetArchetype(chunk),
+                    chunk: chunk,
                     types: &typeIndex,
                     typeCount: 1);
             }
@@ -3385,7 +3439,9 @@ First chunk: entityCount={matchingChunkCache.Ptr[0]->Count}, archetype={matching
             var store = access->EntityComponentStore;
 
             impl->GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
-            managedComponentIndex = (int*)ChunkDataUtility.GetComponentDataRW(chunk, 0, indexInArchetype, store->GlobalSystemVersion);
+            var archetype = store->GetArchetype(chunk);
+
+            managedComponentIndex = (int*)ChunkDataUtility.GetComponentDataRW(chunk, archetype, 0, indexInArchetype, store->GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(store->m_RecordToJournal != 0))

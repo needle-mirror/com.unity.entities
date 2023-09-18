@@ -36,15 +36,11 @@ namespace Unity.Core
             DeltaTime = deltaTime;
         }
 
-    #if !UNITY_DOTSRUNTIME
-
         /// <summary>
         /// Currently, an alias to <see cref="UnityEngine.Time.fixedDeltaTime"/>.
         /// </summary>
         /// <remarks>This member will be deprecated once a native fixed delta time is introduced in Unity.Entities.</remarks>
         [EditorBrowsable(EditorBrowsableState.Never)]
         public float fixedDeltaTime => UnityEngine.Time.fixedDeltaTime;
-
-    #endif
     }
 }

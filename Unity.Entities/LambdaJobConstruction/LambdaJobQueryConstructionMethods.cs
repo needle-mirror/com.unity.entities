@@ -49,6 +49,39 @@ namespace Unity.Entities
         public static ForEachLambdaJobDescription WithDisabled<T1,T2>(this ForEachLambdaJobDescription description) => description;
 
         /// <summary>
+        /// Add qualification to the generated query that it should only return entities that have all of the specified component type,
+        /// whether or not it is enabled on each entity.
+        /// </summary>
+        /// <typeparam name="T">First type of component</typeparam>
+        /// <param name="description">The target object</param>
+        /// <returns>The target object, suitable for chaining multiple methods</returns>
+        [AllowMultipleInvocations]
+        public static ForEachLambdaJobDescription WithPresent<T>(this ForEachLambdaJobDescription description) => description;
+
+        /// <summary>
+        /// Add qualification to the generated query that it should only return entities that have all of the specified component type,
+        /// whether or not it is enabled on each entity.
+        /// </summary>
+        /// <typeparam name="T1">First type of component</typeparam>
+        /// <typeparam name="T2">Second type of component</typeparam>
+        /// <param name="description">The target object</param>
+        /// <returns>The target object, suitable for chaining multiple methods</returns>
+        [AllowMultipleInvocations]
+        public static ForEachLambdaJobDescription WithPresent<T1,T2>(this ForEachLambdaJobDescription description)  => description;
+
+        /// <summary>
+        /// Add qualification to the generated query that it should only return entities that have all of the specified component type,
+        /// whether or not it is enabled on each entity.
+        /// </summary>
+        /// <typeparam name="T1">First type of component</typeparam>
+        /// <typeparam name="T2">Second type of component</typeparam>
+        /// <typeparam name="T3">Third type of component</typeparam>
+        /// <param name="description">The target object</param>
+        /// <returns>The target object, suitable for chaining multiple methods</returns>
+        [AllowMultipleInvocations]
+        public static ForEachLambdaJobDescription WithPresent<T1,T2,T3>(this ForEachLambdaJobDescription description) => description;
+
+        /// <summary>
         /// Add qualification to the generated query that it should only return entities that either 1) do not have the specified component type OR 2) have the specified DISABLED component type.
         /// </summary>
         /// <typeparam name="T">Type of component</typeparam>
@@ -109,7 +142,8 @@ namespace Unity.Entities
         public static ForEachLambdaJobDescription WithAny<T1,T2,T3>(this ForEachLambdaJobDescription description) => description;
 
         /// <summary>
-        /// Add qualification to the generated query that it should only return entities that have all of the specified component type.
+        /// Add qualification to the generated query that it should only return entities that have all of the specified component type,
+        /// and only if the component is enabled on the entity.
         /// </summary>
         /// <typeparam name="T">First type of component</typeparam>
         /// <param name="description">The target object</param>
@@ -118,7 +152,8 @@ namespace Unity.Entities
         public static ForEachLambdaJobDescription WithAll<T>(this ForEachLambdaJobDescription description) => description;
 
         /// <summary>
-        /// Add qualification to the generated query that it should only return entities that have all of the specified component type.
+        /// Add qualification to the generated query that it should only return entities that have all of the specified component type,
+        /// and only if the component is enabled on the entity.
         /// </summary>
         /// <typeparam name="T1">First type of component</typeparam>
         /// <typeparam name="T2">Second type of component</typeparam>
@@ -128,7 +163,8 @@ namespace Unity.Entities
         public static ForEachLambdaJobDescription WithAll<T1,T2>(this ForEachLambdaJobDescription description)  => description;
 
         /// <summary>
-        /// Add qualification to the generated query that it should only return entities that have all of the specified component type.
+        /// Add qualification to the generated query that it should only return entities that have all of the specified component type,
+        /// and only if the component is enabled on the entity.
         /// </summary>
         /// <typeparam name="T1">First type of component</typeparam>
         /// <typeparam name="T2">Second type of component</typeparam>

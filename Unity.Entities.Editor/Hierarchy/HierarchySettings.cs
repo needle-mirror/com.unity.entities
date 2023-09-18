@@ -20,6 +20,11 @@ namespace Unity.Entities.Editor
                 UseAdvanceSearchSettingChanged?.Invoke();
         }
 
+        string[] ISetting.GetSearchKeywords()
+        {
+            return ISetting.GetSearchKeywordsFromType(Configuration.GetType());
+        }
+
         [UsedImplicitly]
         class Inspector : PropertyInspector<HierarchySettings>
         {

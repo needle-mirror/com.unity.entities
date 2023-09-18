@@ -1,4 +1,3 @@
-#if !UNITY_DOTSRUNTIME
 //#define ENABLE_CONTENT_DIAGNOSTICS
 using System;
 using UnityEngine;
@@ -1305,4 +1304,3 @@ namespace Unity.Entities.Content
 
     }
 }
-#endif
