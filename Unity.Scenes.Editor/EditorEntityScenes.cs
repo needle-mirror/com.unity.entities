@@ -58,7 +58,7 @@ namespace Unity.Scenes.Editor
 
         internal static SceneSectionData[] BakeAndWriteEntityScene(Scene scene, BakingSettings settings, List<ReferencedUnityObjects> sectionRefObjs, WriteEntitySceneSettings writeEntitySettings)
         {
-            var world = new World("EditorScenesBakingWorld");
+            using var world = new World("EditorScenesBakingWorld");
 
             bool disposeBlobAssetCache = false;
             if (!settings.BlobAssetStore.IsCreated)
@@ -85,8 +85,6 @@ namespace Unity.Scenes.Editor
 
             if (disposeBlobAssetCache)
                 settings.BlobAssetStore.Dispose();
-
-            world.Dispose();
 
             return sections;
         }
@@ -329,7 +327,7 @@ namespace Unity.Scenes.Editor
                 UnityEngine.Debug.Assert(publicRefs.Length == entitiesInMainSection.Length);
 
                 // Save main section
-                var sectionWorld = new World("SectionWorld");
+                using var sectionWorld = new World("SectionWorld");
                 var sectionManager = sectionWorld.EntityManager;
 
                 var entityRemapping = entityManager.CreateEntityRemapArray(Allocator.TempJob);
@@ -359,7 +357,6 @@ namespace Unity.Scenes.Editor
                 });
 
                 entityRemapping.Dispose();
-                sectionWorld.Dispose();
             }
 
             {

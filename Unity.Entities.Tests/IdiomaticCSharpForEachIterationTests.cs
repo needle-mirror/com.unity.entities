@@ -151,7 +151,36 @@ namespace Unity.Entities.Tests
                 }
             }
         }
+        partial struct DisabledChangeFilterSystem : ISystem
+        {
+            public void OnCreate(ref SystemState state)
+            {
+                state.EntityManager.AddComponent<SumData>(state.SystemHandle);
 
+                var archetype = state.EntityManager.CreateArchetype(typeof(EcsTestDataEnableable));
+
+                const int entityCount = 1000;
+                var allEntities = state.EntityManager.CreateEntity(archetype, entityCount, Allocator.Temp);
+
+                for (int i = 0; i < entityCount; ++i)
+                {
+                    state.EntityManager.AddComponentData(allEntities[i], new EcsTestDataEnableable(1));
+                    state.EntityManager.SetComponentEnabled<EcsTestDataEnableable>(allEntities[i], i % 2 != 0); // Set every other entity to be disabled
+                }
+            }
+
+            public void OnUpdate(ref SystemState state)
+            {
+                foreach (var entity in state.EntityManager.UniversalQuery.ToEntityArray(state.WorldUpdateAllocator))
+                    state.EntityManager.SetComponentData(entity, new EcsTestDataEnableable(2)); // Set ALL EcsTestDataEnableable values to 2, regardless of whether they are enabled or not
+
+                ref var sumDisabledChangeFilter = ref state.EntityManager.GetComponentDataRW<SumData>(state.SystemHandle).ValueRW;
+
+                // The next line tests that we generate the correct backing entity query -- we should only iterate through EcsTestDataEnableable values that are disabled
+                foreach (var ecsTestDataEnableable in Query<EcsTestDataEnableable>().WithDisabled<EcsTestDataEnableable>().WithChangeFilter<EcsTestDataEnableable>())
+                    sumDisabledChangeFilter.sum += ecsTestDataEnableable.value;
+            }
+        }
         partial struct IterateThroughEnableableComponentsWithVariousExtensionsSystem : ISystem
         {
             public void OnCreate(ref SystemState state)
@@ -1141,7 +1170,14 @@ namespace Unity.Entities.Tests
             sys.Update();
             CollectionAssert.AreEqual(expectedEntities.ToArray(), sys.ProcessedEntities.AsArray().ToArray());
         }
+        [Test]
+        public void DisabledChangeFilterTest()
+        {
+            var system = World.GetOrCreateSystem<DisabledChangeFilterSystem>();
+            system.Update(World.Unmanaged);
 
+            Assert.AreEqual(expected: 1000, actual: World.EntityManager.GetComponentData<SumData>(system).sum);
+        }
         [Test]
         public void ForEachIteration_IterateThroughEnableableComponents(
             [Values(QueryExtension.None, QueryExtension.Disabled, QueryExtension.Any, QueryExtension.All)] QueryExtension queryExtension)

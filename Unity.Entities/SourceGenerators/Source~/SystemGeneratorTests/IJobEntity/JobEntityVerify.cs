@@ -124,4 +124,18 @@ public class JobEntityVerify
 
         await VerifyCS.VerifySourceGeneratorAsync(source);
     }
+    [TestMethod]
+    public async Task JobEntityDisabledChangeFilter()
+    {
+        const string source = @"
+            using Unity.Entities;
+            using Unity.Entities.Tests;
+
+            [WithDisabled(typeof(EcsTestDataEnableable))]
+            [WithChangeFilter(typeof(EcsTestDataEnableable))]
+            partial struct MyJob : IJobEntity { public void Execute(Entity _) {} }
+        ";
+
+        await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntityDisabledChangeFilter), "Test0__JobEntity_19875963024.g.cs");
+    }
 }

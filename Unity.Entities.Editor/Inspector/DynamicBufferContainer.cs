@@ -23,7 +23,7 @@ namespace Unity.Entities
         EntityManager EntityManager { get; }
         Entity Entity { get; }
 
-        bool Exists() => EntityContainer.Exists() && EntityContainer.World.EntityManager.HasComponentRaw(Entity, TypeIndex);
+        bool Exists() => EntityContainer.Exists() && EntityContainer.EntityManager.HasComponentRaw(Entity, TypeIndex);
 
         BufferHeader* Header
         {
@@ -44,7 +44,7 @@ namespace Unity.Entities
             IsReadOnly = readOnly;
             EntityContainer = entityContainer;
             TypeIndex = typeIndex;
-            EntityManager = EntityContainer.World.EntityManager;
+            EntityManager = EntityContainer.EntityManager;
             Entity = EntityContainer.Entity;
         }
 

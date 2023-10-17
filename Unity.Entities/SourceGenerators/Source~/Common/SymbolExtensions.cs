@@ -97,12 +97,13 @@ namespace Unity.Entities.SourceGen.Common
             {
                 IArrayTypeSymbol array => $"{array.ElementType.ToFullNameIL()}[{(array.Rank == 1 ? string.Empty : string.Join(",", Enumerable.Range(0, array.Rank).Select(_=>"0...")))}]",
                 IFunctionPointerTypeSymbol fp => $"method {fp.Signature.ReturnType.ToFullNameIL()} *({string.Join(",", fp.Signature.Parameters.Select(p => p.Type.ToFullNameIL()))})",
+                IPointerTypeSymbol pointerTypeSymbol => $"{pointerTypeSymbol.PointedAtType.ToFullNameIL()}*",
                 _ => symbol.MetadataName
             };
             var nameBuilder = new StringBuilder(metaDataName);
 
             // Walk up containing types
-            for (var containingSymbol = symbol.ContainingSymbol; containingSymbol is not null; containingSymbol = containingSymbol?.ContainingSymbol)
+            for (var containingSymbol = symbol.ContainingSymbol; containingSymbol is not null; containingSymbol = containingSymbol.ContainingSymbol)
             {
                 switch (containingSymbol)
                 {

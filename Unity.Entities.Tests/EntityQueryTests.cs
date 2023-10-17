@@ -4824,5 +4824,31 @@ namespace Unity.Entities.Tests
             m_Manager.EndExclusiveEntityTransaction();
             outputCount.Dispose();
         }
+
+        [Test]
+        public void CreateEntityQuery_MultiQueryDesc_MoreRequiredComponentsInAdditionalQuery_Works()
+        {
+            // Regression test for DOTS-9397
+            Assert.DoesNotThrow(() =>
+            {
+                // Test the special case where the first query desc has zero required components,
+                // and the second has at least one.
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAbsent<EcsTestData>()
+                    .AddAdditionalQuery()
+                    .WithAll<EcsTestData3>()
+                    .Build(m_Manager);
+            });
+
+            Assert.DoesNotThrow(() =>
+            {
+                // Test the general case where the second query desc has more required components than the first.
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<EcsTestData>()
+                    .AddAdditionalQuery()
+                    .WithAll<EcsTestData2,EcsTestData3>()
+                    .Build(m_Manager);
+            });
+        }
     }
 }

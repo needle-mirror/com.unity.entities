@@ -65,7 +65,9 @@ namespace Unity.Scenes
             buffer.Add(UnloadAllPreviousEntities);
             buffer.Add(FramesToRetainBlobAssets);
 
-            return buffer.ToBytesNBC();
+            var outputArray = buffer.ToBytesNBC();
+            buffer.Dispose();
+            return outputArray;
         }
 
         #endif

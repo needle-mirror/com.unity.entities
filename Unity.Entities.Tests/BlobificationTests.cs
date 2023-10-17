@@ -454,7 +454,7 @@ public partial class BlobTests : ECSTestsFixture
     [Test]
     public unsafe void CreatedBlobsAre16ByteAligned()
     {
-        var blobAssetReference = BlobAssetReference<int>.Create(42);
+        using var blobAssetReference = BlobAssetReference<int>.Create(42);
         AssertAlignment(blobAssetReference.GetUnsafePtr(), 16);
     }
 

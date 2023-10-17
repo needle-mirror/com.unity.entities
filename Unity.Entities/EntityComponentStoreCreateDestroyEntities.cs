@@ -44,7 +44,7 @@ namespace Unity.Entities
             int chunkIndex = -1;
             v128 chunkEnabledMask = default;
             int maxChunkCount = chunkCacheIterator.Length;
-            using var chunksToProcess = new UnsafeList<ChunkAndEnabledMask>(maxChunkCount, Allocator.TempJob);
+            using var chunksToProcess = new UnsafeList<ChunkAndEnabledMask>(maxChunkCount, Allocator.Temp);
             while (chunkCacheIterator.MoveNextChunk(ref chunkIndex, out var archetypeChunk, out int chunkEntityCount,
                        out byte useEnabledMask, ref chunkEnabledMask))
             {

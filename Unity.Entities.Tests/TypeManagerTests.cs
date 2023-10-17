@@ -1364,6 +1364,39 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(TypeManager.BuildComponentType(typeof(ComponentWithValidCircularReferenceAndNestedNativeContainer), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer);
             });
         }
+
+#if UNITY_2022_3_11F1_OR_NEWER
+    class CircularReferenceB : IComponentData
+        {
+            CircularReferenceA m_A1;
+            CircularReferenceA m_A2;
+            CircularReferenceB m_B;
+            CircularReferenceA m_A3;
+        }
+
+        class CircularReferenceA : IComponentData
+        {
+            CircularReferenceB m_B1;
+            CircularReferenceB m_B2;
+            CircularReferenceA m_A;
+            CircularReferenceB m_B3;
+        }
+
+        [Test]
+        public void TestTypeHashComponentWithCircularReference()
+        {
+            var cache = new Dictionary<Type, ulong>();
+            var hashA = TypeHash.CalculateStableTypeHash(typeof(CircularReferenceA), cache);
+            var hashB = TypeHash.CalculateStableTypeHash(typeof(CircularReferenceB), cache);
+
+            // Clearing the cache is to simulate rebuilding the hash from a player build however to
+            // confirm our hashes are stable, hash the types in reverse order and ensure the hashes match
+            cache.Clear();
+
+            Assert.AreEqual(hashB, TypeHash.CalculateStableTypeHash(typeof(CircularReferenceB), cache));
+            Assert.AreEqual(hashA, TypeHash.CalculateStableTypeHash(typeof(CircularReferenceA), cache));
+        }
+#endif
 #endif
     }
 }

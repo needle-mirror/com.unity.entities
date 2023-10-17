@@ -145,12 +145,20 @@ namespace Unity.Entities.Tests
         {
             if (World != null && World.IsCreated)
             {
-                // Clean up systems before calling CheckInternalConsistency because we might have filters etc
-                // holding on SharedComponentData making checks fail
-                while (World.Systems.Count > 0)
-                {
-                    World.DestroySystemManaged(World.Systems[0]);
-                }
+                // Note that World.Dispose() already completes all jobs. But some tests may leave tests running when
+                // they return, but we can't safely run an internal consistency check with jobs running, so we
+                // explicitly complete them here as well.
+                World.EntityManager.CompleteAllTrackedJobs();
+
+                // TODO(DOTS-9429): We should not need to explicitly destroy all systems here.
+                // World.Dispose() already handles this. However, we currently need to destroy all systems before
+                // calling CheckInternalConsistency, or else some tests trigger false positives (due to EntityQuery
+                // filters holding references to shared component values, etc.).
+                // We can't safely destroy all systems while jobs are running, so this call must come after the
+                // CompleteAllTrackedJobs() call above.
+                World.DestroyAllSystemsAndLogException(out bool errorsWhileDestroyingSystems);
+                Assert.IsFalse(errorsWhileDestroyingSystems,
+                    "One or more exceptions were thrown while destroying systems during test teardown; consult the log for details.");
 
                 m_ManagerDebug.CheckInternalConsistency();
 

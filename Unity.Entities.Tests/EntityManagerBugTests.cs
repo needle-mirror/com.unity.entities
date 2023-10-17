@@ -147,7 +147,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void Test1()
         {
-            World w = new World("TestWorld");
+            using World w = new World("TestWorld");
             World.DefaultGameObjectInjectionWorld = w;
             EntityManager em = World.DefaultGameObjectInjectionWorld.EntityManager;
             List<Entity> remember = new List<Entity>();
@@ -167,8 +167,6 @@ namespace Unity.Entities.Tests
             {
                 em.DestroyEntity(e);
             }
-
-            w.Dispose();
         }
 
         [Test]

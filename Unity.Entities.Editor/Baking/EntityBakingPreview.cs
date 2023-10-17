@@ -504,13 +504,13 @@ namespace Unity.Entities.Editor
             // @TODO (UX) Figure out how we want to show additional entities during multi-selection.
             if (bakingDataEntries.Count == 1 && state.ShowAdditionalEntities && state.AdditionalEntityIndex != -1)
             {
-                result.Add(new EntityContainer(root.EntityManager.World, root.AdditionalEntities[state.AdditionalEntityIndex]));
+                result.Add(new EntityContainer(root.EntityManager, root.AdditionalEntities[state.AdditionalEntityIndex]));
                 return;
             }
 
             foreach (var data in bakingDataEntries)
             {
-                result.Add(new EntityContainer(data.EntityManager.World, data.PrimaryEntity));
+                result.Add(new EntityContainer(data.EntityManager, data.PrimaryEntity));
             }
         }
 
@@ -527,7 +527,7 @@ namespace Unity.Entities.Editor
             if (targets.Count == 1)
             {
                 // Fast path for single target.
-                using (var componentTypes = targets[0].World.EntityManager.GetComponentTypes(targets[0].Entity))
+                using (var componentTypes = targets[0].EntityManager.GetComponentTypes(targets[0].Entity))
                 {
                     componentTypes.Sort(s_ComponentTypeNameComparer);
 
@@ -545,7 +545,7 @@ namespace Unity.Entities.Editor
                 {
                     for (var i = 0; i < targets.Count; i++)
                     {
-                        using (var componentTypes = targets[i].World.EntityManager.GetComponentTypes(targets[i].Entity))
+                        using (var componentTypes = targets[i].EntityManager.GetComponentTypes(targets[i].Entity))
                         {
                             if (i == 0)
                             {

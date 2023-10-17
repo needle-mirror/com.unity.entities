@@ -95,7 +95,7 @@ namespace Unity.Editor.Legacy
         /// </summary>
         public void OnGUI()
         {
-            m_Targets.RemoveAll(data => !data.World.EntityManager.SafeExists(data.Entity));
+            m_Targets.RemoveAll(data => !data.EntityManager.SafeExists(data.Entity));
 
             if (m_Targets.Count == 0)
                 return;

@@ -48,9 +48,8 @@ public readonly struct CandidateSyntax : ISystemCandidate
         };
     }
 
-    public Module GetOwningModule()
-    {
-        return Type switch
+    public Module GetOwningModule() =>
+        Type switch
         {
             <= CandidateType.MaxSystemAPI => Module.SystemApiContext,
             CandidateType.Ife => Module.Ife,
@@ -60,7 +59,6 @@ public readonly struct CandidateSyntax : ISystemCandidate
             CandidateType.EntitiesForEach => Module.EntitiesForEach,
             _ => throw new ArgumentOutOfRangeException()
         };
-    }
 }
 
 public enum CandidateType
@@ -74,7 +72,7 @@ public enum CandidateType
     HasComponent = 7,
     IsComponentEnabled = 8,
     SetComponentEnabled = 10,
-    Singleton = 11,
+    SingletonWithArgument = 11,
     GetBufferLookup = 12,
     GetBuffer = 13,
     HasBuffer = 14,
@@ -87,12 +85,13 @@ public enum CandidateType
     BufferTypeHandle = 21,
     SharedComponentTypeHandle = 22,
     EntityTypeHandle = 23,
-    MaxSystemAPI = 23,
-    Ife = 24,
-    IJobEntity = 25,
-    QueryBuilder = 26,
-    EntityQueryBulkOps = 27,
-    EntitiesForEach = 28
+    SingletonWithoutArgument = 24,
+    MaxSystemAPI = 24,
+    Ife = 25,
+    IJobEntity = 26,
+    QueryBuilder = 27,
+    EntityQueryBulkOps = 28,
+    EntitiesForEach = 29
 }
 
 [Flags]

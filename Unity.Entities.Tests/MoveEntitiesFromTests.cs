@@ -19,7 +19,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void MoveEntities()
         {
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
 
             var archetype = creationManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -50,13 +50,12 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(i, testDataArray[i].value);
 
             entities.Dispose();
-            creationWorld.Dispose();
         }
 
         [Test]
         public void MoveEntitiesWithSharedComponentData()
         {
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
 
             var archetype = creationManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
@@ -97,13 +96,12 @@ namespace Unity.Entities.Tests
             }
 
             entities.Dispose();
-            creationWorld.Dispose();
         }
 
         [Test]
         public void MoveEntitiesWithChunkComponentsWithQuery()
         {
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
 
             var archetype = creationManager.CreateArchetype(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>());
@@ -146,13 +144,12 @@ namespace Unity.Entities.Tests
             }
 
             entities.Dispose();
-            creationWorld.Dispose();
         }
 
         [Test]
         public void MoveEntitiesWithChunkComponents()
         {
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
 
             var archetype = creationManager.CreateArchetype(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>());
@@ -193,13 +190,12 @@ namespace Unity.Entities.Tests
             }
 
             entities.Dispose();
-            creationWorld.Dispose();
         }
 
         [Test]
         public void MoveEntitiesWithEntityQuery()
         {
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
 
             var archetype = creationManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2), typeof(SharedData1));
@@ -250,13 +246,12 @@ namespace Unity.Entities.Tests
             }
 
             entities.Dispose();
-            creationWorld.Dispose();
         }
 
         [Test]
         public void MoveEntitiesWithEntityQueryMovesChunkComponents()
         {
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
             var archetype = creationManager.CreateArchetype(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>(), typeof(SharedData1));
 
@@ -341,14 +336,13 @@ namespace Unity.Entities.Tests
             movedChunkHeaderQuery.Dispose();
             remainingChunkHeaderQuery.Dispose();
             entities.Dispose();
-            creationWorld.Dispose();
         }
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires move entities safety checks")]
         public void MoveEntitiesWithChunkHeaderChunksThrows()
         {
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
 
             var archetype = creationManager.CreateArchetype(typeof(EcsTestData), ComponentType.ChunkComponent<EcsTestData2>());
@@ -367,7 +361,6 @@ namespace Unity.Entities.Tests
             Assert.Throws<ArgumentException>(() => m_Manager.MoveEntitiesFrom(out var output, creationManager, queryToMove, entityRemapping));
 
             queryToMove.Dispose();
-            creationWorld.Dispose();
         }
 
         [Test]
@@ -381,7 +374,7 @@ namespace Unity.Entities.Tests
             for (int i = 0; i != targetEntities.Length; i++)
                 m_Manager.SetComponentData(targetEntities[i], new EcsTestData(i));
 
-            var sourceWorld = new World("SourceWorld");
+            using var sourceWorld = new World("SourceWorld");
             var sourceManager = sourceWorld.EntityManager;
             var sourceArchetype = sourceManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
             var sourceEntities = new NativeArray<Entity>(numberOfEntitiesPerManager, Allocator.Temp);
@@ -408,7 +401,6 @@ namespace Unity.Entities.Tests
 
             targetEntities.Dispose();
             sourceEntities.Dispose();
-            sourceWorld.Dispose();
         }
 
         [Test]
@@ -426,7 +418,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentEnabled<EcsTestDataEnableable2>(targetEntities[i], (i % 3) == 0);
             }
 
-            var sourceWorld = new World("SourceWorld");
+            using var sourceWorld = new World("SourceWorld");
             var sourceManager = sourceWorld.EntityManager;
             var sourceArchetype = sourceManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable), typeof(EcsTestDataEnableable2));
             var sourceEntities = new NativeArray<Entity>(numberOfEntitiesPerManager, Allocator.Temp);
@@ -468,7 +460,6 @@ namespace Unity.Entities.Tests
 
             targetEntities.Dispose();
             sourceEntities.Dispose();
-            sourceWorld.Dispose();
         }
 
         [Test]
@@ -482,7 +473,7 @@ namespace Unity.Entities.Tests
             for (int i = 0; i != targetEntities.Length; i++)
                 m_Manager.SetComponentData(targetEntities[i], new EcsTestDataEntity(i, targetEntities[i]));
 
-            var sourceWorld = new World("SourceWorld");
+            using var sourceWorld = new World("SourceWorld");
             var sourceManager = sourceWorld.EntityManager;
             var sourceArchetype = sourceManager.CreateArchetype(typeof(EcsTestDataEntity));
             var sourceEntities = new NativeArray<Entity>(numberOfEntitiesPerManager, Allocator.Temp);
@@ -508,13 +499,12 @@ namespace Unity.Entities.Tests
 
             targetEntities.Dispose();
             sourceEntities.Dispose();
-            sourceWorld.Dispose();
         }
 
         [Test]
         public void MoveEntitiesFromCanReturnEntities()
         {
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
 
             var archetype = creationManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -552,13 +542,12 @@ namespace Unity.Entities.Tests
             references.Dispose();
             movedEntities.Dispose();
             entities.Dispose();
-            creationWorld.Dispose();
         }
 
         [Test]
         public unsafe void MoveEntitiesArchetypeChunkCountMatches()
         {
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
 
             var archetype = creationManager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestData2));
@@ -588,13 +577,12 @@ namespace Unity.Entities.Tests
             creationManager.Debug.CheckInternalConsistency();
 
             entities.Dispose();
-            creationWorld.Dispose();
         }
 
         [Test]
         public void MoveEntitiesFromChunksAreConsideredChangedOnlyOnce()
         {
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
             var entity = creationManager.CreateEntity();
             creationManager.AddComponentData(entity, new EcsTestData(42));
@@ -609,8 +597,6 @@ namespace Unity.Entities.Tests
 
             system.Update();
             Assert.AreEqual(0, system.NumChanged);
-
-            creationWorld.Dispose();
         }
 
         [Test]
@@ -622,7 +608,7 @@ namespace Unity.Entities.Tests
             //@TODO: AddSharedComponentData should be optimized to only do one move
             const int initialOrderVersion = 5;
 
-            var creationWorld = new World("CreationWorld");
+            using var creationWorld = new World("CreationWorld");
             var creationManager = creationWorld.EntityManager;
 
             Assert.AreEqual(1, m_Manager.GetSharedComponentOrderVersion(new SharedData1(1)));
@@ -654,8 +640,6 @@ namespace Unity.Entities.Tests
 
             AssetHasChangeVersion<EcsTestData>(movedEntity, dstWorldVersion);
             AssetHasChangeVersion<EcsTestData>(entity, 1);
-
-            creationWorld.Dispose();
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -671,7 +655,7 @@ namespace Unity.Entities.Tests
             for (int i = 0; i != targetEntities.Length; i++)
                 m_Manager.SetComponentData(targetEntities[i], new EcsTestManagedDataEntity(i.ToString(), targetEntities[i]));
 
-            var sourceWorld = new World("SourceWorld");
+            using var sourceWorld = new World("SourceWorld");
             var sourceManager = sourceWorld.EntityManager;
 
             // create some temporary entities to ensure that entity ids and managed component indices need to be remapped during move
@@ -714,7 +698,6 @@ namespace Unity.Entities.Tests
 
             targetEntities.Dispose();
             sourceEntities.Dispose();
-            sourceWorld.Dispose();
         }
 
         [Test]
@@ -739,7 +722,7 @@ namespace Unity.Entities.Tests
                 entitySet.Dispose();
             }
 
-            var sourceWorld = new World("SourceWorld");
+            using var sourceWorld = new World("SourceWorld");
             var sourceManager = sourceWorld.EntityManager;
             var sourceArchetype = sourceManager.CreateArchetype(typeof(EcsTestManagedDataEntityCollection));
             var sourceEntities = new NativeArray<Entity>(numberOfEntitiesPerManager, Allocator.Temp);
@@ -782,7 +765,6 @@ namespace Unity.Entities.Tests
 
             targetEntities.Dispose();
             sourceEntities.Dispose();
-            sourceWorld.Dispose();
         }
 #endif
     }

@@ -33,28 +33,29 @@ namespace Unity.Entities
             PropertyBag.Register(new EntityContainerPropertyBag());
         }
 
-        public readonly World World;
+        public EntityManager EntityManager => m_World.EntityManager;
+        readonly World m_World;
         public readonly Entity Entity;
         public readonly bool IsReadOnly;
 
         public int GetComponentCount()
         {
-            return Exists() ? World.EntityManager.GetComponentCount(Entity) : 0;
+            return Exists() ? EntityManager.GetComponentCount(Entity) : 0;
         }
 
-        public EntityContainer(World world, Entity entity, bool readOnly = true)
+        public EntityContainer(EntityManager entityManager, Entity entity, bool readOnly = true)
         {
-            World = world;
+            m_World = entityManager.World;
             Entity = entity;
             IsReadOnly = readOnly;
         }
 
         internal bool Exists()
         {
-            if (World is not { IsCreated: true } || World.EntityManager == default || Entity == Entity.Null)
+            if (m_World is not { IsCreated: true } || Entity == Entity.Null)
                 return false;
 
-            return World.EntityManager.SafeExists(Entity);
+            return EntityManager.SafeExists(Entity);
         }
     }
 
@@ -146,13 +147,13 @@ namespace Unity.Entities
 
             protected override TComponent DoGetValue(ref EntityContainer container)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 return entityManager.GetSharedComponentManaged<TComponent>(container.Entity);
             }
 
             protected override void DoSetValue(ref EntityContainer container, TComponent value)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 entityManager.SetSharedComponentManaged(container.Entity, value);
             }
         }
@@ -169,13 +170,13 @@ namespace Unity.Entities
 
             protected override TComponent DoGetValue(ref EntityContainer container)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 return entityManager.GetComponentData<TComponent>(container.Entity);
             }
 
             protected override void DoSetValue(ref EntityContainer container, TComponent value)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 entityManager.SetComponentData(container.Entity, value);
             }
         }
@@ -193,13 +194,13 @@ namespace Unity.Entities
 
             protected override TComponent DoGetValue(ref EntityContainer container)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 return entityManager.GetComponentData<TComponent>(container.Entity);
             }
 
             protected override void DoSetValue(ref EntityContainer container, TComponent value)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 entityManager.SetComponentData(container.Entity, value);
             }
         }
@@ -217,13 +218,13 @@ namespace Unity.Entities
 
             protected override TComponent DoGetValue(ref EntityContainer container)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 return entityManager.GetComponentObject<TComponent>(container.Entity);
             }
 
             protected override void DoSetValue(ref EntityContainer container, TComponent value)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 entityManager.SetComponentObject(container.Entity, typeof(TComponent), value);
             }
         }
@@ -240,13 +241,13 @@ namespace Unity.Entities
 
             protected override TComponent DoGetValue(ref EntityContainer container)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 return entityManager.GetChunkComponentData<TComponent>(container.Entity);
             }
 
             protected override void DoSetValue(ref EntityContainer container, TComponent value)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 entityManager.SetChunkComponentData(entityManager.GetChunk(container.Entity), value);
             }
         }
@@ -264,13 +265,13 @@ namespace Unity.Entities
 
             protected override TComponent DoGetValue(ref EntityContainer container)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 return entityManager.GetChunkComponentData<TComponent>(container.Entity);
             }
 
             protected override void DoSetValue(ref EntityContainer container, TComponent value)
             {
-                var entityManager = container.World.EntityManager;
+                var entityManager = container.EntityManager;
                 entityManager.SetChunkComponentData(entityManager.GetChunk(container.Entity), value);
             }
         }
@@ -318,7 +319,7 @@ namespace Unity.Entities
             if (!container.Exists())
                 yield break;
 
-            var entityManager = container.World.EntityManager;
+            var entityManager = container.EntityManager;
             var count = container.GetComponentCount();
             for (var i = 0; i < count; i++)
             {
@@ -355,7 +356,7 @@ namespace Unity.Entities
                 return false;
             }
 
-            var entityManager = container.World.EntityManager;
+            var entityManager = container.EntityManager;
             property = GetOrCreatePropertyForType(entityManager.GetComponentTypeIndex(container.Entity, index), container.IsReadOnly);
             return true;
         }

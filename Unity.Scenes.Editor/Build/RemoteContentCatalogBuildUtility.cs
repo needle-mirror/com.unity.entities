@@ -67,6 +67,8 @@ namespace Unity.Entities.Content
         /// <param name="buildFolder">The folder to build the content into.</param>
         public static void BuildContent(HashSet<Hash128> subScenes, Hash128 playerGUID, BuildTarget target, string buildFolder)
         {
+            Directory.CreateDirectory(buildFolder);
+
             var artifactKeys = new Dictionary<Hash128, ArtifactKey>();
             EntitySceneBuildUtility.PrepareEntityBinaryArtifacts(playerGUID, subScenes, artifactKeys);
             EntitySceneBuildUtility.PrepareAdditionalFiles(playerGUID, artifactKeys.Keys.ToArray(), artifactKeys.Values.ToArray(), target, (s, d) => DoCopy(s, Path.Combine(buildFolder, d)));
@@ -93,10 +95,8 @@ namespace Unity.Entities.Content
                 Directory.CreateDirectory(targetFolder);
                 var files = Directory.GetFiles(sourceFolder, "*.*", SearchOption.AllDirectories);
                 var entries = new List<(RemoteContentId, RemoteContentLocation, IEnumerable<string>)>(files.Length);
-                var entityFiles = new List<string>();
                 foreach (var f in files)
                 {
-                    var filename = Path.GetFileName(f);
                     var relPath = f.Substring(sourceFolder.Length + 1);
                     var contentSets = contentSetFunc.Invoke(relPath);
                     if (contentSets == null)

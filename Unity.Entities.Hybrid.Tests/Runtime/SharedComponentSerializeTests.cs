@@ -29,7 +29,7 @@ namespace Unity.Entities.Tests
                     buffer.Add(new EcsIntElement { Value = val });
             }
 
-            var world = new World("temp");
+            using var world = new World("temp");
 
             var writer = new TestBinaryWriter(world.UpdateAllocator.ToAllocator);
 
@@ -63,8 +63,6 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsTrue(newWorldEntities.Debug.IsSharedComponentManagerEmpty());
-
-            world.Dispose();
         }
 
         public struct SharedComponentWithUnityObject : ISharedComponentData, IEquatable<SharedComponentWithUnityObject>
@@ -97,7 +95,7 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity();
             m_Manager.AddSharedComponentManaged(entity, shared);
 
-            var world = new World("temp");
+            using var world = new World("temp");
 
             var writer = new TestBinaryWriter(world.UpdateAllocator.ToAllocator);
 
@@ -115,14 +113,11 @@ namespace Unity.Entities.Tests
 
             var newWorldEntities = world.EntityManager;
             var uniqueShared = new List<SharedComponentWithUnityObject>();
-            var query = newWorldEntities.CreateEntityQuery(ComponentType.ReadWrite<SharedComponentWithUnityObject>());
+            using var query = newWorldEntities.CreateEntityQuery(ComponentType.ReadWrite<SharedComponentWithUnityObject>());
             newWorldEntities.GetAllUniqueSharedComponentsManaged(uniqueShared);
             Assert.AreEqual(2, uniqueShared.Count);
             query.SetSharedComponentFilterManaged(uniqueShared[1]);
             Assert.AreEqual(1, query.CalculateEntityCount());
-
-            query.Dispose();
-            world.Dispose();
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -144,7 +139,7 @@ namespace Unity.Entities.Tests
                 m_Manager.AddComponentData(e1, expectedManagedComponent);
             }
 
-            var world = new World("temp");
+            using var world = new World("temp");
 
             var writer = new TestBinaryWriter(world.UpdateAllocator.ToAllocator);
             ReferencedUnityObjects objRefs = null;
@@ -187,8 +182,6 @@ namespace Unity.Entities.Tests
             }
 
             Assert.IsTrue(newWorldEntities.Debug.IsSharedComponentManagerEmpty());
-
-            world.Dispose();
         }
 
 #endif

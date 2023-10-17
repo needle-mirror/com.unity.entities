@@ -5,6 +5,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using UnityEngine.Assertions;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
@@ -118,7 +119,92 @@ namespace Unity.Entities
             return hash;
         }
 
-        // Todo: Remove this. DOTS Runtime currently doesn't conform to these system types so don't inspect their fields
+#if UNITY_2022_3_11F1_OR_NEWER
+        private static ulong HashType(Type type, Dictionary<Type, ulong> cache)
+        {
+            if (cache.TryGetValue(type, out ulong hash))
+                return hash;
+
+            hash = HashTypeName(type);
+            // If we shouldn't walk the type's fields just return the type name hash.
+            // UnityEngine objects have their own serialization mechanism so exclude hashing their internals
+            if (type.IsArray || type.IsPointer || type.IsPrimitive || type.IsEnum || (TypeManager.UnityEngineObjectType?.IsAssignableFrom(type) == true))
+            {
+                cache.Add(type, hash);
+                return hash;
+            }
+
+            if (type.ContainsGenericParameters)
+                throw new ArgumentException($"'{type}' contains open generic parameters. Generic types must have all generic parameters specified to closed types when calculating stable type hashes");
+
+            // Only non-pod and non-unityengine types could possibly have a version attribute
+            hash = CombineFNV1A64(hash, HashVersionAttribute(type));
+            
+            var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+            for(ulong fieldIndex = 0;  fieldIndex < (ulong)fields.Length; fieldIndex++)
+            {
+                var field = fields[fieldIndex];
+                // statics have no effect on data layout
+                if (field.IsStatic)
+                    continue;
+
+                var fieldType = field.FieldType;
+                ulong fieldTypeHash = 0;
+
+                // Managed components can have circular definitions, so when looking at managed fields only hash
+                // the name and field index, but do not cache the result -- we still want the hash for managed fields
+                // to be calculated from more than just the name since we do handle managed component serialization
+                // where field layout is important to identify via the hash alone
+                if (fieldType.IsClass)
+                    fieldTypeHash = HashTypeName(fieldType);
+                else if(!cache.TryGetValue(fieldType, out fieldTypeHash))
+                {
+                    fieldTypeHash = HashType(fieldType, cache);
+                }
+
+                fieldTypeHash = CombineFNV1A64(fieldTypeHash, fieldIndex);
+
+                var offset = field.GetCustomAttribute<FieldOffsetAttribute>();
+                if (offset != null)
+                    fieldTypeHash = CombineFNV1A64(fieldTypeHash, (ulong)offset.Value);
+
+                hash = CombineFNV1A64(hash, fieldTypeHash);
+            }
+
+            // TODO: Enable this. Currently IL2CPP gives totally inconsistent results to Mono.
+            /*
+            if (type.StructLayoutAttribute != null && !type.StructLayoutAttribute.IsDefaultAttribute())
+            {
+                var explicitSize = type.StructLayoutAttribute.Size;
+                if (explicitSize > 0)
+                    hash = CombineFNV1A64(hash, (ulong)explicitSize);
+
+                // Todo: Enable this. We cannot support Pack at the moment since a type's Packing will
+                // change based on its field's explicit packing which will fail for Tiny mscorlib
+                // as it's not in sync with dotnet
+                // var packingSize = type.StructLayoutAttribute.Pack;
+                // if (packingSize > 0)
+                //     hash = CombineFNV1A64(hash, (ulong)packingSize);
+            }
+            */
+
+            cache.Add(type, hash);
+            return hash;
+        }
+
+        private static ulong HashVersionAttribute(Type type)
+        {
+            int version = 0;
+
+            var versionAttribute = type.GetCustomAttribute<TypeManager.TypeVersionAttribute>(true);
+            if (versionAttribute != null)
+            {
+                version = versionAttribute.TypeVersion;
+            }
+
+            return FNV1A64(version);
+        }
+#else
         private static readonly Type[] WorkaroundTypes = new Type[] { typeof(System.Guid) };
 
         private static ulong HashType(Type type, Dictionary<Type, ulong> cache)
@@ -168,7 +254,6 @@ namespace Unity.Entities
                 var explicitSize = type.StructLayoutAttribute.Size;
                 if (explicitSize > 0)
                     hash = CombineFNV1A64(hash, (ulong)explicitSize);
-
                 // Todo: Enable this. We cannot support Pack at the moment since a type's Packing will
                 // change based on its field's explicit packing which will fail for Tiny mscorlib
                 // as it's not in sync with dotnet
@@ -180,7 +265,6 @@ namespace Unity.Entities
 
             return hash;
         }
-
         private static ulong HashVersionAttribute(Type type, IEnumerable<CustomAttributeData> customAttributes = null)
         {
             int version = 0;
@@ -199,6 +283,8 @@ namespace Unity.Entities
 
             return FNV1A64(version);
         }
+#endif
+
 
         private static ulong HashNamespace(Type type)
         {
@@ -221,6 +307,9 @@ namespace Unity.Entities
         {
             ulong hash = HashNamespace(type);
             hash = CombineFNV1A64(hash, FNV1A64(type.Name));
+#if UNITY_2022_3_11F1_OR_NEWER
+            hash = CombineFNV1A64(hash, FNV1A64(type.Assembly.GetName().Name));
+#endif
             foreach (var ga in type.GenericTypeArguments)
             {
                 Assert.IsTrue(!ga.IsGenericParameter);
@@ -229,8 +318,6 @@ namespace Unity.Entities
 
             return hash;
         }
-
-
 
 
         /// <summary>
@@ -242,14 +329,40 @@ namespace Unity.Entities
         /// <returns>StableTypeHash for the input type.</returns>
         public static ulong CalculateStableTypeHash(Type type, IEnumerable<CustomAttributeData> customAttributes = null, Dictionary<Type, ulong> hashCache = null)
         {
+            // This API should not be called anymore but we can't deprecate it in a minor release so we forward to a new one
+#if UNITY_2022_3_11F1_OR_NEWER
+            if (hashCache == null)
+                hashCache = new Dictionary<Type, ulong>();
+
+            return CalculateStableTypeHash(type, hashCache);
+#else
             ulong versionHash = HashVersionAttribute(type, customAttributes);
 
             if (hashCache == null)
                 hashCache = new Dictionary<Type, ulong>();
+
             ulong typeHash = HashType(type, hashCache);
 
+
             return CombineFNV1A64(versionHash, typeHash);
+#endif
         }
+
+#if UNITY_2022_3_11F1_OR_NEWER
+        /// <summary>
+        /// Calculates a stable type hash for the input type.
+        /// </summary>
+        /// <param name="type">Type to hash.</param>
+        /// <param name="customAttributes">Custom attributes for the provided type (if any).</param>
+        /// <param name="hashCache">Cache for Types and their hashes. Used for quicker lookups when hashing.</param>
+        /// <returns>StableTypeHash for the input type.</returns>
+        public static ulong CalculateStableTypeHash(Type type, Dictionary<Type, ulong> hashCache)
+        {
+            Assert.IsNotNull(hashCache, "The cache used for calculating type hashes must not be null");
+            ulong hash = HashType(type, hashCache);
+            return hash;
+        }
+#endif
 
         /// <summary>
         /// Calculates a MemoryOrdering for the input type.

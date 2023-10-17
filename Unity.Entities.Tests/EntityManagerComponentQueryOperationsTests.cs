@@ -614,7 +614,7 @@ namespace Unity.Entities.Tests
             using var entities1 = m_Manager.CreateEntity(archetype1, entitiesPerArchetype, Allocator.Persistent);
             using var entities2 = m_Manager.CreateEntity(archetype2, entitiesPerArchetype, Allocator.Persistent);
             using var entities3 = m_Manager.CreateEntity(archetype3, entitiesPerArchetype, Allocator.Persistent);
-            var expectedEntities = new NativeList<Entity>(entitiesPerArchetype * 3, Allocator.Persistent);
+            using var expectedEntities = new NativeList<Entity>(entitiesPerArchetype * 3, Allocator.Persistent);
             for (int i = 0; i < entitiesPerArchetype; i++)
             {
                 if (enabledBitsMode == EnabledBitsMode.FewComponentsDisabled && (i % 100 == 0))

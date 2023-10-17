@@ -48,14 +48,13 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void SetWorldAndUpdate_InExclusiveTransaction_DoesNotThrow()
         {
-            var world = new World("Transaction World");
+            using var world = new World("Transaction World");
             world.EntityManager.BeginExclusiveEntityTransaction();
             Assert.DoesNotThrow(() =>
             {
                 m_Hierarchy.SetWorld(world);
                 m_Hierarchy.Update(true);
             });
-            world.Dispose();
         }
     }
 }

@@ -408,6 +408,7 @@ namespace Unity.Entities
             }
 
             Pad.Data.Dispose();
+            IsInstalled.Data = 0;
         }
     }
 }

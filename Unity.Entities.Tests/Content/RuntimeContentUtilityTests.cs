@@ -109,6 +109,8 @@ namespace Unity.Entities.Tests.Content
 
             Assert.AreEqual(valueCount, sharedResults.Data.currentCount);
             sharedResults.Data.Dispose();
+            statusJobs.Dispose();
+            producerJobs.Dispose();
         }
     }
 }

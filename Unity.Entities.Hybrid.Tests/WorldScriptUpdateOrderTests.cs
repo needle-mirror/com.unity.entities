@@ -24,7 +24,7 @@ namespace Unity.Entities.Tests
         {
             DefaultWorldInitialization.Initialize("Test World", true);
 
-            var newWorld = new World("WorldA");
+            using var newWorld = new World("WorldA");
             newWorld.CreateSystemManaged<InitializationSystemGroup>();
             newWorld.CreateSystemManaged<SimulationSystemGroup>();
             newWorld.CreateSystemManaged<PresentationSystemGroup>();

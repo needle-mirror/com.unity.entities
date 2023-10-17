@@ -454,7 +454,7 @@ namespace Unity.Scenes
             var group = _EntityManager.World.GetOrCreateSystemManaged<ProcessAfterLoadGroup>();
             group.Update();
             _EntityManager.CompleteAllTrackedJobs();
-            _EntityManager.World.DestroyAllSystemsAndLogException();
+            _EntityManager.World.DestroyAllSystemsAndLogException(out bool errorsWhileDestroyingSystems);
             using var missingSceneTag = _EntityManager.CreateEntityQuery(ComponentType.Exclude<SceneTag>());
             if (!missingSceneTag.IsEmptyIgnoreFilter)
                 _EntityManager.AddSharedComponentManaged(missingSceneTag, new SceneTag { SceneEntity = _Data.SceneSectionEntity });

@@ -3157,6 +3157,26 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Creates an entity having components of the specified types.
+        /// </summary>
+        /// <remarks>
+        /// The EntityManager creates the entity in the first available chunk with the matching archetype that has
+        /// enough space.
+        ///
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before creating the entity. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
+        /// </remarks>
+        /// <param name="types">The types of components to add to the new entity.</param>
+        /// <returns>The Entity object that you can use to access the entity.</returns>
+        [StructuralChangeMethod]
+        public Entity CreateEntity(ReadOnlySpan<ComponentType> types)
+        {
+            return CreateEntity(CreateArchetype(types));
+        }
+
+        /// <summary>
         /// Creates an entity with no components.
         /// </summary>
         /// <remarks>
@@ -3543,6 +3563,22 @@ namespace Unity.Entities
             if (types == null)
                 throw new NullReferenceException(nameof(types));
 
+            fixed(ComponentType* typesPtr = types)
+            {
+                return CreateArchetype(typesPtr, types.Length);
+            }
+        }
+
+        /// <summary>
+        /// Creates an archetype from a set of component types.
+        /// </summary>
+        /// <remarks>
+        /// Creates a new archetype in the ECS framework's internal type registry, unless the archetype already exists.
+        /// </remarks>
+        /// <param name="types">The component types to include as part of the archetype.</param>
+        /// <returns>The EntityArchetype object for the archetype.</returns>
+        public EntityArchetype CreateArchetype(ReadOnlySpan<ComponentType> types)
+        {
             fixed(ComponentType* typesPtr = types)
             {
                 return CreateArchetype(typesPtr, types.Length);

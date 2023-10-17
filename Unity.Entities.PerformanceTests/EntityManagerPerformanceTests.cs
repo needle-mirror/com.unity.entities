@@ -254,7 +254,7 @@ namespace Unity.Entities.PerformanceTests
         [Test,Performance]
         public void MoveEntities([Values(10,100,1000,10000,100000,1000000)] int numEntities)
         {
-            var dstWorld = new World("DstWorld");
+            using var dstWorld = new World("DstWorld");
             var dstManager = dstWorld.EntityManager;
 
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -276,13 +276,12 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             entities.Dispose();
-            dstWorld.Dispose();
         }
 
         [Test,Performance]
         public void MoveEntities_Filtered([Values(10,100,1000,10000,100000,1000000)] int numEntities)
         {
-            var dstWorld = new World("DstWorld");
+            using var dstWorld = new World("DstWorld");
             var dstManager = dstWorld.EntityManager;
 
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -311,13 +310,12 @@ namespace Unity.Entities.PerformanceTests
             }
 
             entities.Dispose();
-            dstWorld.Dispose();
         }
 
         [Test,Performance]
         public void MoveEntities_Archetypes([Values(1,10,100,1000)] int numEntitiesPerArchetype,[Values(10,100,1000)] int numArchetypes)
         {
-            var dstWorld = new World("DstWorld");
+            using var dstWorld = new World("DstWorld");
             var dstManager = dstWorld.EntityManager;
 
             var baseArchetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -339,13 +337,12 @@ namespace Unity.Entities.PerformanceTests
                 .Run();
 
             archetypes.Dispose();
-            dstWorld.Dispose();
         }
 
         [Test,Performance]
         public void MoveEntities_Archetypes_Filtered([Values(1,10,100,1000)] int numEntitiesPerArchetype,[Values(10,100,1000)] int numArchetypes)
         {
-            var dstWorld = new World("DstWorld");
+            using var dstWorld = new World("DstWorld");
             var dstManager = dstWorld.EntityManager;
 
             var baseArchetype = m_Manager.CreateArchetype(typeof(EcsTestData));
@@ -372,7 +369,6 @@ namespace Unity.Entities.PerformanceTests
             }
 
             archetypes.Dispose();
-            dstWorld.Dispose();
         }
 
         [Test, Performance]
@@ -1057,6 +1053,96 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(10)
                 .Run();
         }
+
+        #region EntityManagerSpan
+
+        //For best performance add burstcompile flag
+        //Creation using span
+        [Test, Performance]
+        public void CreateArchetype_Using_Span([Values(1, 10, 1000, 10000)] int size)
+        {
+            Measure.Method(() =>
+                {
+                    for (int i = 0; i < size; i++)
+                    {
+                        m_Manager.CreateArchetype(stackalloc[] { ComponentType.ReadWrite<EcsTestData>() });
+                    }
+
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+                })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .Run();
+        }
+
+
+        //Creation using typeof or NativeList
+        [Test, Performance]
+        public void CreateArchetype_Using_ManagedArray([Values(1, 10, 1000, 10000)] int size)
+        {
+            Measure.Method(() =>
+                {
+                    for (int i = 0; i < size; i++)
+                    {
+                        m_Manager.CreateArchetype(typeof(EcsTestData));
+                    }
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+                })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .Run();
+        }
+
+        //For best performance add burstcompile flag
+        //Creation using span
+        [Test, Performance]
+        public void CreateEntity_Using_Span([Values(1, 10, 1000, 10000)] int size)
+        {
+            Measure.Method(() =>
+                {
+                    for (int i = 0; i < size; i++)
+                    {
+                        m_Manager.CreateEntity(stackalloc[] { ComponentType.ReadWrite<EcsTestData>() });
+                    }
+
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+                })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .Run();
+        }
+
+        //Creation using typeof or NativeList
+        [Test, Performance]
+        public void CreateEntity_Using_ManagedArray([Values(1, 10, 1000, 10000)] int size)
+        {
+            Measure.Method(() =>
+                {
+                    for (int i = 0; i < size; i++)
+                    {
+                        m_Manager.CreateEntity(typeof(EcsTestData));
+                    }
+
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+                })
+                .WarmupCount(1)
+                .MeasurementCount(10)
+                .Run();
+        }
+
+        #endregion
 
         [Test, Performance]
         public void CreateArchetype([Values(1, 10, 1000, 10000)] int size)

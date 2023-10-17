@@ -264,6 +264,7 @@ namespace Unity.Entities.Tests
         public override void TearDown()
         {
             base.TearDown();
+            GlobalScratchpad.Dispose();
         }
 
         struct GlobalRewindInvalidatesNativeArrayJob : IJobParallelFor

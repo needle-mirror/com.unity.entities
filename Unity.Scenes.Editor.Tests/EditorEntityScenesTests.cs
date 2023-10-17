@@ -22,7 +22,7 @@ namespace Unity.Scenes.Tests
             string binPath = "Temp/test.bin";
             string binRefPath = "Temp/test.bin.ref";
 
-            var dstWorld = new World("");
+            using var dstWorld = new World("");
             var dstEntitymanager = dstWorld.EntityManager;
             var material = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/Test.mat");
 

@@ -586,6 +586,10 @@ namespace Unity.Entities
             /// Several checks to ensure that the <see cref="EntityComponentStore"/> and <see cref="ManagedComponentStore"/>
             /// have all references that are expected at this time as well as the expected number of entities.
             /// </summary>
+            /// <remarks>
+            /// These checks can not safely run while any jobs are running against this EntityManager's World. The caller
+            /// should consider calling CompleteAllTrackedJobs() first to enforce this constraint.
+            /// </remarks>
             [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
             public void CheckInternalConsistency()
             {

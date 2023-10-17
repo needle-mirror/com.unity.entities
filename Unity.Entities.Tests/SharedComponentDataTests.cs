@@ -602,6 +602,7 @@ namespace Unity.Entities.Tests
 
             unique.Dispose();
             allocator.AssertNoLeaks();
+            allocator.Dispose();
         }
 
         [Test]

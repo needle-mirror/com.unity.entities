@@ -634,7 +634,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void MoveEntitiesFrom_PreservesBitValues([Values(1, 4)] int chunkCount)
         {
-            var dstWorld = new World("CopyWorld");
+            using var dstWorld = new World("CopyWorld");
             var dstManager = dstWorld.EntityManager;
             var enableableType = ComponentType.ReadOnly<EcsTestDataEnableable>();
             SetupChunkWithEnabledBits(ref m_Manager, enableableType, World.UpdateAllocator.ToAllocator, out var entities, out var map, out var archetype, chunkCount);
@@ -646,13 +646,12 @@ namespace Unity.Entities.Tests
             dstManager.Debug.CheckInternalConsistency();
 
             copyWorldEntities.Dispose();
-            dstWorld.Dispose();
         }
 
         [Test]
         public void CopyEntitiesFrom_PreservesBitValues([Values(1, 4)] int chunkCount)
         {
-            var dstWorld = new World("CopyWorld");
+            using var dstWorld = new World("CopyWorld");
             var dstManager = dstWorld.EntityManager;
             var enableableType = ComponentType.ReadOnly<EcsTestDataEnableable>();
             SetupChunkWithEnabledBits(ref m_Manager, enableableType, World.UpdateAllocator.ToAllocator, out var entities, out var map, out var archetype, chunkCount);
@@ -665,7 +664,6 @@ namespace Unity.Entities.Tests
             dstManager.Debug.CheckInternalConsistency();
 
             copyWorldEntities.Dispose();
-            dstWorld.Dispose();
         }
 
         [Test]

@@ -468,7 +468,10 @@ namespace Unity.Entities
             return intersectionCount;
         }
 
-        // Calculates the intersection of "All" and "Disabled" arrays from the provided ArchetypeQuery objects
+        // Calculates the intersection of "All", "Disabled", and "Present" arrays from the provided ArchetypeQuery objects.
+        // The intersection is returned as a new array of ComponentType objects, which must be freed by the caller.
+        // The Entity component is always required (and will be returned as the first element of the output array), so the
+        // return value will never be null (unless the allocator is out of memory).
         private ComponentType* CalculateRequiredComponentsFromQuery(ref UnsafeScratchAllocator allocator, ArchetypeQuery* queries, int queryCount, out int outRequiredComponentsCount)
         {
             // Populate and sort a combined array of required component types and their access modes from the first ArchetypeQuery
@@ -476,6 +479,12 @@ namespace Unity.Entities
             // The first required component is always Entity.
             var outRequiredComponents = (ComponentType*)allocator.Allocate<ComponentType>(maxIntersectionCount+1);
             outRequiredComponents[0] = ComponentType.ReadWrite<Entity>();
+            // If Entity is the only required component at this point, we're done; no need to look at any further ArchetypeQueries.
+            if (maxIntersectionCount == 0)
+            {
+                outRequiredComponentsCount = 1;
+                return outRequiredComponents;
+            }
             var intersectionComponents = outRequiredComponents + 1;
             for (int j = 0; j < queries[0].AllCount; ++j)
             {
@@ -505,8 +514,14 @@ namespace Unity.Entities
 
             // For each additional ArchetypeQuery, create the same sorted array of component types, and reduce the
             // original array to the intersection of these two arrays.
+            int maxQueryRequiredCount = 0;
+            for (int i = 1; i < queryCount; ++i)
+            {
+                maxQueryRequiredCount = math.max(maxQueryRequiredCount,
+                    queries[i].AllCount + queries[i].DisabledCount + queries[i].PresentCount);
+            }
+            var queryRequiredTypes = (ComponentType*)allocator.Allocate<ComponentType>(maxQueryRequiredCount);
             var intersectionCount = maxIntersectionCount;
-            var queryRequiredTypes = (ComponentType*)allocator.Allocate<ComponentType>(maxIntersectionCount);
             for (int i = 1; i < queryCount; ++i)
             {
                 int queryRequiredCount = queries[i].AllCount + queries[i].DisabledCount + queries[i].PresentCount;

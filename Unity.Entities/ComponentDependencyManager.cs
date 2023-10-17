@@ -1,6 +1,7 @@
 using System;
 using System.Diagnostics;
 using Unity.Assertions;
+using Unity.Burst.CompilerServices;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
@@ -32,11 +33,9 @@ namespace Unity.Entities
             public TypeIndex TypeIndex;
         }
 
+        const int              kMaxWriteJobHandles = 1;
         const int              kMaxReadJobHandles = 17;
         const int              kMaxTypes = TypeManager.MaximumTypesCount;
-
-        JobHandle*             m_JobDependencyCombineBuffer;
-        int                    m_JobDependencyCombineBufferCount;
 
         // Indexed by TypeIndex
         ushort*                m_TypeArrayIndices;
@@ -97,9 +96,6 @@ namespace Unity.Entities
             m_DependencyHandles = (DependencyHandle*)Memory.Unmanaged.Allocate(sizeof(DependencyHandle) * kMaxTypes, 16, Allocator.Persistent);
             UnsafeUtility.MemClear(m_DependencyHandles, sizeof(DependencyHandle) * kMaxTypes);
 
-            m_JobDependencyCombineBufferCount = 4 * 1024;
-            m_JobDependencyCombineBuffer = (JobHandle*)Memory.Unmanaged.Allocate(sizeof(DependencyHandle) * m_JobDependencyCombineBufferCount, 16, Allocator.Persistent);
-
             m_DependencyHandlesCount = 0;
             _IsInTransaction = 0;
             m_ExclusiveTransactionDependency = default;
@@ -138,16 +134,7 @@ namespace Unity.Entities
             {
                 AssertCompleteSyncPoint();
                 m_Marker.Begin();
-                for (int t = 0; t < m_DependencyHandlesCount; ++t)
-                {
-                    m_DependencyHandles[t].WriteFence.Complete();
-
-                    var readFencesCount = m_DependencyHandles[t].NumReadFences;
-                    var readFences = m_ReadJobFences + t * kMaxReadJobHandles;
-                    for (var r = 0; r != readFencesCount; r++)
-                        readFences[r].Complete();
-                    m_DependencyHandles[t].NumReadFences = 0;
-                }
+                GetCombinedDependencyForAllTypes().Complete();
                 ClearDependencies();
                 m_Marker.End();
             }
@@ -173,13 +160,7 @@ namespace Unity.Entities
 
         public void Dispose()
         {
-            for (var i = 0; i < m_DependencyHandlesCount; i++)
-                m_DependencyHandles[i].WriteFence.Complete();
-
-            for (var i = 0; i < m_DependencyHandlesCount * kMaxReadJobHandles; i++)
-                m_ReadJobFences[i].Complete();
-
-            Memory.Unmanaged.Free(m_JobDependencyCombineBuffer, Allocator.Persistent);
+            GetCombinedDependencyForAllTypes().Complete();
 
             Memory.Unmanaged.Free(m_TypeArrayIndices, Allocator.Persistent);
             Memory.Unmanaged.Free(m_DependencyHandles, Allocator.Persistent);
@@ -198,12 +179,7 @@ namespace Unity.Entities
 
         public void PreDisposeCheck()
         {
-            for (var i = 0; i < m_DependencyHandlesCount; i++)
-                m_DependencyHandles[i].WriteFence.Complete();
-
-            for (var i = 0; i < m_DependencyHandlesCount * kMaxReadJobHandles; i++)
-                m_ReadJobFences[i].Complete();
-
+            GetCombinedDependencyForAllTypes().Complete();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Safety.PreDisposeCheck();
 #endif
@@ -211,11 +187,9 @@ namespace Unity.Entities
 
         public void CompleteDependenciesNoChecks(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount)
         {
-            for (var i = 0; i != writerTypesCount; i++)
-                CompleteReadAndWriteDependencyNoChecks(writerTypes[i]);
-
-            for (var i = 0; i != readerTypesCount; i++)
-                CompleteWriteDependencyNoChecks(readerTypes[i]);
+            var combinedJobHandle = GetDependency(readerTypes, readerTypesCount, writerTypes, writerTypesCount,
+                clearReadFencesAfterCombining:true);
+            combinedJobHandle.Complete();
         }
 
         public bool HasReaderOrWriterDependency(TypeIndex typeIndex, JobHandle dependency)
@@ -239,19 +213,23 @@ namespace Unity.Entities
             return false;
         }
 
-        public JobHandle GetDependency(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount)
+        // Get the combined JobHandle for the provided reader and writer types. This is the job that must be completed
+        // to guarantee that the provided read and writes have completed.
+        // If clearReadFencesAfterCombining is true, the writer types will have their read fence counts reset to zero after
+        // the combined handle is computed. This should only be used when the caller is immediately going to complete the combined
+        // job handle, as a minor optimization to prevent subsequent operations from needlessly gathering the old read fences.
+        // When in doubt, it is always safe to pass false.
+        public JobHandle GetDependency(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount,
+            bool clearReadFencesAfterCombining)
         {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (readerTypesCount * kMaxReadJobHandles + writerTypesCount > m_JobDependencyCombineBufferCount)
-                throw new ArgumentException("Too many readers & writers in GetDependency");
-#endif
-
-            var count = 0;
+            JobHandle *allHandles = stackalloc JobHandle[readerTypesCount * kMaxWriteJobHandles +
+                                                         writerTypesCount * (kMaxWriteJobHandles+kMaxReadJobHandles)];
+            var allHandleCount = 0;
             for (var i = 0; i != readerTypesCount; i++)
             {
                 var typeArrayIndex = m_TypeArrayIndices[readerTypes[i].Index];
                 if (typeArrayIndex != NullTypeIndex)
-                    m_JobDependencyCombineBuffer[count++] = m_DependencyHandles[typeArrayIndex].WriteFence;
+                    allHandles[allHandleCount++] = m_DependencyHandles[typeArrayIndex].WriteFence;
             }
 
             for (var i = 0; i != writerTypesCount; i++)
@@ -259,15 +237,22 @@ namespace Unity.Entities
                 var typeArrayIndex = m_TypeArrayIndices[writerTypes[i].Index];
                 if (typeArrayIndex == NullTypeIndex)
                     continue;
-
-                m_JobDependencyCombineBuffer[count++] = m_DependencyHandles[typeArrayIndex].WriteFence;
-
-                var numReadFences = m_DependencyHandles[typeArrayIndex].NumReadFences;
+                allHandles[allHandleCount++] = m_DependencyHandles[typeArrayIndex].WriteFence;
+                int numReadFences = m_DependencyHandles[typeArrayIndex].NumReadFences;
+                var readFences = m_ReadJobFences + typeArrayIndex * kMaxReadJobHandles;
                 for (var j = 0; j != numReadFences; j++)
-                    m_JobDependencyCombineBuffer[count++] = m_ReadJobFences[typeArrayIndex * kMaxReadJobHandles + j];
+                    allHandles[allHandleCount++] = readFences[j];
+                // If the caller intends to immediately complete the combined job handle, we can reset the read fence count
+                // here while we already have this array element in cache.
+                if (clearReadFencesAfterCombining)
+                    m_DependencyHandles[typeArrayIndex].NumReadFences = 0;
             }
 
-            return JobHandleUnsafeUtility.CombineDependencies(m_JobDependencyCombineBuffer, count);
+            if (Hint.Unlikely(allHandleCount == 0))
+                return default;
+            if (allHandleCount == 1)
+                return allHandles[0];
+            return JobHandleUnsafeUtility.CombineDependencies(allHandles, allHandleCount);
         }
 
         public JobHandle AddDependency(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount,
@@ -330,7 +315,12 @@ namespace Unity.Entities
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             if (combinedDependencies != null)
+            {
+                if (combinedDependenciesCount == 1)
+                    return combinedDependencies[0];
                 return JobHandleUnsafeUtility.CombineDependencies(combinedDependencies, combinedDependenciesCount);
+            }
+
             return dependency;
 #else
             return dependency;
@@ -349,11 +339,23 @@ namespace Unity.Entities
             var arrayIndex = m_TypeArrayIndices[typeIndex.Index];
             if (arrayIndex != NullTypeIndex)
             {
-                for (var i = 0; i < m_DependencyHandles[arrayIndex].NumReadFences; ++i)
-                    m_ReadJobFences[arrayIndex * kMaxReadJobHandles + i].Complete();
-                m_DependencyHandles[arrayIndex].NumReadFences = 0;
+                int readHandleCount = m_DependencyHandles[arrayIndex].NumReadFences;
+                if (readHandleCount == 0)
+                {
+                    m_DependencyHandles[arrayIndex].WriteFence.Complete();
+                    return;
+                }
+                int allHandleCount = readHandleCount + kMaxWriteJobHandles;
+                var allHandles = stackalloc JobHandle[allHandleCount];
+                JobHandle* readHandlesForType = m_ReadJobFences + arrayIndex * kMaxReadJobHandles;
+                for (var i = 0; i < readHandleCount; ++i)
+                    allHandles[i] = readHandlesForType[i];
+                allHandles[readHandleCount] = m_DependencyHandles[arrayIndex].WriteFence;
+                // We know there's at least one read handle and one write handle, so an early-out for
+                // allHandleCount == 1 isn't needed.
+                JobHandleUnsafeUtility.CombineDependencies(allHandles, allHandleCount).Complete();
 
-                m_DependencyHandles[arrayIndex].WriteFence.Complete();
+                m_DependencyHandles[arrayIndex].NumReadFences = 0;
             }
         }
 
@@ -386,24 +388,23 @@ namespace Unity.Entities
             return combined;
         }
 
-        JobHandle GetAllDependencies()
+        JobHandle GetCombinedDependencyForAllTypes()
         {
-            var jobHandles = new NativeArray<JobHandle>(m_DependencyHandlesCount * (kMaxReadJobHandles + 1), Allocator.Temp);
-
-            var count = 0;
+            JobHandle* allHandles = stackalloc JobHandle[m_DependencyHandlesCount*(kMaxReadJobHandles + kMaxWriteJobHandles)];
+            int allHandleCount = 0;
             for (var i = 0; i != m_DependencyHandlesCount; i++)
             {
-                jobHandles[count++] = m_DependencyHandles[i].WriteFence;
-
-                var numReadFences = m_DependencyHandles[i].NumReadFences;
-                for (var j = 0; j != numReadFences; j++)
-                    jobHandles[count++] = m_ReadJobFences[i * kMaxReadJobHandles + j];
+                allHandles[allHandleCount++] = m_DependencyHandles[i].WriteFence;
+                int readHandleCount = m_DependencyHandles[i].NumReadFences;
+                JobHandle *readHandles = m_ReadJobFences + i * kMaxReadJobHandles;
+                for(int j = 0; j < readHandleCount; ++j)
+                    allHandles[allHandleCount++] = readHandles[j];
             }
-
-            var combined = JobHandle.CombineDependencies(jobHandles);
-            jobHandles.Dispose();
-
-            return combined;
+            if (Hint.Unlikely(allHandleCount == 0))
+                return default;
+            if (allHandleCount == 1)
+                return allHandles[0];
+            return JobHandleUnsafeUtility.CombineDependencies(allHandles, allHandleCount);
         }
     }
 #else
@@ -436,7 +437,7 @@ namespace Unity.Entities
 #endif
         }
 
-        void CompleteAllJobs()
+        public void CompleteAllJobs()
         {
             var executingSystem = m_World.ExecutingSystem;
             if (executingSystem != default)
@@ -498,7 +499,8 @@ namespace Unity.Entities
             return JobHandle.CheckFenceIsDependencyOrDidSyncFence(dependency, m_Dependency);
         }
 
-        public JobHandle GetDependency(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount)
+        public JobHandle GetDependency(TypeIndex* readerTypes, int readerTypesCount, TypeIndex* writerTypes, int writerTypesCount,
+            bool clearReadFencesAfterCombining)
         {
             return m_Dependency;
         }
@@ -541,7 +543,7 @@ namespace Unity.Entities
             m_Dependency = default;
         }
 
-        JobHandle GetAllDependencies() => m_Dependency;
+        JobHandle GetCombinedDependencyForAllTypes() => m_Dependency;
     }
 #endif
 
@@ -568,7 +570,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
                 if (!JobHandle.CheckFenceIsDependencyOrDidSyncFence(m_ExclusiveTransactionDependency, value))
                     throw new InvalidOperationException(
-                        message: "EntityManager.ExclusiveEntityTransactionDependency must depend on the Entity Transaction job. \n" + 
+                        message: "EntityManager.ExclusiveEntityTransactionDependency must depend on the Entity Transaction job. \n" +
 "Correct usage looks like EntityManager.ExclusiveEntityTransactionDependency = \n" +
 "yourJob.Schedule(EntityManager.ExclusiveEntityTransactionDependency) or \n" +
 "EntityManager.ExclusiveEntityTransactionDependency = \n" +
@@ -608,7 +610,7 @@ namespace Unity.Entities
 #endif
 
             _IsInTransaction = 1;
-            m_ExclusiveTransactionDependency = GetAllDependencies();
+            m_ExclusiveTransactionDependency = GetCombinedDependencyForAllTypes();
             ClearDependencies();
         }
     }

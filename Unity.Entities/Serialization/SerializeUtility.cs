@@ -434,7 +434,7 @@ namespace Unity.Entities.Serialization
         /// <summary>
         /// The version of the serialization file format.
         /// </summary>
-        public const int CurrentFileFormatVersion = 76;
+        public const int CurrentFileFormatVersion = 77;
         internal const int MaxSubsceneHeaderSize = 1<<16;
 
         private static unsafe UnsafeList<EntityArchetype> ReadArchetypes(BinaryReader reader, NativeArray<TypeIndex> types, ExclusiveEntityTransaction entityManager,

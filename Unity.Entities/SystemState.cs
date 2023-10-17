@@ -414,7 +414,7 @@ namespace Unity.Entities
                     NeedToGetDependencyFromSafetyManager = false;
                     m_JobHandle = depMgr->GetDependency(m_JobDependencyForReadingSystems.Ptr,
                         m_JobDependencyForReadingSystems.Length, m_JobDependencyForWritingSystems.Ptr,
-                        m_JobDependencyForWritingSystems.Length);
+                        m_JobDependencyForWritingSystems.Length, clearReadFencesAfterCombining:false);
                 }
 
                 return m_JobHandle;

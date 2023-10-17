@@ -303,7 +303,7 @@ namespace Unity.Entities
             m_Unmanaged.AllowGetSystem = true;
 #endif
 
-            DestroyAllSystemsAndLogException();
+            DestroyAllSystemsAndLogException(out bool errorsWhileDestroyingSystems);
             m_SystemLookup = null;
             m_Systems = null;
 
@@ -1062,10 +1062,24 @@ namespace Unity.Entities
         /// Destroy all system instances in the World. Any errors encountered during individual system destruction will be logged to the console.
         /// </summary>
         /// <exception cref="ArgumentException">Thrown if any of the World's systems are currently executing.</exception>
+        [Obsolete("This function now takes an out bool parameter to report if any exceptions were logged.", false)]
         public void DestroyAllSystemsAndLogException()
         {
+            DestroyAllSystemsAndLogException(out _);
+        }
+        /// <summary>
+        /// Destroy all system instances in the World. Any errors encountered during individual system destruction will be logged to the console.
+        /// </summary>
+        /// <param name="loggedException">If one or more exceptions were logged while destroying systems, this value will be set to true.
+        /// This allows callers to detect whether any errors were encountered. If no exceptions were logged, this value will be set to false.</param>
+        /// <exception cref="ArgumentException">Thrown if any of the World's systems are currently executing.</exception>
+        public void DestroyAllSystemsAndLogException(out bool loggedException)
+        {
+            loggedException = false;
             if (!IsCreated)
+            {
                 return;
+            }
 
             if (Unmanaged.ExecutingSystem != default)
                 throw new ArgumentException($"{nameof(DestroyAllSystemsAndLogException)} while another system is running on the same world is not allowed.");
@@ -1089,6 +1103,7 @@ namespace Unity.Entities
                     }
                     catch (Exception e)
                     {
+                        loggedException = true;
                         Debug.LogException(e);
                     }
                 }
@@ -1110,13 +1125,15 @@ namespace Unity.Entities
             {
                 var system = sysHandlesInCreationOrder[i].handle;
 
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                bool prevAllow = m_Unmanaged.AllowGetSystem;
+#endif
                 try
                 {
                     var state = Unmanaged.ResolveSystemState(system);
 
                     if (state == null) continue;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                    var prevAllow = m_Unmanaged.AllowGetSystem;
                     m_Unmanaged.AllowGetSystem = false;
 #endif
                     if (state->m_ManagedSystem.IsAllocated)
@@ -1127,13 +1144,17 @@ namespace Unity.Entities
                     {
                         SystemBaseRegistry.CallOnDestroy(state);
                     }
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                    m_Unmanaged.AllowGetSystem = prevAllow;
-#endif
                 }
                 catch (Exception e)
                 {
+                    loggedException = true;
                     Debug.LogException(e);
+                }
+                finally
+                {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                    m_Unmanaged.AllowGetSystem = prevAllow;
+#endif
                 }
             }
             for (int i = sysHandlesInCreationOrder.Length - 1; i >= 0; --i)
@@ -1155,6 +1176,7 @@ namespace Unity.Entities
                 }
                 catch (Exception e)
                 {
+                    loggedException = true;
                     Debug.LogException(e);
                 }
             }

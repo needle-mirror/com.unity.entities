@@ -32,7 +32,7 @@ namespace Unity.Entities.Tests
         [Test]
         public void CrossReferenceSystem()
         {
-            var world = new World("TestWorld");
+            using var world = new World("TestWorld");
             DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(world, typeof(GetOtherSystemA), typeof(GetOtherSystemB));
 
             var systemA = world.GetExistingSystemManaged<GetOtherSystemA>();
@@ -40,8 +40,6 @@ namespace Unity.Entities.Tests
 
             Assert.AreEqual(systemB, systemA.Other);
             Assert.AreEqual(systemA, systemB.Other);
-
-            world.Dispose();
         }
     }
 }

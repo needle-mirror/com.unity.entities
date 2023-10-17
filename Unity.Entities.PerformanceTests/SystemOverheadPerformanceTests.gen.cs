@@ -2028,7 +2028,7 @@ namespace Unity.Entities.PerformanceTests
             typeof(EmptySystem997),
             typeof(EmptySystem998),
             typeof(EmptySystem999),
-        
+
         };
 
         // TODO(DOTS-4654): these systems use .WithoutBurst() until Burst compilation speed improves.
@@ -4035,7 +4035,7 @@ namespace Unity.Entities.PerformanceTests
             typeof(SchedulesEmptyJobSystem997),
             typeof(SchedulesEmptyJobSystem998),
             typeof(SchedulesEmptyJobSystem999),
-        
+
         };
 
         [Test, Performance]
@@ -4068,7 +4068,7 @@ namespace Unity.Entities.PerformanceTests
         [Test, Performance]
         public void EmptySystem_NoMatchingEntities_Overhead()
         {
-            var testWorld = new World("Test World");
+            using var testWorld = new World("Test World");
             var simulationGroup = testWorld.CreateSystemManaged<SimulationSystemGroup>();
             for (int i = 0; i < 1000; ++i)
             {
@@ -4084,14 +4084,12 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(10)
                 .SampleGroup("NoMatchingEntity")
                 .Run();
-
-            testWorld.Dispose();
         }
 
         [Test, Performance]
         public void EmptySystem_OneMatchingEntity_Overhead()
         {
-            var testWorld = new World("Test World");
+            using var testWorld = new World("Test World");
             var simulationGroup = testWorld.CreateSystemManaged<SimulationSystemGroup>();
             for (int i = 0; i < 1000; ++i)
             {
@@ -4109,14 +4107,12 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(10)
                 .SampleGroup("OneMatchingEntity")
                 .Run();
-
-            testWorld.Dispose();
         }
 
         [Test, Performance]
         public void ScheduleWithEntitiesForEach_OneMatchingEntity_Overhead()
         {
-            var testWorld = new World("Test World");
+            using var testWorld = new World("Test World");
             var simulationGroup = testWorld.CreateSystemManaged<SimulationSystemGroup>();
             for (int i = 0; i < 1000; ++i)
             {
@@ -4134,8 +4130,6 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(10)
                 .SampleGroup("OneMatchingEntity")
                 .Run();
-
-            testWorld.Dispose();
         }
     }
 }

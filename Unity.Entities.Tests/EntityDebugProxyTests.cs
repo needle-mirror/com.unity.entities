@@ -189,12 +189,10 @@ namespace Unity.Entities.Tests
         [Test]
         public void DisambiguateWorldBasedOnExecutingSystem()
         {
-            var world = new World("TestWorld2");
+            using var world = new World("TestWorld2");
 
             world.GetOrCreateSystemManaged<CheckDebugProxyWorldSystem>().Update();
             World.GetOrCreateSystemManaged<CheckDebugProxyWorldSystem>().Update();
-
-            world.Dispose();
         }
 
 

@@ -82,7 +82,7 @@ namespace Unity.Scenes.Editor.Tests
             };
 
             SampleGroup sampleGroup = new SampleGroup(nameof(EditorSubSceneLiveConversionSystem));
-            var world = new World("TestWorld");
+            using var world = new World("TestWorld");
 
             BakingStripSystem strippingSystem = world.GetOrCreateSystemManaged<BakingStripSystem>();
             var strippingSystemProfileMarkerName = strippingSystem.GetProfilerMarkerName();

@@ -684,7 +684,8 @@ namespace Unity.Entities
                 componentDependencies[writeCount++] = _QueryData->EnableableComponentTypeIndices[i];
             }
             var inputDep = JobHandle.CombineDependencies(additionalInputDep,
-                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount, null, 0));
+                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount, null, 0,
+                    clearReadFencesAfterCombining:false));
 
             var job = new FilteredChunkIndexJob
             {
@@ -748,7 +749,8 @@ namespace Unity.Entities
                 componentDependencies[writeCount++] = _QueryData->EnableableComponentTypeIndices[i];
             }
             var inputDep = JobHandle.CombineDependencies(additionalInputDep,
-                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount, null, 0));
+                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount,
+                    null, 0, clearReadFencesAfterCombining:false));
 
             var job = new ChunkBaseEntityIndexJob
             {
@@ -787,7 +789,8 @@ namespace Unity.Entities
                 for (int i = 0; i < filterCount; ++i)
                     readerTypes[i] = _QueryData->RequiredComponents[_Filter.Changed.IndexInEntityQuery[i]].TypeIndex;
 
-                dependency = _Access->DependencyManager->GetDependency(readerTypes, filterCount, null, 0);
+                dependency = _Access->DependencyManager->GetDependency(readerTypes, filterCount,
+                    null, 0, clearReadFencesAfterCombining:false);
             }
 
             return ChunkIterationUtility.CreateArchetypeChunkArrayAsync(_QueryData->MatchingArchetypes, allocator, out jobhandle, ref _Filter, dependency);
@@ -822,7 +825,8 @@ namespace Unity.Entities
                 componentDependencies[writeCount++] = _QueryData->EnableableComponentTypeIndices[i];
             }
             var inputDep = JobHandle.CombineDependencies(additionalInputDep,
-                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount, null, 0));
+                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount,
+                    null, 0, clearReadFencesAfterCombining:false));
 
             var job = new GatherChunksJob
             {
@@ -937,7 +941,8 @@ namespace Unity.Entities
                 componentDependencies[writeCount++] = _QueryData->EnableableComponentTypeIndices[i];
             }
             var inputDep = JobHandle.CombineDependencies(additionalInputDep,
-                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount, null, 0));
+                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount,
+                    null, 0, clearReadFencesAfterCombining:false));
 
             return ChunkIterationUtility.CreateEntityListAsync(allocator, entityType, outer, conservativeEntityCount,
                 inputDep, out outJobHandle);
@@ -1064,7 +1069,8 @@ namespace Unity.Entities
             }
             componentDependencies[writeCount++] = typeIndex;
             var inputDep = JobHandle.CombineDependencies(additionalInputDep,
-                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount, null, 0));
+                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount,
+                    null, 0, clearReadFencesAfterCombining:false));
 
             return ChunkIterationUtility.CreateComponentDataListAsync<T>(allocator, ref dynamicTypeHandle, conservativeEntityCount,
                 outer, inputDep, out outJobHandle);
@@ -1277,7 +1283,8 @@ namespace Unity.Entities
                 componentDependencies[writeCount++] = _QueryData->EnableableComponentTypeIndices[i];
             }
             var inputDep = JobHandle.CombineDependencies(additionalInputDep,
-                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount, &typeIndex, 1));
+                _Access->DependencyManager->GetDependency(componentDependencies, componentDependencyCount,
+                    &typeIndex, 1, clearReadFencesAfterCombining:false));
 
             ChunkIterationUtility.CopyFromComponentDataListAsync<T>(componentDataList, ref dynamicTypeHandle, outer,
                 inputDep, out outJobHandle);
@@ -1727,7 +1734,7 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         public JobHandle GetDependency()
         {
             return _Access->DependencyManager->GetDependency(_QueryData->ReaderTypes, _QueryData->ReaderTypesCount,
-                _QueryData->WriterTypes, _QueryData->WriterTypesCount);
+                _QueryData->WriterTypes, _QueryData->WriterTypesCount, clearReadFencesAfterCombining:false);
         }
 
         public JobHandle AddDependency(JobHandle job)

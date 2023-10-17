@@ -1,4 +1,34 @@
+---
+uid: changelog
+---
+
 # Changelog
+
+## [1.1.0-pre.3] - 2023-10-17
+
+### Added
+
+* We have added `ReadOnlySpan` variants for `CreateEntity` and  `CreateArchetype` which means you can now create the two with burst. E.g. `EntityManager.CreateEntity( stackalloc[] { ComponentType.ReadOnly<Type1>(), ... } )`.
+
+### Fixed
+
+* Iterating through a generic type using `System.Query` now triggers an actionable error message informing users that doing so is unsupported.
+* Nested `SystemAPI` invocations that previously trigger the `InvalidOperationException` no longer do so.
+* `#if` directives surrounding `using` directives are now correctly handled during source generation.
+* Source-generators now correctly patch methods that contain pointer parameters.
+* Disabled components that are also used as changed filters are now backed by correctly generated queries.
+* The `World` is now validated in the `EntityContainer` before the `EntityManager` is accessed. Meaning you can now exit playmode while having an Entity with a buffer selected in the Entities Hierarchy, without getting any errors.
+* Avoid a potential `NullReferenceException` when creating an `EntityQuery` with multiple query descriptions.
+* The component dependency manager now completes registered jobs in batches, instead of individually. This reduces the overhead of structural changes and other sync points.
+* Managed component types with circular references to other managed types (e.g. TypeA contains a field of TypeB, and TypeB contains a field of TypeA.) previously could have non-deterministic StableTypeHashes causing issues when deserializing entities data. Note, this fix raises the serialization version for all `.entities` files, requiring all previously serialized entity data requiring to be reserialized as the StableTypeHashes generated will no longer match. **Fix requires Unity 2022.3.1f11 or greater to work properly in IL2CPP builds**
+* Fixed several memory leaks in the package and its test suite.
+* `ScratchpadAllocator.Dispose()` now fully restores the object to its uninitialized state.
+* `EntityCommandBuffer` no longer leaks `DynamicBuffers` when using `PlaybackPolicy.Multiplayback`.
+* `EntityCommandBuffer.Dispose()` no longer throws an exception when called on a command buffer that was not fully initialized.
+* `World.DestroyAllSystemsAndLogException()` (called during `World.Dispose()`) no longer prematurely aborts its loop if a system threw an exception from its `OnDestroy()` method. This prevented all subsequent systems from being destroyed, leaking all of their resources.
+* Scheduling `IJobEntity` instances using `IJobEntityExtensions` no longer triggers `SGICE002`.
+* When selecting `Publish -> Content Update` in a project that uses the `Entities` package, the `DirectoryNotFoundException` is no longer thrown.
+
 
 ## [1.1.0-exp.1] - 2023-09-18
 

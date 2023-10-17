@@ -530,7 +530,7 @@ namespace Unity.Entities
         public PlaybackPolicy m_PlaybackPolicy;
         public bool m_ShouldPlayback;
         public bool m_DidPlayback;
-        public bool m_ForceFullDisposeOnSkippedPlayback;
+        public bool m_ForceFullDispose;
         public Entity m_Entity;
         public int m_BufferWithFixupsCount;
         public UnsafeAtomicCounter32 m_BufferWithFixups;
@@ -937,7 +937,7 @@ namespace Unity.Entities
             // Allocator.Persistent, not the ECB's allocator. These allocations must ALWAYS be manually cleaned up
             // if the ECB is disposed without being played back. So, we have to force the full ECB cleanup process
             // to run in this case, even if it could normally be skipped.
-            m_ForceFullDisposeOnSkippedPlayback = true;
+            m_ForceFullDispose = true;
 
             internalCapacity = type.BufferCapacity;
 
@@ -1954,6 +1954,8 @@ namespace Unity.Entities
         [BurstCompile]
         static void DisposeInternal(ref EntityCommandBuffer ecb)
         {
+            if (!ecb.IsCreated)
+                return;
             k_ProfileEcbDispose.Begin();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             CollectionHelper.DisposeSafetyHandle(ref ecb.m_Safety0);
@@ -1966,8 +1968,11 @@ namespace Unity.Entities
             bool disposeChains = !ecb.m_Data->m_Allocator.IsAutoDispose;
             // ...however, under some conditions we need to walk the chains anyway and manually free their allocations,
             // even with auto-dispose allocators.
-            if (!disposeChains && !ecb.m_Data->m_DidPlayback && ecb.m_Data->m_ForceFullDisposeOnSkippedPlayback)
+            if (ecb.m_Data->m_ForceFullDispose &&
+                (!ecb.m_Data->m_DidPlayback || ecb.m_Data->m_PlaybackPolicy == PlaybackPolicy.MultiPlayback))
+            {
                 disposeChains = true;
+            }
             if (ecb.m_Data != null && disposeChains)
             {
                 ecb.FreeChain(&ecb.m_Data->m_MainThreadChain, ecb.m_Data->m_PlaybackPolicy, ecb.m_Data->m_DidPlayback);

@@ -1284,7 +1284,7 @@ namespace Unity.Entities.Tests
                 m_Manager.SetComponentData(srcEntities[i], new EcsTestData(i));
             }
 
-            var dstWorld = new World("Copy Destination World");
+            using var dstWorld = new World("Copy Destination World");
             var dstEntities = new NativeArray<Entity>(entityCount, Allocator.Temp);
 
             dstWorld.EntityManager.CopyEntitiesFrom(m_Manager, srcEntities, dstEntities);
@@ -1299,7 +1299,6 @@ namespace Unity.Entities.Tests
 
             srcEntities.Dispose();
             dstEntities.Dispose();
-            dstWorld.Dispose();
         }
 
         [Test]
@@ -1667,6 +1666,67 @@ namespace Unity.Entities.Tests
 
             }
         }
+
+        #region EntityManagerSpan
+
+        [Test]
+        public void CreateEntity_With_Span_Works()
+        {
+            //Entity from unburstable code
+            var archetypeNonBurst = m_Manager.CreateArchetype(typeof(EcsTestData),typeof(EcsTestData2));
+            Entity entityFromListNonBurst = m_Manager.CreateEntity(archetypeNonBurst);
+
+            //Entity from burstable code list
+            var componentList = new NativeList<ComponentType>(World.UpdateAllocator.ToAllocator)
+            {
+                ComponentType.ReadWrite<EcsTestData>(),
+                ComponentType.ReadWrite<EcsTestData2>()
+            };
+            var archetypeBurst = m_Manager.CreateArchetype(componentList.AsArray());
+            Entity entityFromListBurst = m_Manager.CreateEntity(archetypeBurst);
+
+            //Entity from burstable code list span
+            Entity entityFromSpan = m_Manager.CreateEntity(stackalloc [] {
+                ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()
+            });
+
+            //Now i should check if they have the same components/their archetype is the same
+            //In this case I will check that these three are returned in the same query using WithAll
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestData, EcsTestData2>()
+                .Build(EmptySystem);
+
+            Assert.AreEqual(query.CalculateEntityCount(), 3);
+        }
+
+        [Test]
+        public void CreateArchetype_With_Span_Works()
+        {
+
+            //Archetype from unburstable code
+            var archetypeFromListNonBurst = m_Manager.CreateArchetype(typeof(EcsTestData),typeof(EcsTestData2));
+
+            //Archetype from burstable code list
+            var componentList = new NativeList<ComponentType>(World.UpdateAllocator.ToAllocator)
+            {
+                ComponentType.ReadWrite<EcsTestData>(),
+                ComponentType.ReadWrite<EcsTestData2>()
+            };
+            var archetypeFromListBurst = m_Manager.CreateArchetype(componentList.AsArray());
+
+            //Archetype from burstable code span
+            var archetypeFromSpan = m_Manager.CreateArchetype(stackalloc[]
+            {
+                ComponentType.ReadWrite<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>()
+            });
+
+            //Now i should check if they have the archetypes are equal
+            Assert.AreEqual(archetypeFromListBurst, archetypeFromSpan);
+            Assert.AreEqual(archetypeFromListNonBurst, archetypeFromSpan);
+            Assert.AreEqual(archetypeFromListBurst, archetypeFromListNonBurst);
+        }
+
+        #endregion
 
         [Test]
         public void GetAspect()

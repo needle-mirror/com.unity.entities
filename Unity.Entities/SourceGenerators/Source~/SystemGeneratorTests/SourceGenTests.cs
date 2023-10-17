@@ -8,6 +8,7 @@ using System.Text;
 using System.Threading;
 using System.Threading.Tasks;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp;
 using Microsoft.CodeAnalysis.CSharp.Testing;
 using Microsoft.CodeAnalysis.Formatting;
 using Microsoft.CodeAnalysis.Simplification;
@@ -36,30 +37,31 @@ namespace Unity.Entities.SourceGenerators.Test
         public static DiagnosticResult CompilerInfo(string compilerInfo) => new (compilerInfo, DiagnosticSeverity.Info);
 
         public static async Task VerifySourceGeneratorAsync(string source, string generatedFolderName = "Default", params string[] expectedFileNames)
-            => await VerifySourceGeneratorAsync(source, DiagnosticResult.EmptyDiagnosticResults, true, generatedFolderName, expectedFileNames);
-        public static async Task VerifySourceGeneratorAsync(string source, params DiagnosticResult[] expected)
-            => await VerifySourceGeneratorAsync(source, expected, false);
-        public static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult expected, IEnumerable<Assembly> additionalAssembliesOverride)
-            => await VerifySourceGeneratorAsync(source, new []{expected}, additionalAssembliesOverride, false);
-        public static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult expected, Assembly additionalAssemblyOverride)
-            => await VerifySourceGeneratorAsync(source, new []{expected}, new []{additionalAssemblyOverride}, false);
-        public static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, Assembly additionalAssemblyOverride)
-            => await VerifySourceGeneratorAsync(source, expected, new []{additionalAssemblyOverride}, false);
-        public static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, IEnumerable<Assembly> additionalAssembliesOverride)
-            => await VerifySourceGeneratorAsync(source, expected, additionalAssembliesOverride, false);
+            => await VerifySourceGeneratorAsync(source, DiagnosticResult.EmptyDiagnosticResults, preprocessorSymbols: Array.Empty<string>(), true, generatedFolderName, expectedFileNames);
 
-        static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)
+        public static async Task VerifySourceGeneratorWithPreprocessorSymbolAsync(string source, string[] preprocessorSymbols, string generatedFolderName = "Default", params string[] expectedFileNames)
+            => await VerifySourceGeneratorAsync(source, DiagnosticResult.EmptyDiagnosticResults, preprocessorSymbols, true, generatedFolderName, expectedFileNames);
+        public static async Task VerifySourceGeneratorAsync(string source, params DiagnosticResult[] expected)
+            => await VerifySourceGeneratorAsync(source, expected, preprocessorSymbols: Array.Empty<string>(), false);
+
+        public static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult expected, Assembly additionalAssemblyOverride)
+            => await VerifySourceGeneratorAsync(source, new []{expected}, new []{additionalAssemblyOverride}, preprocessorSymbols: Array.Empty<string>(), false);
+
+        static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, string[] preprocessorSymbols, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)
             => await VerifySourceGeneratorAsync(source, expected, new []{
             typeof(EntitiesMock).Assembly,
             typeof(EntitiesHybridMock).Assembly,
             typeof(BurstMock).Assembly,
             typeof(CollectionsMock).Assembly
-        }, checksGeneratedSource, generatedFolderName, expectedFileNames);
+        }, preprocessorSymbols, checksGeneratedSource, generatedFolderName, expectedFileNames);
 
-        static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, IEnumerable<Assembly> additionalAssembliesOverride, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)
+        static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, IEnumerable<Assembly> additionalAssembliesOverride, string[] preprocessorSymbols, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)
         {
             // Initial Test setup
-            var test = new Test { TestCode = source.ReplaceLineEndings() };
+            var test = new Test(preprocessorSymbols)
+            {
+                TestCode = source.ReplaceLineEndings()
+            };
             foreach (var additionalReference in additionalAssembliesOverride)
                 test.TestState.AdditionalReferences.Add(additionalReference);
 
@@ -141,18 +143,31 @@ namespace Unity.Entities.SourceGenerators.Test
 
         class Test : CSharpSourceGeneratorTest<TSourceGenerator, MSTestVerifier>
         {
-            public Test()
+            public Test(string[] preprocessorSymbols)
             {
                 ReferenceAssemblies = new ReferenceAssemblies("net6.0", new PackageIdentity("Microsoft.NETCore.App.Ref", "6.0.0"), Path.Combine("ref", "net6.0"));
                 SolutionTransforms.Add((solution, projectId) =>
                 {
-                    var compilationOptions = solution.GetProject(projectId)?.CompilationOptions;
-                    if (compilationOptions == null) throw new ArgumentException("ProjectId does not exist");
+                    var project = solution.GetProject(projectId);
+
+                    var compilationOptions = project?.CompilationOptions;
+
+                    if (compilationOptions == null)
+                        throw new ArgumentException("ProjectId does not exist");
+
+                    var parseOptions = project?.ParseOptions;
+
+                    if (parseOptions == null)
+                        parseOptions = new CSharpParseOptions(preprocessorSymbols: preprocessorSymbols);
+                    else if (parseOptions is CSharpParseOptions cSharpParseOptions)
+                        parseOptions =
+                            cSharpParseOptions.WithPreprocessorSymbols(
+                                cSharpParseOptions.PreprocessorSymbolNames.Concat(preprocessorSymbols));
+
                     compilationOptions = compilationOptions.WithSpecificDiagnosticOptions(
                         compilationOptions.SpecificDiagnosticOptions.SetItems(CSharpVerifierHelper.NullableWarnings));
-                    solution = solution.WithProjectCompilationOptions(projectId, compilationOptions);
 
-                    return solution;
+                    return solution.WithProjectCompilationOptions(projectId, compilationOptions).WithProjectParseOptions(projectId, parseOptions);
                 });
             }
 

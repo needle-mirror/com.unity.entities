@@ -62,9 +62,9 @@ public readonly struct QueriesAndHandles
         return entityTypeHandleFieldDescription.GeneratedFieldName;
     }
 
-    public string GetOrCreateTypeHandleField(ITypeSymbol typeSymbol, bool isReadOnly)
+    public string GetOrCreateTypeHandleField(ITypeSymbol typeSymbol, bool isReadOnly, TypeHandleFieldDescription.TypeHandleSource forcedTypeHandleSource = TypeHandleFieldDescription.TypeHandleSource.None)
     {
-        var typeHandleFieldDescription = new TypeHandleFieldDescription(typeSymbol, isReadOnly);
+        var typeHandleFieldDescription = new TypeHandleFieldDescription(typeSymbol, isReadOnly, forcedTypeHandleSource);
         TypeHandleStructNestedFields.Add(typeHandleFieldDescription);
 
         return typeHandleFieldDescription.GeneratedFieldName;

@@ -29,7 +29,7 @@ namespace Unity.Entities.Tests
             bakingSettings.BlobAssetStore = blobAssetStore;
             BakingUtility.BakeGameObjects(World, new[] {root}, bakingSettings);
 
-            var world = new World("temp");
+            using var world = new World("temp");
 
             ReferencedUnityObjects objRefs = null;
             var writer = new TestBinaryWriter(world.UpdateAllocator.ToAllocator);
@@ -44,8 +44,6 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEquivalent(components.Select(c => c.SomeValue), values);
 
             query.Dispose();
-
-            world.Dispose();
         }
     }
 }

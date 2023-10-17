@@ -560,13 +560,11 @@ namespace Unity.Entities.Tests
         [Test]
         public void UpdateInGroup_TargetNotASystem_Throws()
         {
-            World w = new World("Test World");
+            using World w = new World("Test World");
 
             // In hybrid, IsSystemAGroup() returns false for non-system inputs
             Assert.That(() => DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, typeof(GroupIsntAComponentSystem)),
                 Throws.InvalidOperationException.With.Message.Contains("must be derived from ComponentSystemGroup"));
-
-            w.Dispose();
         }
 
         [UpdateInGroup(typeof(TestSystem))]
@@ -577,10 +575,9 @@ namespace Unity.Entities.Tests
         [Test]
         public void UpdateInGroup_TargetNotAGroup_Throws()
         {
-            World w = new World("Test World");
+            using World w = new World("Test World");
             Assert.That(() => DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, typeof(GroupIsntAComponentSystemGroup)),
                 Throws.InvalidOperationException.With.Message.Contains("must be derived from ComponentSystemGroup"));
-            w.Dispose();
         }
 
         [UpdateInGroup(typeof(SimulationSystemGroup), OrderFirst = true, OrderLast = true)]
@@ -591,11 +588,10 @@ namespace Unity.Entities.Tests
         [Test]
         public void UpdateInGroup_OrderFirstAndOrderLast_Throws()
         {
-            World w = new World("Test World");
+            using World w = new World("Test World");
             var systemTypes = new[] {typeof(FirstAndLast), typeof(TestGroup)};
             Assert.That(() => DefaultWorldInitialization.AddSystemsToRootLevelSystemGroups(w, systemTypes),
                 Throws.InvalidOperationException.With.Message.Contains("can not specify both OrderFirst=true and OrderLast=true"));
-            w.Dispose();
         }
 
         // All the ordering constraints below are valid (though some are redundant). All should sort correctly without warnings.

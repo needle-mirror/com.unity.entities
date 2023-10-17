@@ -191,7 +191,8 @@ namespace Unity.Entities.Tests
                 using var systemQuery = world.EntityManager.CreateEntityQuery(typeof(SystemInstance));
                 Assert.That(systemQuery.CalculateEntityCount(), Is.EqualTo(1));
 
-                world.DestroyAllSystemsAndLogException();
+                world.DestroyAllSystemsAndLogException(out bool errorsWhileDestroyingSystems);
+                Assert.IsFalse(errorsWhileDestroyingSystems);
                 Assert.That(systemQuery.CalculateEntityCount(), Is.EqualTo(0));
 
                 world.GetOrCreateSystemManaged<EmptyTestSystem>();
@@ -209,7 +210,8 @@ namespace Unity.Entities.Tests
                 using var systemQuery = world.EntityManager.CreateEntityQuery(typeof(SystemInstance));
                 Assert.That(systemQuery.CalculateEntityCount(), Is.EqualTo(1));
 
-                world.DestroyAllSystemsAndLogException();
+                world.DestroyAllSystemsAndLogException(out bool errorsWhileDestroyingSystems);
+                Assert.IsFalse(errorsWhileDestroyingSystems);
                 Assert.That(systemQuery.CalculateEntityCount(), Is.EqualTo(0));
 
                 world.GetOrCreateSystem<EmptyTestISystem>();
@@ -228,7 +230,8 @@ namespace Unity.Entities.Tests
                 using var systemQuery = world.EntityManager.CreateEntityQuery(typeof(SystemInstance));
                 Assert.That(systemQuery.CalculateEntityCount(), Is.EqualTo(2));
 
-                world.DestroyAllSystemsAndLogException();
+                world.DestroyAllSystemsAndLogException(out bool errorsWhileDestroyingSystems);
+                Assert.IsFalse(errorsWhileDestroyingSystems);
                 Assert.That(systemQuery.CalculateEntityCount(), Is.EqualTo(0));
             }
         }
@@ -244,7 +247,8 @@ namespace Unity.Entities.Tests
                 using var systemQuery = world.EntityManager.CreateEntityQuery(typeof(SystemInstance));
                 Assert.That(systemQuery.CalculateEntityCount(), Is.EqualTo(2));
 
-                world.DestroyAllSystemsAndLogException();
+                world.DestroyAllSystemsAndLogException(out bool errorsWhileDestroyingSystems);
+                Assert.IsFalse(errorsWhileDestroyingSystems);
                 Assert.That(systemQuery.CalculateEntityCount(), Is.EqualTo(0));
             }
         }
@@ -569,7 +573,7 @@ namespace Unity.Entities.Tests
                 CheckUnmanagedSystemEmpty<ThrowDuringDestroyISystem>(world);
             }
         }
-        
+
         public void TestCreateISystemAndLogExceptionsFailureIsolation(Type badSystem)
         {
             using (var world = new World("WorldX"))

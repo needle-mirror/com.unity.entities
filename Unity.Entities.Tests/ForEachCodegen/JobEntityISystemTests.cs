@@ -74,6 +74,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void SimplestCase() => GetTestSystemUnsafe().SimplestCase(ref GetSystemStateRef());
 
         [Test]
+        public void ScheduleJobUsingExtensionMethod() => GetTestSystemUnsafe().ScheduleJobUsingExtensionMethod(ref GetSystemStateRef());
+
+        [Test]
         public void SimplestCaseInAnotherAssembly() => GetTestSystemUnsafe().SimplestCaseInAnotherAssembly(ref GetSystemStateRef());
 
         [Test]
@@ -318,6 +321,16 @@ namespace Unity.Entities.Tests.ForEachCodegen
         {
             new SimplestCaseJob().Schedule();
             state.Dependency.Complete();
+            Assert.AreEqual(7, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
+        public void ScheduleJobUsingExtensionMethod(ref SystemState state)
+        {
+            var job = new SimplestCaseJob();
+
+            var handle = IJobEntityExtensions.ScheduleParallel(job, state.Dependency);
+            handle.Complete();
+
             Assert.AreEqual(7, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
         }
 
