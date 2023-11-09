@@ -283,7 +283,9 @@ namespace Unity.Entities.Editor
             // Update to reflect the toggle state right away in the UI.
             Update();
 
+#if !UNITY_2023_2_OR_NEWER
             evt.PreventDefault();
+#endif
             evt.StopPropagation();
         }
 

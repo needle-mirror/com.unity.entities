@@ -303,22 +303,29 @@ namespace Unity.Scenes
                 entityRemapping = remapArgs.OutEntityRemapping;
             }
 
-            var startCapacity = srcManager.EntityCapacity;
 #if UNITY_EDITOR
-            using (s_AddSceneSharedComponents.Auto())
             {
-                var data = new EditorRenderData
+#if ENTITY_STORE_V1
+                var startCapacity = srcManager.EntityCapacity;
+#endif
+                using (s_AddSceneSharedComponents.Auto())
                 {
-                    SceneCullingMask = UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask | (1UL << 59)
-                };
-                srcManager.AddSharedComponentManaged(srcManager.UniversalQuery, data);
+                    var data = new EditorRenderData
+                    {
+                        SceneCullingMask = UnityEditor.SceneManagement.EditorSceneManager.DefaultSceneCullingMask | (1UL << 59)
+                    };
+                    srcManager.AddSharedComponentManaged(srcManager.UniversalQuery, data);
+                }
+
+#if ENTITY_STORE_V1
+                var endCapacity = srcManager.EntityCapacity;
+
+                // ExtractEntityRemapRefs gathers entityRemapping based on Entities Capacity.
+                // MoveEntitiesFrom below assumes that AddSharedComponentData on srcManager.UniversalQuery does not affect capacity.
+                Assert.AreEqual(startCapacity, endCapacity);
+#endif
             }
 #endif
-            var endCapacity = srcManager.EntityCapacity;
-
-            // ExtractEntityRemapRefs gathers entityRemapping based on Entities Capacity.
-            // MoveEntitiesFrom below assumes that AddSharedComponentData on srcManager.UniversalQuery does not affect capacity.
-            Assert.AreEqual(startCapacity, endCapacity);
 
             using (s_MoveEntitiesFrom.Auto())
             {
@@ -351,18 +358,57 @@ namespace Unity.Scenes
         // [BurstCompile]
         static bool ExtractEntityRemapRefs(ref EntityRemapArgs args)
         {
+#if !ENTITY_STORE_V1
+            int remapTableSize = args.SrcManager.HighestEntityIndex() + 1;
+#else
+            int remapTableSize = args.SrcManager.EntityCapacity;
+#endif
+
             if (args.SceneSectionData.SubSectionIndex == 0)
             {
                 // External entity references are "virtual" entities. If we don't have any, only real entities need remapping
                 // Section 0 doesn't have an external ref info, let's skip the whole process.
-                args.OutEntityRemapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(args.SrcManager.EntityCapacity, Allocator.TempJob);
+                args.OutEntityRemapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(remapTableSize, Allocator.TempJob);
                 return true;
             }
 
+#if !ENTITY_STORE_V1
+            NativeArray<Entity> externalReferences;
+
+            unsafe
+            {
+                // The singleton buffer is added when the chunks are deserialized, it contains all the placeholder entities
+                // which have been created for the external references. Those entities are not stored in any chunk at this
+                // point. Every section beyond section 0 should have this buffer added.
+                var type = ComponentType.ReadOnly<ExternalEntityReference>();
+                using (var extRefQuery = args.SrcManager.CreateEntityQuery(&type, 1))
+                {
+                    if (!extRefQuery.TryGetSingletonBuffer<ExternalEntityReference>(out var buffer, true))
+                    {
+                        // If the array is missing, the scene section 0 isn't loaded, we have to wait.
+                        return false;
+                    }
+                    externalReferences = buffer.AsNativeArray().Reinterpret<Entity>();
+                }
+            }
+
+            // The remapping table needs to be as big as the largest entity index that can be encountered in the chunks.
+            // The real entities are already accounted for, but the placeholder entities for the external references aren't.
+            // There's no other way than to figure out which one has the highest index. Remapping shouldn't use arrays anymore.
+            for (int ei = 0, ec = externalReferences.Length; ei < ec; ei++)
+            {
+                var idx = externalReferences[ei].Index;
+                if (idx >= remapTableSize)
+                {
+                    remapTableSize = idx + 1;
+                }
+            }
+#else
             // Loading a section which isn't section 0. We need to figure out the exact count of entities in the section,
             // because immediately after that comes the external references that need remapping.
             // Above we could use EntityCapacity as an approximation, it's faster than going over the archetypes to get the exact count.
             int entitiesCount = 0;
+            // External entity references are "virtual" entities. If we don't have any, only real entities need remapping
 
             unsafe
             {
@@ -374,7 +420,8 @@ namespace Unity.Scenes
                 }
             }
 
-            int remapTableSize = entitiesCount;
+            remapTableSize = entitiesCount;
+#endif
 
             // Within a scene, external scenes are identified by some ID
             // In the destination world, scenes are identified by an entity
@@ -399,20 +446,30 @@ namespace Unity.Scenes
 
             var pubRefs = args.EntityManager.GetBuffer<PublicEntityRef>(pubRefEntities[0]);
 
+#if ENTITY_STORE_V1
             // Space is required to handle every possible external reference that needs remapping.
             remapTableSize += pubRefs.Length;
+#endif
+
             args.OutEntityRemapping = new NativeArray<EntityRemapUtility.EntityRemapInfo>(remapTableSize, Allocator.TempJob);
 
             // Proper mapping from external reference in section to entity in main world
             for (int k = 0; k < pubRefs.Length; ++k)
             {
-                var srcIdx = entitiesCount + k;
+#if !ENTITY_STORE_V1
+                // Note that we come from version 0, which isn't the actual version of the placeholder entity.
+                // But the chunks have been remapped to 0 in order for the entities to be considered invalid
+                // even though they are properly allocated. This is important to ensure some consistency
+                // of the streaming world in case a post-load system has to run there.
+                var source = new Entity { Index = externalReferences[k].Index, Version = 0 };
+#else
+                var source = new Entity{ Index = entitiesCount + k, Version = 1 };
+#endif
                 var target = pubRefs[k].targetEntity;
 
-                // External references always have a version number of 1 (like any other entity in a deserialized file)
-                args.OutEntityRemapping[srcIdx] = new EntityRemapUtility.EntityRemapInfo
+                args.OutEntityRemapping[source.Index] = new EntityRemapUtility.EntityRemapInfo
                 {
-                    SourceVersion = 1,
+                    SourceVersion = source.Version,
                     Target = target
                 };
             }
@@ -895,7 +952,6 @@ namespace Unity.Scenes
                 postLoadCommandBuffer = (PostLoadCommandBuffer)postLoadCommandBuffer.Clone();
 #endif
 
-
             return new AsyncLoadSceneOperation(new AsyncLoadSceneData
             {
                 ScenePath = sectionData.ScenePath.ToString(),
@@ -909,8 +965,10 @@ namespace Unity.Scenes
                 SceneSectionEntity = entity,
                 UnityObjectRefId = sectionData.HybridReferenceId,
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
-                PostLoadCommandBuffer = postLoadCommandBuffer
+                PostLoadCommandBuffer = postLoadCommandBuffer,
 #endif
+                ExternalEntitiesRefRange = sceneData.ExternalEntitiesRefRange,
+                SceneSectionIndex = sceneData.SubSectionIndex,
             });
         }
     }

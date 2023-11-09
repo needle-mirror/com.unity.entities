@@ -14,7 +14,7 @@ struct IfeStructWriter : IMemberWriter
 
     void GenerateCompleteDependenciesMethod(IndentedTextWriter writer)
     {
-        writer.WriteLine("public static void CompleteDependencyBeforeRW(ref SystemState state)");
+        writer.WriteLine("public static void CompleteDependencies(ref SystemState state)");
         writer.WriteLine("{");
         writer.Indent++;
 
@@ -99,7 +99,7 @@ struct IfeStructWriter : IMemberWriter
         writer.WriteLine("if (!entityQuery.IsEmptyIgnoreFilter)");
         writer.WriteLine("{");
         writer.Indent++;
-        writer.WriteLine($"{ifeTypeName}.CompleteDependencyBeforeRW(ref state);");
+        writer.WriteLine($"{ifeTypeName}.CompleteDependencies(ref state);");
         writer.WriteLine("typeHandle.Update(ref state);");
         writer.WriteLine();
 
@@ -249,7 +249,7 @@ struct IfeStructWriter : IMemberWriter
                 writer.WriteLine(t.Field.Declaration);
         }
 
-        writer.WriteLine("public TypeHandle(ref global::Unity.Entities.SystemState systemState, bool isReadOnly)");
+        writer.WriteLine("public TypeHandle(ref global::Unity.Entities.SystemState systemState)");
         writer.WriteLine("{");
         writer.Indent++;
         if (needsEntManagerField)

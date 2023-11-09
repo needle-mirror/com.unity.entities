@@ -46,6 +46,7 @@ namespace Unity.Entities.Tests
 
 #endif
 
+#if ENTITY_STORE_V1
         [Test]
         public void IncreaseEntityCapacity()
         {
@@ -60,6 +61,7 @@ namespace Unity.Entities.Tests
 
             array.Dispose();
         }
+#endif
 
         [Test]
         public void AddComponent_Entity_EmptyComponentTypeSet_Works()
@@ -1341,14 +1343,15 @@ namespace Unity.Entities.Tests
         [Test]
         public void GetEntityInfo_InvalidEntity_ReturnsEntityInvalid()
         {
+#if ENTITY_STORE_V1
             var invalidEntity = new Entity {Index = m_Manager.EntityCapacity + 1, Version = 1};
             var info = m_Manager.Debug.GetEntityInfo(invalidEntity);
             Assert.AreEqual(info, "Entity.Invalid","Entity with Large Index failed test");
+#endif
 
             var invalidEntity2 = new Entity {Index = -1, Version = 1};
-            info = m_Manager.Debug.GetEntityInfo(invalidEntity2);
-            Assert.AreEqual(info, "Entity.Invalid", "Entity with Negative Index failed test");
-
+            var info2 = m_Manager.Debug.GetEntityInfo(invalidEntity2);
+            Assert.AreEqual(info2, "Entity.Invalid", "Entity with Negative Index failed test");
         }
 
         partial class WriteSignalSystem: SystemBase

@@ -2,15 +2,10 @@ using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Reflection;
-using System.Runtime.InteropServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.Burst;
-using Unity.Collections;
-using Unity.CompilationPipeline.Common.Diagnostics;
-using Unity.Jobs;
-using Unity.Jobs.LowLevel.Unsafe;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using ParameterAttributes = Mono.Cecil.ParameterAttributes;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
@@ -37,9 +32,10 @@ namespace Unity.Entities.CodeGen
         protected override bool PostProcessUnmanagedImpl(TypeDefinition[] unmanagedComponentSystemTypes)
         {
             bool changes = false;
-            
-            //create the registration class first so that if we need to put forwarders for generic isystems into it, it's ready
-            var autoClassName = $"__UnmanagedPostProcessorOutput__{(uint)AssemblyDefinition.FullName.GetHashCode()}";
+
+            // Create the registration class first so that if we need to put forwarders for generic ISystems into it, it's ready.
+            // This must use a stable hash code function (do not using string.GetHashCode).
+            var autoClassName = $"__UnmanagedPostProcessorOutput__{TypeHash.FNV1A64(AssemblyDefinition.FullName)}";
             var mod = AssemblyDefinition.MainModule;
 
             _registrationClassDef = new TypeDefinition("", autoClassName, TypeAttributes.Class, AssemblyDefinition.MainModule.ImportReference(typeof(object)));
@@ -109,7 +105,7 @@ namespace Unity.Entities.CodeGen
         private MethodDefinition _targetMethodDef;
         private MethodDefinition _methodDef;
 
-        
+
         /// <summary>
         /// https://www.ecma-international.org/wp-content/uploads/ECMA-335_6th_edition_june_2012.pdf section II.7.3
         /// basically if you don't do this, sometimes when you refer to types from another assembly, and you ldtoken
@@ -153,7 +149,7 @@ namespace Unity.Entities.CodeGen
 
             return mod.ImportReference(result);
         }
-        
+
         private TypeMemo AddStaticForwarders(TypeDefinition systemType, TypeReference specializedSystemType = null, TypeDefinition alternateTypeToInsertForwarders = null)
         {
             var mod = AssemblyDefinition.MainModule;
@@ -192,12 +188,12 @@ namespace Unity.Entities.CodeGen
                         "_" +
                         name;
                 }
-                
+
                 _methodDef = new MethodDefinition(GeneratedPrefix + wrapperName, MethodAttributes.Static | MethodAttributes.Assembly, mod.ImportReference(typeof(void)));
                 _methodDef.Parameters.Add(new ParameterDefinition("self", ParameterAttributes.None, intPtrRef));
                 _methodDef.Parameters.Add(new ParameterDefinition("state", ParameterAttributes.None, intPtrRef));
 
-                _targetMethodDef = systemType.Methods.FirstOrDefault(x => x.Parameters.Count == 1 && (x.Name == name || x.Name == fullName)); 
+                _targetMethodDef = systemType.Methods.FirstOrDefault(x => x.Parameters.Count == 1 && (x.Name == name || x.Name == fullName));
                 if (_targetMethodDef == null)
                     continue;
                 _targetMethodRef = mod.ImportReference(_targetMethodDef);

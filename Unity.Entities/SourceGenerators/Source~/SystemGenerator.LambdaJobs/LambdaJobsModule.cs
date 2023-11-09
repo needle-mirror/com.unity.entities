@@ -190,18 +190,6 @@ public class LambdaJobsModule : ISystemModule
                 }
             }
 
-            if (lambdaJobDescription.NeedsJobFunctionPointers)
-            {
-                systemDescription.AdditionalStatementsInOnCreateForCompilerMethod.Add(
-                    $"{lambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst = {lambdaJobDescription.JobStructName}.RunWithoutJobSystem;");
-
-                if (lambdaJobDescription.Burst.IsEnabled)
-                {
-                    systemDescription.AdditionalStatementsInOnCreateForCompilerMethod.Add(
-                        $"{lambdaJobDescription.JobStructName}.FunctionPtrFieldBurst = Unity.Entities.Internal.InternalCompilerInterface.BurstCompile({lambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst);");
-                }
-            }
-
             if (lambdaJobDescription.EntityCommandBufferParameter is { Playback: { IsImmediate: false } })
             {
                 systemDescription.AdditionalStatementsInOnCreateForCompilerMethod.Add(

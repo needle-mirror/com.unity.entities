@@ -97,7 +97,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
             if (_statementsRequiringLineDirectives.Contains(node))
             {
                 foreach (var leadingTrivia in node.GetLeadingTrivia())
-                    if (leadingTrivia.Kind() == SyntaxKind.WhitespaceTrivia)
+                    if (leadingTrivia.IsKind(SyntaxKind.WhitespaceTrivia))
                         // Ensure proper indentation
                         VisitTrivia(leadingTrivia);
 

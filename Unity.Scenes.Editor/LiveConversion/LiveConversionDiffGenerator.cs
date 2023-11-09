@@ -229,6 +229,10 @@ namespace Unity.Scenes.Editor
                 using var blobAssetStore = new BlobAssetStore(128);
 
                 var flags = _IncrementalConversionDebug.LastBakingFlags;
+
+                // We need to skip creating companions in the debug conversion pass
+                flags |= BakingUtility.BakingFlags.SkipCreatingCompanions;
+
                 // use this to compare the results of incremental conversion with the results of a clean conversion.
                 var conversionSettings = GetBakeSettings(flags, blobAssetStore, _settingAsset);
                 BakingUtility.BakeScene(_IncrementalConversionDebug.World, _Scene, conversionSettings, false, null);
@@ -269,26 +273,60 @@ namespace Unity.Scenes.Editor
                         // in that case pointing out that the companion link changed is not exactly helpful for the user
                         // either.
                         var managedComponents = fwdChanges.SetManagedComponents;
+                        var setComponents = fwdChanges.SetComponents;
+                        var componentsRemoved = fwdChanges.RemoveComponents;
                         int numCompanionLinkObjects = 0;
                         var types = fwdChanges.TypeHashes;
+                        var companionReferenceIndex = TypeManager.GetTypeIndex<CompanionReference>();
                         var companionLinkIndex = TypeManager.GetTypeIndex<CompanionLink>();
-                        int last = managedComponents.Length - 1;
-                        for (int i = last; i >= 0; i--)
+                        var companionLinkTransformIndex = TypeManager.GetTypeIndex<CompanionLinkTransform>();
+                        int lastManaged = managedComponents.Length - 1;
+                        for (int i = lastManaged; i >= 0; i--)
                         {
                             // We need to go through the type index to correctly handle null Companion Links
                             int packedTypeIdx = managedComponents[i].Component.PackedTypeIndex;
                             var idx = TypeManager.GetTypeIndexFromStableTypeHash(types[packedTypeIdx].StableTypeHash);
-                            if (idx == companionLinkIndex)
+                            if (idx == companionReferenceIndex)
                             {
-                                managedComponents[i] = managedComponents[last - numCompanionLinkObjects];
+                                managedComponents[i] = managedComponents[lastManaged - numCompanionLinkObjects];
                                 numCompanionLinkObjects += 1;
                             }
                         }
 
-                        if (numCompanionLinkObjects > 0)
+                        int lastComponentSet = setComponents.Length - 1;
+                        int numCompanionComponentsSet = 0;
+                        for (int i = lastComponentSet; i >= 0; i--)
+                        {
+                            // We need to go through the type index to correctly handle null Companion Links
+                            int packedTypeIdx = setComponents[i].Component.PackedTypeIndex;
+                            var idx = TypeManager.GetTypeIndexFromStableTypeHash(types[packedTypeIdx].StableTypeHash);
+                            if (idx == companionLinkIndex || idx == companionLinkTransformIndex)
+                            {
+                                setComponents[i] = setComponents[lastComponentSet - numCompanionComponentsSet];
+                                numCompanionComponentsSet += 1;
+                            }
+                        }
+
+                        int lastComponentRemoved = componentsRemoved.Length - 1;
+                        int numCompanionLinkComponentsRemoved = 0;
+                        for (int i = lastComponentRemoved; i >= 0; i--)
+                        {
+                            // We need to go through the type index to correctly handle null Companion Links
+                            int packedTypeIdx = componentsRemoved[i].PackedTypeIndex;
+                            var idx = TypeManager.GetTypeIndexFromStableTypeHash(types[packedTypeIdx].StableTypeHash);
+                            if (idx == companionLinkIndex || idx == companionLinkTransformIndex || idx == companionReferenceIndex)
+                            {
+                                componentsRemoved[i] = componentsRemoved[lastComponentRemoved - numCompanionLinkComponentsRemoved];
+                                numCompanionLinkComponentsRemoved += 1;
+                            }
+                        }
+
+                        if (numCompanionLinkObjects > 0 || numCompanionComponentsSet > 0 || numCompanionLinkComponentsRemoved > 0)
                         {
                             // throw away the companion link changes
-                            Array.Resize(ref managedComponents, last + 1 - numCompanionLinkObjects);
+                            Array.Resize(ref managedComponents, lastManaged + 1 - numCompanionLinkObjects);
+                            var setComponentsWithoutCompanions = setComponents.GetSubArray(0, lastComponentSet + 1 - numCompanionComponentsSet);
+                            var removeComponentsWithoutCompanions = componentsRemoved.GetSubArray(0, lastComponentRemoved + 1 - numCompanionLinkComponentsRemoved);
                             fwdChanges = new EntityChangeSet(fwdChanges.CreatedEntityCount,
                                 fwdChanges.DestroyedEntityCount,
                                 fwdChanges.NameChangedCount,
@@ -298,8 +336,8 @@ namespace Unity.Scenes.Editor
                                 fwdChanges.NameChangedEntityGuids,
                                 fwdChanges.AddComponents,
                                 fwdChanges.AddArchetypes,
-                                fwdChanges.RemoveComponents,
-                                fwdChanges.SetComponents,
+                                removeComponentsWithoutCompanions,
+                                setComponentsWithoutCompanions,
                                 fwdChanges.ComponentData,
                                 fwdChanges.EntityReferenceChanges,
                                 fwdChanges.BlobAssetReferenceChanges,
@@ -311,7 +349,7 @@ namespace Unity.Scenes.Editor
                                 fwdChanges.CreatedBlobAssets,
                                 fwdChanges.DestroyedBlobAssets,
                                 fwdChanges.BlobAssetData);
-                            if (!fwdChanges.HasChanges)
+                            if (!fwdChanges.HasChangesIncludeNames(false, true))
                                 return;
                         }
                     }

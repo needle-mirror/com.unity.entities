@@ -328,7 +328,7 @@ namespace Unity.Entities.Editor
                 get => m_ExportImmutableStateData->Depth;
                 set => m_ExportImmutableStateData->Depth = value;
             }
-            
+
             internal int Version
             {
                 get => m_ExportImmutableStateData->Version;
@@ -396,7 +396,7 @@ namespace Unity.Entities.Editor
             {
                 if (write.Equals(read))
                     throw new InvalidOperationException("Can not read and write from the same immutable buffer.");
-                
+
                 if (!state.IsCreated)
                     throw new ArgumentException("The given state object is not allocated.");
 
@@ -408,7 +408,7 @@ namespace Unity.Entities.Editor
                 m_Step = Step.HierarchyNodes;
                 m_TotalCount = m_Hierarchy.Count();
                 m_BatchCount = batchSize;
-                
+
                 m_State.Clear();
                 m_StateVersion = ++m_State.Version;
                 write.SetChangeVersion(m_Hierarchy.ChangeVersion);
@@ -419,31 +419,46 @@ namespace Unity.Entities.Editor
             {
                 if (!m_State.IsCreated)
                     throw new InvalidOperationException("The state object has been disposed during enumeration.");
-                
+
                 if (m_StateVersion != m_State.Version)
                     throw new InvalidOperationException("The state object has been modified by another enumerator.");
-                
+
                 switch (m_Step)
                 {
                     case Step.HierarchyNodes:
                     {
-                        new ExportImmutableHierarchyNodesBatchJob
+                        unsafe
                         {
-                            EntityCapacity = m_World != null ? m_World.EntityManager.EntityCapacity : 0,
-                            Nodes = m_Hierarchy.m_Nodes,
-                            Children = m_Hierarchy.m_Children,
-                            ReadChangeVersion = m_Read.IsCreated ? m_Read.ChangeVersion : -1,
-                            ReadNodes = m_Read,
-                            WriteNodes = m_Write,
-                            State = m_State,
-                            BatchSize = m_BatchCount
-                        }.Run();
+                            int exceptionThrown = 0;
+                            var job = new ExportImmutableHierarchyNodesBatchJob
+                            {
+                                ExceptionThrown = &exceptionThrown,
+#if !ENTITY_STORE_V1
+                                EntityCapacity = m_World != null ? m_World.EntityManager.HighestEntityIndex() + 1 : 0,
+#else
+                                EntityCapacity = m_World != null ? m_World.EntityManager.EntityCapacity : 0,
+#endif
+                                Nodes = m_Hierarchy.m_Nodes,
+                                Children = m_Hierarchy.m_Children,
+                                ReadChangeVersion = m_Read.IsCreated ? m_Read.ChangeVersion : -1,
+                                ReadNodes = m_Read,
+                                WriteNodes = m_Write,
+                                State = m_State,
+                                BatchSize = m_BatchCount
+                            };
+                            job.Run();
 
-                        // Keep going until the stack is empty.
-                        if (m_State.ChildrenStack.Length <= 0)
-                            m_Step = Step.EntityNodes;
+                            if (exceptionThrown != 0)
+                            {
+                                throw new InvalidOperationException("Exception thrown during enumeration.");
+                            }
 
-                        return true;
+                            // Keep going until the stack is empty.
+                            if (m_State.ChildrenStack.Length <= 0)
+                                m_Step = Step.EntityNodes;
+
+                            return true;
+                        }
                     }
 
                     case Step.EntityNodes:
@@ -469,7 +484,7 @@ namespace Unity.Entities.Editor
         {
             using var srcBuffer = new Immutable(Allocator.TempJob);
             using var state = new ExportImmutableState(Allocator.TempJob);
-            
+
             var enumerator = CreateBuildImmutableEnumerator(world, state, dstBuffer, srcBuffer, 0);
             while (enumerator.MoveNext())
             {
@@ -479,13 +494,13 @@ namespace Unity.Entities.Editor
         public void ExportImmutable(World world, Immutable dstBuffer, Immutable srcBuffer)
         {
             using var state = new ExportImmutableState(Allocator.TempJob);
-            
+
             var enumerator = CreateBuildImmutableEnumerator(world, state, dstBuffer, srcBuffer, 0);
             while (enumerator.MoveNext())
             {
             }
         }
-        
+
         /// <summary>
         /// Creates an enumerator which will write out the immutable hierarchy over several ticks.
         /// </summary>
@@ -506,6 +521,7 @@ namespace Unity.Entities.Editor
         [BurstCompile]
         unsafe struct ExportImmutableHierarchyNodesBatchJob : IJob
         {
+            [NativeDisableUnsafePtrRestriction] public int* ExceptionThrown;
             public int EntityCapacity;
 
             [ReadOnly] public HierarchyNodeMap<HierarchyNodeData> Nodes;
@@ -541,6 +557,11 @@ namespace Unity.Entities.Editor
 
             public void Execute()
             {
+                // Swallowing the exception could get us stuck in an infinite loop.
+                // So this mechanism is used to break from underlying iteration on main thread.
+                // The idea is to reset this to zero on every normal (non-exception) exit point of Execute.
+                *ExceptionThrown = 1;
+
                 BeginBatch();
 
                 var batchIndex = 0;
@@ -575,6 +596,7 @@ namespace Unity.Entities.Editor
                     if (BatchSize > 0 && batchIndex >= BatchSize)
                     {
                         EndBatch();
+                        *ExceptionThrown = 0;
                         return;
                     }
 
@@ -599,6 +621,8 @@ namespace Unity.Entities.Editor
                         State.ChildrenBuffer.Length -= node.ChildCount;
                     }
                 }
+
+                *ExceptionThrown = 0;
             }
 
             void PushNode(HierarchyNodeHandle handle, int parentIndex)
@@ -726,12 +750,12 @@ namespace Unity.Entities.Editor
 
             public void Execute()
             {
-                // The total number of 'root' entities. These do not require hierarchical information and will be stored in a specialized storage. 
+                // The total number of 'root' entities. These do not require hierarchical information and will be stored in a specialized storage.
                 var entityCount = Nodes.ValueByEntity.Count - Nodes.ValueByEntity.CountNonSharedDefault;
 
                 WriteNodes.m_EntityNodes->Resize(entityCount);
                 WriteNodes.m_EntityNodes->Length = entityCount;
-                
+
                 if (entityCount == 0)
                     return;
 

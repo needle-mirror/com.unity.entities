@@ -33,7 +33,11 @@ namespace Unity.Entities.Tests
             SceneCameraRendered = false;
 
             Camera.onPostRender += onPostRender;
+#if UNITY_2023_2_OR_NEWER
+            RenderPipelineManager.endContextRendering += endContextRendering;
+#else
             RenderPipelineManager.endFrameRendering += endFrameRendering;
+#endif
         }
 
         public void TearDown()
@@ -41,7 +45,11 @@ namespace Unity.Entities.Tests
             if (IsSetUp)
             {
                 Camera.onPostRender -= onPostRender;
+#if UNITY_2023_2_OR_NEWER
+                RenderPipelineManager.endContextRendering -= endContextRendering;
+#else
                 RenderPipelineManager.endFrameRendering -= endFrameRendering;
+#endif
                 IsSetUp = false;
             }
         }
@@ -57,6 +65,15 @@ namespace Unity.Entities.Tests
                 yield return null;
         }
 
+#if UNITY_2023_2_OR_NEWER
+        private void endContextRendering(ScriptableRenderContext arg1, List<Camera> cameras)
+        {
+            foreach (Camera camera in cameras)
+            {
+                onPostRender(camera);
+            }
+        }
+#else
         private void endFrameRendering(ScriptableRenderContext context, Camera[] cameras)
         {
             foreach (Camera camera in cameras)
@@ -64,6 +81,7 @@ namespace Unity.Entities.Tests
                 onPostRender(camera);
             }
         }
+#endif
 
         private void onPostRender(Camera cam)
         {
@@ -165,9 +183,7 @@ namespace Unity.Entities.Tests
                 // Why is it 4?
                 // 1- Authoring object
                 // 2- Companion object
-                // 3- Entity Patcher world
-                // 4- Entity Patcher shadow world
-                Assert.AreEqual(4, objs.Length, "Incorrect number of game objects.");
+                Assert.AreEqual(2, objs.Length, "Incorrect number of game objects.");
 
                 var sceneCameras = SceneView.GetAllSceneCameras();
                 Assert.AreEqual(1, sceneCameras.Length, "This test should contain one Scene Camera.");

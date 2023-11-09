@@ -5,13 +5,8 @@ using System.Collections.Generic;
 
 namespace Unity.Entities.Tests
 {
+#if ENTITY_STORE_V1
     public struct Issue149Data : IComponentData
-    {
-        public int a;
-        public int b;
-    }
-
-    public struct Issue476Data : IComponentData
     {
         public int a;
         public int b;
@@ -128,6 +123,13 @@ namespace Unity.Entities.Tests
                 }
             }
         }
+    }
+#endif
+
+    public struct Issue476Data : IComponentData
+    {
+        public int a;
+        public int b;
     }
 
     class Bug476 : ECSTestsFixture

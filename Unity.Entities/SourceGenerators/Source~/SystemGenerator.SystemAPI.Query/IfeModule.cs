@@ -166,7 +166,7 @@ public class IfeModule : ISystemModule
             systemDescription.NewMiscellaneousMembers.Add(ifeStructWriter);
 
             var ifeTypeHandleFieldName =
-                systemDescription.QueriesAndHandles.GetOrCreateSourceGeneratedTypeHandleField(description.IfeType.FullyQualifiedTypeName);
+                systemDescription.QueriesAndHandles.GetOrCreateSourceGeneratedIfeTypeHandleField(description.IfeType.FullyQualifiedTypeName);
 
             var entityQueryFieldName =
                 systemDescription.QueriesAndHandles.GetOrCreateQueryField(

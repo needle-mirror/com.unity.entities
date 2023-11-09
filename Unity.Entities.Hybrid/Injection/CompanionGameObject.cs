@@ -21,7 +21,9 @@ namespace Unity.Entities
         static void Initialize()
         {
             TypeManager.Initialize();
+            ManagedComponentStore.CompanionReferenceTypeIndex = TypeManager.GetTypeIndex(typeof(CompanionReference));
             ManagedComponentStore.CompanionLinkTypeIndex = TypeManager.GetTypeIndex(typeof(CompanionLink));
+            ManagedComponentStore.CompanionLinkTransformTypeIndex = TypeManager.GetTypeIndex(typeof(CompanionLinkTransform));
             ManagedComponentStore.InstantiateCompanionComponent = InstantiateCompanionComponentDelegate;
             ManagedComponentStore.AssignCompanionComponentsToCompanionGameObjects = AssignCompanionComponentsToCompanionGameObjectsDelegate;
         }
@@ -36,14 +38,16 @@ namespace Unity.Entities
         /// <param name="dstArray">Array of destination managed component indices. One per <paramref name="componentCount"/>*<paramref name="instanceCount"/>. All indices for the first component stored first etc.</param>
         /// <param name="instanceCount">Number of instances being created</param>
         /// <param name="managedComponentStore">Managed Store that owns the instances we create</param>
-        static void InstantiateCompanionComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstCompanionLinkIndices, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore)
+        static void InstantiateCompanionComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstCompanionLinkIndices, int* dstComponentLinkIds, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore)
         {
             if (dstCompanionLinkIndices != null)
             {
                 var dstCompanionGameObjects = new GameObject[instanceCount];
                 for (int i = 0; i < instanceCount; ++i)
                 {
-                    var companionLink = (CompanionLink)managedComponentStore.GetManagedComponent(dstCompanionLinkIndices[i]);
+                    var companionLink = (CompanionReference)managedComponentStore.GetManagedComponent(dstCompanionLinkIndices[i]);
+                    // Update referenced Instance ID
+                    companionLink.Companion.Id.instanceId = dstComponentLinkIds[i];
                     dstCompanionGameObjects[i] = companionLink.Companion;
                     #if UNITY_EDITOR
                     CompanionGameObjectUtility.SetCompanionName(dstEntities[i], dstCompanionGameObjects[i]);
@@ -82,7 +86,10 @@ namespace Unity.Entities
             for (int i = 0; i < entities.Length; ++i)
             {
                 var entity = entities[i];
-                var companionGameObject = entityManager.GetComponentData<CompanionLink>(entity).Companion;
+                var companionGameObject = entityManager.GetComponentData<CompanionLink>(entity).Companion.Value;
+
+                // Add a CompanionReference
+                entityManager.AddComponentObject(entity, new CompanionReference { Companion = companionGameObject });
 
                 var archetypeChunk = entityManager.GetChunk(entities[i]);
                 var archetype = archetypeChunk.Archetype.Archetype;

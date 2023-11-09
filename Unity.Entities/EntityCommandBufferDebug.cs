@@ -230,15 +230,6 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void AddComponentWithEntityFixUp(BasicCommand* header)
-            {
-                var cmd = (EntityComponentCommand*)header;
-                FixedString64Bytes commandAction = "Adding";
-                LogEntityAndComponentCommand(cmd->Header.Entity, cmd->ComponentTypeIndex, in commandAction);
-                playbackProcessor.AddComponentWithEntityFixUp(header);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetComponent(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*)header;
@@ -282,30 +273,12 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void SetComponentWithEntityFixUp(BasicCommand* header)
-            {
-                var cmd = (EntityComponentCommand*)header;
-                FixedString64Bytes commandAction = "Setting";
-                LogEntityAndComponentCommand(cmd->Header.Entity, cmd->ComponentTypeIndex, in commandAction);
-                playbackProcessor.SetComponentWithEntityFixUp(header);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddBuffer(BasicCommand* header)
             {
                 var cmd = (EntityBufferCommand*)header;
                 FixedString64Bytes commandAction = "Adding dynamic buffer";
                 LogEntityAndComponentCommand(cmd->Header.Entity, cmd->ComponentTypeIndex, in commandAction);
                 playbackProcessor.AddBuffer(header);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void AddBufferWithEntityFixUp(BasicCommand* header)
-            {
-                var cmd = (EntityBufferCommand*)header;
-                FixedString64Bytes commandAction = "Adding dynamic buffer";
-                LogEntityAndComponentCommand(cmd->Header.Entity, cmd->ComponentTypeIndex, in commandAction);
-                playbackProcessor.AddBufferWithEntityFixUp(header);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -318,30 +291,12 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void SetBufferWithEntityFixUp(BasicCommand* header)
-            {
-                var cmd = (EntityBufferCommand*)header;
-                FixedString64Bytes commandAction = "Setting dynamic buffer";
-                LogEntityAndComponentCommand(cmd->Header.Entity, cmd->ComponentTypeIndex, in commandAction);
-                playbackProcessor.SetBufferWithEntityFixUp(header);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AppendToBuffer(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*)header;
                 FixedString64Bytes commandAction = "Appending element to dynamic buffer";
                 LogEntityAndComponentCommand(cmd->Header.Entity, cmd->ComponentTypeIndex, in commandAction);
                 playbackProcessor.AppendToBuffer(header);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void AppendToBufferWithEntityFixUp(BasicCommand* header)
-            {
-                var cmd = (EntityComponentCommand*)header;
-                FixedString64Bytes commandAction = "Appending element to dynamic buffer";
-                LogEntityAndComponentCommand(cmd->Header.Entity, cmd->ComponentTypeIndex, in commandAction);
-                playbackProcessor.AppendToBufferWithEntityFixUp(header);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -819,17 +774,6 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void AddComponentWithEntityFixUp(BasicCommand* header)
-            {
-                var cmd = (EntityComponentCommand*)header;
-
-                var entity = SelectEntity(cmd->Header.Entity, playbackProcessor.playbackState);
-                ThrowIfPrefab(entity);
-
-                playbackProcessor.AddComponentWithEntityFixUp(header);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void SetComponent(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*)header;
@@ -873,17 +817,6 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void SetComponentWithEntityFixUp(BasicCommand* header)
-            {
-                var cmd = (EntityComponentCommand*)header;
-
-                var entity = SelectEntity(cmd->Header.Entity, playbackProcessor.playbackState);
-                ThrowIfPrefab(entity);
-
-                playbackProcessor.SetComponentWithEntityFixUp(header);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AddBuffer(BasicCommand* header)
             {
                 var cmd = (EntityBufferCommand*)header;
@@ -892,17 +825,6 @@ namespace Unity.Entities
                 ThrowIfPrefab(entity);
 
                 playbackProcessor.AddBuffer(header);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void AddBufferWithEntityFixUp(BasicCommand* header)
-            {
-                var cmd = (EntityBufferCommand*)header;
-
-                var entity = SelectEntity(cmd->Header.Entity, playbackProcessor.playbackState);
-                ThrowIfPrefab(entity);
-
-                playbackProcessor.AddBufferWithEntityFixUp(header);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -917,17 +839,6 @@ namespace Unity.Entities
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void SetBufferWithEntityFixUp(BasicCommand* header)
-            {
-                var cmd = (EntityBufferCommand*)header;
-
-                var entity = SelectEntity(cmd->Header.Entity, playbackProcessor.playbackState);
-                ThrowIfPrefab(entity);
-
-                playbackProcessor.SetBufferWithEntityFixUp(header);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
             public void AppendToBuffer(BasicCommand* header)
             {
                 var cmd = (EntityComponentCommand*)header;
@@ -936,17 +847,6 @@ namespace Unity.Entities
                 ThrowIfPrefab(entity);
 
                 playbackProcessor.AppendToBuffer(header);
-            }
-
-            [MethodImpl(MethodImplOptions.AggressiveInlining)]
-            public void AppendToBufferWithEntityFixUp(BasicCommand* header)
-            {
-                var cmd = (EntityComponentCommand*)header;
-
-                var entity = SelectEntity(cmd->Header.Entity, playbackProcessor.playbackState);
-                ThrowIfPrefab(entity);
-
-                playbackProcessor.AppendToBufferWithEntityFixUp(header);
             }
 
             [MethodImpl(MethodImplOptions.AggressiveInlining)]
@@ -1356,11 +1256,6 @@ namespace Unity.Entities
                 commands.Add(header);
             }
 
-            public unsafe void AddComponentWithEntityFixUp(BasicCommand* header)
-            {
-                commands.Add(header);
-            }
-
             public unsafe void SetComponent(BasicCommand* header)
             {
                 commands.Add(header);
@@ -1381,17 +1276,7 @@ namespace Unity.Entities
                 commands.Add(header);
             }
 
-            public unsafe void SetComponentWithEntityFixUp(BasicCommand* header)
-            {
-                commands.Add(header);
-            }
-
             public unsafe void AddBuffer(BasicCommand* header)
-            {
-                commands.Add(header);
-            }
-
-            public unsafe void AddBufferWithEntityFixUp(BasicCommand* header)
             {
                 commands.Add(header);
             }
@@ -1401,17 +1286,7 @@ namespace Unity.Entities
                 commands.Add(header);
             }
 
-            public unsafe void SetBufferWithEntityFixUp(BasicCommand* header)
-            {
-                commands.Add(header);
-            }
-
             public unsafe void AppendToBuffer(BasicCommand* header)
-            {
-                commands.Add(header);
-            }
-
-            public unsafe void AppendToBufferWithEntityFixUp(BasicCommand* header)
             {
                 commands.Add(header);
             }
@@ -1596,14 +1471,14 @@ namespace Unity.Entities
             public int EntityIdentityIndex;
             public int BatchCount;
 
-            public CreateCommandView(ECBCommand commandType, int sortKey, int totalSize, EntityArchetype archetype, int identityIndex, int batchCount)
+            public CreateCommandView(CreateCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                EntityArchetype = archetype;
-                EntityIdentityIndex = identityIndex;
-                BatchCount = batchCount;
+                CommandType = cmd->Header.CommandType;
+                SortKey = cmd->Header.SortKey;
+                TotalSizeInBytes = cmd->Header.TotalSize;
+                EntityArchetype = cmd->Archetype;
+                EntityIdentityIndex = cmd->IdentityIndex;
+                BatchCount = cmd->BatchCount;
             }
 
             public override string ToString()
@@ -1625,14 +1500,14 @@ namespace Unity.Entities
                 BatchCount = 0;
             }
 
-            public EntityCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity, int identityIndex, int batchCount)
+            public EntityCommandView(EntityCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
+                CommandType = cmd->Header.CommandType;
+                SortKey = cmd->Header.SortKey;
+                TotalSizeInBytes = cmd->Header.TotalSize;
+                Entity = cmd->Entity;
+                IdentityIndex = cmd->IdentityIndex;
+                BatchCount = cmd->BatchCount;
             }
 
             public override string ToString()
@@ -1653,12 +1528,12 @@ namespace Unity.Entities
                 Query = null;
             }
 
-            public EntityQueryCommandView(ECBCommand commandType, int sortKey, int totalSize, EntityQueryImpl* queryImpl)
+            public EntityQueryCommandView(EntityQueryCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Query = queryImpl;
+                CommandType = cmd->Header.CommandType;
+                SortKey = cmd->Header.SortKey;
+                TotalSizeInBytes = cmd->Header.TotalSize;
+                Query = cmd->QueryImpl;
             }
         }
 
@@ -1675,14 +1550,13 @@ namespace Unity.Entities
                 ComponentTypeIndex = 0;
             }
 
-            public EntityQueryComponentCommandView(ECBCommand commandType, int sortKey, int totalSize,
-                EntityQueryImpl* queryImpl, TypeIndex componentTypeIndex)
+            public EntityQueryComponentCommandView(EntityQueryComponentCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Query = queryImpl;
-                ComponentTypeIndex = componentTypeIndex;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Query = cmd->Header.QueryImpl;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
             }
 
             public override string ToString()
@@ -1697,14 +1571,13 @@ namespace Unity.Entities
         {
             public ComponentTypeSet TypeSet;
 
-            public EntityQueryComponentTypeSetCommandView(ECBCommand commandType, int sortKey, int totalSize,
-                EntityQueryImpl* queryImpl, in ComponentTypeSet typeSet)
+            public EntityQueryComponentTypeSetCommandView(EntityQueryComponentTypeSetCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Query = queryImpl;
-                TypeSet = typeSet;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Query = cmd->Header.QueryImpl;
+                TypeSet = cmd->TypeSet;
             }
 
             public override string ToString()
@@ -1728,16 +1601,15 @@ namespace Unity.Entities
                 SkipDeferredEntityLookup = false;
             }
 
-            public MultipleEntitiesCommandView(ECBCommand commandType, int sortKey, int totalSize, EntityNode entities, int entitiesCount,
-                bool skipDeferredEntityLookup, AllocatorManager.AllocatorHandle allocator)
+            public MultipleEntitiesCommandView(MultipleEntitiesCommand *cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entities = entities;
-                EntitiesCount = entitiesCount;
-                SkipDeferredEntityLookup = skipDeferredEntityLookup;
-                Allocator = allocator;
+                CommandType = cmd->Header.CommandType;
+                SortKey = cmd->Header.SortKey;
+                TotalSizeInBytes = cmd->Header.TotalSize;
+                Entities = cmd->Entities;
+                EntitiesCount = cmd->EntitiesCount;
+                SkipDeferredEntityLookup = cmd->SkipDeferredEntityLookup != 0;
+                Allocator = cmd->Allocator.ToAllocator;
             }
 
             public override string ToString()
@@ -1749,25 +1621,25 @@ namespace Unity.Entities
         internal class MultipleEntitiesComponentCommandView : MultipleEntitiesCommandView
         {
             public TypeIndex ComponentTypeIndex;
-            public int ComponentSize;
+            public short ComponentSize;
             public object ComponentValue;
+            public bool ValueRequiresEntityFixup;
 
-            public MultipleEntitiesComponentCommandView(ECBCommand commandType, int sortKey, int totalSize,
-                EntityNode entities, int entitiesCount, bool skipDeferredEntityLookup, AllocatorManager.AllocatorHandle allocator, TypeIndex componentTypeIndex, int componentSize,
-                byte* componentValue)
+            public MultipleEntitiesComponentCommandView(MultipleEntitiesComponentCommand* cmd, byte* componentValue)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entities = entities;
-                EntitiesCount = entitiesCount;
-                SkipDeferredEntityLookup = skipDeferredEntityLookup;
-                Allocator = allocator;
-                ComponentTypeIndex = componentTypeIndex;
-                ComponentSize = componentSize;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entities = cmd->Header.Entities;
+                EntitiesCount = cmd->Header.EntitiesCount;
+                SkipDeferredEntityLookup = cmd->Header.SkipDeferredEntityLookup != 0;
+                Allocator = cmd->Header.Allocator.ToAllocator;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
+                ComponentSize = cmd->ComponentSize;
+                ValueRequiresEntityFixup = cmd->ValueRequiresEntityFixup != 0;
                 if (ComponentSize > 0 && componentValue != null)
                 {
-                    ComponentValue = TypeManager.ConstructComponentFromBuffer(componentTypeIndex, componentValue);
+                    ComponentValue = TypeManager.ConstructComponentFromBuffer(ComponentTypeIndex, componentValue);
                 }
                 else
                 {
@@ -1796,19 +1668,18 @@ namespace Unity.Entities
                 return null;
             }
 
-            public MultipleEntitiesComponentCommandWithObjectView(ECBCommand commandType, int sortKey, int totalSize, EntityNode entities, int entitiesCount,
-                bool skipDeferredEntityLookup, AllocatorManager.AllocatorHandle allocator, TypeIndex componentTypeIndex, int hashCode, EntityComponentGCNode gcNode)
+            public MultipleEntitiesComponentCommandWithObjectView(MultipleEntitiesComponentCommandWithObject* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entities = entities;
-                EntitiesCount = entitiesCount;
-                SkipDeferredEntityLookup = skipDeferredEntityLookup;
-                Allocator = allocator;
-                ComponentTypeIndex = componentTypeIndex;
-                HashCode = hashCode;
-                GCNode = gcNode;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entities = cmd->Header.Entities;
+                EntitiesCount = cmd->Header.EntitiesCount;
+                SkipDeferredEntityLookup = cmd->Header.SkipDeferredEntityLookup != 0;
+                Allocator = cmd->Header.Allocator.ToAllocator;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
+                HashCode = cmd->HashCode;
+                GCNode = cmd->GCNode;
             }
 
             public override string ToString()
@@ -1834,16 +1705,15 @@ namespace Unity.Entities
                 return null;
             }
 
-            public EntityQueryComponentCommandWithObjectView(ECBCommand commandType, int sortKey, int totalSize,
-                EntityQueryImpl* queryImpl, TypeIndex componentTypeIndex, int hashCode, EntityComponentGCNode gcNode)
+            public EntityQueryComponentCommandWithObjectView(EntityQueryComponentCommandWithObject* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Query = queryImpl;
-                ComponentTypeIndex = componentTypeIndex;
-                HashCode = hashCode;
-                GCNode = gcNode;
+                CommandType = cmd->Header.Header.Header.CommandType;
+                SortKey = cmd->Header.Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.Header.TotalSize;
+                Query = cmd->Header.Header.QueryImpl;
+                ComponentTypeIndex = cmd->Header.ComponentTypeIndex;
+                HashCode = cmd->HashCode;
+                GCNode = cmd->GCNode;
             }
 
             public override string ToString()
@@ -1861,17 +1731,16 @@ namespace Unity.Entities
         {
             public ComponentTypeSet TypeSet;
 
-            public MultipleEntitiesAndComponentsCommandView(ECBCommand commandType, int sortKey, int totalSize, EntityNode entities, int entitiesCount,
-                bool skipDeferredEntityLookup, AllocatorManager.AllocatorHandle allocator, in ComponentTypeSet typeSet)
+            public MultipleEntitiesAndComponentsCommandView(MultipleEntitiesAndComponentsCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entities = entities;
-                EntitiesCount = entitiesCount;
-                SkipDeferredEntityLookup = skipDeferredEntityLookup;
-                Allocator = allocator;
-                TypeSet = typeSet;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entities = cmd->Header.Entities;
+                EntitiesCount = cmd->Header.EntitiesCount;
+                SkipDeferredEntityLookup = cmd->Header.SkipDeferredEntityLookup != 0;
+                Allocator = cmd->Header.Allocator.ToAllocator;
+                TypeSet = cmd->TypeSet;
             }
 
             public override string ToString()
@@ -1884,8 +1753,9 @@ namespace Unity.Entities
         internal class EntityComponentCommandView : EntityCommandView
         {
             public TypeIndex ComponentTypeIndex;
-            public int ComponentSize;
+            public short ComponentSize;
             public object ComponentValue;
+            public bool ValueRequiresEntityFixup;
 
             public EntityComponentCommandView()
             {
@@ -1894,20 +1764,20 @@ namespace Unity.Entities
                 ComponentValue = default;
             }
 
-            public EntityComponentCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity,
-                int identityIndex, int batchCount, TypeIndex componentTypeIndex, int componentSize, byte* componentValue)
+            public EntityComponentCommandView(EntityComponentCommand* cmd, byte* componentValue)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                ComponentTypeIndex = componentTypeIndex;
-                ComponentSize = componentSize;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entity = cmd->Header.Entity;
+                IdentityIndex = cmd->Header.IdentityIndex;
+                BatchCount = cmd->Header.BatchCount;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
+                ComponentSize = cmd->ComponentSize;
+                ValueRequiresEntityFixup = cmd->ValueRequiresEntityFixup != 0;
                 if (ComponentSize > 0 && componentValue != null)
                 {
-                    ComponentValue = TypeManager.ConstructComponentFromBuffer(componentTypeIndex, componentValue);
+                    ComponentValue = TypeManager.ConstructComponentFromBuffer(ComponentTypeIndex, componentValue);
                 }
                 else
                 {
@@ -1923,11 +1793,8 @@ namespace Unity.Entities
                 {
                     case ECBCommand.RemoveComponent: return $"Remove {typeName}Component";
                     case ECBCommand.AddComponent: return $"Add {typeName}Component";
-                    case ECBCommand.AddComponentWithEntityFixUp: return $"Add {typeName}Component";
                     case ECBCommand.SetComponent: return $"Set {typeName}Component";
-                    case ECBCommand.SetComponentWithEntityFixUp: return $"Set {typeName}Component";
                     case ECBCommand.AppendToBuffer: return $"Append {typeName}BufferElementData";
-                    case ECBCommand.AppendToBufferWithEntityFixUp: return $"Append {typeName}BufferElementData";
                     case ECBCommand.ReplaceComponentLinkedEntityGroup:
                         return $"Replace {typeName}Component for LinkedEntityGroup";
                     default: throw new ArgumentException("Unknown Command");
@@ -1946,26 +1813,20 @@ namespace Unity.Entities
                 ComponentValue = default;
             }
 
-            public EntityQueryMaskCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity,
-                int identityIndex, int batchCount, EntityQueryMask mask, TypeIndex componentTypeIndex, int componentSize, byte* componentValue)
+            public EntityQueryMaskCommandView(EntityQueryMaskCommand* cmd, byte* componentValue)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                Mask = mask;
-                ComponentTypeIndex = componentTypeIndex;
-                ComponentSize = componentSize;
-                if (ComponentSize > 0 && componentValue != null)
-                {
-                    ComponentValue = TypeManager.ConstructComponentFromBuffer(componentTypeIndex, componentValue);
-                }
-                else
-                {
-                    ComponentValue = default;
-                }
+                CommandType = cmd->Header.Header.Header.CommandType;
+                SortKey = cmd->Header.Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.Header.TotalSize;
+                Entity = cmd->Header.Header.Entity;
+                IdentityIndex = cmd->Header.Header.IdentityIndex;
+                BatchCount = cmd->Header.Header.BatchCount;
+                Mask = cmd->Mask;
+                ComponentTypeIndex = cmd->Header.ComponentTypeIndex;
+                ComponentSize = cmd->Header.ComponentSize;
+                ValueRequiresEntityFixup = cmd->Header.ValueRequiresEntityFixup != 0;
+                ComponentValue = (ComponentSize > 0 && componentValue != null)
+                    ? TypeManager.ConstructComponentFromBuffer(ComponentTypeIndex, componentValue) : default;
             }
 
             public override string ToString()
@@ -1986,15 +1847,15 @@ namespace Unity.Entities
             public int ComponentTypeIndex;
             public byte IsEnabled;
 
-            public EntityEnabledCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity, int identityIndex, int batchCount, byte isEnabled)
+            public EntityEnabledCommandView(EntityEnabledCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                IsEnabled = isEnabled;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entity = cmd->Header.Entity;
+                IdentityIndex = cmd->Header.IdentityIndex;
+                BatchCount = cmd->Header.BatchCount;
+                IsEnabled = cmd->IsEnabled;
             }
 
             public override string ToString()
@@ -2009,16 +1870,16 @@ namespace Unity.Entities
             public TypeIndex ComponentTypeIndex;
             public byte IsEnabled;
 
-            public EntityComponentEnabledCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity, int identityIndex, int batchCount, TypeIndex componentTypeIndex, byte isEnabled)
+            public EntityComponentEnabledCommandView(EntityComponentEnabledCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                ComponentTypeIndex = componentTypeIndex;
-                IsEnabled = isEnabled;
+                CommandType = cmd->Header.Header.Header.CommandType;
+                SortKey = cmd->Header.Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.Header.TotalSize;
+                Entity = cmd->Header.Header.Entity;
+                IdentityIndex = cmd->Header.Header.IdentityIndex;
+                BatchCount = cmd->Header.Header.BatchCount;
+                IsEnabled = cmd->Header.IsEnabled;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
             }
 
             public override string ToString()
@@ -2034,16 +1895,15 @@ namespace Unity.Entities
         {
             public FixedString64Bytes Name;
 
-            public EntityNameCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity,
-                int identityIndex, int batchCount, FixedString64Bytes name)
+            public EntityNameCommandView(EntityNameCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                Name = name;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entity = cmd->Header.Entity;
+                IdentityIndex = cmd->Header.IdentityIndex;
+                BatchCount = cmd->Header.BatchCount;
+                Name = cmd->Name;
             }
 
             public override string ToString()
@@ -2056,16 +1916,15 @@ namespace Unity.Entities
         {
             public ComponentTypeSet TypeSet;
 
-            public EntityMultipleComponentsCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity,
-                int identityIndex, int batchCount, in ComponentTypeSet typeSet)
+            public EntityMultipleComponentsCommandView(EntityMultipleComponentsCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                TypeSet = typeSet;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entity = cmd->Header.Entity;
+                IdentityIndex = cmd->Header.IdentityIndex;
+                BatchCount = cmd->Header.BatchCount;
+                TypeSet = cmd->TypeSet;
             }
 
             public override string ToString()
@@ -2081,29 +1940,30 @@ namespace Unity.Entities
         internal unsafe class EntityBufferCommandView : EntityCommandView
         {
             public TypeIndex ComponentTypeIndex;
-            public int ComponentSize;
+            public short ComponentSize;
+            public bool ValueRequiresEntityFixup;
             // Must point to original buffer node in ECB, so that we can find the buffer data embedded after it.
             public BufferHeaderNode* BufferNode;
 
-            public EntityBufferCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity,
-                int identityIndex, int batchCount, TypeIndex componentTypeIndex, int componentSize, BufferHeaderNode* bufferNode)
+            public EntityBufferCommandView(EntityBufferCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                ComponentTypeIndex = componentTypeIndex;
-                ComponentSize = componentSize;
-                BufferNode = bufferNode;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entity = cmd->Header.Entity;
+                IdentityIndex = cmd->Header.IdentityIndex;
+                BatchCount = cmd->Header.BatchCount;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
+                ComponentSize = cmd->ComponentSize;
+                ValueRequiresEntityFixup = cmd->ValueRequiresEntityFixup != 0;
+                BufferNode = &(cmd->BufferNode);
             }
 
             public override string ToString()
             {
                 var type = TypeManager.GetType(ComponentTypeIndex);
                 var typeName = " " + type.Name;
-                return CommandType == ECBCommand.AddBuffer || CommandType == ECBCommand.AddBufferWithEntityFixUp ? $"Add Entity Buffer{typeName}" : $"Set Entity Buffer{typeName}";
+                return CommandType == ECBCommand.AddBuffer ? $"Add Entity Buffer{typeName}" : $"Set Entity Buffer{typeName}";
             }
         }
 
@@ -2119,17 +1979,16 @@ namespace Unity.Entities
                 return null;
             }
 
-            public EntityManagedComponentCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity,
-                int identityIndex, int batchCount, TypeIndex componentTypeIndex, EntityComponentGCNode gcNode)
+            public EntityManagedComponentCommandView(EntityManagedComponentCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                ComponentTypeIndex = componentTypeIndex;
-                GCNode = gcNode;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entity = cmd->Header.Entity;
+                IdentityIndex = cmd->Header.IdentityIndex;
+                BatchCount = cmd->Header.BatchCount;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
+                GCNode = cmd->GCNode;
             }
 
             public override string ToString()
@@ -2145,17 +2004,16 @@ namespace Unity.Entities
             public TypeIndex ComponentTypeIndex;
             public Entity SrcEntity;
 
-            public EntityMoveManagedComponentCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity srcEntity,
-                Entity dstEntity, int identityIndex, int batchCount, TypeIndex componentTypeIndex)
+            public EntityMoveManagedComponentCommandView(EntityMoveManagedComponentCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = dstEntity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                ComponentTypeIndex = componentTypeIndex;
-                SrcEntity = srcEntity;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entity = cmd->Header.Entity;
+                IdentityIndex = cmd->Header.IdentityIndex;
+                BatchCount = cmd->Header.BatchCount;
+                SrcEntity = cmd->SrcEntity;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
             }
 
             public override string ToString()
@@ -2170,31 +2028,23 @@ namespace Unity.Entities
         {
             public TypeIndex ComponentTypeIndex;
             public int HashCode;
+            public short ComponentSize;
+            public bool ValueRequiresEntityFixup;
             public object ComponentValue;
 
-
-            public EntityUnmanagedSharedComponentCommandView(
-                ECBCommand commandType,
-                int sortKey,
-                int totalSize,
-                Entity entity,
-                int identityIndex,
-                int batchCount,
-                TypeIndex componentTypeIndex,
-                int hashCode,
-                int componentSize,
-                void* componentValue)
+            public EntityUnmanagedSharedComponentCommandView(EntityUnmanagedSharedComponentCommand* cmd, byte* componentValue)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                ComponentTypeIndex = componentTypeIndex;
-                HashCode = hashCode;
-
-                ComponentValue = TypeManager.ConstructComponentFromBuffer(componentTypeIndex, componentValue);
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entity = cmd->Header.Entity;
+                IdentityIndex = cmd->Header.IdentityIndex;
+                BatchCount = cmd->Header.BatchCount;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
+                HashCode = cmd->HashCode;
+                ComponentSize = (short)TypeManager.GetTypeInfo(cmd->ComponentTypeIndex).TypeSize;
+                ValueRequiresEntityFixup = cmd->ValueRequiresEntityFixup != 0;
+                ComponentValue = TypeManager.ConstructComponentFromBuffer(cmd->ComponentTypeIndex, componentValue);
             }
 
             public override string ToString()
@@ -2209,31 +2059,24 @@ namespace Unity.Entities
         {
             public TypeIndex ComponentTypeIndex;
             public int ComponentSize;
+            public bool ValueRequiresEntityFixup;
             public object ComponentValue;
 
-            public MultipleEntitiesComponentCommandView_WithUnmanagedSharedValue(
-                ECBCommand commandType,
-                int sortKey,
-                int totalSize,
-                EntityNode entities,
-                bool skipDeferredEntityLookup,
-                int entitiesCount,
-                AllocatorManager.AllocatorHandle allocator,
-                TypeIndex componentTypeIndex,
-                int componentSize,
+            public MultipleEntitiesComponentCommandView_WithUnmanagedSharedValue(MultipleEntitiesCommand_WithUnmanagedSharedComponent* cmd,
                 byte* componentValue)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entities = entities;
-                EntitiesCount = entitiesCount;
-                Allocator = allocator;
-                ComponentTypeIndex = componentTypeIndex;
-                ComponentSize = componentSize;
-                SkipDeferredEntityLookup = skipDeferredEntityLookup;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entities = cmd->Header.Entities;
+                EntitiesCount = cmd->Header.EntitiesCount;
+                Allocator = cmd->Header.Allocator.ToAllocator;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
+                ComponentSize = cmd->ComponentSize;
+                SkipDeferredEntityLookup = cmd->Header.SkipDeferredEntityLookup != 0;
+                ValueRequiresEntityFixup = cmd->ValueRequiresEntityFixup != 0;
                 if (ComponentSize > 0 && componentValue != null)
-                    ComponentValue = TypeManager.ConstructComponentFromBuffer(componentTypeIndex, componentValue);
+                    ComponentValue = TypeManager.ConstructComponentFromBuffer(cmd->ComponentTypeIndex, componentValue);
                 else
                     ComponentValue = default;
             }
@@ -2251,25 +2094,21 @@ namespace Unity.Entities
         internal class EntityQueryComponentCommandView_WithUnmanagedSharedValue : EntityQueryComponentCommandView
         {
             public int ComponentSize;
+            public bool ValueRequiresEntityFixup;
             public object ComponentValue;
 
-            public EntityQueryComponentCommandView_WithUnmanagedSharedValue(
-                ECBCommand commandType,
-                int sortKey,
-                int totalSize,
-                EntityQueryImpl *queryImpl,
-                TypeIndex componentTypeIndex,
-                int componentSize,
+            public EntityQueryComponentCommandView_WithUnmanagedSharedValue(EntityQueryComponentCommandWithUnmanagedSharedComponent* cmd,
                 byte* componentValue)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Query = queryImpl;
-                ComponentTypeIndex = componentTypeIndex;
-                ComponentSize = componentSize;
+                CommandType = cmd->Header.Header.Header.CommandType;
+                SortKey = cmd->Header.Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.Header.TotalSize;
+                Query = cmd->Header.Header.QueryImpl;
+                ComponentTypeIndex = cmd->Header.ComponentTypeIndex;
+                ComponentSize = cmd->ComponentSize;
+                ValueRequiresEntityFixup = cmd->ValueRequiresEntityFixup != 0;
                 if (ComponentSize > 0 && componentValue != null)
-                    ComponentValue = TypeManager.ConstructComponentFromBuffer(componentTypeIndex, componentValue);
+                    ComponentValue = TypeManager.ConstructComponentFromBuffer(cmd->Header.ComponentTypeIndex, componentValue);
                 else
                     ComponentValue = default;
             }
@@ -2297,18 +2136,17 @@ namespace Unity.Entities
                 return null;
             }
 
-            public EntitySharedComponentCommandView(ECBCommand commandType, int sortKey, int totalSize, Entity entity,
-                int identityIndex, int batchCount, TypeIndex componentTypeIndex, int hashCode, EntityComponentGCNode gcNode)
+            public EntitySharedComponentCommandView(EntitySharedComponentCommand* cmd)
             {
-                CommandType = commandType;
-                SortKey = sortKey;
-                TotalSizeInBytes = totalSize;
-                Entity = entity;
-                IdentityIndex = identityIndex;
-                BatchCount = batchCount;
-                ComponentTypeIndex = componentTypeIndex;
-                HashCode = hashCode;
-                GCNode = gcNode;
+                CommandType = cmd->Header.Header.CommandType;
+                SortKey = cmd->Header.Header.SortKey;
+                TotalSizeInBytes = cmd->Header.Header.TotalSize;
+                Entity = cmd->Header.Entity;
+                IdentityIndex = cmd->Header.IdentityIndex;
+                BatchCount = cmd->Header.BatchCount;
+                ComponentTypeIndex = cmd->ComponentTypeIndex;
+                HashCode = cmd->HashCode;
+                GCNode = cmd->GCNode;
             }
 
             public override string ToString()
@@ -2333,229 +2171,107 @@ namespace Unity.Entities
                 {
                     case ECBCommand.DestroyEntity:
                     case ECBCommand.InstantiateEntity:
-                        var entityCommand = (EntityCommand*) header;
-                        return new EntityCommandView(header->CommandType, header->SortKey, header->TotalSize,
-                            entityCommand->Entity, entityCommand->IdentityIndex, entityCommand->BatchCount);
+                        return new EntityCommandView((EntityCommand*)header);
 
                     case ECBCommand.CreateEntity:
-                        var createCommand = (CreateCommand*)header;
-                        return new CreateCommandView(header->CommandType, header->SortKey, header->TotalSize,
-                            createCommand->Archetype, createCommand->IdentityIndex, createCommand->BatchCount);
+                        return new CreateCommandView((CreateCommand*)header);
 
                     case ECBCommand.RemoveMultipleComponents:
                     case ECBCommand.AddMultipleComponents:
-                        var entityMultipleComponentsCommand = (EntityMultipleComponentsCommand*) header;
-                        return new EntityMultipleComponentsCommandView(header->CommandType, header->SortKey,
-                            header->TotalSize, entityMultipleComponentsCommand->Header.Entity,
-                            entityMultipleComponentsCommand->Header.IdentityIndex,
-                            entityMultipleComponentsCommand->Header.BatchCount, entityMultipleComponentsCommand->TypeSet);
+                        return new EntityMultipleComponentsCommandView((EntityMultipleComponentsCommand*)header);
 
                     case ECBCommand.RemoveComponent:
                     case ECBCommand.AddComponent:
-                    case ECBCommand.AddComponentWithEntityFixUp:
                     case ECBCommand.SetComponent:
-                    case ECBCommand.SetComponentWithEntityFixUp:
                     case ECBCommand.AppendToBuffer:
-                    case ECBCommand.AppendToBufferWithEntityFixUp:
                     case ECBCommand.ReplaceComponentLinkedEntityGroup:
                         var entityComponentCommand = (EntityComponentCommand*) header;
-                        var data = header->CommandType != ECBCommand.RemoveComponent ? (byte*)(entityComponentCommand+1) : null;
-                        return new EntityComponentCommandView(header->CommandType, header->SortKey,
-                            header->TotalSize, entityComponentCommand->Header.Entity,
-                            entityComponentCommand->Header.IdentityIndex, entityComponentCommand->Header.BatchCount,
-                            entityComponentCommand->ComponentTypeIndex, entityComponentCommand->ComponentSize,
-                            data);
+                        var entityComponentCommandValue = header->CommandType != ECBCommand.RemoveComponent ? (byte*)(entityComponentCommand+1) : null;
+                        return new EntityComponentCommandView(entityComponentCommand, entityComponentCommandValue);
 
                     case ECBCommand.SetEntityEnabled:
-                        var setEntityEnabledCommand = (EntityEnabledCommand*) header;
-                        return new EntityEnabledCommandView(header->CommandType, header->SortKey,
-                            header->TotalSize, setEntityEnabledCommand->Header.Entity,
-                            setEntityEnabledCommand->Header.IdentityIndex, setEntityEnabledCommand->Header.BatchCount,
-                            setEntityEnabledCommand->IsEnabled);
+                        return new EntityEnabledCommandView( (EntityEnabledCommand*)header);
 
                     case ECBCommand.SetComponentEnabled:
-                        var setComponentEnabledCommand = (EntityComponentEnabledCommand*) header;
-                        return new EntityComponentEnabledCommandView(header->CommandType, header->SortKey,
-                            header->TotalSize, setComponentEnabledCommand->Header.Header.Entity,
-                            setComponentEnabledCommand->Header.Header.IdentityIndex, setComponentEnabledCommand->Header.Header.BatchCount,
-                            setComponentEnabledCommand->ComponentTypeIndex, setComponentEnabledCommand->Header.IsEnabled);
+                        return new EntityComponentEnabledCommandView((EntityComponentEnabledCommand*)header);
 
                     case ECBCommand.SetName:
-                        var setNameCommand = (EntityNameCommand*) header;
-                        return new EntityNameCommandView(header->CommandType, header->SortKey,
-                            header->TotalSize, setNameCommand->Header.Entity, setNameCommand->Header.IdentityIndex,
-                            setNameCommand->Header.BatchCount, setNameCommand->Name);
+                        return new EntityNameCommandView((EntityNameCommand*)header);
 
                     case ECBCommand.AddBuffer:
-                    case ECBCommand.AddBufferWithEntityFixUp:
                     case ECBCommand.SetBuffer:
-                    case ECBCommand.SetBufferWithEntityFixUp:
-                        var entityBufferCommand = (EntityBufferCommand*) header;
-                        return new EntityBufferCommandView(header->CommandType, header->SortKey,
-                            header->TotalSize, entityBufferCommand->Header.Entity, entityBufferCommand->Header.IdentityIndex,
-                            entityBufferCommand->Header.BatchCount, entityBufferCommand->ComponentTypeIndex,
-                            entityBufferCommand->ComponentSize, &entityBufferCommand->BufferNode);
+                        return new EntityBufferCommandView((EntityBufferCommand*)header);
 
                     case ECBCommand.AddComponentForEntityQuery:
                     case ECBCommand.RemoveComponentForEntityQuery:
-                        var entityQueryComponentCommand = (EntityQueryComponentCommand*)header;
-                        return new EntityQueryComponentCommandView(
-                            header->CommandType, header->SortKey, header->TotalSize,
-                            entityQueryComponentCommand->Header.QueryImpl,
-                            entityQueryComponentCommand->ComponentTypeIndex);
+                        return new EntityQueryComponentCommandView((EntityQueryComponentCommand*)header);
 
                     case ECBCommand.AddComponentForMultipleEntities:
                     case ECBCommand.RemoveComponentForMultipleEntities:
-                        var multipleEntitiesComponentCommand = (MultipleEntitiesComponentCommand*) header;
-                        var dataMultiple = header->CommandType != ECBCommand.RemoveComponentForMultipleEntities ? (byte*)(multipleEntitiesComponentCommand+1) : null;
-                        return new MultipleEntitiesComponentCommandView(header->CommandType,
-                            header->SortKey, header->TotalSize, multipleEntitiesComponentCommand->Header.Entities,
-                            multipleEntitiesComponentCommand->Header.EntitiesCount,
-                            multipleEntitiesComponentCommand->Header.SkipDeferredEntityLookup != 0 ? true : false,
-                            multipleEntitiesComponentCommand->Header.Allocator.ToAllocator,
-                            multipleEntitiesComponentCommand->ComponentTypeIndex,
-                            multipleEntitiesComponentCommand->ComponentSize, dataMultiple);
+                        var multipleEntitiesComponentCommand = (MultipleEntitiesComponentCommand*)header;
+                        var multipleEntitiesComponentCommandValue = header->CommandType != ECBCommand.RemoveComponentForMultipleEntities
+                            ? (byte*)(multipleEntitiesComponentCommand+1) : null;
+                        return new MultipleEntitiesComponentCommandView(multipleEntitiesComponentCommand, multipleEntitiesComponentCommandValue);
 
                     case ECBCommand.AddMultipleComponentsForMultipleEntities:
                     case ECBCommand.RemoveMultipleComponentsForMultipleEntities:
-                        var multipleEntitiesAndComponentsCommand = (MultipleEntitiesAndComponentsCommand*) header;
-                        return new MultipleEntitiesAndComponentsCommandView(
-                            header->CommandType, header->SortKey, header->TotalSize,
-                            multipleEntitiesAndComponentsCommand->Header.Entities,
-                            multipleEntitiesAndComponentsCommand->Header.EntitiesCount,
-                            multipleEntitiesAndComponentsCommand->Header.SkipDeferredEntityLookup != 0 ? true : false,
-                            multipleEntitiesAndComponentsCommand->Header.Allocator.ToAllocator,
-                            multipleEntitiesAndComponentsCommand->TypeSet);
+                        return new MultipleEntitiesAndComponentsCommandView((MultipleEntitiesAndComponentsCommand*)header);
 
                     case ECBCommand.AddMultipleComponentsForEntityQuery:
                     case ECBCommand.RemoveMultipleComponentsForEntityQuery:
-                        var entityQueryComponentTypeSetCommand = (EntityQueryComponentTypeSetCommand*)header;
-                        return new EntityQueryComponentTypeSetCommandView(
-                            header->CommandType, header->SortKey, header->TotalSize,
-                            entityQueryComponentTypeSetCommand->Header.QueryImpl,
-                            entityQueryComponentTypeSetCommand->TypeSet);
+                        return new EntityQueryComponentTypeSetCommandView((EntityQueryComponentTypeSetCommand*)header);
 
                     case ECBCommand.DestroyMultipleEntities:
-                        var destroyMultipleEntitiesCommand = (MultipleEntitiesCommand*) header;
-                        return new MultipleEntitiesCommandView(header->CommandType,
-                            header->SortKey, header->TotalSize, destroyMultipleEntitiesCommand->Entities,
-                            destroyMultipleEntitiesCommand->EntitiesCount,
-                            destroyMultipleEntitiesCommand->SkipDeferredEntityLookup != 0 ? true : false,
-                            destroyMultipleEntitiesCommand->Allocator.ToAllocator);
+                        return new MultipleEntitiesCommandView((MultipleEntitiesCommand*)header);
 
                     case ECBCommand.DestroyForEntityQuery:
-                        var destroyEntityQueryCommand = (EntityQueryCommand*) header;
-                        return new EntityQueryCommandView(header->CommandType, header->SortKey,
-                            header->TotalSize, destroyEntityQueryCommand->QueryImpl);
+                        return new EntityQueryCommandView((EntityQueryCommand*)header);
 
                     case ECBCommand.AddComponentObjectForMultipleEntities:
                     case ECBCommand.SetComponentObjectForMultipleEntities:
                     case ECBCommand.AddSharedComponentWithValueForMultipleEntities:
                     case ECBCommand.SetSharedComponentValueForMultipleEntities:
-                        var multipleEntitiesComponentCommandWithObject = (MultipleEntitiesComponentCommandWithObject*) header;
-                        return new MultipleEntitiesComponentCommandWithObjectView(
-                            header->CommandType, header->SortKey, header->TotalSize,
-                            multipleEntitiesComponentCommandWithObject->Header.Entities,
-                            multipleEntitiesComponentCommandWithObject->Header.EntitiesCount,
-                            multipleEntitiesComponentCommandWithObject->Header.SkipDeferredEntityLookup != 0 ? true : false,
-                            multipleEntitiesComponentCommandWithObject->Header.Allocator.ToAllocator,
-                            multipleEntitiesComponentCommandWithObject->ComponentTypeIndex,
-                            multipleEntitiesComponentCommandWithObject->HashCode, multipleEntitiesComponentCommandWithObject->GCNode);
+                        return new MultipleEntitiesComponentCommandWithObjectView((MultipleEntitiesComponentCommandWithObject*) header);
 
                     case ECBCommand.AddSharedComponentWithValueForEntityQuery:
                     case ECBCommand.SetSharedComponentValueForEntityQuery:
-                        var entityQueryComponentCommandWithObject = (EntityQueryComponentCommandWithObject*) header;
-                        return new EntityQueryComponentCommandWithObjectView(
-                            header->CommandType, header->SortKey, header->TotalSize,
-                            entityQueryComponentCommandWithObject->Header.Header.QueryImpl,
-                            entityQueryComponentCommandWithObject->Header.ComponentTypeIndex,
-                            entityQueryComponentCommandWithObject->HashCode,
-                            entityQueryComponentCommandWithObject->GCNode);
+                        return new EntityQueryComponentCommandWithObjectView((EntityQueryComponentCommandWithObject*) header);
 
                     case ECBCommand.AddManagedComponentData:
                     case ECBCommand.SetManagedComponentData:
-                        var entityManagedComponentCommand = (EntityManagedComponentCommand*) header;
-                        return new EntityManagedComponentCommandView(header->CommandType,
-                            header->SortKey, header->TotalSize, entityManagedComponentCommand->Header.Entity,
-                            entityManagedComponentCommand->Header.IdentityIndex,
-                            entityManagedComponentCommand->Header.BatchCount,
-                            entityManagedComponentCommand->ComponentTypeIndex, entityManagedComponentCommand->GCNode);
+                        return new EntityManagedComponentCommandView((EntityManagedComponentCommand*)header);
 
                     case ECBCommand.MoveManagedComponentData:
-                        var entityMoveManagedComponentCommand = (EntityMoveManagedComponentCommand*) header;
-                        return new EntityMoveManagedComponentCommandView(header->CommandType,
-                            header->SortKey, header->TotalSize, entityMoveManagedComponentCommand->SrcEntity,
-                            entityMoveManagedComponentCommand->Header.Entity,
-                            entityMoveManagedComponentCommand->Header.IdentityIndex,
-                            entityMoveManagedComponentCommand->Header.BatchCount,
-                            entityMoveManagedComponentCommand->ComponentTypeIndex);
+                        return new EntityMoveManagedComponentCommandView((EntityMoveManagedComponentCommand*)header);
 
                     case ECBCommand.AddSharedComponentData:
                     case ECBCommand.SetSharedComponentData:
-                        var entitySharedComponentCommand = (EntitySharedComponentCommand*) header;
-                        return new EntitySharedComponentCommandView(header->CommandType, header->SortKey,
-                            header->TotalSize, entitySharedComponentCommand->Header.Entity,
-                            entitySharedComponentCommand->Header.IdentityIndex,
-                            entitySharedComponentCommand->Header.BatchCount, entitySharedComponentCommand->ComponentTypeIndex,
-                            entitySharedComponentCommand->HashCode, entitySharedComponentCommand->GCNode);
+                        return new EntitySharedComponentCommandView((EntitySharedComponentCommand*)header);
                     case ECBCommand.AddUnmanagedSharedComponentData:
                     case ECBCommand.SetUnmanagedSharedComponentData:
-                        var cmd = (EntityUnmanagedSharedComponentCommand*) header;
-                        return new EntityUnmanagedSharedComponentCommandView(
-                            header->CommandType,
-                            header->SortKey,
-                            header->TotalSize,
-                            cmd->Header.Entity,
-                            cmd->Header.IdentityIndex,
-                            cmd->Header.BatchCount,
-                            cmd->ComponentTypeIndex,
-                            cmd->HashCode,
-                            TypeManager.GetTypeInfo(cmd->ComponentTypeIndex).TypeSize,
-                            cmd + 1);
+                        var unmanagedSharedComponentCommand = (EntityUnmanagedSharedComponentCommand*)header;
+                        byte* unmanagedSharedComponentCommandValue = (byte*)(unmanagedSharedComponentCommand + 1);
+                        return new EntityUnmanagedSharedComponentCommandView(unmanagedSharedComponentCommand, unmanagedSharedComponentCommandValue);
 
                     case ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities:
                     case ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities:
-                        var cmd2 = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*) header;
-                        var data2 = (byte*)(cmd2+1);
-                        return new MultipleEntitiesComponentCommandView_WithUnmanagedSharedValue(
-                            header->CommandType,
-                            header->SortKey,
-                            header->TotalSize,
-                            cmd2->Header.Entities,
-                            cmd2->Header.SkipDeferredEntityLookup != 0,
-                            cmd2->Header.EntitiesCount,
-                            cmd2->Header.Allocator.ToAllocator,
-                            cmd2->ComponentTypeIndex,
-                            cmd2->ComponentSize,
-                            data2);
+                        var multiEntityUnmanagedSharedComponentCommand = (MultipleEntitiesCommand_WithUnmanagedSharedComponent*) header;
+                        var multiEntityUnmanagedSharedComponentCommandValue = (byte*)(multiEntityUnmanagedSharedComponentCommand+1);
+                        return new MultipleEntitiesComponentCommandView_WithUnmanagedSharedValue(multiEntityUnmanagedSharedComponentCommand,
+                            multiEntityUnmanagedSharedComponentCommandValue);
 
                     case ECBCommand.AddUnmanagedSharedComponentValueForEntityQuery:
                     case ECBCommand.SetUnmanagedSharedComponentValueForEntityQuery:
-                        var entityQueryComponentCommandWithUnmanagedSharedComponent = (EntityQueryComponentCommandWithUnmanagedSharedComponent*) header;
-                        var data3 = (byte*)(entityQueryComponentCommandWithUnmanagedSharedComponent+1);
-                        return new EntityQueryComponentCommandView_WithUnmanagedSharedValue(
-                            header->CommandType,
-                            header->SortKey,
-                            header->TotalSize,
-                            entityQueryComponentCommandWithUnmanagedSharedComponent->Header.Header.QueryImpl,
-                            entityQueryComponentCommandWithUnmanagedSharedComponent->Header.ComponentTypeIndex,
-                            entityQueryComponentCommandWithUnmanagedSharedComponent->ComponentSize,
-                            data3);
+                        var queryUnmanagedSharedComponentCommand = (EntityQueryComponentCommandWithUnmanagedSharedComponent*) header;
+                        var queryUnmanagedSharedComponentCommandValue = (byte*)(queryUnmanagedSharedComponentCommand+1);
+                        return new EntityQueryComponentCommandView_WithUnmanagedSharedValue(queryUnmanagedSharedComponentCommand,
+                            queryUnmanagedSharedComponentCommandValue);
 
                     case ECBCommand.AddComponentLinkedEntityGroup:
                     case ECBCommand.SetComponentLinkedEntityGroup:
                         var maskCommand = (EntityQueryMaskCommand*) header;
-                        var componentData = (byte*)(maskCommand+1);
-                        return new EntityQueryMaskCommandView(header->CommandType,
-                            header->SortKey,
-                            header->TotalSize,
-                            maskCommand->Header.Header.Entity,
-                            maskCommand->Header.Header.IdentityIndex,
-                            maskCommand->Header.Header.BatchCount,
-                            maskCommand->Mask,
-                            maskCommand->Header.ComponentTypeIndex,
-                            maskCommand->Header.ComponentSize,
-                            componentData);
+                        var maskCommandValue = (byte*)(maskCommand+1);
+                        return new EntityQueryMaskCommandView(maskCommand, maskCommandValue);
 
                     default:
                     {

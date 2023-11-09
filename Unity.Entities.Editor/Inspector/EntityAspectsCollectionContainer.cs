@@ -30,7 +30,11 @@ namespace Unity.Entities.Editor
             if (World == null || !World.IsCreated)
                 return false;
 
-            return Entity.Index >= 0 && (uint) Entity.Index < (uint) World.EntityManager.EntityCapacity && World.EntityManager.Exists(Entity);
+            return Entity.Index >= 0
+#if ENTITY_STORE_V1
+                && (uint) Entity.Index < (uint) World.EntityManager.EntityCapacity
+#endif
+                && World.EntityManager.Exists(Entity);
         }
     }
 

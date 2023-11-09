@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using Unity.Entities.Content;
 using UnityEditor;
@@ -13,6 +14,9 @@ namespace Unity.Scenes.Editor
         private static HashSet<string> registeredEvents = new HashSet<string>();
 
         internal struct BuildData
+#if UNITY_2023_2_OR_NEWER
+            : IAnalytic.IData
+#endif
         {
             public int NumberOfContentArchives;
             public int NumberOfWeakReferences;
@@ -23,8 +27,26 @@ namespace Unity.Scenes.Editor
             public bool IsUsingContentArchives;
         }
 
+#if UNITY_2023_2_OR_NEWER
+        [AnalyticInfo(eventName: BuildEvent, vendorKey: VendorKey, maxEventsPerHour: 100, maxNumberOfElements: 100)]
+        class BuildDataAnalytic : IAnalytic
+        {
+            readonly BuildData _data;
+
+            public bool TryGatherData(out IAnalytic.IData data, out Exception error)
+            {
+                data = _data;
+                error = null;
+                return true;
+            }
+
+            public BuildDataAnalytic(BuildData data) => _data = data;
+        }
+#endif
+
         private static bool RegisterEvent(string eventName)
         {
+#if !UNITY_2023_2_OR_NEWER
             bool eventSuccessfullyRegistered = false;
             UnityEngine.Analytics.AnalyticsResult registerEvent = EditorAnalytics.RegisterEventWithLimit(eventName, 100, 100, VendorKey);
             if (registerEvent == UnityEngine.Analytics.AnalyticsResult.Ok)
@@ -33,6 +55,9 @@ namespace Unity.Scenes.Editor
                 eventSuccessfullyRegistered = true;
             }
             return eventSuccessfullyRegistered;
+#else
+            return true;
+#endif
         }
 
         private static bool EventIsRegistered(string eventName)
@@ -80,7 +105,12 @@ namespace Unity.Scenes.Editor
                 NumberOfAssetsInSubScenes = numberOfAssetsInSubscenes,
                 IsUsingContentArchives = isUsingContentArchives
             };
+
+#if !UNITY_2023_2_OR_NEWER
             EditorAnalytics.SendEventWithLimit(BuildEvent, data);
+#else
+            EditorAnalytics.SendAnalytic(new BuildDataAnalytic(data));
+#endif
         }
     }
 }

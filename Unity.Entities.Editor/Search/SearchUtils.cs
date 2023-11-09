@@ -6,6 +6,7 @@ using UnityEditor.Search;
 using UnityEngine;
 using Unity.Editor.Bridge;
 using UnityEngine.UIElements;
+using System.Reflection;
 
 namespace Unity.Entities.Editor
 {
@@ -213,6 +214,77 @@ namespace Unity.Entities.Editor
     }
 #endif
 
+    class SharedComponentPropertyDesc
+    {
+        public SharedComponentPropertyDesc(TypeManager.TypeInfo compInfo, FieldInfo propertyField)
+        {
+            componentInfo = compInfo;
+            this.propertyField = propertyField;
+            fullPropertyName = $"{fullComponentName}.{propertyField.Name}";
+            shortPropertyName = $"{shortComponentName}.{propertyField.Name}";
+            fullPropertyReplacement = $"{fullPropertyName}={SearchUtils.GetDefaultValue(propertyField.FieldType)}";
+            shortPropertyReplacement = $"{shortPropertyName}={SearchUtils.GetDefaultValue(propertyField.FieldType)}";
+            fullPropertyQueryReplacement = $"#{fullPropertyQueryReplacement}";
+            shortPropertyQueryReplacement = $"#{shortPropertyReplacement}";
+            useShortName = true;
+        }
+
+        internal bool useShortName;
+
+        public readonly TypeManager.TypeInfo componentInfo;
+
+        public string shortComponentName => componentInfo.Type.Name;
+        public string fullComponentName => componentInfo.Type.FullName;
+        public Type propertyType => propertyField.FieldType;
+        public string propertyName => useShortName ? shortPropertyName : fullPropertyName;
+        public string propertyReplacement => useShortName ? shortPropertyReplacement : fullPropertyReplacement;
+        public string propertyQueryReplacement => useShortName ? shortPropertyQueryReplacement : fullPropertyQueryReplacement;
+
+        public readonly string fullPropertyName;
+        public readonly string shortPropertyName;
+        public readonly string fullPropertyReplacement;
+        public readonly string shortPropertyReplacement;
+        public readonly string fullPropertyQueryReplacement;
+        public readonly string shortPropertyQueryReplacement;
+        public readonly FieldInfo propertyField;
+
+        public string GetPropertyStringValue(object obj)
+        {
+            SearchUtils.TryConvertToString(propertyField.GetValue(obj), out var strValue);
+            return strValue;
+        }
+    }
+
+    class SharedComponentDesc
+    {
+        public Entities.TypeManager.TypeInfo info;
+        public string typeName => info.Type.Name;
+        public List<SharedComponentPropertyDesc> properties;
+        public SharedComponentDesc(Entities.TypeManager.TypeInfo info)
+        {
+            this.info = info;
+            properties = new List<SharedComponentPropertyDesc>();
+            PopulateComponentPropertyDescs(this);
+        }
+
+        public ISharedComponentData CreateSharedComponent()
+        {
+            return (ISharedComponentData)Activator.CreateInstance(info.Type);
+        }
+
+        void PopulateComponentPropertyDescs(SharedComponentDesc compDesc)
+        {
+            var fields = compDesc.info.Type.GetFields(BindingFlags.Instance | BindingFlags.Public);
+            foreach (var field in fields)
+            {
+                if (!SearchUtils.IsSupportedType(field.FieldType))
+                    continue;
+                var desc = new SharedComponentPropertyDesc(compDesc.info, field);
+                compDesc.properties.Add(desc);
+            }
+        }
+    }
+
     static class SearchUtils
     {
         public static Texture2D componentIcon = PackageResources.LoadIcon("Components/Component.png");
@@ -235,6 +307,174 @@ namespace Unity.Entities.Editor
             public static readonly GUIStyle iconButton = "IconButton";
         }
 
+        static Dictionary<string, SharedComponentDesc> s_SharedComponentDescs;
+        public static Dictionary<string, SharedComponentDesc> SharedComponents
+        {
+            get
+            {
+                if (s_SharedComponentDescs == null)
+                {
+                    s_SharedComponentDescs = new Dictionary<string, SharedComponentDesc>();
+                    foreach (var type in TypeManager.AllTypes.Where(t => TypeManager.IsSharedComponentType(t.TypeIndex)))
+                    {
+                        s_SharedComponentDescs.Add(type.Type.FullName, new SharedComponentDesc(type));
+                    }
+                }
+                return s_SharedComponentDescs;
+            }
+        }
+
+        internal static object GetDefaultValue(Type t)
+        {
+            if (t == typeof(Hash128))
+                return new Hash128("8c91bc4eab64d2840bd8688ced1ace09");
+            if (t.IsValueType)
+                return Activator.CreateInstance(t);
+            if (t == typeof(string))
+                return "";
+            if (t == typeof(Entity))
+                return Entity.Null;
+
+            return null;
+        }
+
+        internal static bool TryConvertToString(object value, out string strValue)
+        {
+            if (value == null)
+            {
+                strValue = null;
+            }
+            else if (value is Entity entity)
+            {
+                strValue = $"{entity.Index}-{entity.Version}";
+            }
+            else
+            {
+                strValue = value.ToString();
+            }
+            return true;
+        }
+
+        internal static bool TryConvertValue(Type t, string strValue, out object typedValue)
+        {
+            try
+            {
+                if (t.IsPrimitive)
+                {
+                    typedValue = Convert.ChangeType(strValue, t);
+                }
+                else if (t.IsEnum)
+                {
+                    TryParseEnum(t, strValue, out typedValue);
+                }
+                else if (t == typeof(string))
+                {
+                    typedValue = strValue;
+                }
+                else if (t == typeof(Entity))
+                {
+                    var tokens = strValue.Split('-');
+                    if (tokens.Length == 2)
+                    {
+                        typedValue = new Entity(){
+                            Index = int.Parse(tokens[0]),
+                            Version = int.Parse(tokens[1])
+                        };
+                    }
+                    else
+                    {
+                        typedValue = Entity.Null;
+                    }
+                }
+                else
+                {
+                    var constructor = SearchUtils.GetStringConstructor(t);
+                    typedValue = constructor.Invoke(new object[] { strValue });
+                }
+            }
+            catch (Exception)
+            {
+                typedValue = null;
+                return false;
+            }
+
+            return true;
+        }
+
+        internal static ConstructorInfo GetStringConstructor(Type type)
+        {
+            foreach (var ctor in type.GetConstructors())
+            {
+                var parameters = ctor.GetParameters();
+                if (parameters.Length == 1 && parameters[0].ParameterType == typeof(string))
+                    return ctor;
+            }
+
+            return null;
+        }
+
+        internal static bool IsSupportedType(Type type)
+        {
+            if (type.IsPrimitive || type.IsEnum)
+                return true;
+
+            if (type == typeof(string) || type == typeof(Entity))
+                return true;
+
+            if (GetStringConstructor(type) != null)
+            {
+                return true;
+            }
+            return false;
+        }
+
+        static Dictionary<string, SharedComponentPropertyDesc> s_SharedComponentPropertyDescMap;
+        static List<SharedComponentPropertyDesc> s_SharedComponentPropertyDescs;
+
+        static void InitSharedComponentProperties()
+        {
+            if (s_SharedComponentPropertyDescs == null)
+            {
+                s_SharedComponentPropertyDescs = new List<SharedComponentPropertyDesc>();
+                s_SharedComponentPropertyDescMap = new Dictionary<string, SharedComponentPropertyDesc>();
+                foreach (var typeDesc in SharedComponents.Values)
+                {
+                    foreach (var propertyDesc in typeDesc.properties)
+                    {
+                        s_SharedComponentPropertyDescMap.Add(propertyDesc.fullPropertyName, propertyDesc);
+                        if (!s_SharedComponentPropertyDescMap.ContainsKey(propertyDesc.shortPropertyName))
+                        {
+                            s_SharedComponentPropertyDescMap.Add(propertyDesc.shortPropertyName, propertyDesc);
+                            propertyDesc.useShortName = true;
+                        }
+                        else
+                        {
+                            propertyDesc.useShortName = false;
+                        }                        
+                        s_SharedComponentPropertyDescs.Add(propertyDesc);
+                    }
+                }
+            }
+        }
+
+        public static bool TryGetSharedComponentPropertyDesc(string propertyName, out SharedComponentPropertyDesc desc)
+        {
+            InitSharedComponentProperties();
+            return s_SharedComponentPropertyDescMap.TryGetValue(propertyName, out desc);
+        }
+
+        internal static SharedComponentPropertyDesc GetSharedComponentPropertyDesc(string propertyName)
+        {
+            InitSharedComponentProperties();
+            return s_SharedComponentPropertyDescMap[propertyName];
+        }
+
+        public static IEnumerable<SharedComponentPropertyDesc> GetSharedComponentPropertyDescs()
+        {
+            InitSharedComponentProperties();
+            return s_SharedComponentPropertyDescs;
+        }
+       
         static string[] s_ComponentNames;
         public static IEnumerable<string> componentNames
         {
@@ -242,7 +482,7 @@ namespace Unity.Entities.Editor
             {
                 if (s_ComponentNames == null)
                 {
-                    s_ComponentNames = TypeManager.GetAllTypes().Where(t => t.Type != null).Select(t => t.Type.Name).ToArray();
+                    s_ComponentNames = TypeManager.AllTypes.Where(t => t.Type != null).Select(t => t.Type.Name).ToArray();
                 }
                 return s_ComponentNames;
             }
@@ -349,12 +589,24 @@ namespace Unity.Entities.Editor
 
         public static T ParseEnum<T>(string value)
         {
-            var values = Enum.GetValues(typeof(T));
-            var names = Enum.GetNames(typeof(T));
+            TryParseEnum(typeof(T), value, out var enumValue);
+            return (T)enumValue;
+        }
+
+        public static bool TryParseEnum(Type t, string value, out object enumValue)
+        {
+            var values = Enum.GetValues(t);
+            var names = Enum.GetNames(t);
             for (var i = 0; i < names.Length; ++i)
+            {
                 if (names[i].Equals(value, StringComparison.InvariantCultureIgnoreCase))
-                    return (T)values.GetValue(i);
-            return (T)values.GetValue(0);
+                {
+                    enumValue = values.GetValue(i);
+                    return true;
+                }
+            }
+            enumValue = values.GetValue(0);
+            return false;
         }
 
         public static string AddOrReplaceFilterInQuery(string originalQuery, string filter, string op, object value)
@@ -412,6 +664,63 @@ namespace Unity.Entities.Editor
             jump.style.backgroundImage = SearchBridge.LoadIcon("SearchJump Icon");
             jump.AddToClassList(UssClasses.DotsEditorCommon.SearchIcon);
             jump.clicked += onButtonClick;
+        }
+
+        public static string GetDefaultWorldQuery(string query, World world = null)
+        {
+            query = query ?? "";
+            if (query.StartsWith("w=") || query.Contains("w="))
+            {
+                return query;
+            }
+
+            world = world ?? SearchUtils.FindWorld();
+            if (world == null)
+                return query;
+            query = $"w=\"{world.Name}\" {query}";
+            return query;
+        }
+
+        internal static void AddError(string reason, SearchContext context, SearchProvider provider)
+        {
+            context.AddSearchQueryError(new SearchQueryError(0, 0, reason, context, provider));
+        }
+
+        public static string CreateComponentQuery(object component)
+        {
+            if (component is ISharedComponentData sharedComponent)
+            {
+                return CreateSharedComponentQuery(sharedComponent);
+            }            
+
+            return $"all={component.GetType().FullName}";
+        }
+
+        public static string CreateSharedComponentQuery(ISharedComponentData sharedComponent)
+        {
+            string query = null;
+            if (SharedComponents.TryGetValue(sharedComponent.GetType().FullName, out var compDesc))
+            {
+                foreach(var prop in compDesc.properties)
+                {
+                    var value = prop.GetPropertyStringValue(sharedComponent);
+                    if (value == null)
+                        continue;
+                    if (query == null)
+                    {
+                        query = "";
+                    }
+                    else
+                    {
+                        query += " ";
+                    }
+                    if (value.Contains(" "))
+                        value = $"\"{value}\"";
+                    query += $"#{prop.propertyName}={value}";
+                }
+            }
+
+            return query;
         }
     }
 

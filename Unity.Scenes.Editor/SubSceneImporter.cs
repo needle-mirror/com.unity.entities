@@ -15,7 +15,7 @@ using Hash128 = Unity.Entities.Hash128;
 
 namespace Unity.Scenes.Editor
 {
-    [ScriptedImporter(121, "extDontMatter", AllowCaching = true)]
+    [ScriptedImporter(122, "extDontMatter", AllowCaching = true)]
     [InitializeOnLoad]
     class SubSceneImporter : ScriptedImporter
     {
@@ -102,7 +102,7 @@ namespace Unity.Scenes.Editor
             var globalUsage = ContentBuildInterface.GetGlobalUsageFromActiveScene(ctx.selectedBuildTarget);
 
             var flags = BakingUtility.BakingFlags.AddEntityGUID |
-                        BakingUtility.BakingFlags.AssignName | BakingUtility.BakingFlags.GameViewLiveConversion;
+                        BakingUtility.BakingFlags.AssignName;
 
             var settings = new BakingSettings(flags, default)
             {

@@ -37,30 +37,45 @@ namespace Unity.Entities
     /// This component contains data relative to a <see cref="SceneSection"/>.
     /// </summary>
     [Serializable]
+    [StructLayout(LayoutKind.Explicit)]
+    // This struct use an explicit layout to guard it against BUR-2491
     public struct SceneSectionData : IComponentData
     {
         /// <summary>
         /// Represents the unique GUID to identify the scene where the section is.
         /// </summary>
+        [FieldOffset(0)]
         public Hash128          SceneGUID;
         /// <summary>
         /// Represents the scene section index inside the scene.
         /// </summary>
+        [FieldOffset(16)]
         public int              SubSectionIndex;
         /// <summary>
         /// Represents the file size for the compressed section.
         /// </summary>
+        [FieldOffset(20)]
         public int              FileSize;
         /// <summary>
         /// Represents the number of Unity Objects referenced in the section.
         /// </summary>
+        [FieldOffset(24)]
         public int              ObjectReferenceCount;
         /// <summary>
         /// Represents the scene section bounding volume.
         /// </summary>
+        [FieldOffset(28)]
         public MinMaxAABB       BoundingVolume;
+        [FieldOffset(52)]
         internal Codec          Codec;
+        [FieldOffset(56)]
         internal int            DecompressedFileSize;
+
+        // For sections above section 0, this is the count of entities in section 0.
+        [FieldOffset(60)]
+        internal int            ExternalEntitiesRefRange;
+
+        [FieldOffset(64)]
         internal RuntimeBlobHeaderRef BlobHeader;
     }
 

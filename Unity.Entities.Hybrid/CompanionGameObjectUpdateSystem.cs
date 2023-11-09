@@ -11,8 +11,11 @@
  * Going the other way around, from the Companion GameObject to the Entity, isn't possible nor advised.
  */
 
+using System;
+using Unity.Burst;
 using Unity.Collections;
 using UnityEngine;
+using UnityObject = UnityEngine.Object;
 
 namespace Unity.Entities
 {
@@ -22,47 +25,90 @@ namespace Unity.Entities
     {
     }
 
+#if UNITY_EDITOR
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
-    partial class CompanionGameObjectUpdateSystem : SystemBase
+    partial struct CompanionGameObjectLiveBakingInitSystem : ISystem
     {
+        private EntityQuery toInitialize;
+
+        public void OnCreate(ref SystemState state)
+        {
+            toInitialize = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CompanionLink>()
+                .WithNone<CompanionReference>()
+                .WithOptions(EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities)
+                .Build(ref state);
+            state.RequireForUpdate(toInitialize);
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
+            // First time initialize only in Editor
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            foreach(var (link, entity) in SystemAPI.Query<RefRO<CompanionLink>>()
+                        .WithNone<CompanionReference>()
+                        .WithEntityAccess()
+                        .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab))
+            {
+                ecb.AddComponent(entity, new CompanionReference { Companion = link.ValueRO.Companion });
+            }
+            ecb.Playback(state.EntityManager);
+        }
+    }
+#endif
+
+    [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
+    [BurstCompile]
+    partial struct CompanionGameObjectUpdateSystem : ISystem
+    {
+        private EntityQuery companionChanged;
         private EntityQuery toActivate;
         private EntityQuery toDeactivate;
         private EntityQuery toCleanup;
 
-        protected override void OnCreate()
+        [BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
-            base.OnCreate();
+            companionChanged = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<CompanionLink>()
+                .Build(ref state);
+            companionChanged.SetChangedVersionFilter(ComponentType.ReadWrite<CompanionLink>());
+
             toActivate = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CompanionLink>()
                 .WithNone<CompanionGameObjectActiveCleanup, Disabled>()
-                .Build(this);
+                .Build(ref state);
             toDeactivate = new EntityQueryBuilder(Allocator.Temp)
                 .WithAny<Disabled, Prefab>()
                 .WithAll<CompanionGameObjectActiveCleanup, CompanionLink>()
                 .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
-                .Build(this);
+                .Build(ref state);
             toCleanup = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CompanionGameObjectActiveCleanup>()
                 .WithNone<CompanionLink>()
-                .Build(this);
+                .Build(ref state);
         }
 
-        protected override void OnUpdate()
+        [BurstCompile]
+        public void OnUpdate(ref SystemState state)
         {
-            Entities
-                .WithNone<CompanionGameObjectActiveCleanup, Disabled>()
-                .WithAll<CompanionLink>()
-                .ForEach((CompanionLink link) => link.Companion.SetActive(true)).WithoutBurst().Run();
-            EntityManager.AddComponent<CompanionGameObjectActiveCleanup>(toActivate);
+            // Activate
+            if (!toActivate.IsEmpty)
+            {
+                using var companionLinksToActivate = toActivate.ToComponentDataArray<CompanionLink>(Allocator.Temp).Reinterpret<int>();
+                GameObject.SetGameObjectsActive(companionLinksToActivate, true);
+                state.EntityManager.AddComponent<CompanionGameObjectActiveCleanup>(toActivate);
+            }
 
-            Entities
-                .WithAny<Disabled, Prefab>()
-                .WithAll<CompanionGameObjectActiveCleanup, CompanionLink>()
-                .WithEntityQueryOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
-                .ForEach((CompanionLink link) => link.Companion.SetActive(false)).WithoutBurst().Run();
-            EntityManager.RemoveComponent<CompanionGameObjectActiveCleanup>(toDeactivate);
+            // Deactivate
+            if (!toDeactivate.IsEmpty)
+            {
+                using var companionLinksToDeactivate = toDeactivate.ToComponentDataArray<CompanionLink>(Allocator.Temp).Reinterpret<int>();
+                GameObject.SetGameObjectsActive(companionLinksToDeactivate, false);
+                state.EntityManager.RemoveComponent<CompanionGameObjectActiveCleanup>(toDeactivate);
+            }
 
-            EntityManager.RemoveComponent<CompanionGameObjectActiveCleanup>(toCleanup);
+            state.EntityManager.RemoveComponent<CompanionGameObjectActiveCleanup>(toCleanup);
         }
     }
 }

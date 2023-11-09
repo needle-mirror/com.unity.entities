@@ -31,19 +31,5 @@ namespace Unity.Entities.Editor.Tests
         {
             return (result.GetRemovedComponentEntity(index), result.GetRemovedComponentData<T>(index));
         }
-
-        public static (Entity, T) GetAddedEntities<T>(this SharedComponentDataDiffer.ComponentChanges result, int index) where T : unmanaged, ISharedComponentData
-        {
-            var entity = result.GetAddedEntity(index);
-            var t = result.GetAddedComponent<T>(index);
-            return (entity, t);
-        }
-
-        public static (Entity, T) GetRemovedEntities<T>(this SharedComponentDataDiffer.ComponentChanges result, int index) where T : unmanaged, ISharedComponentData
-        {
-            var entity = result.GetRemovedEntity(index);
-            var t = result.GetRemovedComponent<T>(index);
-            return (entity, t);
-        }
     }
 }

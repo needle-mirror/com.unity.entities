@@ -2345,7 +2345,9 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(newWorld.EntityManager.UniversalQuery.IsCacheValid);
                 Assert.DoesNotThrow(() => newWorld.EntityManager.UniversalQuery.CheckChunkListCacheConsistency());
 
+#pragma warning disable CS0618 // Type or member is obsolete
                 m_Manager.CopyAndReplaceEntitiesFrom(newWorld.EntityManager);
+#pragma warning restore CS0618 // Type or member is obsolete
 
                 Assert.IsTrue(newWorld.EntityManager.UniversalQuery.IsCacheValid);
                 Assert.DoesNotThrow(() => newWorld.EntityManager.UniversalQuery.CheckChunkListCacheConsistency());
@@ -4369,10 +4371,29 @@ namespace Unity.Entities.Tests
                 Present = new[] { ComponentType.ReadOnly<EcsTestDataEnableable2>(), ComponentType.ReadWrite<EcsTestFloatData3>() },
                 Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
             };
-            using (var query = m_Manager.CreateEntityQuery(queryDesc))
-            {
-                Assert.That(query.GetEntityQueryDesc(), Is.EqualTo(queryDesc));
-            }
+
+            using var query = m_Manager.CreateEntityQuery(queryDesc);
+            var entityQueryDesc = query.GetEntityQueryDesc();
+            foreach (var all in entityQueryDesc.All)
+                Assert.IsTrue(queryDesc.All.Contains(all));
+            foreach (var any in entityQueryDesc.Any)
+                Assert.IsTrue(queryDesc.Any.Contains(any));
+            foreach (var disabled in entityQueryDesc.Disabled)
+                Assert.IsTrue(queryDesc.Disabled.Contains(disabled));
+
+            // All `None` components are silently given `ReadOnly` access mode during query creation
+            var actualNone = entityQueryDesc.None.Select(n => n.TypeIndex).ToArray();
+            var expectedNone = queryDesc.None.Select(n => n.TypeIndex).ToArray();
+
+            foreach (var none in expectedNone)
+                Assert.IsTrue(actualNone.Contains(none));
+
+            var actualAbsent = entityQueryDesc.Absent.Select(n => n.TypeIndex).ToArray();
+            var expectedAbsent = queryDesc.Absent.Select(n => n.TypeIndex).ToArray();
+
+            // All `Absent` components are silently given `ReadOnly` access mode during query creation
+            foreach (var absent in expectedAbsent)
+                Assert.IsTrue(actualAbsent.Contains(absent));
         }
 
         [Test]

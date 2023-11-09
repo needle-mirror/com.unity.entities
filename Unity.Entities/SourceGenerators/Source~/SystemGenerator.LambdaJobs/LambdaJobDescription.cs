@@ -64,7 +64,6 @@ public class LambdaJobDescription
 
     internal readonly List<LambdaParamDescription> LambdaParameters = new List<LambdaParamDescription>();
     public string JobStructName => $"{Name}_Job";
-    public bool NeedsJobFunctionPointers => Schedule.Mode == ScheduleMode.Run && (Burst.IsEnabled || LambdaJobKind == LambdaJobKind.Job);
     public bool NeedsEntityInQueryIndex => LambdaParameters.OfType<LambdaParamDescription_EntityInQueryIndex>().Any();
     public string ChunkBaseEntityIndexFieldName => $"{Name}_ChunkBaseEntityIndexArray";
 
@@ -613,11 +612,11 @@ public class LambdaJobDescription
     class DisabledTextTriviaRemover : CSharpSyntaxRewriter
     {
         static bool IsTriviaToRemove(SyntaxTrivia syntaxTrivia) =>
-            (syntaxTrivia.Kind() == SyntaxKind.DisabledTextTrivia ||
-             syntaxTrivia.Kind() == SyntaxKind.IfDirectiveTrivia ||
-             syntaxTrivia.Kind() == SyntaxKind.ElseDirectiveTrivia ||
-             syntaxTrivia.Kind() == SyntaxKind.ElifDirectiveTrivia ||
-             syntaxTrivia.Kind() == SyntaxKind.EndIfDirectiveTrivia);
+            (syntaxTrivia.IsKind(SyntaxKind.DisabledTextTrivia) ||
+             syntaxTrivia.IsKind(SyntaxKind.IfDirectiveTrivia) ||
+             syntaxTrivia.IsKind(SyntaxKind.ElseDirectiveTrivia) ||
+             syntaxTrivia.IsKind(SyntaxKind.ElifDirectiveTrivia) ||
+             syntaxTrivia.IsKind(SyntaxKind.EndIfDirectiveTrivia));
 
         public override SyntaxToken VisitToken(SyntaxToken token)
         {
@@ -719,7 +718,7 @@ public class LambdaJobDescription
     {
         foreach (var leadingTrivia in ContainingInvocationExpression.GetLeadingTrivia())
             // Ensure neat indentation
-            if (leadingTrivia.Kind() == SyntaxKind.WhitespaceTrivia)
+            if (leadingTrivia.IsKind(SyntaxKind.WhitespaceTrivia))
                 stringBuilder.Append(leadingTrivia);
 
         stringBuilder.Append($"{ExecuteInSystemMethodName}(");

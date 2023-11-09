@@ -94,7 +94,12 @@ namespace Unity.Entities
             [ReadOnly] public NativeList<ArchetypeChunkChangeFlags> Flags;
             [ReadOnly] public NativeList<int> EntityCounts;
 #if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+#if ENTITY_STORE_V1
             [NativeDisableUnsafePtrRestriction, ReadOnly] public EntityName* NameByEntity;
+#else
+            public EntityNameStoreAccess NameStoreAccess;
+#endif
+
 #endif
             [NativeDisableParallelForRestriction, WriteOnly] public NativeArray<EntityInChunkWithGuid> Entities;
 
@@ -118,7 +123,13 @@ namespace Unity.Entities
                     int nameIndex = 0;
 
 #if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+
+#if ENTITY_STORE_V1
                     nameIndex = NameByEntity[entityIndex].Index;
+#else
+                    nameIndex = NameStoreAccess.GetEntityNameByEntityIndex(entityIndex).Index;
+#endif
+
 #endif
                     Entities[entitiesIndex++] = new EntityInChunkWithGuid
                     {
@@ -245,7 +256,13 @@ namespace Unity.Entities
                 Flags = archetypeChunkChangeSet.Flags,
                 EntityCounts = archetypeChunkChangeSet.EntityCounts,
 #if UNITY_EDITOR && !DOTS_DISABLE_DEBUG_NAMES
+
+#if ENTITY_STORE_V1
                 NameByEntity = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameByEntity,
+#else
+                NameStoreAccess = entityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameStoreAccess,
+#endif
+
 #endif
                 Entities = entities
             }.Schedule(archetypeChunkChangeSet.Chunks.Length, 64, dependsOn);

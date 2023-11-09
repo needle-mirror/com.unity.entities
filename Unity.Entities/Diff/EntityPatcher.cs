@@ -293,7 +293,6 @@ namespace Unity.Entities
                     packedEntities,
                     packedTypes);
 
-
                 ApplySetComponents(
                     entityManager,
                     changeSet.SetComponents,
@@ -920,7 +919,6 @@ namespace Unity.Entities
             NativeArray<ComponentType> packedTypes)
         {
             s_ApplySetManagedComponentsProfilerMarker.Begin();
-            var entitiesWithCompanionLink = new NativeList<Entity>(Allocator.Temp);
             var managedObjectClone = new ManagedObjectClone();
 
             for (var i = 0; i < managedComponentDataChanges.Length; i++)
@@ -949,21 +947,11 @@ namespace Unity.Entities
                     {
                         var clone = managedObjectClone.Clone(packedManagedComponentDataChange.BoxedValue);
                         entityManager.SetComponentObject(entity, component, clone);
-
-                        if (component.TypeIndex == ManagedComponentStore.CompanionLinkTypeIndex)
-                        {
-                            entitiesWithCompanionLink.Add(entity);
-                        }
                     }
                 }
                 while (packedEntities.TryGetNextValue(out entity, ref iterator));
             }
 
-            var entitiesWithCompanionLinkCount = entitiesWithCompanionLink.Length;
-            if (entitiesWithCompanionLinkCount > 0)
-            {
-                ManagedComponentStore.AssignCompanionComponentsToCompanionGameObjects(entityManager, entitiesWithCompanionLink.AsArray());
-            }
             s_ApplySetManagedComponentsProfilerMarker.End();
         }
 
@@ -994,9 +982,12 @@ namespace Unity.Entities
             public NativeList<SetComponentError> EntityDoesNotExist;
             public NativeList<SetComponentError> ComponentDoesNotExist;
 
+            public NativeList<Entity> EntitiesWithCompanionLink;
+
             public void Execute()
             {
                 var entityGuidTypeIndex = TypeManager.GetTypeIndex<EntityGuid>();
+                var companionLinkTypeIndex = ManagedComponentStore.CompanionLinkTypeIndex;
 
                 var offset = 0L;
                 for (var i = 0; i < Changes.Length; i++)
@@ -1068,6 +1059,12 @@ namespace Unity.Entities
                                         EntityToEntityGuid.TryAdd(entity, entityGuid);
                                     }
 
+                                    // Collect all entities that have a companion link so we can fix up later
+                                    if (componentTypeInArchetype.TypeIndex == companionLinkTypeIndex)
+                                    {
+                                        EntitiesWithCompanionLink.Add(entity);
+                                    }
+
                                     UnsafeUtility.MemCpy(target + packedComponentDataChange.Offset, data, size);
                                 }
                             }
@@ -1096,9 +1093,13 @@ namespace Unity.Entities
             var entityDoesNotExist = new NativeList<SetComponentError>(Allocator.TempJob);
             var componentDoesNotExist = new NativeList<SetComponentError>(Allocator.TempJob);
 
+            // Companions
+            var entitiesWithCompanionLink = new NativeList<Entity>(Allocator.TempJob);
+
             new ApplySetComponentsJob
             {
                 Changes = changes,
+                EntitiesWithCompanionLink = entitiesWithCompanionLink,
                 ComponentDoesNotExist = componentDoesNotExist,
                 EntityDoesNotExist = entityDoesNotExist,
                 EntityGuidToEntity = entityGuidToEntity,
@@ -1121,8 +1122,15 @@ namespace Unity.Entities
                 Debug.LogWarning($"SetComponent<{error.ComponentType}>({error.Guid}) but entity does not exist.");
             }
 
+            var entitiesWithCompanionLinkCount = entitiesWithCompanionLink.Length;
+            if (entitiesWithCompanionLinkCount > 0)
+            {
+                ManagedComponentStore.AssignCompanionComponentsToCompanionGameObjects(entityManager, entitiesWithCompanionLink.AsArray());
+            }
+
             entityDoesNotExist.Dispose();
             componentDoesNotExist.Dispose();
+            entitiesWithCompanionLink.Dispose();
             s_ApplySetComponentsProfilerMarker.End();
         }
 

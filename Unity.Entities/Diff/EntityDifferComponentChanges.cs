@@ -2054,7 +2054,11 @@ namespace Unity.Entities
             public NativeList<CreatedEntity> CreatedEntities;
             public NativeList<DestroyedEntity> DestroyedEntities;
             public NativeList<NameModifiedEntity> NameModifiedEntities;
+#if ENTITY_STORE_V1
             public UnsafeBitArray NameChangeBitsByEntity;
+#else
+            public EntityNameStoreAccess NameStoreAccess;
+#endif
             [NativeDisableUnsafePtrRestriction] public int* NameChangeCount;
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* AfterEntityComponentStore;
             [NativeDisableUnsafePtrRestriction] public EntityComponentStore* BeforeEntityComponentStore;
@@ -2102,7 +2106,7 @@ namespace Unity.Entities
                     entitiesLookup.Add(NameModifiedEntities[i].EntityGuid);
                 }
 
-
+#if ENTITY_STORE_V1
                 // Only check name change bits when the sequence number of 2 worlds are the same.
                 // When the sequence numbers are the same, it is possible that there are entities with only
                 // name changes that are not captured in GetEntityInChunkChanges.
@@ -2114,11 +2118,7 @@ namespace Unity.Entities
                     {
                         if (NameChangeBitsByEntity.IsSet(i))
                         {
-                            var entity = new Entity
-                            {
-                                Index = i,
-                                Version = AfterEntityComponentStore->GetEntityVersionByIndex(i)
-                            };
+                            var entity = AfterEntityComponentStore->GetEntityByEntityIndex(i);
 
                             if (TryGetEntityGuid(AfterEntityComponentStore, entity, out var entityGuid))
                             {
@@ -2131,6 +2131,27 @@ namespace Unity.Entities
                         }
                     }
                 }
+#else
+                // Only check name change bits when the sequence number of 2 worlds are the same.
+                // When the sequence numbers are the same, it is possible that there are entities with only
+                // name changes that are not captured in GetEntityInChunkChanges.
+                if (AfterEntityComponentStore->NameChangeBitsSequenceNum == BeforeEntityComponentStore->NameChangeBitsSequenceNum)
+                {
+                    var nameSetRO = AfterEntityComponentStore->NameStoreAccess.GetEntityWithNameSetRO();
+
+                    foreach (var entity in nameSetRO)
+                    {
+                        if (TryGetEntityGuid(AfterEntityComponentStore, entity, out var entityGuid))
+                        {
+                            if (!entitiesLookup.Contains(entityGuid))
+                            {
+                                AfterEntityComponentStore->GetName(entity, out namesPtr[nameIndex++]);
+                                entityGuidsPtr[guidIndex++] = entityGuid;
+                            }
+                        }
+                    }
+                }
+#endif
 
                 // Destroyed entities will always show up in the entityGuid set so we can grab the rest of those names.
                 // They will not exist in the after world so use the before world.
@@ -2167,8 +2188,14 @@ namespace Unity.Entities
             var length = createdEntities.Length + destroyedEntities.Length + nameModifiedEntities.Length;
 
 #if !DOTS_DISABLE_DEBUG_NAMES
+
+#if ENTITY_STORE_V1
             var nameChangeBitsByEntity = afterEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameChangeBitsByEntity;
             length += nameChangeBitsByEntity.CountBits(0, nameChangeBitsByEntity.Length);
+#else
+            length += afterEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameStoreAccess.CountEntitiesWithNamesSet();
+#endif
+
 #endif
 
             // No entity name changes
@@ -2189,7 +2216,11 @@ namespace Unity.Entities
                 CreatedEntities = createdEntities,
                 DestroyedEntities = destroyedEntities,
                 NameModifiedEntities = nameModifiedEntities,
+#if ENTITY_STORE_V1
                 NameChangeBitsByEntity = nameChangeBitsByEntity,
+#else
+                NameStoreAccess = afterEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameStoreAccess,
+#endif
                 AfterEntityComponentStore = afterEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore,
                 BeforeEntityComponentStore = beforeEntityManager.GetCheckedEntityDataAccess()->EntityComponentStore
             }.Run();

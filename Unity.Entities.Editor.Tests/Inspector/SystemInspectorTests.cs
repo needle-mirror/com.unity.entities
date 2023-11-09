@@ -64,7 +64,8 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(systemQueriesTab.QueriesFromSystem.Length, Is.EqualTo(2));
             Assert.That(systemQueriesTab.QueriesFromSystem[0].GetEntityQueryDesc().All, Is.EquivalentTo(new[] { ComponentType.ReadWrite<SystemScheduleTestData1>(), ComponentType.ReadOnly<SystemScheduleTestData2>() }));
             Assert.That(systemQueriesTab.QueriesFromSystem[1].GetEntityQueryDesc().All, Is.EquivalentTo(new[] { ComponentType.ReadOnly<SystemScheduleTestData1>()}));
-            Assert.That(systemQueriesTab.QueriesFromSystem[1].GetEntityQueryDesc().None, Is.EquivalentTo(new[] { ComponentType.Exclude<SystemScheduleTestData2>()}));
+            // `None` components are silently given `ReadOnly` access during query creation
+            Assert.That(systemQueriesTab.QueriesFromSystem[1].GetEntityQueryDesc().None, Is.EquivalentTo(new[] { ComponentType.ReadOnly<SystemScheduleTestData2>()}));
         }
 
         [Test]
@@ -93,7 +94,8 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(systemEntities.EntitiesFromQueries[1].Query.GetEntityQueryDesc().None,
                 Is.EquivalentTo(new[]
                 {
-                    ComponentType.Exclude<SystemScheduleTestData2>()
+                    // `None` components are silently given `ReadOnly` access during query creation
+                    ComponentType.ReadOnly<SystemScheduleTestData2>()
                 }));
         }
 

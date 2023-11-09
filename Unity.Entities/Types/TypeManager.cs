@@ -633,6 +633,7 @@ namespace Unity.Entities
         static NativeList<EntityOffsetInfo>             s_EntityOffsetList;
         static NativeList<EntityOffsetInfo>             s_BlobAssetRefOffsetList;
         static NativeList<EntityOffsetInfo>             s_WeakAssetRefOffsetList;
+        static NativeList<EntityOffsetInfo>             s_UnityObjectRefOffsetList;
         static NativeList<TypeIndex>                    s_WriteGroupList;
         static NativeList<FastEquality.TypeInfo>        s_FastEqualityTypeInfoList;
         static List<Type>                               s_Types;
@@ -807,7 +808,8 @@ namespace Unity.Entities
                             ulong memoryOrdering, ulong stableTypeHash, int bufferCapacity, int sizeInChunk, int elementSize,
                             int alignmentInBytes, int maximumChunkCapacity, int writeGroupCount, int writeGroupStartIndex,
                             bool hasBlobRefs, int blobAssetRefOffsetCount, int blobAssetRefOffsetStartIndex,
-                            int weakAssetRefOffsetCount, int weakAssetRefOffsetStartIndex, int typeSize)
+                            int weakAssetRefOffsetCount, int weakAssetRefOffsetStartIndex,
+                            int unityObjectRefOffsetCount, int unityObjectRefOffsetStartIndex, int typeSize)
             {
                 TypeIndex = new TypeIndex() { Value = typeIndex };
                 Category = category;
@@ -827,6 +829,8 @@ namespace Unity.Entities
                 BlobAssetRefOffsetStartIndex = blobAssetRefOffsetStartIndex;
                 WeakAssetRefOffsetCount = weakAssetRefOffsetCount;
                 WeakAssetRefOffsetStartIndex = weakAssetRefOffsetStartIndex;
+                UnityObjectRefOffsetCount = unityObjectRefOffsetCount;
+                UnityObjectRefOffsetStartIndex = unityObjectRefOffsetStartIndex;
                 TypeSize = typeSize;
             }
 
@@ -900,6 +904,9 @@ namespace Unity.Entities
             public   readonly int           WeakAssetRefOffsetCount;
             internal readonly int           WeakAssetRefOffsetStartIndex;
 
+            public   readonly int           UnityObjectRefOffsetCount;
+            internal readonly int           UnityObjectRefOffsetStartIndex;
+
             /// <summary>
             /// Number of components which specify this component as the target type in a <seealso cref="WriteGroupAttribute"/>.
             /// </summary>
@@ -966,6 +973,12 @@ namespace Unity.Entities
             /// For class based IComponentData, a value of true means it is possible, but not guaranteed, that there are WeakReferences. (Polymorphic <seealso cref="WeakReference{T}"/> members can not be proven statically)
             /// </summary>
             public bool HasWeakAssetRefs => WeakAssetRefOffsetCount != 0;
+
+            /// <summary>
+            /// For struct IComponentData, a value of true gurantees that there are <seealso cref="WeakReference{T}"/> fields in this component.
+            /// For class based IComponentData, a value of true means it is possible, but not guaranteed, that there are WeakReferences. (Polymorphic <seealso cref="WeakReference{T}"/> members can not be proven statically)
+            /// </summary>
+            public bool HasUnityObjectRefs => UnityObjectRefOffsetCount != 0;
 
             /// <summary>
             /// Returns the System.Type for the component this <seealso cref="TypeInfo"/> is describing.
@@ -1043,6 +1056,16 @@ namespace Unity.Entities
         internal static EntityOffsetInfo* GetWeakAssetRefOffsets(in TypeInfo typeInfo)
         {
             return GetWeakAssetRefOffsetsPointer() + typeInfo.WeakAssetRefOffsetStartIndex;
+        }
+
+        internal static EntityOffsetInfo* GetUnityObjectRefOffsetsPointer()
+        {
+            return (EntityOffsetInfo*)SharedUnityObjectRefOffsets.Ref.Data;
+        }
+
+        internal static EntityOffsetInfo* GetUnityObjectRefOffsets(in TypeInfo typeInfo)
+        {
+            return GetUnityObjectRefOffsetsPointer() + typeInfo.UnityObjectRefOffsetStartIndex;
         }
 
         internal static UnsafeParallelHashMapData* GetStableTypeHashMapPointer()
@@ -1440,6 +1463,7 @@ namespace Unity.Entities
                 s_EntityOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
                 s_BlobAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
                 s_WeakAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
+                s_UnityObjectRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
                 s_WriteGroupList = new NativeList<TypeIndex>(Allocator.Persistent);
                 s_FastEqualityTypeInfoList = new NativeList<FastEquality.TypeInfo>(Allocator.Persistent);
                 s_Types = new List<Type>();
@@ -1505,6 +1529,7 @@ namespace Unity.Entities
             SharedEntityOffsetInfos.Ref.Data = new IntPtr(s_EntityOffsetList.GetUnsafePtr());
             SharedBlobAssetRefOffsets.Ref.Data = new IntPtr(s_BlobAssetRefOffsetList.GetUnsafePtr());
             SharedWeakAssetRefOffsets.Ref.Data = new IntPtr(s_WeakAssetRefOffsetList.GetUnsafePtr());
+            SharedUnityObjectRefOffsets.Ref.Data = new IntPtr(s_UnityObjectRefOffsetList.GetUnsafePtr());
             SharedStableTypeHashes.Ref.Data = new IntPtr(s_StableTypeHashToTypeIndex.m_Buffer);
             SharedWriteGroups.Ref.Data = new IntPtr(s_WriteGroupList.GetUnsafePtr());
             SharedFastEqualityTypeInfo.Ref.Data = new IntPtr(s_FastEqualityTypeInfoList.GetUnsafePtr());
@@ -1553,7 +1578,7 @@ namespace Unity.Entities
                 new TypeInfo(0, TypeCategory.ComponentData, 0, -1,
                     0, 0, -1, 0, 0, 0,
                     TypeManager.MaximumChunkCapacity, 0, -1, false, 0,
-                    -1, 0, -1, 0),
+                    -1, 0, -1, 0, -1, 0),
                 "null", 0);
 
             // Push Entity TypeInfo
@@ -1573,7 +1598,7 @@ namespace Unity.Entities
                     0, entityStableTypeHash, -1, UnsafeUtility.SizeOf<Entity>(),
                     UnsafeUtility.SizeOf<Entity>(), CalculateAlignmentInChunk(sizeof(Entity)),
                     TypeManager.MaximumChunkCapacity, 0, -1, false, 0,
-                    -1, 0, -1, UnsafeUtility.SizeOf<Entity>()),
+                    -1, 0, -1, 0, -1, UnsafeUtility.SizeOf<Entity>()),
                 "Unity.Entities.Entity", 0);
 
             SharedTypeIndex<Entity>.Ref.Data = entityTypeIndex;
@@ -1629,6 +1654,7 @@ namespace Unity.Entities
             s_EntityOffsetList.Dispose();
             s_BlobAssetRefOffsetList.Dispose();
             s_WeakAssetRefOffsetList.Dispose();
+            s_UnityObjectRefOffsetList.Dispose();
             s_WriteGroupList.Dispose();
             s_SharedComponent_FunctionPointers.Dispose();
 
@@ -3053,6 +3079,7 @@ namespace Unity.Entities
             int entityOffsetIndex = s_EntityOffsetList.Length;
             int blobAssetRefOffsetIndex = s_BlobAssetRefOffsetList.Length;
             int weakAssetRefOffsetIndex = s_WeakAssetRefOffsetList.Length;
+            int unityObjectRefOffsetIndex = s_UnityObjectRefOffsetList.Length;
 
             int elementSize = 0;
             int alignmentInBytes = 0;
@@ -3079,7 +3106,7 @@ namespace Unity.Entities
                 else
                     sizeInChunk = valueTypeSize;
 
-                EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList, caches.CalculateFieldOffsetsUnmanagedCache);
+                EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList, ref s_UnityObjectRefOffsetList, caches.CalculateFieldOffsetsUnmanagedCache);
             }
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             else if (typeof(IComponentData).IsAssignableFrom(type) && isManaged)
@@ -3118,7 +3145,7 @@ namespace Unity.Entities
                     bufferCapacity = DefaultBufferCapacityNumerator / elementSize; // Rather than 2*cachelinesize, to make it cross platform deterministic
 
                 sizeInChunk = sizeof(BufferHeader) + bufferCapacity * elementSize;
-                EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList, caches.CalculateFieldOffsetsUnmanagedCache);
+                EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList, ref s_UnityObjectRefOffsetList, caches.CalculateFieldOffsetsUnmanagedCache);
             }
             else if (typeof(ISharedComponentData).IsAssignableFrom(type))
             {
@@ -3147,7 +3174,7 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList, caches.CalculateFieldOffsetsUnmanagedCache);
+                    EntityRemapUtility.CalculateFieldOffsetsUnmanaged(type, out hasEntityReferences, out hasBlobReferences, out hasWeakAssetReferences, ref s_EntityOffsetList, ref s_BlobAssetRefOffsetList, ref s_WeakAssetRefOffsetList, ref s_UnityObjectRefOffsetList, caches.CalculateFieldOffsetsUnmanagedCache);
                 }
             }
             else if (type.IsClass)
@@ -3179,6 +3206,7 @@ namespace Unity.Entities
             int entityOffsetCount = s_EntityOffsetList.Length - entityOffsetIndex;
             int blobAssetRefOffsetCount = s_BlobAssetRefOffsetList.Length - blobAssetRefOffsetIndex;
             int weakAssetRefOffsetCount =  s_WeakAssetRefOffsetList.Length - weakAssetRefOffsetIndex;
+            int unityObjectRefOffsetCount =  s_UnityObjectRefOffsetList.Length - unityObjectRefOffsetIndex;
 
             int writeGroupIndex = s_WriteGroupList.Length;
             int writeGroupCount = writeGroups == null ? 0 : writeGroups.Length;
@@ -3256,7 +3284,7 @@ namespace Unity.Entities
                 elementSize > 0 ? elementSize : sizeInChunk, alignmentInBytes,
                 maxChunkCapacity, writeGroupCount, writeGroupIndex,
                 hasBlobReferences, blobAssetRefOffsetCount, blobAssetRefOffsetIndex,
-                weakAssetRefOffsetCount, weakAssetRefOffsetIndex, valueTypeSize);
+                weakAssetRefOffsetCount, weakAssetRefOffsetIndex, unityObjectRefOffsetCount, unityObjectRefOffsetIndex, valueTypeSize);
         }
 
         private struct SharedTypeIndex
@@ -3309,6 +3337,10 @@ namespace Unity.Entities
         private struct SharedWeakAssetRefOffsets
         {
             public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedWeakAssetRefOffsets>();
+        }
+        private struct SharedUnityObjectRefOffsets
+        {
+            public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedUnityObjectRefOffsets>();
         }
         private struct SharedWriteGroups
         {

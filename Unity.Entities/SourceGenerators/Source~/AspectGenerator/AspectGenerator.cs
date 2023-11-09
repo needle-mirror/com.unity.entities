@@ -393,7 +393,7 @@ namespace Unity.Entities.SourceGen.Aspect
                                 if (node.Parent != null)
                                 {
                                     if(node.Parent is TypeDeclarationSyntax typeDec
-                                       && typeDec.Modifiers.All(x => x.Kind() != SyntaxKind.PartialKeyword))
+                                       && typeDec.Modifiers.All(x => !x.IsKind(SyntaxKind.PartialKeyword)))
                                     {
                                         valid = false;
                                     }

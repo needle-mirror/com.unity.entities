@@ -51,6 +51,16 @@ namespace Unity.Entities
 #if UNITY_EDITOR
             internal IEntitiesPlayerSettings                  DotsSettings;
 #endif
+
+            /// <summary>Exists to give context to error messages.</summary>
+            internal string ErrorContextString()
+            {
+                if (!AuthoringObject)
+                    return $"Baked in World '{World.Name}'."; // World at least gives some context. E.g. With incremental baking, it'll include scene name.
+                var scene = AuthoringObject.scene; // Scene can be null (i.e. Invalid) when the AuthoringObject is a prefab that is only referenced in a SubScene.
+                var sceneInfo = scene.IsValid() && !string.IsNullOrWhiteSpace(scene.path) ? $" in {(scene.isSubScene ? "SubScene" : "Scene")} '{scene.path}'" : "";
+                return $"GameObject '{AuthoringObject.name}'{sceneInfo}, baked in World '{World.Name}'.";
+            }
         }
 
         internal BakerExecutionState  _State;
@@ -1049,7 +1059,7 @@ namespace Unity.Entities
         {
             if (this is GameObjectBaker)
                 throw new InvalidOperationException("The IsActiveAndEnabled() method cannot be called from a GameObjectBaker." +
-                    "If you need to depend on the GameObject active state, use IsActive() instead.");
+                    $"If you need to depend on the GameObject active state, use IsActive() instead. {_State.ErrorContextString()}");
 
             return IsActiveAndEnabled(_State.AuthoringSource);
         }
@@ -1321,7 +1331,7 @@ namespace Unity.Entities
                 var previousBakerName = previousBaker.GetType().FullName;
                 var authoringComponentName = _State.AuthoringSource.GetType().FullName;
                 throw new InvalidOperationException(
-                    $"Baking error: Attempt to add duplicate component {TypeManager.GetTypeInfo(typeIndex).DebugTypeName} for Baker {bakerName} with authoring component {authoringComponentName}.  Previous component added by Baker {previousBakerName}");
+                    $"Baking error: Attempt to add duplicate component {TypeManager.GetTypeInfo(typeIndex).DebugTypeName} for Baker {bakerName} with authoring component {authoringComponentName}.  Previous component added by Baker {previousBakerName}. {_State.ErrorContextString()}");
             }
         }
 
@@ -1346,11 +1356,11 @@ namespace Unity.Entities
                 var previousBakers = BakerDataUtility.GetBakers(debugIndex.TypeIndex);
                 var previousBaker = previousBakers[debugIndex.IndexInBakerArray].Baker;
                 var previousBakerName = previousBaker.GetType().Name;
-                throw new InvalidOperationException($"Baking error: Attempt to set component {TypeManager.GetTypeInfo(typeIndex).DebugTypeName} for Baker {bakerName} with authoring component {authoringComponentName} but the component was added by a different Baker {previousBakerName}");
+                throw new InvalidOperationException($"Baking error: Attempt to set component {TypeManager.GetTypeInfo(typeIndex).DebugTypeName} for Baker {bakerName} with authoring component {authoringComponentName} but the component was added by a different Baker {previousBakerName}. {_State.ErrorContextString()}");
             }
             else
             {
-                throw new InvalidOperationException($"Baking error: Attempt to set component {TypeManager.GetTypeInfo(typeIndex).DebugTypeName} for Baker {bakerName} with authoring component {authoringComponentName} but the component hasn't been added by the baker yet.");
+                throw new InvalidOperationException($"Baking error: Attempt to set component {TypeManager.GetTypeInfo(typeIndex).DebugTypeName} for Baker {bakerName} with authoring component {authoringComponentName} but the component hasn't been added by the baker yet. {_State.ErrorContextString()}");
             }
         }
 
@@ -1423,10 +1433,10 @@ namespace Unity.Entities
         void CheckValidAdditionalEntity(Entity entity)
         {
             if (!_State.BakerState->Entities.Contains(entity))
-                throw new InvalidOperationException($"Entity {entity} doesn't belong to the current authoring component.");
+                throw new InvalidOperationException($"Entity {entity} doesn't belong to the current authoring component. {_State.ErrorContextString()}");
         }
 
-#endregion
+        #endregion
 
 #region Blob Assets
 
@@ -2028,7 +2038,7 @@ namespace Unity.Entities
         public void CreateAdditionalEntities(NativeArray<Entity> outputEntities, TransformUsageFlags transformUsageFlags, bool bakingOnlyEntity = false)
         {
             if (!outputEntities.IsCreated || outputEntities.Length == 0)
-                throw new ArgumentException($"{nameof(outputEntities)} is not valid or empty");
+                throw new ArgumentException($"{nameof(outputEntities)} is not valid or empty. {_State.ErrorContextString()}");
 
             _State.BakedEntityData->CreateAdditionalEntities(outputEntities, _State.AuthoringObject, _State.AuthoringId, bakingOnlyEntity);
             foreach (var e in outputEntities)

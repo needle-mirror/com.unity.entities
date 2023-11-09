@@ -140,7 +140,11 @@ namespace Unity.Entities.Editor
                 m_SceneTagToSubSceneNodeHandle = sceneTagToSubSceneNodeHandle;
                 m_Step = Step.IntegrateChanges;
 
+#if !ENTITY_STORE_V1
+                m_Hierarchy.m_Nodes.ResizeEntityCapacity(world.EntityManager.HighestEntityIndex() + 1);
+#else
                 m_Hierarchy.m_Nodes.ResizeEntityCapacity(world.EntityManager.EntityCapacity);
+#endif
             }
 
             public void Dispose()

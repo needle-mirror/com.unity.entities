@@ -43,7 +43,8 @@ namespace Unity.Entities
             AssignName = 1 << 2,
             SceneViewLiveConversion = 1 << 3,
             GameViewLiveConversion = 1 << 4,
-            IsBuildingForPlayer = 1 << 5
+            IsBuildingForPlayer = 1 << 5,
+            SkipCreatingCompanions = 1 << 6
         }
 
         internal static string[] CollectImportantProfilerMarkerStrings()
@@ -166,8 +167,11 @@ namespace Unity.Entities
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
             using (s_BakingCompanionComponentSystem.Auto())
             {
-                var companionComponentSystem = conversionWorld.GetOrCreateSystemManaged<BakingCompanionComponentSystem>();
-                companionComponentSystem.Update();
+                if(!settings.BakingFlags.HasFlag(BakingFlags.SkipCreatingCompanions))
+                {
+                    var companionComponentSystem = conversionWorld.GetOrCreateSystemManaged<BakingCompanionComponentSystem>();
+                    companionComponentSystem.Update();
+                }
             }
 #endif
             using (s_PostBakingSystemGroup.Auto())

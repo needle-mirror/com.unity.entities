@@ -2987,5 +2987,503 @@ namespace Unity.Entities.Tests
             }
         }
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
+
+        // Unity Obj Ref serialization
+        public struct EcsTestComponentWithUnityObjectRef : IComponentData
+        {
+            public UnityObjectRef<UnityEngine.GameObject> value;
+        }
+
+        public struct EcsTestSharedComponentWithUnityObjectRef : ISharedComponentData
+        {
+            public UnityObjectRef<UnityEngine.GameObject> value;
+        }
+
+        public struct EcsTestBufferWithUnityObjectRef : IBufferElementData
+        {
+            public UnityObjectRef<UnityEngine.GameObject> value;
+        }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        public class EcsTestManagedComponentWithUnityObjectRef : IComponentData
+        {
+            public UnityObjectRef<UnityEngine.GameObject> value;
+        }
+
+        public struct EcsTestManagedSharedComponentWithUnityObjectRef : ISharedComponentData, IEquatable<EcsTestManagedSharedComponentWithUnityObjectRef>
+        {
+            public UnityObjectRef<UnityEngine.GameObject> value;
+
+            // Add a managed field to force the type manager to see this as a managed shared component
+            public object ManagedField;
+
+            public bool Equals(EcsTestManagedSharedComponentWithUnityObjectRef other)
+            {
+                return value.Equals(other.value) && Equals(ManagedField, other.ManagedField);
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is EcsTestManagedSharedComponentWithUnityObjectRef other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return HashCode.Combine(value, ManagedField);
+            }
+        }
+#endif
+
+        [Test]
+        public void SerializeEntities_WithUnityObjRef_ComponentData()
+        {
+            var go = new UnityEngine.GameObject("Foo");
+            {
+                Entity a = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(a, new EcsTestComponentWithUnityObjectRef
+                {
+                    value = go
+                });
+            }
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer, out var referencedObjects);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            // Make sure we got one object out
+            Assert.AreEqual(1, referencedObjects.Length);
+
+            // Make sure it's the same object
+            var referencedObj = (UnityEngine.GameObject)referencedObjects[0];
+            Assert.AreEqual(go.GetInstanceID(), referencedObj.GetInstanceID());
+
+            using var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, referencedObjects);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestComponentWithUnityObjectRef>().Build(entityManager))
+            {
+                var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(1, entities.Length);
+
+                var a = entityManager.GetComponentData<EcsTestComponentWithUnityObjectRef>(entities[0]).value.Value;
+
+                Assert.AreEqual(go.GetInstanceID(), a.GetInstanceID());
+            }
+        }
+
+        [Test]
+        public void SerializeEntities_WithUnityObjRef_ComponentData_Default()
+        {
+            UnityEngine.GameObject go = null;
+            {
+                Entity a = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(a, new EcsTestComponentWithUnityObjectRef
+                {
+                    value = go
+                });
+            }
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer, out var referencedObjects);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            // Make sure we got no referenced objects
+            Assert.AreEqual(0, referencedObjects.Length);
+
+            using var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, referencedObjects);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestComponentWithUnityObjectRef>().Build(entityManager))
+            {
+                var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(1, entities.Length);
+
+                var a = entityManager.GetComponentData<EcsTestComponentWithUnityObjectRef>(entities[0]).value;
+
+                Assert.IsTrue(a == go);
+            }
+        }
+
+        [Test]
+        public void SerializeEntities_WithUnityObjRef_SharedComponentData()
+        {
+            var go = new UnityEngine.GameObject("Foo");
+            {
+                Entity a = m_Manager.CreateEntity();
+                m_Manager.AddSharedComponent(a, new EcsTestSharedComponentWithUnityObjectRef
+                {
+                    value = go
+                });
+            }
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer, out var referencedObjects);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            // Make sure we got one object out
+            Assert.AreEqual(1, referencedObjects.Length);
+
+            // Make sure it's the same object
+            var referencedObj = (UnityEngine.GameObject)referencedObjects[0];
+            Assert.AreEqual(go.GetInstanceID(), referencedObj.GetInstanceID());
+
+            using var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, referencedObjects);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestSharedComponentWithUnityObjectRef>().Build(entityManager))
+            {
+                var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(1, entities.Length);
+
+                var a = entityManager.GetSharedComponent<EcsTestSharedComponentWithUnityObjectRef>(entities[0]).value.Value;
+
+                Assert.AreEqual(go.GetInstanceID(), a.GetInstanceID());
+            }
+        }
+
+        [Test]
+        public void SerializeEntities_WithUnityObjRef_SharedComponentData_Default()
+        {
+            UnityEngine.GameObject go = null;
+            {
+                Entity a = m_Manager.CreateEntity();
+                m_Manager.AddSharedComponent(a, new EcsTestSharedComponentWithUnityObjectRef
+                {
+                    value = go
+                });
+            }
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer, out var referencedObjects);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            // Make sure we got no referenced objects
+            Assert.AreEqual(0, referencedObjects.Length);
+
+            using var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, referencedObjects);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestSharedComponentWithUnityObjectRef>().Build(entityManager))
+            {
+                var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(1, entities.Length);
+
+                var a = entityManager.GetSharedComponent<EcsTestSharedComponentWithUnityObjectRef>(entities[0]).value;
+
+                Assert.IsTrue(a == go);
+            }
+        }
+
+        [Test]
+        public void SerializeEntities_WithUnityObjRef_DynamicBuffer()
+        {
+            var go1 = new UnityEngine.GameObject("Foo1");
+            var go2 = new UnityEngine.GameObject("Foo2");
+            {
+                Entity a = m_Manager.CreateEntity();
+                var buffer = m_Manager.AddBuffer<EcsTestBufferWithUnityObjectRef>(a);
+                buffer.Add(new EcsTestBufferWithUnityObjectRef { value = go1 });
+                buffer.Add(new EcsTestBufferWithUnityObjectRef { value = go2 });
+            }
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer, out var referencedObjects);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            // Make sure we got one object out
+            Assert.AreEqual(2, referencedObjects.Length);
+
+            // Make sure it's the same object
+            var referencedObj1 = (UnityEngine.GameObject)referencedObjects[0];
+            var referencedObj2 = (UnityEngine.GameObject)referencedObjects[1];
+            Assert.AreEqual(go1.GetInstanceID(), referencedObj1.GetInstanceID());
+            Assert.AreEqual(go2.GetInstanceID(), referencedObj2.GetInstanceID());
+
+            using var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, referencedObjects);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestBufferWithUnityObjectRef>().Build(entityManager))
+            {
+                var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(1, entities.Length);
+
+                var buffer = entityManager.GetBuffer<EcsTestBufferWithUnityObjectRef>(entities[0]);
+                var outObj1 = buffer[0].value.Value;
+                var outObj2 = buffer[1].value.Value;
+
+                Assert.AreEqual(go1.GetInstanceID(), outObj1.GetInstanceID());
+                Assert.AreEqual(go2.GetInstanceID(), outObj2.GetInstanceID());
+            }
+        }
+
+        [Test]
+        public void SerializeEntities_WithUnityObjRef_DynamicBuffer_Default()
+        {
+            UnityEngine.GameObject go1 = null;
+            UnityEngine.GameObject go2 = null;
+            {
+                Entity a = m_Manager.CreateEntity();
+                var buffer = m_Manager.AddBuffer<EcsTestBufferWithUnityObjectRef>(a);
+                buffer.Add(new EcsTestBufferWithUnityObjectRef { value = go1 });
+                buffer.Add(new EcsTestBufferWithUnityObjectRef { value = go2 });
+            }
+
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer, out var referencedObjects);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            // Make sure we got no referenced objects
+            Assert.AreEqual(0, referencedObjects.Length);
+
+            using var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, referencedObjects);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestBufferWithUnityObjectRef>().Build(entityManager))
+            {
+                var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(1, entities.Length);
+
+                var buffer = entityManager.GetBuffer<EcsTestBufferWithUnityObjectRef>(entities[0]);
+                var outObj1 = buffer[0].value;
+                var outObj2 = buffer[1].value;
+
+                Assert.IsTrue(outObj1 == go1);
+                Assert.IsTrue(outObj2 == go2);
+            }
+        }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        [Test]
+        public void SerializeEntities_WithUnityObjRef_ManagedComponentData()
+        {
+            var go = new UnityEngine.GameObject("Foo");
+            {
+                Entity a = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(a, new EcsTestManagedComponentWithUnityObjectRef
+                {
+                    value = go
+                });
+            }
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer, out var referencedObjects);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            // Make sure we got one object out
+            Assert.AreEqual(1, referencedObjects.Length);
+
+            // Make sure it's the same object
+            var referencedObj = (UnityEngine.GameObject)referencedObjects[0];
+            Assert.AreEqual(go.GetInstanceID(), referencedObj.GetInstanceID());
+
+            using var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, referencedObjects);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestManagedComponentWithUnityObjectRef>().Build(entityManager))
+            {
+                var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(1, entities.Length);
+
+                var a = entityManager.GetComponentData<EcsTestManagedComponentWithUnityObjectRef>(entities[0]).value.Value;
+
+                Assert.AreEqual(go.GetInstanceID(), a.GetInstanceID());
+            }
+        }
+
+        [Test]
+        public void SerializeEntities_WithUnityObjRef_ManagedComponentData_Default()
+        {
+            UnityEngine.GameObject go = null;
+            {
+                Entity a = m_Manager.CreateEntity();
+                m_Manager.AddComponentData(a, new EcsTestManagedComponentWithUnityObjectRef
+                {
+                    value = go
+                });
+            }
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer, out var referencedObjects);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            // Make sure we got no referenced objects
+            Assert.AreEqual(0, referencedObjects.Length);
+
+            using var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, referencedObjects);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestManagedComponentWithUnityObjectRef>().Build(entityManager))
+            {
+                var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(1, entities.Length);
+
+                var a = entityManager.GetComponentData<EcsTestManagedComponentWithUnityObjectRef>(entities[0]).value;
+
+                Assert.IsTrue(a == go);
+            }
+        }
+
+        [Test]
+        public void SerializeEntities_WithUnityObjRef_ManagedSharedComponentData()
+        {
+            var go = new UnityEngine.GameObject("Foo");
+            {
+                Entity a = m_Manager.CreateEntity();
+                m_Manager.AddSharedComponentManaged(a, new EcsTestManagedSharedComponentWithUnityObjectRef
+                {
+                    value = go
+                });
+            }
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer, out var referencedObjects);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            // Make sure we got one object out
+            Assert.AreEqual(1, referencedObjects.Length);
+
+            // Make sure it's the same object
+            var referencedObj = (UnityEngine.GameObject)referencedObjects[0];
+            Assert.AreEqual(go.GetInstanceID(), referencedObj.GetInstanceID());
+
+            using var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, referencedObjects);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestManagedSharedComponentWithUnityObjectRef>().Build(entityManager))
+            {
+                var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(1, entities.Length);
+
+                var a = entityManager.GetSharedComponentManaged<EcsTestManagedSharedComponentWithUnityObjectRef>(entities[0]).value.Value;
+
+                Assert.AreEqual(go.GetInstanceID(), a.GetInstanceID());
+            }
+        }
+
+        [Test]
+        public void SerializeEntities_WithUnityObjRef_ManagedSharedComponentData_Default()
+        {
+            UnityEngine.GameObject go = null;
+            {
+                Entity a = m_Manager.CreateEntity();
+                m_Manager.AddSharedComponentManaged(a, new EcsTestManagedSharedComponentWithUnityObjectRef
+                {
+                    value = go
+                });
+            }
+
+            var writer = new TestBinaryWriter(m_Manager.World.UpdateAllocator.ToAllocator);
+            SerializeUtility.SerializeWorld(m_Manager, writer, out var referencedObjects);
+
+            m_Manager.DestroyEntity(m_Manager.UniversalQuery);
+
+            // Make sure we got no referenced objects
+            Assert.AreEqual(0, referencedObjects.Length);
+
+            using var deserializedWorld = new World("Deserialized World");
+            var entityManager = deserializedWorld.EntityManager;
+
+            using (var reader = new TestBinaryReader(writer))
+            {
+                SerializeUtility.DeserializeWorld(entityManager.BeginExclusiveEntityTransaction(), reader, referencedObjects);
+                entityManager.EndExclusiveEntityTransaction();
+            }
+
+            entityManager.Debug.CheckInternalConsistency();
+
+            using (var query = new EntityQueryBuilder(Allocator.Temp).WithAllRW<EcsTestManagedSharedComponentWithUnityObjectRef>().Build(entityManager))
+            {
+                var entities = query.ToEntityArray(World.UpdateAllocator.ToAllocator);
+                Assert.AreEqual(1, entities.Length);
+
+                var a = entityManager.GetSharedComponentManaged<EcsTestManagedSharedComponentWithUnityObjectRef>(entities[0]).value;
+
+                Assert.IsTrue(a == go);
+            }
+        }
+#endif
+
     }
 }

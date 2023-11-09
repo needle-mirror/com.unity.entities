@@ -101,7 +101,7 @@ namespace Unity.Entities
         {
             var entityIndex = 0;
 
-            var additionalDestroyList = new UnsafeList<Entity>(0, Allocator.Persistent);
+            var additionalDestroyList = new UnsafeList<Entity>(0, Allocator.TempJob);
             int minDestroyStride = int.MaxValue;
             int maxDestroyStride = 0;
 
@@ -450,9 +450,10 @@ namespace Unity.Entities
 
         EntityBatchInChunk GetFirstEntityBatchInChunk(Entity* entities, int count)
         {
-            // This is optimized for the case where the array of entities are allocated contigously in the chunk
+            // This is optimized for the case where the array of entities are allocated contiguously in the chunk
             // Thus the compacting of other elements can be batched
 
+#if ENTITY_STORE_V1
             // Calculate baseEntityIndex & chunk
             var baseEntityIndex = entities[0].Index;
 
@@ -484,6 +485,27 @@ namespace Unity.Entities
 
                 batchCount++;
             }
+#else
+
+            var entityInChunk = Exists(entities[0]) ? GetEntityInChunk(entities[0]) : default;
+            var chunk = entityInChunk.Chunk;
+            var indexInChunk = entityInChunk.IndexInChunk;
+
+            int batchCount = 0;
+
+            for (; batchCount < count; batchCount++)
+            {
+                var entity = entities[batchCount];
+                entityInChunk = Exists(entity) ? GetEntityInChunk(entity) : default;
+                if (entityInChunk.Chunk != chunk || entityInChunk.IndexInChunk != indexInChunk + batchCount)
+                {
+                    break;
+                }
+            }
+
+            Assert.IsTrue(chunk == ChunkIndex.Null || indexInChunk < chunk.Count);
+            Assert.IsTrue(chunk == ChunkIndex.Null || indexInChunk + batchCount <= chunk.Count);
+#endif
 
             return new EntityBatchInChunk
             {
@@ -493,6 +515,7 @@ namespace Unity.Entities
             };
         }
 
+#if ENTITY_STORE_V1
         public static JobHandle GetCreatedAndDestroyedEntities(EntityComponentStore* store, NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities, bool async)
         {
             // Early outwhen no entities were created or destroyed compared to the last time this method was called
@@ -565,5 +588,133 @@ namespace Unity.Entities
                 }
             }
         }
+#else
+        public static JobHandle GetCreatedAndDestroyedEntities(EntityComponentStore* store, NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities, bool async)
+        {
+            JobHandle jobHandle = default;
+            GetCreatedAndDestroyedEntities(store, ref state, ref createdEntities, ref destroyedEntities, ref jobHandle, async);
+            return jobHandle;
+        }
+
+        [BurstCompile]
+        static void GetCreatedAndDestroyedEntities(EntityComponentStore* store, ref NativeList<int> state, ref NativeList<Entity> createdEntities, ref NativeList<Entity> destroyedEntities, ref JobHandle jobHandle, bool async)
+        {
+            var newState = new NativeList<int>(async ? Allocator.TempJob : Allocator.Temp);
+
+            var archetypes = store->m_Archetypes;
+            for (int ai = 0, ac = archetypes.Length; ai < ac; ai++)
+            {
+                var archetype = store->m_Archetypes.Ptr[ai];
+
+                if (archetype->HasChunkHeader)
+                {
+                    // skip meta entities
+                    continue;
+                }
+
+                var chunks = archetype->Chunks;
+                for (int ci = 0, cc = chunks.Count; ci < cc; ci++)
+                {
+                    var chunk = chunks[ci];
+                    var entities = (Entity*)chunk.Buffer;
+
+                    newState.AddRange(entities, chunk.Count * 2); // x2 because an entity is two ints
+                }
+            }
+
+            var job = new GetCreatedAndDestroyedEntitiesJob
+            {
+                OldState = state,
+                NewState = newState,
+                CreatedEntities = createdEntities,
+                DestroyedEntities = destroyedEntities,
+            };
+
+            if (!async)
+            {
+                job.Execute();
+            }
+            else
+            {
+                jobHandle = job.Schedule();
+                jobHandle = newState.Dispose(jobHandle);
+                jobHandle.Complete();
+            }
+        }
+
+        [BurstCompile]
+        struct GetCreatedAndDestroyedEntitiesJob : IJob
+        {
+            public NativeList<int>    OldState;
+            public NativeList<int>    NewState;
+
+            public NativeList<Entity> CreatedEntities;
+            public NativeList<Entity> DestroyedEntities;
+
+            public void Execute()
+            {
+                CreatedEntities.Clear();
+                DestroyedEntities.Clear();
+
+                var oldEntities = OldState.AsArray().Reinterpret<Entity>(sizeof(int));
+                var newEntities = NewState.AsArray().Reinterpret<Entity>(sizeof(int));
+
+                newEntities.Sort();
+
+                int oi = 0;
+                int ni = 0;
+
+                int oc = oldEntities.Length;
+                int nc = newEntities.Length;
+
+                while (true)
+                {
+                    if (oi == oc)
+                    {
+                        // Only new entities from now on
+                        if (ni != nc)
+                        {
+                            CreatedEntities.AddRange(newEntities.GetSubArray(ni, nc - ni));
+                        }
+
+                        break;
+                    }
+
+                    if (ni == nc)
+                    {
+                        // Only old entities from now on
+                        if (oi != oc)
+                        {
+                            DestroyedEntities.AddRange(oldEntities.GetSubArray(oi, oc - oi));
+                        }
+
+                        break;
+                    }
+
+                    var cmp = oldEntities[oi].CompareTo(newEntities[ni]);
+
+                    if (cmp == 0)
+                    {
+                        oi++;
+                        ni++;
+                        continue;
+                    }
+
+                    if (cmp < 0)
+                    {
+                        DestroyedEntities.Add(oldEntities[oi]);
+                        oi++;
+                    }
+                    else
+                    {
+                        CreatedEntities.Add(newEntities[ni]);
+                        ni++;
+                    }
+                }
+
+                OldState.CopyFrom(NewState);
+            }
+        }
+#endif
     }
 }

@@ -206,7 +206,39 @@ namespace Unity.Entities
         /// first ensures that all Jobs finish. This can prevent the Job scheduler from utilizing available CPU
         /// cores and threads, resulting in a temporary performance drop.
         /// </remarks>
+#if ENTITY_STORE_V1
         public int EntityCapacity => GetCheckedEntityDataAccess()->EntityComponentStore->EntitiesCapacity;
+#endif
+
+        // TODO : this is a temporary workaround for the use of EntityCapacity in remapping
+        // NOTE : this only accounts for entities which are actually stored in chunks,
+        // not the ones which are merely referenced by chunks (aka external references)
+        public int HighestEntityIndex()
+        {
+            int maxIndex = 0;
+            var access = GetCheckedEntityDataAccess();
+            var archetypes = access->EntityComponentStore->m_Archetypes;
+
+            for (int archetypeIndex = 0, archetypeCount = archetypes.Length; archetypeIndex < archetypeCount; archetypeIndex++)
+            {
+                var chunks = archetypes[archetypeIndex]->Chunks;
+                for (int chunkIndex = 0, chunkCount = chunks.Count; chunkIndex < chunkCount; chunkIndex++)
+                {
+                    var chunk = chunks[chunkIndex];
+                    var entities = (Entity*)chunk.Buffer;
+                    for (int entityIndex = 0, entityCount = chunk.Count; entityIndex < entityCount; entityIndex++)
+                    {
+                        var index = entities[entityIndex].Index;
+                        if (index > maxIndex)
+                        {
+                            maxIndex = index;
+                        }
+                    }
+                }
+            }
+
+            return maxIndex;
+        }
 
         /// <summary>
         /// An EntityQuery instance that matches all normal components and
@@ -3298,6 +3330,7 @@ namespace Unity.Entities
             access->EndStructuralChanges(ref changes);
         }
 
+#if ENTITY_STORE_V1
         /// <summary>
         /// Destroys all entities in the EntityManager and resets the internal entity ID version table.
         /// </summary>
@@ -3321,7 +3354,15 @@ namespace Unity.Entities
             access->ManagedComponentStore.ResetManagedComponentStoreForDeserialization(0, ref *ecs);
             access->ManagedComponentStore.PrepareForDeserialize();
         }
-
+#else
+        // TODO - this function should be marked as deprecated, it doesn't do anymore the kind of reinitialization it was supposed to do.
+        public void DestroyAndResetAllEntities()
+        {
+            DestroyEntity(UniversalQueryWithSystems);
+            if (Debug.EntityCount != 0)
+                throw new System.ArgumentException("Destroying all entities failed. Some entities couldn't be deleted.");
+        }
+#endif
 
         /// <summary>
         /// Destroys all entities in an array.
@@ -3519,9 +3560,11 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
+        /// **Obsolete.** The use of this function is not recommended.
+        /// Consider using a more idiomatic ECS way to detect creation and destruction, like (enableable) tags and cleanup components.
         /// </summary>
         /// <remarks>
+        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
         /// Entities must be fully destroyed, if cleanup components keep it alive it still counts as not yet destroyed.
         /// <see cref="EntityCommandBuffer"/> instances that have not been played back will have no effect on this until they are played back.
         /// </remarks>
@@ -3529,21 +3572,25 @@ namespace Unity.Entities
         /// <param name="createdEntities">The entities that were created.</param>
         /// <param name="destroyedEntities">The entities that were destroyed.</param>
         /// <returns>a <see cref="JobHandle"/> for the job scheduled by this method.</returns>
+        [Obsolete("Consider using a more idiomatic ECS way to detect creation and destruction, like (enableable) tags and cleanup components.")]
         public JobHandle GetCreatedAndDestroyedEntitiesAsync(NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities)
         {
             return GetCheckedEntityDataAccess()->GetCreatedAndDestroyedEntitiesAsync(state, createdEntities, destroyedEntities);
         }
 
         /// <summary>
-        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
+        /// **Obsolete.** The use of this function is not recommended.
+        /// Consider using a more idiomatic ECS way to detect creation and destruction, like (enableable) tags and cleanup components.
         /// </summary>
         /// <remarks>
+        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
         /// Entities must be fully destroyed, if cleanup components keep it alive it still counts as not yet destroyed.
         /// <see cref="EntityCommandBuffer"/> instances that have not been played back will have no effect on this until they are played back.
         /// </remarks>
         /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created and destroyed.</param>
         /// <param name="createdEntities">The entities that were created.</param>
         /// <param name="destroyedEntities">The entities that were destroyed.</param>
+        [Obsolete("Consider using a more idiomatic ECS way to detect creation and destruction, like (enableable) tags and cleanup components.")]
         public void GetCreatedAndDestroyedEntities(NativeList<int> state, NativeList<Entity> createdEntities, NativeList<Entity> destroyedEntities)
         {
             GetCheckedEntityDataAccess()->GetCreatedAndDestroyedEntities(state,  createdEntities, destroyedEntities);
@@ -3693,6 +3740,8 @@ namespace Unity.Entities
         /// * Currently does not support class based components
         /// </remarks>
         /// <param name="srcEntityManager">The EntityManager to copy from</param>
+        [Obsolete("This function only works in a narrow set of circumstances and has semantics that differ from a regular copy.", false)]
+#if ENTITY_STORE_V1
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
         public void CopyAndReplaceEntitiesFrom(EntityManager srcEntityManager)
         {
@@ -3721,6 +3770,57 @@ namespace Unity.Entities
                 }
             }
         }
+#else
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public void CopyAndReplaceEntitiesFrom(EntityManager srcEntityManager, NativeArray<EntityRemapUtility.EntityRemapInfo> remap = default)
+        {
+            srcEntityManager.CompleteAllTrackedJobs();
+            CompleteAllTrackedJobs();
+
+            var srcAccess = srcEntityManager.GetCheckedEntityDataAccess();
+            var selfAccess = GetCheckedEntityDataAccess();
+
+            using (var srcChunks = srcAccess->m_UniversalQueryWithChunksAndSystems.ToArchetypeChunkListAsync(Allocator.TempJob, out var srcChunksJob))
+            using (var dstChunks = selfAccess->m_UniversalQueryWithChunksAndSystems.ToArchetypeChunkListAsync(Allocator.TempJob, out var dstChunksJob))
+            {
+                srcChunksJob.Complete();
+                dstChunksJob.Complete();
+
+                using var archetypeChunkChanges = new EntityDiffer.ArchetypeChunkChanges(Allocator.TempJob);
+                var createdChunks = archetypeChunkChanges.CreatedSrcChunks;
+                var destroyedChunks = archetypeChunkChanges.DestroyedDstChunks;
+
+                {
+                    var chunks = createdChunks.Chunks;
+                    var flags = createdChunks.Flags;
+                    var entityCounts = createdChunks.EntityCounts;
+
+                    for (int ci = 0, cc = srcChunks.Length, count = 0; ci < cc; ci++)
+                    {
+                        chunks.Add(srcChunks[ci]);
+                        flags.Add(EntityDiffer.ArchetypeChunkChangeFlags.None);
+                        entityCounts.Add(count);
+                        count += srcChunks[ci].Count;
+                    }
+                }
+
+                {
+                    var chunks = destroyedChunks.Chunks;
+                    var flags = destroyedChunks.Flags;
+                    var entityCounts = destroyedChunks.EntityCounts;
+                    for (int ci = 0, cc = dstChunks.Length, count = 0; ci < cc; ci++)
+                    {
+                        chunks.Add(dstChunks[ci]);
+                        flags.Add(EntityDiffer.ArchetypeChunkChangeFlags.None);
+                        entityCounts.Add(count);
+                        count += dstChunks[ci].Count;
+                    }
+                }
+
+                EntityDiffer.CopyAndReplaceChunks(srcEntityManager, this, selfAccess->m_UniversalQueryWithChunksAndSystems, archetypeChunkChanges, remap);
+            }
+        }
+#endif
 
         /// <summary>
         /// Moves all entities managed by the specified EntityManager to the world of this EntityManager.
@@ -3957,9 +4057,12 @@ namespace Unity.Entities
         /// <returns>An array containing a no-op identity transformation for each entity.</returns>
         public NativeArray<EntityRemapUtility.EntityRemapInfo> CreateEntityRemapArray(AllocatorManager.AllocatorHandle allocator)
         {
-            var access = GetCheckedEntityDataAccess();
-            var ecs = access->EntityComponentStore;
-            var array = CollectionHelper.CreateNativeArray<EntityRemapUtility.EntityRemapInfo>(ecs->EntitiesCapacity, allocator);
+#if !ENTITY_STORE_V1
+            var remapSize = HighestEntityIndex() + 1;
+#else
+            var remapSize = EntityCapacity;
+#endif
+            var array = CollectionHelper.CreateNativeArray<EntityRemapUtility.EntityRemapInfo>(remapSize, allocator);
             return array;
         }
 
@@ -5130,7 +5233,12 @@ namespace Unity.Entities
                 dstEntityComponentStore = ecs,
                 remapChunks = remapChunks,
                 entityRemapping = entityRemapping
-            }.Schedule(remapChunks.Length, 1);
+            }.Schedule(remapChunks.Length, 1
+#if !ENTITY_STORE_V1
+                // Freeing entities with entity store V2 requires reading from the actual chunks.
+                , freeChunksJob
+#endif
+            );
 
             var remapArchetypesJob = new RemapAllArchetypesJob
             {
@@ -5153,6 +5261,100 @@ namespace Unity.Entities
             remapChunks.Dispose();
             freeChunksJob.Complete();
         }
+
+        [BurstCompile]
+        internal struct RemapEntitiesManagedForDiffer : IJob
+        {
+            public NativeArray<ArchetypeChunk> DstChunks;
+            public NativeArray<EntityRemapUtility.EntityRemapInfo> EntityRemapping;
+            [NativeDisableUnsafePtrRestriction]
+            public EntityComponentStore* EntityComponentStore;
+
+            public void Execute()
+            {
+                for (int ci = 0, cc = DstChunks.Length; ci < cc; ci++)
+                {
+                    var remapChunk = DstChunks[ci];
+                    var chunk = remapChunk.m_Chunk;
+                    Archetype* dstArchetype = remapChunk.Archetype.Archetype;
+                    EntityComponentStore->ManagedChangesTracker.PatchEntities(dstArchetype, chunk, chunk.Count, EntityRemapping);
+                }
+            }
+        }
+
+        [BurstCompile]
+        struct RemapEntitiesUnmanagedForDiffer : IJobParallelFor
+        {
+            [Collections.ReadOnly] public NativeArray<EntityRemapUtility.EntityRemapInfo> EntityRemapping;
+            [Collections.ReadOnly] public NativeArray<ArchetypeChunk> DstChunks;
+
+            [NativeDisableUnsafePtrRestriction] public EntityComponentStore* dstEntityComponentStore;
+
+            public void Execute(int index)
+            {
+                var remapChunk = DstChunks[index];
+                var chunk = remapChunk.m_Chunk;
+                Archetype* dstArchetype = remapChunk.Archetype.Archetype;
+
+                var entityCount = chunk.Count;
+                EntityRemapUtility.PatchEntities(dstArchetype->ScalarEntityPatches + 1,
+                    dstArchetype->ScalarEntityPatchCount - 1, dstArchetype->BufferEntityPatches,
+                    dstArchetype->BufferEntityPatchCount, chunk.Buffer, entityCount, ref EntityRemapping);
+            }
+        }
+
+#if !ENTITY_STORE_V1
+        // Both DuplicateEntitiesForDiffer and RemapEntitiesForDiffer are there to help with entity
+        // duplication between the main world and the shadow world used by the differ. Since those
+        // cannot use the same entities anymore with entity store V2, an explicit remapping is required.
+        internal void DuplicateEntitiesForDiffer(
+            NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping,
+            NativeArray<ArchetypeChunk> srcChunks,
+            NativeArray<ArchetypeChunk> dstChunks)
+        {
+            for (int ci = 0, cc = srcChunks.Length; ci < cc; ci++)
+            {
+                var srcChunk = srcChunks[ci].m_Chunk;
+                var dstChunk = dstChunks[ci].m_Chunk;
+
+                var srcEntities = (Entity*)srcChunk.Buffer;
+                var dstEntities = (Entity*)dstChunk.Buffer;
+                var ec = dstChunk.Count;
+
+                EntityComponentStore.s_entityStore.Data.AllocateEntities(dstEntities, ec, ChunkIndex.Null, 0);
+
+                for (int ei = 0; ei < ec; ei++)
+                {
+                    EntityRemapUtility.AddEntityRemapping(ref entityRemapping, srcEntities[ei], dstEntities[ei]);
+                }
+            }
+        }
+
+        // Both DuplicateEntitiesForDiffer and RemapEntitiesForDiffer are there to help with entity
+        // duplication between the main world and the shadow world used by the differ. Since those
+        // cannot use the same entities anymore with entity store V2, an explicit remapping is required.
+        internal void RemapEntitiesForDiffer(
+            NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapping,
+            NativeArray<ArchetypeChunk> srcChunks,
+            NativeArray<ArchetypeChunk> dstChunks)
+        {
+            var dstEntityComponentStore = GetCheckedEntityDataAccess()->EntityComponentStore;
+
+            new RemapEntitiesManagedForDiffer
+            {
+                DstChunks = dstChunks,
+                EntityRemapping = entityRemapping,
+                EntityComponentStore = dstEntityComponentStore
+            }.Run();
+
+            new RemapEntitiesUnmanagedForDiffer
+            {
+                dstEntityComponentStore = dstEntityComponentStore,
+                DstChunks = dstChunks,
+                EntityRemapping = entityRemapping
+            }.Run(dstChunks.Length);
+        }
+#endif
 
         #region Nested type definitions
 
@@ -5550,7 +5752,11 @@ namespace Unity.Entities
 
             public void Execute()
             {
-                EntityComponentStore->FreeAllEntities(false);
+                EntityComponentStore->FreeAllEntities(
+#if ENTITY_STORE_V1
+                    false
+#endif
+                    );
             }
         }
 

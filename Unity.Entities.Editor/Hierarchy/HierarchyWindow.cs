@@ -29,6 +29,9 @@ namespace Unity.Entities.Editor
         static readonly string k_FilterKindToken = L10n.Tr("Node Kind");
         static readonly string k_FilterKindTokenTooltip = L10n.Tr("Filter entities that have the specified Node type.");
 
+        static readonly string k_FilterSharedComponentType = L10n.Tr("Shared Component");
+        static readonly string k_FilterSharedComponentTypeTooltip = L10n.Tr("Filter entities that have a specific SharedComponent");
+
         static readonly string k_WindowName = L10n.Tr("Entities Hierarchy");
         static readonly Vector2 k_MinWindowSize = Constants.MinWindowSize;
 
@@ -71,12 +74,24 @@ namespace Unity.Entities.Editor
         uint m_GlobalSelectionRequestUpdateVersion;
         SearchElement m_SearchElement;
         AutoComplete m_SearchAutocomplete;
+        AutoComplete m_SharedComponentAutocomplete;
 
         [MenuItem(Constants.MenuItems.HierarchyWindow, false, Constants.MenuItems.HierarchyWindowPriority)]
         static void OpenWindow() => GetWindow<HierarchyWindow>();
 
+        internal static void OpenWindow(string query)
+        {
+            var win = GetWindow<HierarchyWindow>();
+            win.SetSearchQuery(query);
+        }
+
         public HierarchyWindow() : base(Analytics.Window.Hierarchy)
         { }
+
+        public void SetSearchQuery(string searchQuery)
+        {
+            m_SearchElement.Search(searchQuery);
+        }
 
         protected override void OnCreate()
         {
@@ -191,6 +206,10 @@ namespace Unity.Entities.Editor
                     }
 
                     var desc = HierarchySearchProvider.CreateHierarchyQueryDescriptor(searchString);
+                    if (!string.IsNullOrEmpty(desc.parsingErrors))
+                    {
+                        Debug.LogError(desc.parsingErrors);
+                    }
                     var filter = HierarchySearchProvider.CreateHierarchyFilter(hierarchy.HierarchySearch, desc, hierarchy.Allocator);
                     hierarchy.SetFilter(filter);
                 }
@@ -201,7 +220,10 @@ namespace Unity.Entities.Editor
             });
 
             SetupSearchOptions();
-            m_SearchElement.parent.Add(SearchUtils.CreateJumpButton(() => HierarchySearchProvider.OpenProvider(m_SearchElement.value)));
+            m_SearchElement.parent.Add(SearchUtils.CreateJumpButton(() =>
+            {
+                HierarchySearchProvider.OpenProvider(m_SearchElement.value, SelectedWorld);
+            }));
 
             root.Add(toolbar);
 
@@ -219,6 +241,7 @@ namespace Unity.Entities.Editor
                 m_SearchElement.AddSearchFilterPopupItem(Constants.ComponentSearch.All, k_FilterComponentType, k_FilterComponentTypeTooltip, Constants.ComponentSearch.Op);
                 m_SearchElement.AddSearchFilterPopupItem(Constants.ComponentSearch.None, k_FilterNoneComponentType, k_FilterNoneComponentType, Constants.ComponentSearch.Op);
                 m_SearchElement.AddSearchFilterPopupItem(Constants.ComponentSearch.Any, k_FilterAnyComponentType, k_FilterAnyComponentType, Constants.ComponentSearch.Op);
+                m_SearchElement.AddSearchFilterPopupItem(Constants.ComponentSearch.SharedComponentPrefix, k_FilterSharedComponentType, k_FilterSharedComponentTypeTooltip, "");
                 m_SearchElement.AddSearchFilterPopupItem(Constants.Hierarchy.EntityIndexToken, k_FilterIndexToken, k_FilterIndexTokenTooltip, "=");
 
                 foreach (var opt in k_EntityQueryOptions)
@@ -232,13 +255,17 @@ namespace Unity.Entities.Editor
                 }
 
                 m_SearchAutocomplete?.Dispose();
+                m_SharedComponentAutocomplete?.Dispose();
                 m_SearchAutocomplete = new AutoComplete(m_SearchElement, ComponentTypeAutoComplete.EntityQueryInstance);
+                m_SharedComponentAutocomplete = new AutoComplete(m_SearchElement, SharedComponentTypeAutoComplete.Instance);
             }
             else
             {
                 m_SearchElement.AddSearchFilterPopupItem(Constants.ComponentSearch.Token, k_FilterComponentType, k_FilterComponentTypeTooltip, Constants.ComponentSearch.Op);
                 m_SearchElement.AddSearchFilterPopupItem(Constants.Hierarchy.EntityIndexToken, k_FilterIndexToken, k_FilterIndexTokenTooltip, "=");
                 m_SearchAutocomplete?.Dispose();
+                m_SharedComponentAutocomplete?.Dispose();
+                m_SharedComponentAutocomplete = null;
                 m_SearchAutocomplete = new AutoComplete(m_SearchElement, ComponentTypeAutoComplete.Instance);
             }
         }

@@ -39,9 +39,9 @@ namespace Unity.Entities.Tests
         static void CheckEntity(Entity entity, bool partOfSystem)
         {
             #if !DOTS_DISABLE_DEBUG_NAMES
-            var expectedName = "'Test' Entity(0:1)";
+            var expectedName = $"'Test' Entity({entity.Index}:{entity.Version})";
             #else
-            var expectedName = "'' Entity(0:1)";
+            var expectedName = $"'' Entity({entity.Index}:{entity.Version})";
             #endif
             Assert.AreEqual(expectedName +  " Test World", EntityDebugProxy.GetDebugName(entity.Index, entity.Version));
 

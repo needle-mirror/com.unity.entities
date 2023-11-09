@@ -287,10 +287,11 @@ namespace Unity.Entities
             return m_Manager.IsComponentEnabled<T>(entity);
         }
 
-
+#if ENTITY_STORE_V1
         internal void AllocateConsecutiveEntitiesForLoading(int count)
         {
             m_Manager.AllocateConsecutiveEntitiesForLoading(count);
         }
+#endif
     }
 }

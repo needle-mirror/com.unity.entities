@@ -152,7 +152,7 @@ namespace Unity.Entities.Editor
 
             root.Add(toolbar);
             AddSearchElement(root);
-            m_SearchElement.parent.Add(SearchUtils.CreateJumpButton(() => SystemSearchProvider.OpenProvider(m_SearchElement.value)));
+            m_SearchElement.parent.Add(SearchUtils.CreateJumpButton(() => SystemSearchProvider.OpenProvider(m_SearchElement.value, SelectedWorld)));
         }
 
         void AppendOptionMenu(DropdownMenu menu)

@@ -3,6 +3,7 @@ using System.Linq;
 using Unity.Assertions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Collections.NotBurstCompatible;
 using Unity.Entities;
 using Unity.Entities.Serialization;
 using UnityEditor;
@@ -86,9 +87,9 @@ namespace Unity.Scenes
             bufferReader->ReadNext<ulong>(out var destroyedBlobAssets, Allocator.Persistent);
             bufferReader->ReadNext<byte>(out var blobAssetData, Allocator.Persistent);
 
-            var resolvedObjects = new UnityEngine.Object[globalObjectIDs.Length];
-            resolver.ResolveObjects(globalObjectIDs, resolvedObjects);
-            var reader = new ManagedObjectBinaryReader(bufferReader, resolvedObjects);
+            var unityObjects = new NativeArray<int>(globalObjectIDs.Length, Allocator.Temp);
+            resolver.ResolveObjects(globalObjectIDs, unityObjects);
+            var reader = new ManagedObjectBinaryReader(bufferReader, unityObjects);
 
             var addArchetypes = ReadFilteredArchetypes(bufferReader, Allocator.Persistent);
             var (setSharedComponents, unmanagedSharedComponentData) = ReadSharedComponentDataChanges(bufferReader, reader, typeHashes);
@@ -209,7 +210,7 @@ namespace Unity.Scenes
             //
             // In order to avoid crashing the companion link system in the player build we strip this component during serialization.
             //
-            var companionLinkPackedTypeIndex = GetCompanionLinkPackedTypeIndex(entityChangeSet.TypeHashes);
+            var companionLinkPackedTypeIndex = EntityChangeSet.GetCompanionLinkPackedTypeIndex(entityChangeSet.TypeHashes);
             var addComponentsWithoutCompanionLinks = GetPackedComponentsWithoutCompanionLinks(entityChangeSet.AddComponents, companionLinkPackedTypeIndex, Allocator.Temp);
             var removeComponentWithoutCompanionLinks = GetPackedComponentsWithoutCompanionLinks(entityChangeSet.RemoveComponents, companionLinkPackedTypeIndex, Allocator.Temp);
             var setManagedComponentWithoutCompanionLinks = GetPackedManagedComponentChangesWithoutCompanionLinks(entityChangeSet.SetManagedComponents, companionLinkPackedTypeIndex);
@@ -234,13 +235,14 @@ namespace Unity.Scenes
             buffer->Add(entityChangeSet.DestroyedBlobAssets);
             buffer->Add(entityChangeSet.BlobAssetData);
 
-            var writer = new ManagedObjectBinaryWriter(buffer);
+            using var unityObjectRefs = new UnityObjectRefMap(Allocator.Temp);
+            var writer = new ManagedObjectBinaryWriter(buffer, unityObjectRefs);
 
             WriteFilteredArchetypes(buffer, entityChangeSet.AddArchetypes);
             WriteSharedComponentDataChanges(buffer, writer, entityChangeSet.SetSharedComponents, entityChangeSet.UnmanagedSharedComponentData);
             WriteManagedComponentDataChanges(buffer, writer, setManagedComponentWithoutCompanionLinks);
 
-            var objectTable = writer.GetUnityObjects();
+            var objectTable = unityObjectRefs.InstanceIDs.ToArrayNBC();
             var globalObjectIds = new GlobalObjectId[objectTable.Length];
             GlobalObjectId.GetGlobalObjectIdsSlow(objectTable, globalObjectIds);
 
@@ -336,37 +338,6 @@ namespace Unity.Scenes
             return companionLinkPackedTypeIndex == -1
                 ? changes
                 : changes.Where(x => x.Component.PackedTypeIndex != companionLinkPackedTypeIndex).ToArray();
-        }
-
-        private static ulong CompanionLinkStableTypeHash = 0;
-        static ulong GetCompanionLinkStableTypeHash()
-        {
-            if (CompanionLinkStableTypeHash != 0)
-                return CompanionLinkStableTypeHash;
-
-            var companionLinkType = TypeCache
-                .GetTypesDerivedFrom<IComponentData>()
-                .FirstOrDefault(t => t.Name == "CompanionLink" && t.Namespace == "Unity.Entities");
-
-            Assert.IsNotNull(companionLinkType, "Failed to find the CompanionLink type");
-            var typeIndex = TypeManager.GetTypeIndex(companionLinkType);
-            CompanionLinkStableTypeHash = TypeManager.GetTypeInfo(typeIndex).StableTypeHash;
-
-            return CompanionLinkStableTypeHash;
-        }
-
-        static int GetCompanionLinkPackedTypeIndex(NativeArray<ComponentTypeHash> typeHashes)
-        {
-#if !UNITY_DISABLE_MANAGED_COMPONENTS
-            // Avoids referring to CompanionLink directly
-            var companionLinkTypeHash = GetCompanionLinkStableTypeHash();
-            for (var i = 0; i < typeHashes.Length; i++)
-            {
-                if (typeHashes[i].StableTypeHash == companionLinkTypeHash)
-                    return i;
-            }
-#endif
-            return -1;
         }
 
 #endif

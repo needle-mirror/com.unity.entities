@@ -40,7 +40,18 @@ namespace Unity.Entities.Editor
         protected override void OnPopulateMenu(DropdownMenu menu)
         {
             var container = Container;
-            menu.AddCopyValue(PropertyContainer.GetValue<EntityContainer, TComponent>(ref container, Path));
+            var value = PropertyContainer.GetValue<EntityContainer, TComponent>(ref container, Path);
+            menu.AddCopyValue(value);
+
+            var query = SearchUtils.CreateComponentQuery(value);
+            menu.AppendAction("Open in Hierarchy...", (a) =>
+            {
+                HierarchyWindow.OpenWindow(query);
+            }, DropdownMenuAction.AlwaysEnabled);
+            menu.AppendAction("Open in Search Window...", (a) =>
+            {
+                HierarchySearchProvider.OpenProvider(query);
+            }, DropdownMenuAction.AlwaysEnabled);
         }
 
         void IBinding.PreUpdate()

@@ -3,13 +3,8 @@ using System;
 using System.Collections;
 using System.Collections.Generic;
 using NUnit.Framework;
-using UnityEngine;
 using UnityEditor;
 using UnityEditor.Search;
-using UnityEngine.UIElements;
-using UnityEngine.UIElements.UIR;
-using PointerType = UnityEngine.PointerType;
-using UnityEngine.TestTools;
 
 namespace Unity.Entities.Editor.Tests
 {
@@ -106,15 +101,13 @@ namespace Unity.Entities.Editor.Tests
             }
         }
 
-        public static IEnumerator FetchItems(string providerId, string query, List<SearchItem> items)
+        public static IEnumerator FetchItems(string providerId, string query, List<SearchItem> items, float timeoutSeconds = 3f)
         {
+            var startSearchTime = EditorApplication.timeSinceStartup;
             using (var searchContext = SearchService.CreateContext(providerId, query))
             using (var fetchedItems = SearchService.Request(searchContext, SearchFlags.Sorted))
             {
-                while (fetchedItems.pending)
-                    yield return null;
-
-                Assert.IsNotEmpty(fetchedItems);
+                yield return WaitForSeconds(() => !fetchedItems.pending, timeoutSeconds, "Cannot fetch items");
                 items.AddRange(fetchedItems);
             }
         }

@@ -550,6 +550,7 @@ namespace Unity.Entities
                             ResetComponentAdditionalEntityCount(instanceID, entity);
                             bakerState.Revert(revertEcb, entity, ref _ReferencedEntities, blobAssetStore,
                                 ref _BakerDebugState, ref _IsReferencedEntitiesDirty, ref this);
+                            _AuthoringIDToBakerState[instanceID] = bakerState;
                         }
                     }
 
@@ -570,6 +571,7 @@ namespace Unity.Entities
                             ResetComponentAdditionalEntityCount(instanceID, entity);
                             bakerState.Revert(revertEcb, entity, ref _ReferencedEntities, blobAssetStore,
                                 ref _BakerDebugState, ref _IsReferencedEntitiesDirty, ref this);
+                            _AuthoringIDToBakerState[instanceID] = bakerState;
                         }
                     }
 
@@ -966,8 +968,8 @@ namespace Unity.Entities
             revertTransformComponents = false;
             if (!bakerState.Usage.PrimaryEntityFlags.IsUnused && bakerState.Usage.PrimaryEntityFlags.HasManualOverrideFlag())
             {
-                _ReferencedEntities.TryGetValue(bakerState.Usage.PrimaryEntity, out var oldFlags);
-                revertTransformComponents = !oldFlags.HasManualOverrideFlag();
+                if(_ReferencedEntities.TryGetValue(bakerState.Usage.PrimaryEntity, out var oldFlags))
+                    revertTransformComponents = !oldFlags.HasManualOverrideFlag();
             }
 
             bakerState.Usage.AddTransformUsage(ref _ReferencedEntities, ref _IsReferencedEntitiesDirty, instanceID);

@@ -154,6 +154,58 @@ namespace Unity.Entities.Tests
                 }).CalculateEntityCount());
         }
 
+        [Test]
+        public void OmitLinkedEntityGroupTest()
+        {
+            using var prefabChildQuery = m_Manager.CreateEntityQuery(typeof(EcsTestTag));
+            var prefab = m_Manager.CreateEntity(typeof(Prefab), typeof(LinkedEntityGroup));
+            var prefabChild = m_Manager.CreateEntity(typeof(Prefab), typeof(EcsTestTag)); // Use EcsTestTag to compute the number of prefab child entities.
+            m_Manager.GetBuffer<LinkedEntityGroup>(prefab).Add(prefab);
+            m_Manager.GetBuffer<LinkedEntityGroup>(prefab).Add(prefabChild);
+            Assert.AreEqual(0, prefabChildQuery.CalculateEntityCount()); // Prefab is not included by entity queries by default
+
+            // Instantiate should retain LEG and remove Prefab tag.
+            var prefabInstance = m_Manager.Instantiate(prefab);
+            Assert.IsFalse(m_Manager.HasComponent<Prefab>(prefabInstance));
+            Assert.IsTrue(m_Manager.HasBuffer<LinkedEntityGroup>(prefabInstance));
+            Assert.AreEqual(prefabInstance, m_Manager.GetBuffer<LinkedEntityGroup>(prefabInstance)[0].Value);
+            Assert.AreNotEqual(prefabChild, m_Manager.GetBuffer<LinkedEntityGroup>(prefabInstance)[1].Value);
+            Assert.IsFalse(m_Manager.HasComponent<Prefab>(m_Manager.GetBuffer<LinkedEntityGroup>(prefabInstance)[1].Value));
+            Assert.AreEqual(1, prefabChildQuery.CalculateEntityCount());
+
+            // CopyEntities however retains LEG and keeps Prefab
+            var srcEntities = new NativeArray<Entity>(1, Allocator.Temp);
+            var dstEntities = new NativeArray<Entity>(1, Allocator.Temp);
+            srcEntities[0] = prefab;
+            m_Manager.CopyEntities(srcEntities, dstEntities);
+            var copyInstance = dstEntities[0];
+            srcEntities.Dispose();
+            dstEntities.Dispose();
+            Assert.IsTrue(m_Manager.HasComponent<Prefab>(copyInstance));
+            Assert.IsTrue(m_Manager.HasBuffer<LinkedEntityGroup>(copyInstance));
+            // CopyEntities remaps the LEG[0] because it points to itself, but keeps LEG[1] not remapped because technically
+            // it ignores the LEG.
+            Assert.AreEqual(copyInstance, m_Manager.GetBuffer<LinkedEntityGroup>(copyInstance)[0].Value);
+            Assert.AreEqual(prefabChild, m_Manager.GetBuffer<LinkedEntityGroup>(copyInstance)[1].Value);
+            Assert.IsTrue(m_Manager.HasComponent<Prefab>(m_Manager.GetBuffer<LinkedEntityGroup>(copyInstance)[1].Value));
+            Assert.AreEqual(1, prefabChildQuery.CalculateEntityCount());
+
+            m_Manager.AddComponent<OmitLinkedEntityGroupFromPrefabInstance>(prefab);
+            var prefabInstance2 = m_Manager.Instantiate(prefab);
+            Assert.IsFalse(m_Manager.HasComponent<Prefab>(prefabInstance2));
+            Assert.IsFalse(m_Manager.HasBuffer<LinkedEntityGroup>(prefabInstance2));
+            Assert.IsFalse(m_Manager.HasComponent<OmitLinkedEntityGroupFromPrefabInstance>(prefabInstance2));
+            Assert.AreEqual(2, prefabChildQuery.CalculateEntityCount());
+
+            m_Manager.RemoveComponent<LinkedEntityGroup>(prefab);
+            var prefabInstance3 = m_Manager.Instantiate(prefab);
+            Assert.IsFalse(m_Manager.HasComponent<Prefab>(prefabInstance3));
+            Assert.IsFalse(m_Manager.HasBuffer<LinkedEntityGroup>(prefabInstance3));
+            // OmitLinkedEntityGroupFromPrefabInstance is ignored and kept if LinkedEntityGroup is not present.
+            Assert.IsTrue(m_Manager.HasComponent<OmitLinkedEntityGroupFromPrefabInstance>(prefabInstance3));
+            Assert.AreEqual(2, prefabChildQuery.CalculateEntityCount());
+        }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         public Entity PrepareLinkedGroup_ManagedComponents(Entity external, int count = 4)
         {

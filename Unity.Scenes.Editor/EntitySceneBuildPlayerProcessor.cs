@@ -13,6 +13,15 @@ using UnityEngine.SceneManagement;
 
 namespace Unity.Scenes.Editor
 {
+    /// <summary>   Interface to force the addition of unreferenced SubScenes into a build. </summary>
+    public interface IEntitySceneBuildAdditions
+    {
+        /// <summary>   Implement this method to receive a callback at build time.  </summary>
+        ///
+        /// <returns>   A set of SubScene hashes that should be included in the build. </returns>
+        public HashSet<Unity.Entities.Hash128> RegisterAdditionalEntityScenesToBuild();
+    }
+
     internal sealed class EntitySectionBundlesInBuild
     {
         internal List<Hash128> SceneGUIDs = new List<Hash128>();
@@ -203,6 +212,17 @@ namespace Unity.Scenes.Editor
                 subSceneGuids = new HashSet<Hash128>(rootSceneInfos.SelectMany(rootScene => EditorEntityScenes.GetSubScenes(rootScene.Guid)));
             }
 
+            var types = TypeCache.GetTypesDerivedFrom<IEntitySceneBuildAdditions>();
+            foreach (var type in types)
+            {
+                var sceneAdditions = (IEntitySceneBuildAdditions)Activator.CreateInstance(type);
+                var otherSubScenes = sceneAdditions.RegisterAdditionalEntityScenesToBuild();
+                if (otherSubScenes != null)
+                {
+                    subSceneGuids.UnionWith(otherSubScenes);
+                }
+            }
+
             // Import subscenes and deploy entity scene files and bundles
             var artifactKeys = new Dictionary<Hash128, ArtifactKey>();
             var binaryFiles = new EntitySectionBundlesInBuild();
@@ -231,7 +251,7 @@ namespace Unity.Scenes.Editor
             var entitySceneGUIDs = binaryFiles.SceneGUIDs.ToArray();
 
             // Add any other from customizers
-            var types = TypeCache.GetTypesDerivedFrom<IEntitySceneBuildCustomizer>();
+            types = TypeCache.GetTypesDerivedFrom<IEntitySceneBuildCustomizer>();
             foreach (var type in types)
             {
                 var buildCustomizer = (IEntitySceneBuildCustomizer)Activator.CreateInstance(type);

@@ -492,46 +492,63 @@ namespace Unity.Entities
         [ExcludeFromBurstCompatTesting("Returns managed array")]
         internal ComponentType[] GetQueryTypes()
         {
-            using (var types = new NativeParallelHashSet<ComponentType>(128, Allocator.Temp))
-            {
-                for (var i = 0; i < _QueryData->ArchetypeQueryCount; ++i)
-                {
-                    for (var j = 0; j < _QueryData->ArchetypeQueries[i].AnyCount; ++j)
-                    {
-                        types.Add(TypeManager.GetType(_QueryData->ArchetypeQueries[i].Any[j]));
-                    }
-                    for (var j = 0; j < _QueryData->ArchetypeQueries[i].AllCount; ++j)
-                    {
-                        types.Add(TypeManager.GetType(_QueryData->ArchetypeQueries[i].All[j]));
-                    }
-                    for (var j = 0; j < _QueryData->ArchetypeQueries[i].NoneCount; ++j)
-                    {
-                        types.Add(ComponentType.Exclude(TypeManager.GetType(_QueryData->ArchetypeQueries[i].None[j])));
-                    }
-                    for (var j = 0; j < _QueryData->ArchetypeQueries[i].DisabledCount; ++j)
-                    {
-                        types.Add(ComponentType.Exclude(TypeManager.GetType(_QueryData->ArchetypeQueries[i].Disabled[j])));
-                    }
-                    for (var j = 0; j < _QueryData->ArchetypeQueries[i].AbsentCount; ++j)
-                    {
-                        types.Add(ComponentType.Exclude(TypeManager.GetType(_QueryData->ArchetypeQueries[i].Absent[j])));
-                    }
-                    for (var j = 0; j < _QueryData->ArchetypeQueries[i].PresentCount; ++j)
-                    {
-                        var accessMode = (ComponentType.AccessMode)_QueryData->ArchetypeQueries[i].PresentAccessMode[j];
-                        var type = TypeManager.GetType(_QueryData->ArchetypeQueries[i].Present[j]);
+            using var types = new NativeList<ComponentType>(128, Allocator.Temp);
 
-                        types.Add(accessMode == ComponentType.AccessMode.ReadOnly
-                            ? ComponentType.ReadOnly(type)
-                            : ComponentType.ReadWrite(type));
-                    }
+            for (var i = 0; i < _QueryData->ArchetypeQueryCount; ++i)
+            {
+                for (var j = 0; j < _QueryData->ArchetypeQueries[i].AnyCount; ++j)
+                {
+                    var accessMode = (ComponentType.AccessMode)_QueryData->ArchetypeQueries[i].AnyAccessMode[j];
+                    var type = TypeManager.GetType(_QueryData->ArchetypeQueries[i].Any[j]);
+
+                    types.Add(accessMode == ComponentType.AccessMode.ReadOnly
+                        ? ComponentType.ReadOnly(type)
+                        : ComponentType.ReadWrite(type));
+                }
+                for (var j = 0; j < _QueryData->ArchetypeQueries[i].AllCount; ++j)
+                {
+                    var accessMode = (ComponentType.AccessMode)_QueryData->ArchetypeQueries[i].AllAccessMode[j];
+                    var type = TypeManager.GetType(_QueryData->ArchetypeQueries[i].All[j]);
+
+                    types.Add(accessMode == ComponentType.AccessMode.ReadOnly
+                        ? ComponentType.ReadOnly(type)
+                        : ComponentType.ReadWrite(type));
+                }
+                for (var j = 0; j < _QueryData->ArchetypeQueries[i].NoneCount; ++j)
+                {
+                    var type = TypeManager.GetType(_QueryData->ArchetypeQueries[i].None[j]);
+                    types.Add(ComponentType.ReadOnly(type));
                 }
 
-                using (var typesArray = types.ToNativeArray(Allocator.Temp))
+                for (var j = 0; j < _QueryData->ArchetypeQueries[i].DisabledCount; ++j)
                 {
-                    return typesArray.ToArray();
+                    var accessMode = (ComponentType.AccessMode)_QueryData->ArchetypeQueries[i].DisabledAccessMode[j];
+                    var type = TypeManager.GetType(_QueryData->ArchetypeQueries[i].Disabled[j]);
+
+                    types.Add(accessMode == ComponentType.AccessMode.ReadOnly
+                        ? ComponentType.ReadOnly(type)
+                        : ComponentType.ReadWrite(type));
+                }
+
+                for (var j = 0; j < _QueryData->ArchetypeQueries[i].AbsentCount; ++j)
+                {
+                    var type = TypeManager.GetType(_QueryData->ArchetypeQueries[i].Absent[j]);
+                    types.Add(ComponentType.ReadOnly(type));
+                }
+
+                for (var j = 0; j < _QueryData->ArchetypeQueries[i].PresentCount; ++j)
+                {
+                    var accessMode = (ComponentType.AccessMode)_QueryData->ArchetypeQueries[i].PresentAccessMode[j];
+                    var type = TypeManager.GetType(_QueryData->ArchetypeQueries[i].Present[j]);
+
+                    types.Add(accessMode == ComponentType.AccessMode.ReadOnly
+                        ? ComponentType.ReadOnly(type)
+                        : ComponentType.ReadWrite(type));
                 }
             }
+
+            using var typesArray = types.ToArray(Allocator.Temp);
+            return typesArray.ToArray();
         }
 
         [ExcludeFromBurstCompatTesting("Returns managed array")]
@@ -876,6 +893,23 @@ namespace Unity.Entities
                 outputList.m_ListData->Allocator);
             AllocatorManager.Free(allocator, outputList.m_ListData);
             return outputArray;
+        }
+
+        public void ToArchetypeChunkList(NativeList<ArchetypeChunk> archetypeChunkList)
+        {
+            // Sync on jobs that affect chunk filtering
+            SyncChangeFilterTypes();
+            // ...but we also need to sync on jobs that write to enableable types, to detect "empty" chunks.
+            SyncEnableableTypes();
+
+            archetypeChunkList.Clear();
+
+            int unfilteredChunkCount = CalculateChunkCountWithoutFiltering();
+            if (unfilteredChunkCount == 0)
+                return;
+
+            archetypeChunkList.SetCapacity(unfilteredChunkCount);
+            ChunkIterationUtility.ToArchetypeChunkList(GetMatchingChunkCache(), _QueryData->MatchingArchetypes, ref _Filter, _QueryData->HasEnableableComponents, ref archetypeChunkList);
         }
 
         [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
@@ -2501,6 +2535,15 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// <returns>A NativeArray of all the chunks in this matched by this query.</returns>
         [Obsolete("This method has been renamed to ToArchetypeChunkArray. (RemovedAfter Entities 1.0) (UnityUpgradable) -> ToArchetypeChunkArray(*)")]
         public NativeArray<ArchetypeChunk> CreateArchetypeChunkArray(AllocatorManager.AllocatorHandle allocator) => _GetImpl()->ToArchetypeChunkArray(allocator);
+
+        /// <summary>
+        /// Synchronously fills a list with the chunks containing entities matching this EntityQuery.
+        /// </summary>
+        /// <remarks>This method blocks until the internal job that performs the query completes. If the query contains enableable
+        /// components, chunks that contain zero entities with all relevant components enabled will not be included
+        /// in the output list.</remarks>
+        /// <param name="archetypeChunkList">The destination list to be filled.</param>
+        public void ToArchetypeChunkList(NativeList<ArchetypeChunk> archetypeChunkList) => _GetImpl()->ToArchetypeChunkList(archetypeChunkList);
 
         /// <summary>
         /// Obsolete. Use <see cref="ToEntityListAsync"/> instead.

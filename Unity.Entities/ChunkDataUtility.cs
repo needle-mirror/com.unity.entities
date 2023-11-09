@@ -4,6 +4,7 @@ using Unity.Assertions;
 using Unity.Burst;
 using Unity.Burst.CompilerServices;
 using Unity.Burst.Intrinsics;
+using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
 
@@ -1349,6 +1350,7 @@ namespace Unity.Entities
                 var dst = dstBuffer + (dstOffsets[dstTypeIndex] + srcSizeOf * dstBaseIndex);
 
                 UnsafeUtility.MemCpyReplicate(dst, src, srcSizeOf, count);
+
                 dstTypeIndex++;
             }
 
@@ -1384,13 +1386,43 @@ namespace Unity.Entities
             // Copy enabled bits from source entity to the instantiated entities
             ReplicateEnabledBits(srcChunk, srcArchetype, srcIndex, dstChunk, dstArchetype, dstBaseIndex, count);
 
+            // Replicate CompanionLinks
+            int* newCompanionLinkIds = null;
+
+            if (srcArchetype->HasCompanionComponents && dstArchetype->HasCompanionComponents)
+            {
+                var srcCompanionLinkIndex = GetIndexInTypeArray(srcArchetype, ManagedComponentStore.CompanionLinkTypeIndex);
+                var dstCompanionLinkIndex = GetIndexInTypeArray(dstArchetype, ManagedComponentStore.CompanionLinkTypeIndex);
+                var dstCompanionLinkTransformIndex = GetIndexInTypeArray(dstArchetype, ManagedComponentStore.CompanionLinkTransformTypeIndex);
+
+                // It may just be a managed Unity reference but not an actual companion component
+                if (srcCompanionLinkIndex != -1 && dstCompanionLinkIndex != -1 && dstCompanionLinkTransformIndex != -1)
+                {
+                    var srcCompanionLinkPtr = (int*)(srcBuffer + srcOffsets[srcCompanionLinkIndex] + sizeof(int) * srcIndex);
+                    var dstCompanionLinkPtr = (int*)(dstBuffer + dstOffsets[dstCompanionLinkIndex] + sizeof(int) * dstBaseIndex);
+                    var dstCompanionLinkTransformPtr = (int*)(dstBuffer + dstOffsets[dstCompanionLinkTransformIndex] + sizeof(int) * dstBaseIndex);
+
+                    var dstCompanionLinkArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(dstCompanionLinkPtr, count, Allocator.Invalid);
+                    var dstCompanionLinkTransformArray = NativeArrayUnsafeUtility.ConvertExistingDataToNativeArray<int>(dstCompanionLinkTransformPtr, count, Allocator.Invalid);
+
+    #if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref dstCompanionLinkArray, AtomicSafetyHandle.GetTempMemoryHandle());
+                    NativeArrayUnsafeUtility.SetAtomicSafetyHandle(ref dstCompanionLinkTransformArray, AtomicSafetyHandle.GetTempMemoryHandle());
+    #endif
+                    var destScene = UnityEngine.GameObject.GetScene(srcCompanionLinkPtr[0]);
+                    UnityEngine.GameObject.InstantiateGameObjects(srcCompanionLinkPtr[0], count, dstCompanionLinkArray, dstCompanionLinkTransformArray, destScene);
+
+                    newCompanionLinkIds = dstCompanionLinkPtr;
+                }
+            }
+
             if (dstArchetype->NumManagedComponents > 0)
             {
-                ReplicateManagedComponents(srcArchetype, srcChunk, srcIndex, dstArchetype, dstChunk, dstBaseIndex, count);
+                ReplicateManagedComponents(srcArchetype, srcChunk, srcIndex, dstArchetype, dstChunk, dstBaseIndex, count, newCompanionLinkIds);
             }
         }
 
-        static void ReplicateManagedComponents(Archetype* srcArchetype, ChunkIndex srcChunk, int srcIndex, Archetype* dstArchetype, ChunkIndex dstChunk, int dstBaseIndex, int count)
+        static void ReplicateManagedComponents(Archetype* srcArchetype, ChunkIndex srcChunk, int srcIndex, Archetype* dstArchetype, ChunkIndex dstChunk, int dstBaseIndex, int count, int* newCompanionLinkIds)
         {
             var entityComponentStore = dstArchetype->EntityComponentStore;
             var srcTypes = srcArchetype->Types;
@@ -1458,11 +1490,11 @@ namespace Unity.Entities
 
             if (hasCompanionComponents)
             {
-                var companionLinkIndexInTypeArray = GetIndexInTypeArray(dstArchetype, ManagedComponentStore.CompanionLinkTypeIndex);
+                var companionLinkIndexInTypeArray = GetIndexInTypeArray(dstArchetype, ManagedComponentStore.CompanionReferenceTypeIndex);
                 var companionLinkIndices = (companionLinkIndexInTypeArray == -1) ? null : (int*)(dstBaseAddr + dstOffsets[companionLinkIndexInTypeArray]);
 
                 var dstEntities = (Entity*)dstChunk.Buffer + dstBaseIndex;
-                entityComponentStore->ManagedChangesTracker.CloneCompanionComponentBegin(componentIndices + componentCount - nonNullCompanionComponents, nonNullCompanionComponents, dstEntities, count, companionLinkIndices);
+                entityComponentStore->ManagedChangesTracker.CloneCompanionComponentBegin(componentIndices + componentCount - nonNullCompanionComponents, nonNullCompanionComponents, dstEntities, count, companionLinkIndices, newCompanionLinkIds);
                 for (int c = componentCount - nonNullCompanionComponents; c < componentCount; ++c)
                 {
                     var dst = (int*)(componentDstArrayStart[c]);

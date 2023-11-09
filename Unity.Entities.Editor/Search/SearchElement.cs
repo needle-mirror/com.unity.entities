@@ -802,6 +802,7 @@ namespace Unity.Entities.Editor
         public void Search(string searchString)
         {
             SetValueWithoutNotify(searchString);
+            UpdateControls();
 
             m_DelayedSearch?.Pause();
             m_DelayedSearch = null;

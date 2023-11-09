@@ -1,3 +1,4 @@
+using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -40,7 +41,8 @@ namespace Unity.Entities
             EntityManager srcEntityManager,
             EntityManager dstEntityManager,
             EntityQuery dstEntityQuery,
-            ArchetypeChunkChanges archetypeChunkChanges)
+            ArchetypeChunkChanges archetypeChunkChanges,
+            NativeArray<EntityRemapUtility.EntityRemapInfo> remap = default)
         {
             s_CopyAndReplaceChunksProfilerMarker.Begin();
             var dstAccess = dstEntityManager.GetCheckedEntityDataAccess();
@@ -49,7 +51,31 @@ namespace Unity.Entities
             var archetypeChanges = dstAccess->EntityComponentStore->BeginArchetypeChangeTracking();
 
             DestroyChunks(dstEntityManager, archetypeChunkChanges.DestroyedDstChunks.Chunks);
-            CloneAndAddChunks(srcEntityManager, dstEntityManager, archetypeChunkChanges.CreatedSrcChunks.Chunks);
+
+            if (!remap.IsCreated)
+            {
+                CloneAndAddChunks(srcEntityManager, dstEntityManager, archetypeChunkChanges.CreatedSrcChunks.Chunks);
+            }
+            else
+            {
+                using var cloned = new NativeList<ArchetypeChunk>(Allocator.TempJob);
+                CloneAndAddChunks(srcEntityManager, dstEntityManager, archetypeChunkChanges.CreatedSrcChunks.Chunks, cloned);
+
+                var srcChunks = archetypeChunkChanges.CreatedSrcChunks.Chunks;
+                Assert.AreEqual(srcChunks.Length, cloned.Length);
+                for (int ci = 0, cc = cloned.Length; ci < cc; ci++)
+                {
+                    var srcChunk = srcChunks[ci].m_Chunk;
+                    var srcEntities = (Entity*)srcChunk.Buffer;
+                    var dstChunk = cloned[ci].m_Chunk;
+                    var dstEntities = (Entity*)dstChunk.Buffer;
+
+                    for (int ei = 0, ec = srcChunk.Count; ei < ec; ei++)
+                    {
+                        EntityRemapUtility.AddEntityRemapping(ref remap, srcEntities[ei], dstEntities[ei]);
+                    }
+                }
+            }
 
             dstAccess->EntityComponentStore->EndArchetypeChangeTracking(archetypeChanges, dstAccess->EntityQueryManager);
             srcAccess->EntityComponentStore->InvalidateChunkListCacheForChangedArchetypes();
@@ -211,7 +237,7 @@ namespace Unity.Entities
             }
         }
 
-        static void CloneAndAddChunks(EntityManager srcEntityManager, EntityManager dstEntityManager, NativeList<ArchetypeChunk> chunks)
+        static void CloneAndAddChunks(EntityManager srcEntityManager, EntityManager dstEntityManager, NativeList<ArchetypeChunk> chunks, NativeList<ArchetypeChunk> clonedList = default)
         {
             s_CloneAndAddChunksProfilerMarker.Begin();
 
@@ -235,7 +261,17 @@ namespace Unity.Entities
             s_CopySharedComponentsMarker.End();
 
             // clone chunks
-            var cloned = new NativeArray<ArchetypeChunk>(chunks.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            NativeArray<ArchetypeChunk> cloned;
+            if (clonedList.IsCreated)
+            {
+                clonedList.Resize(chunks.Length, NativeArrayOptions.UninitializedMemory);
+                cloned = clonedList.AsArray();
+            }
+            else
+            {
+                cloned = new NativeArray<ArchetypeChunk>(chunks.Length, Allocator.TempJob, NativeArrayOptions.UninitializedMemory);
+            }
+
             new CreateNewChunks
             {
                 Chunks = chunks,
@@ -252,6 +288,16 @@ namespace Unity.Entities
             }.Schedule(chunks.Length, default);
             JobHandle.ScheduleBatchedJobs();
             srcSharedComponentIndices.Dispose();
+
+#if !ENTITY_STORE_V1
+            copyJob.Complete();
+            var entityRemapping = srcEntityManager.CreateEntityRemapArray(Allocator.TempJob);
+            dstEntityManager.DuplicateEntitiesForDiffer(entityRemapping, chunks.AsArray(), cloned);
+
+#if !DOTS_DISABLE_DEBUG_NAMES
+            dstAccess->EntityComponentStore->CopyAndUpdateNameByEntity(srcAccess->EntityComponentStore, chunks.AsArray(), entityRemapping);
+#endif
+#endif
 
             s_PlaybackManagedChangesMarker.Begin();
             dstManagedComponentStore.Playback(ref dstAccess->EntityComponentStore->ManagedChangesTracker);
@@ -298,7 +344,8 @@ namespace Unity.Entities
                     if (hasCompanionComponents)
                     {
                         // We consider hybrid components as always different, there's no reason to clone those at this point.
-                        var typeCategory = TypeManager.GetTypeInfo(dstArchetype->Types[indexInArchetype].TypeIndex).Category;
+                        var typeIndex = dstArchetype->Types[indexInArchetype].TypeIndex;
+                        var typeCategory = TypeManager.GetTypeInfo(typeIndex).Category;
                         if (typeCategory == TypeManager.TypeCategory.UnityEngineObject)
                         {
                             // We still need to patch their indices, because otherwise they might point to invalid memory in
@@ -312,14 +359,30 @@ namespace Unity.Entities
                     dstManagedComponentStore.CloneManagedComponentsFromDifferentWorld(a, count,
                         srcManagedComponentStore, ref *dstAccess->EntityComponentStore);
                 }
+
+#if !ENTITY_STORE_V1
+                dstChunk.MetaChunkEntity = EntityRemapUtility.RemapEntity(ref entityRemapping, dstChunk.MetaChunkEntity);
+#endif
             }
             s_CopyManagedComponentsMarker.End();
 
+#if !ENTITY_STORE_V1
+            dstEntityManager.RemapEntitiesForDiffer(entityRemapping, chunks.AsArray(), cloned);
+
+            s_PlaybackManagedChangesMarker.Begin();
+            dstManagedComponentStore.Playback(ref dstAccess->EntityComponentStore->ManagedChangesTracker);
+            s_PlaybackManagedChangesMarker.End();
+
+            entityRemapping.Dispose();
+#endif
+
+#if ENTITY_STORE_V1
             // Ensure capacity in the dst world before we start linking entities.
             dstAccess->EntityComponentStore->EnsureCapacity(srcEntityManager.EntityCapacity);
             dstAccess->EntityComponentStore->CopyNextFreeEntityIndex(srcAccess->EntityComponentStore);
+#endif
 
-#if !DOTS_DISABLE_DEBUG_NAMES
+#if !DOTS_DISABLE_DEBUG_NAMES && ENTITY_STORE_V1
             dstAccess->EntityComponentStore->CopyAndUpdateNameByEntity(srcAccess->EntityComponentStore);
 #endif
 
@@ -331,7 +394,11 @@ namespace Unity.Entities
                 DstEntityComponentStore = dstAccess->EntityComponentStore
             }.Schedule(chunks.Length, 64).Complete();
 
-            cloned.Dispose();
+            if (!clonedList.IsCreated)
+            {
+                cloned.Dispose();
+            }
+
             s_CloneAndAddChunksProfilerMarker.End();
         }
     }

@@ -58,6 +58,7 @@ namespace Unity.Entities.Editor.Tests
             }
         }
 
+#if ENTITY_STORE_V1
         [Test]
         public void EntityDiffer_HandleGrowEntityManagerCapacity()
         {
@@ -74,6 +75,7 @@ namespace Unity.Entities.Editor.Tests
                 }
             }
         }
+#endif
 
         [Test]
         public unsafe void EntityDiffer_DetectEntityChangesReusingSameQuery()

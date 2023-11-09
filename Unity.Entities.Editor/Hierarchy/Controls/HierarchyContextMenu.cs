@@ -81,7 +81,11 @@ namespace Unity.Entities.Editor
             if (target.panel?.contextualMenuManager != null)
             {
                 target.panel.contextualMenuManager.DisplayMenu(triggerEvent, target);
+#if !UNITY_2023_2_OR_NEWER
                 triggerEvent.PreventDefault();
+#else
+                triggerEvent.StopPropagation();
+#endif
             }
         }
 

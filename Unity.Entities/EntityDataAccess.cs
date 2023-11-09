@@ -1775,16 +1775,6 @@ namespace Unity.Entities
             }
         }
 
-        /// <summary>
-        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
-        /// </summary>
-        /// <remarks>
-        /// Entities must be fully destroyed, if cleanup components keep it alive it still counts as not yet destroyed.
-        /// <see cref="EntityCommandBuffer"/> instances that have not been played back will have no effect on this until they are played back.
-        /// </remarks>
-        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created and destroyed.</param>
-        /// <param name="createdEntities">The entities that were created.</param>
-        /// <param name="destroyedEntities">The entities that were destroyed.</param>
         public JobHandle GetCreatedAndDestroyedEntitiesAsync(NativeList<int> state, NativeList<Entity> createdEntities,
             NativeList<Entity> destroyedEntities)
         {
@@ -1795,16 +1785,6 @@ namespace Unity.Entities
             return jobHandle;
         }
 
-        /// <summary>
-        /// Detects the created and destroyed entities compared to last time the method was called with the given state.
-        /// </summary>
-        /// <remarks>
-        /// Entities must be fully destroyed, if cleanup components keep it alive it still counts as not yet destroyed.
-        /// <see cref="EntityCommandBuffer"/> instances that have not been played back will have no effect on this until they are played back.
-        /// </remarks>
-        /// <param name="state">The same state list must be passed when you call this method, it remembers the entities that were already notified created and destroyed.</param>
-        /// <param name="createdEntities">The entities that were created.</param>
-        /// <param name="destroyedEntities">The entities that were destroyed.</param>
         public void GetCreatedAndDestroyedEntities(NativeList<int> state, NativeList<Entity> createdEntities,
             NativeList<Entity> destroyedEntities)
         {

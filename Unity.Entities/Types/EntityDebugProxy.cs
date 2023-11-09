@@ -31,6 +31,40 @@ namespace Unity.Entities
 
         public static World GetWorld(Entity entity)
         {
+#if !ENTITY_STORE_V1
+            unsafe
+            {
+                if (!EntityComponentStore.s_entityStore.Data.Exists(entity))
+                {
+                    return null;
+                }
+
+                var entityInChunk = EntityComponentStore.s_entityStore.Data.GetEntityInChunk(entity);
+                var chunkData = EntityComponentStore.PerChunkArray.ChunkData[entityInChunk.Chunk];
+
+                var archetype = chunkData.Archetype;
+                if (archetype == null)
+                {
+                    return null;
+                }
+
+                var store = archetype->EntityComponentStore;
+                if (store == null)
+                {
+                    return null;
+                }
+
+                var sequenceNumber = store->WorldSequenceNumber;
+
+                foreach (var world in World.All)
+                {
+                    if (sequenceNumber == world.SequenceNumber)
+                    {
+                        return world;
+                    }
+                }
+            }
+#else
             if (!JobsUtility.IsExecutingJob)
             {
                 foreach (var world in World.All)
@@ -42,7 +76,7 @@ namespace Unity.Entities
 
             if (World.DefaultGameObjectInjectionWorld != null && World.DefaultGameObjectInjectionWorld.IsCreated)
                 return World.DefaultGameObjectInjectionWorld;
-
+#endif
             return null;
         }
 
@@ -54,6 +88,7 @@ namespace Unity.Entities
 
         public World World => _World;
 
+#if ENTITY_STORE_V1
         public Entity_[] Worlds
         {
             get
@@ -67,6 +102,7 @@ namespace Unity.Entities
                 return proxy.ToArray();
             }
         }
+#endif
     }
 
     /// <summary>

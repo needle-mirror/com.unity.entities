@@ -76,7 +76,16 @@ namespace Unity.Editor.Bridge
 
         public static ISearchView OpenContextualTable(string providerId, string searchText, SearchTable table, Action<SearchViewState> setup = null)
         {
-            var searchContext = SearchService.CreateContext(providerId, searchText);
+            var win = FindWindowWithSingleProvider(providerId);
+            if (win != null)
+            {
+                // Recycle this SearchView
+                win.SetSearchText(searchText);
+                return win;
+            }
+
+
+            var searchContext = SearchService.CreateContext(providerId, searchText, SearchFlags.Default);
             var viewState = SearchViewState.LoadDefaults();
             viewState.queryBuilderEnabled = true;
             viewState.context = searchContext;
@@ -86,6 +95,10 @@ namespace Unity.Editor.Bridge
                 viewState.itemSize = (float)DisplayMode.Table;
                 viewState.tableConfig = table;
             }
+
+            var provider = searchContext.providers.FirstOrDefault();
+            if (provider != null)
+                viewState.windowTitle = new GUIContent($"Search {provider.name}");
             setup?.Invoke(viewState);
             return SearchService.ShowWindow(viewState);
         }
@@ -125,6 +138,25 @@ namespace Unity.Editor.Bridge
                 if (win.context.providers.FirstOrDefault(p => p.id == providerId) != null)
                     win.Refresh();
             }
+        }
+
+#if UNITY_2023_1_OR_NEWER
+        public static SearchWindow FindWindowWithSingleProvider(string providerId)
+        {
+            var windows = Resources.FindObjectsOfTypeAll<SearchWindow>();
+#else
+        public static QuickSearch FindWindowWithSingleProvider(string providerId)
+        {
+            var windows = Resources.FindObjectsOfTypeAll<QuickSearch>();
+#endif
+            if (windows == null)
+                return null;
+            foreach (var win in windows)
+            {
+                if (win.context.providers.Count() == 1 && win.context.providers.First().id == providerId)
+                    return win;
+            }
+            return null;
         }
     }
 }

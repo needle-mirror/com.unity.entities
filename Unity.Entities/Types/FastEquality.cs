@@ -10,6 +10,7 @@ using Unity.Collections;
 using Unity.Core;
 using Unity.Entities.Serialization;
 using Unity.Profiling;
+using UnityEngine;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Tests")]
 
@@ -211,7 +212,7 @@ namespace Unity.Entities
             {
                 var equalsFn = typeof(CompareImpl<>).MakeGenericType(t).GetMethod(nameof(CompareImpl<Dummy>.CompareFunc));
                 equalsDelegateIndex = AddDelegate(Delegate.CreateDelegate(typeof(TypeInfo.CompareEqualDelegate), equalsFn));
-                
+
                 var getHashFn = typeof(GetHashCodeImpl<>).MakeGenericType(t).GetMethod(nameof(GetHashCodeImpl<Dummy>.GetHashCodeFunc));
                 getHashCodeDelegateIndex = AddDelegate(Delegate.CreateDelegate(typeof(TypeInfo.GetHashCodeDelegate), getHashFn));
             }
@@ -328,14 +329,20 @@ namespace Unity.Entities
             }
 
             var hash = 0;
-            using (var buffer = new UnsafeAppendBuffer(16, 16, Allocator.Temp))
+            using var unityObjectRefsSerializer = new UnityObjectRefMap(Allocator.Temp);
+            using var buffer = new UnsafeAppendBuffer(16, 16, Allocator.Temp);
+
+            var writer = new ManagedObjectBinaryWriter(&buffer, unityObjectRefsSerializer);
+            writer.WriteObject(lhs);
+
+            hash = Hash32(buffer.Ptr, buffer.Length);
+
+            if (unityObjectRefsSerializer.InstanceIDs.Length > 0)
             {
-                var writer = new ManagedObjectBinaryWriter(&buffer);
-                writer.WriteObject(lhs);
+                var objects = new List<UnityEngine.Object>(unityObjectRefsSerializer.InstanceIDs.Length);
+                Resources.InstanceIDToObjectList(unityObjectRefsSerializer.InstanceIDs.AsArray(), objects);
 
-                hash = Hash32(buffer.Ptr, buffer.Length);
-
-                foreach (var obj in writer.GetUnityObjects())
+                foreach (var obj in objects)
                 {
                     hash *= FNV_32_PRIME;
                     hash ^= obj.GetHashCode();

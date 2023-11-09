@@ -57,7 +57,7 @@ namespace Unity.Entities.Hybrid.PerformanceTests
         };
 
         [Test, Performance]
-        public void CompanionComponent_TransformSync([Values(1, 10, 100, 1000, 9000)] int companionCount)
+        public unsafe void CompanionComponent_TransformSync([Values(1, 10, 100, 1000, 9000)] int companionCount)
         {
             BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
 
@@ -87,24 +87,25 @@ namespace Unity.Entities.Hybrid.PerformanceTests
             }
 
             var companionGameObjectUpdateTransformSystem =
-                m_DefaultWorld.World.GetExistingSystemManaged<CompanionGameObjectUpdateTransformSystem>();
-            Measure.ProfilerMarkers(companionGameObjectUpdateTransformSystem.GetProfilerMarkerName());
+                m_DefaultWorld.World.GetExistingSystem<CompanionGameObjectUpdateTransformSystem>();
+            var statePtr = m_DefaultWorld.World.Unmanaged.ResolveSystemState(companionGameObjectUpdateTransformSystem);
+            Measure.ProfilerMarkers(statePtr->GetProfilerMarkerName(m_DefaultWorld.World));
 
             // Validate positions not moved
             for (int i = 0; i < entities.Length; i++)
             {
-                var companionLink = m_DefaultWorld.World.EntityManager.GetComponentObject<CompanionLink>(entities[i]);
-                Assert.AreEqual(0f, companionLink.Companion.transform.localPosition.y);
+                var companionLink = m_DefaultWorld.World.EntityManager.GetComponentData<CompanionLink>(entities[i]);
+                Assert.AreEqual(0f, companionLink.Companion.Value.transform.localPosition.y);
             }
 
             m_DefaultWorld.World.Update();
-            companionGameObjectUpdateTransformSystem.CompleteDependencyInternal();
+            statePtr->CompleteDependencyInternal();
 
             // Validate things moved
             for (int i = 0; i < entities.Length; i++)
             {
-                var companionLink = m_DefaultWorld.World.EntityManager.GetComponentObject<CompanionLink>(entities[i]);
-                Assert.AreEqual(42f, companionLink.Companion.transform.localPosition.y);
+                var companionLink = m_DefaultWorld.World.EntityManager.GetComponentData<CompanionLink>(entities[i]);
+                Assert.AreEqual(42f, companionLink.Companion.Value.transform.localPosition.y);
             }
 
             entities.Dispose();

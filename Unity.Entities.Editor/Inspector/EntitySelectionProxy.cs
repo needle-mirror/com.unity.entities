@@ -89,7 +89,10 @@ namespace Unity.Entities.Editor
         static bool EntityExistsAndIsValid(World world, Entity entity)
         {
             return world is { IsCreated: true }
-                   && entity.Index >= 0 && (uint)entity.Index < (uint)world.EntityManager.EntityCapacity
+                   && entity.Index >= 0
+#if ENTITY_STORE_V1
+                   && (uint)entity.Index < (uint)world.EntityManager.EntityCapacity
+#endif
                    && world.EntityManager.Exists(entity);
         }
 

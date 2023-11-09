@@ -34,7 +34,8 @@ namespace Unity.Entities.Build
         /// <summary>
         /// Register the hash of the object as a custom dependency in the AssetDatabase.
         /// </summary>
-        /// <remarks>This allows the AssetDatabase to reimport the subscenes that depend on these settings.</remarks>
+        /// <remarks>This allows the AssetDatabase to reimport the subscenes that depend on these settings.
+        /// Make sure this call is not made during the Asset import process or it will throw the exception "AssetDatabase.RegisterCustomDependency are restricted during importing"</remarks>
         public void RegisterCustomDependency();
 
         /// <summary>

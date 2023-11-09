@@ -134,7 +134,7 @@ namespace Unity.Entities.Tests.Conversion
 
             TestUtilities.RegisterSystems(World, TestUtilities.SystemCategories.CompanionComponents);
 
-            var companion = m_Manager.GetComponentData<CompanionLink>(entity).Companion;
+            var companion = m_Manager.GetComponentData<CompanionLink>(entity).Companion.Value;
 
             Assert.AreNotEqual(gameObject, companion);
             AssertEqual(reference, companion.transform.localToWorldMatrix);
@@ -190,7 +190,7 @@ namespace Unity.Entities.Tests.Conversion
             entities.Dispose();
             m_Manager.DestroyEntity(dummy);
 
-            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<CompanionLink, ConversionTestCompanionComponent, Prefab, LinkedEntityGroup, AdditionalEntitiesBakingData, LinkedEntityGroupBakingData, TransformAuthoring>(k_CommonComponents));
+            EntitiesAssert.ContainsOnly(m_Manager, EntityMatch.Exact<CompanionLink, CompanionLinkTransform, CompanionReference, ConversionTestCompanionComponent, Prefab, LinkedEntityGroup, AdditionalEntitiesBakingData, LinkedEntityGroupBakingData, TransformAuthoring>(k_CommonComponents));
 
             // Accessing the prefab entity and its companion GameObject can't be directly done with GetSingleton because it requires EntityQueryOptions.IncludePrefab
             var companionQuery = EmptySystem.GetEntityQuery(new EntityQueryDesc
@@ -199,11 +199,11 @@ namespace Unity.Entities.Tests.Conversion
                 Options = EntityQueryOptions.IncludePrefab
             });
             var prefabEntity = companionQuery.GetSingletonEntity();
-            var prefabCompanion = m_Manager.GetComponentData<CompanionLink>(prefabEntity).Companion;
+            var prefabCompanion = m_Manager.GetComponentData<CompanionLink>(prefabEntity).Companion.Value;
 
             // Create an instance, the expectation is that the prefab remains inactive, but the instance activates
             var instanceEntity = m_Manager.Instantiate(prefabEntity);
-            var instanceCompanion = m_Manager.GetComponentData<CompanionLink>(instanceEntity).Companion;
+            var instanceCompanion = m_Manager.GetComponentData<CompanionLink>(instanceEntity).Companion.Value;
 
             // Activation happens through a system, so before the first update everything is inactive
             Assert.IsFalse(prefabCompanion.activeSelf);

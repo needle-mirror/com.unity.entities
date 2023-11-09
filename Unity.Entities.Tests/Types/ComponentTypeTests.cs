@@ -11,69 +11,42 @@ namespace Unity.Entities.Tests.Types
         struct MockComponentData : IComponentData {}
 
         [Test]
-        public void EqualityOperator_WhenEqual_ReturnsTrue()
+        public void SameComponent_SameAccessMode_AreEqual()
         {
             var t1 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadOnly);
             var t2 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadOnly);
 
-            var result = t1 == t2;
+            Assert.IsTrue(t1 == t2);
+            Assert.IsFalse(t1 != t2);
 
-            Assert.IsTrue(result);
+            Assert.IsTrue(t1.Equals(t2));
+            Assert.AreEqual(t1.GetHashCode(), t2.GetHashCode());
         }
 
         [Test]
-        public void EqualityOperator_WhenDifferentType_ReturnsFalse()
+        public void DifferentComponents_SameAccessMode_AreNotEqual()
         {
             var t1 = new ComponentType(typeof(MockComponentData), ComponentType.AccessMode.ReadOnly);
             var t2 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadOnly);
 
-            var result = t1 == t2;
+            Assert.IsTrue(t1 != t2);
+            Assert.IsFalse(t1 == t2);
 
-            Assert.IsFalse(result);
+            Assert.IsFalse(t1.Equals(t2));
+            Assert.AreNotEqual(t1.GetHashCode(), t2.GetHashCode());
         }
 
         [Test]
-        public void EqualityOperator_WhenDifferentAccessMode_ReturnsFalse()
+        public void SameComponent_DifferentAccessModes_AreNotEqual()
         {
-            var t1 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadWrite);
+            var t1 = new ComponentType(typeof(Entity));
             var t2 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadOnly);
 
-            var result = t1 == t2;
+            Assert.IsTrue(t1 != t2);
+            Assert.IsFalse(t1 == t2);
 
-            Assert.IsFalse(result);
-        }
-
-        [Test]
-        public void InequalityOperator_WhenEqual_ReturnsFalse()
-        {
-            var t1 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadOnly);
-            var t2 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadOnly);
-
-            var result = t1 != t2;
-
-            Assert.IsFalse(result);
-        }
-
-        [Test]
-        public void InequalityOperator_WhenDifferentType_ReturnsTrue()
-        {
-            var t1 = new ComponentType(typeof(MockComponentData), ComponentType.AccessMode.ReadOnly);
-            var t2 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadOnly);
-
-            var result = t1 != t2;
-
-            Assert.IsTrue(result);
-        }
-
-        [Test]
-        public void InequalityOperator_WhenDifferentAccessMode_ReturnsTrue()
-        {
-            var t1 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadWrite);
-            var t2 = new ComponentType(typeof(Entity), ComponentType.AccessMode.ReadOnly);
-
-            var result = t1 != t2;
-
-            Assert.IsTrue(result);
+            Assert.IsFalse(t1.Equals(t2));
+            Assert.AreNotEqual(t1.GetHashCode(), t2.GetHashCode());
         }
 
         [Test]

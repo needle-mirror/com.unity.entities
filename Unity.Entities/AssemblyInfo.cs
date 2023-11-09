@@ -1,5 +1,7 @@
 using System.Runtime.CompilerServices;
 
+[assembly: InternalsVisibleTo("Unity.Motion")]
+[assembly: InternalsVisibleTo("Unity.Motion.Tests")]
 [assembly: InternalsVisibleTo("Unity.Authoring")]
 [assembly: InternalsVisibleTo("Unity.Burst.Tests")]
 [assembly: InternalsVisibleTo("Unity.DataFlowGraph")]
@@ -35,10 +37,13 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Transforms.Tests")]
 [assembly: InternalsVisibleTo("Unity.Transforms.PerformanceTests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Baking.PerformanceTests")]
+[assembly: InternalsVisibleTo("Unity.Motion.Hybrid")]
+[assembly: InternalsVisibleTo("Unity.Motion")]
 // This adds internal access for UNSUPPORTED package that is currently in the Monorepo
 [assembly: InternalsVisibleTo("Unity.StableID.Hybrid")]
 [assembly: InternalsVisibleTo("Unity.Environment.Baking")]
 [assembly: InternalsVisibleTo("Unity.Environment.Runtime")]
+[assembly: InternalsVisibleTo("Unity.Environment.Runtime.EntitiesGraphics")]
 #if UNITY_ENTITIES_RUNTIME_TOOLING
 [assembly: InternalsVisibleTo("Unity.Entities.RuntimeTools")]
 [assembly: InternalsVisibleTo("Unity.Entities.RuntimeTools2")]

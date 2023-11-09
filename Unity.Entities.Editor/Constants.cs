@@ -72,6 +72,7 @@ namespace Unity.Entities.Editor
             public const string Op = "=";
             public const string TokenCaseInsensitive = "cC";
             public const string TokenOp = "c=";
+            public const string SharedComponentPrefix = "#";
         }
 
         public static class Hierarchy

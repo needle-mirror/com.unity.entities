@@ -359,7 +359,11 @@ namespace Unity.Entities
             {
                 var entityComponentStore = m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore;
 
-                if (entity.Index < 0 || entity.Index > entityComponentStore->EntitiesCapacity)
+                if (entity.Index < 0
+#if ENTITY_STORE_V1
+                    || entity.Index > entityComponentStore->EntitiesCapacity
+#endif
+                    )
                 {
                     return "Entity.Invalid";
                 }

@@ -628,7 +628,7 @@ namespace Unity.Entities
         /// </summary>
         public bool HasChanges => HasChangesIncludeNames();
 
-        internal bool HasChangesIncludeNames(bool ignoreNameChangeCount = false)
+        internal bool HasChangesIncludeNames(bool ignoreNameChangeCount = false, bool ignoreData = false)
         {
             bool hasChange = CreatedEntityCount != 0 ||
             DestroyedEntityCount != 0 ||
@@ -636,7 +636,6 @@ namespace Unity.Entities
             AddArchetypes.Length != 0 ||
             RemoveComponents.Length != 0 ||
             SetComponents.Length != 0 ||
-            ComponentData.Length != 0 ||
             EntityReferenceChanges.Length != 0 ||
             BlobAssetReferenceChanges.Length != 0 ||
             SetManagedComponents.Length != 0 ||
@@ -644,8 +643,13 @@ namespace Unity.Entities
             LinkedEntityGroupAdditions.Length != 0 ||
             LinkedEntityGroupRemovals.Length != 0 ||
             CreatedBlobAssets.Length != 0 ||
-            DestroyedBlobAssets.Length != 0 ||
-            BlobAssetData.Length != 0;
+            DestroyedBlobAssets.Length != 0;
+
+            if (!ignoreData)
+            {
+                hasChange = hasChange || ComponentData.Length != 0;
+                hasChange = hasChange || BlobAssetData.Length != 0;
+            }
 
             if(!ignoreNameChangeCount)
             {
@@ -686,6 +690,13 @@ namespace Unity.Entities
                 }
             }
 
+            var companionLinkPackedTypeIndex = GetCompanionLinkPackedTypeIndex(TypeHashes);
+            foreach (var managed in SetManagedComponents)
+            {
+                if(managed.Component.PackedTypeIndex != companionLinkPackedTypeIndex)
+                    (managed.BoxedValue as IDisposable)?.Dispose();
+            }
+
             Entities.Dispose();
             TypeHashes.Dispose();
             Names.Dispose();
@@ -711,10 +722,31 @@ namespace Unity.Entities
             {
                 UnmanagedSharedComponentData.Dispose();
             }
+        }
 
+        private static ulong CompanionLinkStableTypeHash = 0;
+        internal static ulong GetCompanionLinkStableTypeHash()
+        {
+            if (CompanionLinkStableTypeHash != 0)
+                return CompanionLinkStableTypeHash;
 
-            foreach (var managed in SetManagedComponents)
-                (managed.BoxedValue as IDisposable)?.Dispose();
+            CompanionLinkStableTypeHash = TypeManager.GetTypeInfo(ManagedComponentStore.CompanionReferenceTypeIndex).StableTypeHash;
+
+            return CompanionLinkStableTypeHash;
+        }
+
+        internal static int GetCompanionLinkPackedTypeIndex(NativeArray<ComponentTypeHash> typeHashes)
+        {
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            // Avoids referring to CompanionLink directly
+            var companionLinkTypeHash = EntityChangeSet.GetCompanionLinkStableTypeHash();
+            for (var i = 0; i < typeHashes.Length; i++)
+            {
+                if (typeHashes[i].StableTypeHash == companionLinkTypeHash)
+                    return i;
+            }
+#endif
+            return -1;
         }
 
     }

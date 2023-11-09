@@ -1,18 +1,19 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.1.0-pre.3",
+  "version": "1.2.0-exp.3",
   "unity": "2022.3",
-  "unityRelease": "0f1",
+  "unityRelease": "11f1",
   "dependencies": {
     "com.unity.burst": "1.8.8",
     "com.unity.serialization": "3.1.1",
-    "com.unity.collections": "2.3.0-pre.3",
-    "com.unity.mathematics": "1.2.6",
+    "com.unity.collections": "2.4.0-exp.2",
+    "com.unity.mathematics": "1.3.1",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
+    "com.unity.modules.unityanalytics": "1.0.0",
     "com.unity.modules.unitywebrequest": "1.0.0",
-    "com.unity.test-framework.performance": "3.0.2",
+    "com.unity.test-framework.performance": "3.0.3",
     "com.unity.nuget.mono-cecil": "1.11.4",
     "com.unity.scriptablebuildpipeline": "1.20.2",
     "com.unity.profiling.core": "1.0.2"
@@ -24,15 +25,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Added\n\n* We have added `ReadOnlySpan` variants for `CreateEntity` and  `CreateArchetype` which means you can now create the two with burst. E.g. `EntityManager.CreateEntity( stackalloc[] { ComponentType.ReadOnly<Type1>(), ... } )`.\n\n### Fixed\n\n* Iterating through a generic type using `System.Query` now triggers an actionable error message informing users that doing so is unsupported.\n* Nested `SystemAPI` invocations that previously trigger the `InvalidOperationException` no longer do so.\n* `#if` directives surrounding `using` directives are now correctly handled during source generation.\n* Source-generators now correctly patch methods that contain pointer parameters.\n* Disabled components that are also used as changed filters are now backed by correctly generated queries.\n* The `World` is now validated in the `EntityContainer` before the `EntityManager` is accessed. Meaning you can now exit playmode while having an Entity with a buffer selected in the Entities Hierarchy, without getting any errors.\n* Avoid a potential `NullReferenceException` when creating an `EntityQuery` with multiple query descriptions.\n* The component dependency manager now completes registered jobs in batches, instead of individually. This reduces the overhead of structural changes and other sync points.\n* Managed component types with circular references to other managed types (e.g. TypeA contains a field of TypeB, and TypeB contains a field of TypeA.) previously could have non-deterministic StableTypeHashes causing issues when deserializing entities data. Note, this fix raises the serialization version for all `.entities` files, requiring all previously serialized entity data requiring to be reserialized as the StableTypeHashes generated will no longer match. **Fix requires Unity 2022.3.1f11 or greater to work properly in IL2CPP builds**\n* Fixed several memory leaks in the package and its test suite.\n* `ScratchpadAllocator.Dispose()` now fully restores the object to its uninitialized state.\n* `EntityCommandBuffer` no longer leaks `DynamicBuffers` when using `PlaybackPolicy.Multiplayback`.\n* `EntityCommandBuffer.Dispose()` no longer throws an exception when called on a command buffer that was not fully initialized.\n* `World.DestroyAllSystemsAndLogException()` (called during `World.Dispose()`) no longer prematurely aborts its loop if a system threw an exception from its `OnDestroy()` method. This prevented all subsequent systems from being destroyed, leaking all of their resources.\n* Scheduling `IJobEntity` instances using `IJobEntityExtensions` no longer triggers `SGICE002`.\n* When selecting `Publish -> Content Update` in a project that uses the `Entities` package, the `DirectoryNotFoundException` is no longer thrown."
+    "changelog": "### Added\n\n* Baking user-errors now include additional Authoring GameObject context, to help you diagnose them.\n* Analyzer and code fix for missing \"ref\" keyword before SystemState\n* Serialization support for UnityObjectRef<> which works with the build system. This means an unmanaged IComponentData can reference Unity assets and it works in a build or from a loaded SubScene the same as with Managed components.\n* IEntitySceneBuildAdditions Interface to force the addition of unreferenced SubScenes into a build.\n* `ArchetypeChunk.SetComponentEnabledForAll()` method to enable or disable a component on all entities in the chunk. This is more efficient than calling `SetComponentEnabled()` on each entity individually.\n\n### Changed\n\n* Update package `com.unity.mathematics` from `1.2.6` to `1.3.1` version.\n* Error message when attempting to schedule an IJobChunk while an exclusive entity transaction is active.\n* obsolete `EventBase.PreventDefault()` removed or changed for `StopPropagation` in `2023.2` or higher.\n* obsolete `FindObjectsOfType<T>()` changed for `FindObjectsByType<T>()` in `2023.2` or higher.\n* Shortened file names for source generator projects and test verification results.\n* Several `EntityCommandBuffer` commands will now correctly fix up Entity references within component values in recorded commands, to replace temporary entities created at record-time with the corresponding \"final\" entities created at playback time. These include commands that add/set unmanaged shared components, commands targeting an entity's `LinkedEntityGroup`, and `AddComponent<T>(NativeArray<Entity>, T)`.\n* The minimum supported editor version is now 2022.3.11f1\n\n### Deprecated\n\n* `CopyAndReplaceEntitiesFrom` is unreliable and should be avoided. Entities are not the same across worlds anymore, so an optional remapping table can be passed to the function in order to look up which entity in the destination world corresponds a given entity in the source world.\n\n### Fixed\n\n* Fixed issue where Entities IL post-processors were causing output assemblies to be non-deterministic between compilations.\n* Ensure consistency in how the `==`/`!=` operators and the `Equals()`/`GetHashCode()` methods in `ComponentType` are implemented.\n* UnityException: Calls to \"AssetDatabase.RegisterCustomDependency\" are restricted during importing when saving the EntitiesClientSettings assets.\n* Minor performance optimization to EntityQuery.ToComponentArray when used with a managed component type.\n* Issue where Burst would fail to compile an Entities.ForEach or Job.WithCode, resulting in a runtime casting error.\n* Journaling can now be enabled even if no default world initialization is used.\n* You can now exit playmode while having an Entity with a buffer selected in the Entities Hierarchy, without getting any errors.\n* Streaming hitches when using a lot of Companion Components (e.g. Lights) in a SubScene\n* Fixed false-positive error check in `EntityCommandBuffer.AddComponent<T>(NativeArray<Entity>, T)`.\n* Validation for world's existence before accessing within `EntitySelectionProxy`.\n* `ArchetypeChunk.SetComponentEnabled(DynamicComponentTypeHandle)` will now throw an exception if the provided component type does not implement `IEnableableComponent`.\n* An exception thrown during world deserialization could cause a memory leak.\n\n### Security"
   },
   "upmCi": {
-    "footprint": "3b0fe1ba91a2e5c06c60e6e8fa8190134c6ef9a1"
+    "footprint": "266fe9ecdfb7b825c78e7bef8d8caa0dd5600f2a"
   },
-  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.1/manual/index.html",
+  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "5edeb315aa3ca0d26060290a69660b2afdabe2ff"
+    "revision": "9bfd95fb576e8fa710c8544b6706bdd73e25afef"
   }
 }

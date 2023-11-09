@@ -115,26 +115,42 @@ namespace Unity.Scenes
             foreach (var companionIndex in objRefs.CompanionObjectIndices)
             {
                 var source = (UnityEngine.GameObject) objectReferences[companionIndex];
-                CompanionGameObjectUtility.MoveToCompanionScene(source, false);
+                CompanionGameObjectUtility.SetCompanionFlags(source);
             }
 #else
-            // Companion Objects
-            // When using bundles, the Companion GameObjects cannot be directly used (prefabs), so we need to instantiate everything.
-            var sourceToInstance = new Dictionary<UnityEngine.GameObject, UnityEngine.GameObject>();
-            foreach (var companionIndex in objRefs.CompanionObjectIndices)
+            var scene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+            NativeArray<int> newGameObjects = new NativeArray<int>(objRefs.CompanionObjectIndices.Length, Allocator.Temp);
+            NativeHashMap<int, int> sourceInstanceIDToNewIndex = new NativeHashMap<int, int>(objRefs.CompanionObjectIndices.Length, Allocator.Temp);
+            UnityEngine.GameObject[] newGameObjectsArray = new GameObject[objRefs.CompanionObjectIndices.Length];
+
+            for (int i = 0; i < objRefs.CompanionObjectIndices.Length; i++)
             {
-                var source = (UnityEngine.GameObject) objectReferences[companionIndex];
-                var instance = UnityEngine.Object.Instantiate(source);
-                objectReferences[companionIndex] = instance;
-                sourceToInstance.Add(source, instance);
+                var companionIndex = objRefs.CompanionObjectIndices[i];
+                var source = (UnityEngine.GameObject)objectReferences[companionIndex];
+                var sourceInstanceId = source.GetInstanceID();
+
+                var newGameObject = UnityEngine.Object.Instantiate(source);
+                var newGameObjectInstanceId = newGameObject.GetInstanceID();
+                objectReferences[companionIndex] = newGameObject;
+                newGameObjects[i] = newGameObjectInstanceId;
+                newGameObjectsArray[i] = newGameObject;
+
+                sourceInstanceIDToNewIndex[sourceInstanceId] = i;
             }
+
             for (int i = 0; i != objectReferences.Length; i++)
             {
                 if (objectReferences[i] is UnityEngine.Component component)
                 {
-                    objectReferences[i] = sourceToInstance[component.gameObject].GetComponent(component.GetType());
+                    var newGameObjectIndex = sourceInstanceIDToNewIndex[component.gameObject.GetInstanceID()];
+                    var newGameObject = newGameObjectsArray[newGameObjectIndex];
+                    objectReferences[i] = newGameObject.GetComponent(component.GetType());
                 }
             }
+            UnityEngine.SceneManagement.SceneManager.MoveGameObjectsToScene(newGameObjects, scene);
+
+            newGameObjects.Dispose();
+            sourceInstanceIDToNewIndex.Dispose();
 #endif
         }
     }

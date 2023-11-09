@@ -1,9 +1,12 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
+using System.Linq;
+using System.Reflection;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Jobs;
+using static Unity.Entities.Editor.EntityBakingPreview;
 
 namespace Unity.Entities.Editor
 {
@@ -16,16 +19,20 @@ namespace Unity.Entities.Editor
         struct EntityQueryCache : IDisposable
         {
             EntityQueryDesc m_Desc;
-            EntityQuery m_Query;
+            internal EntityQuery m_Query;
             World m_OriginatingWorld;
+            HierarchyFilter.ModifyEntityQuery[] m_EntityQueryModifiers;
 
             public EntityQuery EntityQuery => m_Query;
 
-            public EntityQueryCache(EntityManager entityManager, EntityQueryDesc desc)
+            public EntityQueryCache(EntityManager entityManager, EntityQueryDesc desc, HierarchyFilter.ModifyEntityQuery[] entityQueryModifiers)
             {
                 m_Desc = desc;
                 m_Query = entityManager.CreateEntityQuery(desc);
+                foreach (var modifier in entityQueryModifiers)
+                    modifier(ref m_Query);
                 m_OriginatingWorld = entityManager.World;
+                m_EntityQueryModifiers = entityQueryModifiers;
             }
 
             public void Dispose()
@@ -37,8 +44,13 @@ namespace Unity.Entities.Editor
                 m_OriginatingWorld = null;
             }
 
-            public bool Equals(EntityQueryDesc other, World world)
-                => m_OriginatingWorld != null && world.SequenceNumber == m_OriginatingWorld.SequenceNumber && Equals(m_Desc, other);
+            public bool Equals(EntityQueryDesc other, World world, HierarchyFilter.ModifyEntityQuery[] entityQueryModifiers)
+            {
+                return m_OriginatingWorld != null &&
+                    world.SequenceNumber == m_OriginatingWorld.SequenceNumber &&
+                    Enumerable.SequenceEqual(m_EntityQueryModifiers, entityQueryModifiers) &&
+                    Equals(m_Desc, other);
+            }
         }
 
         /// <summary>
@@ -118,7 +130,7 @@ namespace Unity.Entities.Editor
             }.Run();
         }
 
-        internal void ApplyEntityQueryFilter(HierarchyNodeStore.Immutable nodes, EntityQueryDesc queryDesc, NativeBitArray mask)
+        internal void ApplyEntityQueryFilter(HierarchyNodeStore.Immutable nodes, EntityQueryDesc queryDesc, HierarchyFilter.ModifyEntityQuery[] entityQueryModifiers, NativeBitArray mask, Allocator allocator)
         {
             if (null == queryDesc)
                 return;
@@ -129,15 +141,26 @@ namespace Unity.Entities.Editor
                 return;
             }
 
-            if (!m_EntityQueryCache.Equals(queryDesc, m_World))
+            if (!m_EntityQueryCache.Equals(queryDesc, m_World, entityQueryModifiers))
             {
                 m_EntityQueryCache.Dispose();
-                m_EntityQueryCache = new EntityQueryCache(m_World.EntityManager, queryDesc);
+                m_EntityQueryCache = new EntityQueryCache(m_World.EntityManager, queryDesc, entityQueryModifiers);
             }
 
-            // TODO(DOTS-6706): if m_EntityQueryCache.EntityQuery references enableable components, this GetEntityQueryMask() call will throw.
-            var entityQueryMask = m_EntityQueryCache.EntityQuery.GetEntityQueryMask();
-            FilterByEntityQuery(ref mask, nodes, ref entityQueryMask);
+            if (entityQueryModifiers.Length > 0)
+            {
+                // In case of SharedComponent we need to apply a different filtering that starts with executing the EntityQuery itself.
+                FilterByEntityQuery(ref mask, nodes, ref m_EntityQueryCache.m_Query, allocator);
+
+                // Since EntityModifiers cannot be cached, dispose the EntityQueryCache.
+                m_EntityQueryCache.Dispose();
+            }
+            else
+            {
+                // TODO(DOTS-6706): if m_EntityQueryCache.EntityQuery references enableable components, this GetEntityQueryMask() call will throw.
+                var entityQueryMask = m_EntityQueryCache.EntityQuery.GetEntityQueryMask();
+                FilterByEntityQuery(ref mask, nodes, ref entityQueryMask);
+            }
         }
 
         /// <summary>
@@ -175,7 +198,11 @@ namespace Unity.Entities.Editor
                     ExcludeUnnamedNodes = ExcludeUnnamedNodes,
 #if !DOTS_DISABLE_DEBUG_NAMES
                     EntityNameStorageMask = m_EntityNameStorageMask,
+#if ENTITY_STORE_V1
                     NameByEntity = m_World != null ? m_HierarchyNameStore.NameByEntity : null,
+#else
+                    NameStoreAccess = m_World != null ? m_HierarchyNameStore.NameStoreAccess : default,
+#endif
 #endif
                     NameByHandleLowerInvariant = m_HierarchyNameStore.NameByHandleLowerInvariant,
                     NodeMatchesMask = mask,
@@ -279,6 +306,27 @@ namespace Unity.Entities.Editor
         }
 
         [BurstCompile(DisableSafetyChecks = true)]
+        static void FilterByEntityQuery(ref NativeBitArray nodeMatchesMask, in HierarchyNodeStore.Immutable nodes, ref EntityQuery query, Allocator allocator)
+        {
+            for (var index = 0; index < nodes.Count; index++)
+            {
+                nodeMatchesMask.Set(index, false);
+            }
+
+            // Apply entity query:
+            var entities = query.ToEntityArray(allocator);
+            for(var entityIndex = 0; entityIndex < entities.Length; ++entityIndex)
+            {
+                // Map the entities to their respective nodes and set the node mask:
+                var entity = entities[entityIndex];
+                var entityHandler = HierarchyNodeHandle.FromEntity(entity);
+                var nodeIndex = nodes.IndexOf(entityHandler);
+                nodeMatchesMask.Set(nodeIndex, true);
+            }
+            entities.Dispose();
+        }
+
+        [BurstCompile(DisableSafetyChecks = true)]
         static void FilterByEntityQuery(ref NativeBitArray nodeMatchesMask, in HierarchyNodeStore.Immutable nodes, ref EntityQueryMask queryMask)
         {
             for (var index = 0; index < nodes.Count; index++)
@@ -343,7 +391,12 @@ namespace Unity.Entities.Editor
 
 #if !DOTS_DISABLE_DEBUG_NAMES
             [ReadOnly] public NativeBitArray EntityNameStorageMask;
+#if ENTITY_STORE_V1
             [NativeDisableUnsafePtrRestriction] public EntityName* NameByEntity;
+#else
+            [ReadOnly] public EntityNameStoreAccess NameStoreAccess;
+#endif
+
 #endif
 
             [ReadOnly] public NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes> NameByHandleLowerInvariant;
@@ -362,12 +415,23 @@ namespace Unity.Entities.Editor
                     if (handle.Kind == NodeKind.Entity)
                     {
 #if !DOTS_DISABLE_DEBUG_NAMES
+#if ENTITY_STORE_V1
                         if (NameByEntity[handle.Index].Index > 0)
                         {
                             // Fast path. This name already exists in the database.
                             NodeMatchesMask.Set(index, EntityNameStorageMask.IsSet(NameByEntity[handle.Index].Index));
                             continue;
                         }
+#else
+                        var entityName = NameStoreAccess.GetEntityNameByEntityIndex(handle.Index);
+                        if (entityName.Index > 0)
+                        {
+                            // Fast path. This name already exists in the database.
+                            NodeMatchesMask.Set(index, EntityNameStorageMask.IsSet(entityName.Index));
+                            continue;
+                        }
+#endif
+
 #endif
 
                         if (ExcludeUnnamedNodes)

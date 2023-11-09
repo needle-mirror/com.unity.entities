@@ -153,6 +153,7 @@ namespace Unity.Entities
             Assert.IsTrue(m_ManagedComponentIndex - 1 == 0 || managedComponentIndices.TestAll(1, m_ManagedComponentIndex - 1), "Managed component index has leaked.");
             managedComponentIndices.Dispose();
 
+#if ENTITY_STORE_V1
             // Iterate by free list
             Assert.IsTrue(m_EntityInChunkByEntity[m_NextFreeEntityIndex].Chunk == ChunkIndex.Null, "free chunk list does not end in a null chunk");
 
@@ -192,6 +193,9 @@ namespace Unity.Entities
 
 
             Assert.AreEqual(entityCountByEntities, entityCountByArchetype, $"cached entity count {entityCountByEntities} does not match sum of all archetypes {entityCountByArchetype}");
+#else
+            s_entityStore.Data.IntegrityCheck();
+#endif
 
             // Enabling this fails SerializeEntitiesWorksWithBlobAssetReferences.
             // There is some special entity 0 usage in the serialization code.
@@ -203,6 +207,8 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public static void AssertAllEntitiesCopied(EntityComponentStore* lhs, EntityComponentStore* rhs)
         {
+            // TODO - not clear if this check still makes sense with global entities
+#if ENTITY_STORE_V1
             Assert.IsTrue(rhs->EntitiesCapacity >= lhs->EntitiesCapacity);
             var rhsEntities = rhs->m_EntityInChunkByEntity;
             var lhsEntities = lhs->m_EntityInChunkByEntity;
@@ -217,6 +223,7 @@ namespace Unity.Entities
                     Assert.AreEqual(lhsEntities[i].IndexInChunk, rhsEntities[i].IndexInChunk);
             }
             Assert.AreEqual(lhs->m_NextFreeEntityIndex, rhs->m_NextFreeEntityIndex);
+#endif
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -225,9 +232,17 @@ namespace Unity.Entities
             if (entity.Index < 0)
                 throw new ArgumentException(
                     $"All entities created using EntityCommandBuffer.CreateEntity must be realized via playback(). One of the entities is still deferred (Index: {entity.Index}).");
+
+#if !ENTITY_STORE_V1
+            var maximum = EntityStore.MaximumTheoreticalAmountOfEntities;
+            if ((uint)entity.Index >= (uint)maximum)
+                throw new ArgumentException(
+                    "An Entity index is higher than the valid range. This means the entity.Index got corrupted or incorrectly assigned and it may not be used.");
+#else
             if ((uint)entity.Index >= (uint)EntitiesCapacity)
                 throw new ArgumentException(
                     "An Entity index is larger than the capacity of the EntityManager. This means the entity was created by a different world or the entity.Index got corrupted or incorrectly assigned and it may not be used on this EntityManager.");
+#endif
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -289,9 +304,13 @@ namespace Unity.Entities
 
                 ValidateEntity(*entity);
 
+#if !ENTITY_STORE_V1
+                var exists = s_entityStore.Data.Exists(*entity);
+#else
                 int index = entity->Index;
                 var exists = m_VersionByEntity[index] == entity->Version &&
                     m_EntityInChunkByEntity[index].Chunk != ChunkIndex.Null;
+#endif
                 if (!exists)
                     throw new ArgumentException(
                         "An EntityManager command is operating on an invalid entity. This usually means that the Entity has already been destroyed or was never created." +

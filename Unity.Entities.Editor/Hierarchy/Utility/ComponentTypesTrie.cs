@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 using System.Threading.Tasks;
@@ -22,6 +22,36 @@ namespace Unity.Entities.Editor
             Task.Run(() =>
             {
                 k_Trie.Index(TypeManager.GetAllTypes().Where(t => t.Type != null).Select(t => t.Type.Name));
+                s_IsReady = true;
+            });
+        }
+
+        public static IEnumerable<string> SearchType(string startWith)
+            => !s_IsReady ? Array.Empty<string>() : k_Trie.Search(startWith);
+    }
+
+    static class SharedComponentTypesTrie
+    {
+        static readonly Trie k_Trie = new Trie();
+
+        static bool s_IsInitialized;
+        static bool s_IsReady;
+
+        public static void Initialize()
+        {
+            if (s_IsInitialized)
+                return;
+
+            s_IsInitialized = true;
+            var descs = SearchUtils.GetSharedComponentPropertyDescs();
+
+            Task.Run(() =>
+            {
+                foreach(var propertyDesc in descs)
+                {
+                    k_Trie.Index(propertyDesc.propertyReplacement);
+                }
+
                 s_IsReady = true;
             });
         }

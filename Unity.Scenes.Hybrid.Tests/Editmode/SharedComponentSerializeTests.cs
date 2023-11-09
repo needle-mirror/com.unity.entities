@@ -99,16 +99,15 @@ public class SharedComponentSerializeTests
 
         // Write to stream
         var buffer = new UnsafeAppendBuffer(0, 16, Allocator.Persistent);
-        var writer = new ManagedObjectBinaryWriter(&buffer);
+        using var unityObjectRefs = new UnityObjectRefMap(Allocator.Temp);
+        var writer = new ManagedObjectBinaryWriter(&buffer, unityObjectRefs);
 
         var boxedSrcData = (object)srcData;
         writer.WriteObject(boxedSrcData);
 
-        var objectTable = writer.GetUnityObjects();
-
         // Read from stream
         var readStream = buffer.AsReader();
-        var reader = new ManagedObjectBinaryReader(&readStream, objectTable);
+        var reader = new ManagedObjectBinaryReader(&readStream, unityObjectRefs.InstanceIDs.AsArray());
 
         var boxedRead = reader.ReadObject(typeof(TestStruct));
 
@@ -146,16 +145,15 @@ public class SharedComponentSerializeTests
 
         // Write to stream
         var buffer = new UnsafeAppendBuffer(0, 16, Allocator.Persistent);
-        var writer = new ManagedObjectBinaryWriter(&buffer);
+        using var unityObjectRefs = new UnityObjectRefMap(Allocator.Temp);
+        var writer = new ManagedObjectBinaryWriter(&buffer, unityObjectRefs);
 
         var boxedSrcData = (object)srcData;
         writer.WriteObject(boxedSrcData);
 
-        var objectTable = writer.GetUnityObjects();
-
         // Read from stream
         var readStream = buffer.AsReader();
-        var reader = new ManagedObjectBinaryReader(&readStream, objectTable);
+        var reader = new ManagedObjectBinaryReader(&readStream, unityObjectRefs.InstanceIDs.AsArray());
 
         var boxedRead = reader.ReadObject(typeof(ComponentWithStringArray));
 

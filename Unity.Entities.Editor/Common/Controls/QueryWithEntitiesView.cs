@@ -24,8 +24,9 @@ namespace Unity.Entities.Editor
             ActionButton.RegisterCallback<MouseDownEvent, QueryWithEntitiesView>((evt, @this) =>
             {
                 evt.StopPropagation();
+#if !UNITY_2023_2_OR_NEWER
                 evt.PreventDefault();
-
+#endif
                 OpenQueryWindow(@this.m_Data, EntityQueryContentTab.Entities);
             }, this);
 

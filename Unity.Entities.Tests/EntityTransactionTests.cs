@@ -1138,7 +1138,7 @@ namespace Unity.Entities.Tests
             }
         }
 
-
+#if ENTITY_STORE_V1
         struct IncreaseCapacityJob: IJob
         {
             public ExclusiveEntityTransaction Transaction;
@@ -1170,9 +1170,8 @@ namespace Unity.Entities.Tests
 
             //+2 because the EntityComponentStore has one slot allocated for Entity.Null, and one to signify the end of the various structures
             Assert.AreEqual(newCapacity + 2,m_Manager.GetCheckedEntityDataAccess()->EntityComponentStore->EntitiesCapacity);
-
-
         }
+#endif
 
         partial class ScheduleJobDuringExclusiveEntityTransactionTestSystem : SystemBase
         {
@@ -1197,7 +1196,7 @@ namespace Unity.Entities.Tests
         {
             var system = World.GetOrCreateSystemManaged<ScheduleJobDuringExclusiveEntityTransactionTestSystem>();
             var exception = Assert.Throws<InvalidOperationException>(() => system.Update());
-            Assert.AreEqual(exception.Message, "You can't schedule a job while an exclusive transaction is active");
+            Assert.AreEqual(exception.Message, "You can't schedule an IJobChunk while an exclusive transaction is active");
         }
 
         partial class RunByRefDuringExclusiveEntityTransactionTestSystem : SystemBase
@@ -1223,7 +1222,7 @@ namespace Unity.Entities.Tests
         {
             var system = World.GetOrCreateSystemManaged<RunByRefDuringExclusiveEntityTransactionTestSystem>();
             var exception = Assert.Throws<InvalidOperationException>(() => system.Update());
-            Assert.AreEqual(exception.Message, "You can't schedule a job while an exclusive transaction is active");
+            Assert.AreEqual(exception.Message, "You can't schedule an IJobChunk while an exclusive transaction is active");
         }
     }
 }

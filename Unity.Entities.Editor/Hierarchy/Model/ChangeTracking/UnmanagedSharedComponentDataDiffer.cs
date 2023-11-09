@@ -310,15 +310,6 @@ namespace Unity.Entities.Editor
         /// <exception cref="ArgumentException">The specified component can not be watched by the differ.</exception>
         public UnmanagedSharedComponentDataDiffer(ComponentType componentType)
         {
-            static bool CanWatch(ComponentType componentType)
-            {
-                if (!TypeManager.IsInitialized)
-                    throw new InvalidOperationException($"{nameof(TypeManager)} has not been initialized properly");
-
-                var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
-                return typeInfo.Category == TypeManager.TypeCategory.ISharedComponentData && UnsafeUtility.IsUnmanaged(componentType.GetManagedType());
-            }
-
             if (!CanWatch(componentType))
                 throw new ArgumentException($"{nameof(UnmanagedSharedComponentDataDiffer)} only supports unmanaged {nameof(ISharedComponentData)} components.", nameof(componentType));
 
@@ -336,6 +327,15 @@ namespace Unity.Entities.Editor
             m_ChangesByChunk = new NativeList<ChunkChanges>(16, Allocator.Persistent);
             m_RemovedChunks = new NativeList<ChunkShadow>(Allocator.Persistent);
             m_RemovedEntities = new NativeList<Entity>(Allocator.Persistent);
+        }
+
+        internal static bool CanWatch(ComponentType componentType)
+        {
+            if (!TypeManager.IsInitialized)
+                throw new InvalidOperationException($"{nameof(TypeManager)} has not been initialized properly");
+
+            var typeInfo = TypeManager.GetTypeInfo(componentType.TypeIndex);
+            return typeInfo.Category == TypeManager.TypeCategory.ISharedComponentData && UnsafeUtility.IsUnmanaged(componentType.GetManagedType());
         }
 
         public void Dispose()

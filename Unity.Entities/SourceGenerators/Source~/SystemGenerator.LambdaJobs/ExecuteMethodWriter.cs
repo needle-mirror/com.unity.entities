@@ -168,24 +168,13 @@ public struct ExecuteMethodWriter : IMemberWriter
                     writer.Indent--;
                     writer.WriteLine("}");
                 }
-                else if (LambdaJobDescription.Burst.IsEnabled)
-                {
-                    writer.WriteLine($"if(!{LambdaJobDescription.EntityQueryFieldName}.IsEmptyIgnoreFilter)");
-                    writer.WriteLine("{");
-                    writer.Indent++;
-                    writer.WriteLine("this.CheckedStateRef.CompleteDependency();");
-                    writer.WriteLine(@$"var __functionPointer = global::Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobCompilerEnabled ? {LambdaJobDescription.JobStructName}.FunctionPtrFieldBurst : {LambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst;");
-                    writer.WriteLine($"global::Unity.Entities.Internal.InternalCompilerInterface.UnsafeRunJobChunk(ref __job, {LambdaJobDescription.EntityQueryFieldName}, __functionPointer);");
-                    writer.Indent--;
-                    writer.WriteLine("}");
-                }
-                else
-                {
+                else {
                     writer.WriteLine($"if(!{LambdaJobDescription.EntityQueryFieldName}.IsEmptyIgnoreFilter)");
                     writer.WriteLine("{");
                     writer.Indent++;
                     writer.WriteLine($"this.CheckedStateRef.CompleteDependency();");
-                    writer.WriteLine($"global::Unity.Entities.Internal.InternalCompilerInterface.JobChunkInterface.RunByRefWithoutJobs(ref __job, {LambdaJobDescription.EntityQueryFieldName});");
+                    writer.WriteLine($"var __jobPtr = global::Unity.Entities.Internal.InternalCompilerInterface.AddressOf(ref __job);");
+                    writer.WriteLine($"{LambdaJobDescription.JobStructName}.RunWithoutJobSystem(ref {LambdaJobDescription.EntityQueryFieldName}, __jobPtr);");
                     writer.Indent--;
                     writer.WriteLine("}");
                 }
@@ -218,19 +207,9 @@ public struct ExecuteMethodWriter : IMemberWriter
         {
             case ScheduleMode.Run:
             {
-                if (LambdaJobDescription.Burst.IsEnabled)
-                {
-                    writer.WriteLine("this.CheckedStateRef.CompleteDependency();");
-                    writer.WriteLine(
-                        @$"var __functionPointer = global::Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobCompilerEnabled ? {LambdaJobDescription.JobStructName}.FunctionPtrFieldBurst : {LambdaJobDescription.JobStructName}.FunctionPtrFieldNoBurst;");
-                    writer.WriteLine(
-                        $"global::Unity.Entities.Internal.InternalCompilerInterface.UnsafeRunIJob(ref __job, __functionPointer);");
-                }
-                else
-                {
-                    writer.WriteLine("this.CheckedStateRef.CompleteDependency();");
-                    writer.WriteLine("__job.Execute();");
-                }
+                writer.WriteLine("this.CheckedStateRef.CompleteDependency();");
+                writer.WriteLine($"var __jobPtr = global::Unity.Entities.Internal.InternalCompilerInterface.AddressOf(ref __job);");
+                writer.WriteLine($"{LambdaJobDescription.JobStructName}.RunWithoutJobSystem(__jobPtr);");
 
                 break;
             }

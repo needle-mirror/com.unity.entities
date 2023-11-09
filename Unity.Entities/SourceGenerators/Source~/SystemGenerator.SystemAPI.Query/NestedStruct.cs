@@ -275,7 +275,7 @@ static class NestedStruct
                 case QueryType.RefRW:
                     fieldName = $"{arg.Name}_ComponentTypeHandle_RW";
                     fieldDeclaration = $"Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
-                    fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly);";
+                    fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: false);";
 
                     field = new Field(fieldDeclaration, fieldName, fieldAssignment);
                     if (performsCollectionChecks)
@@ -300,7 +300,7 @@ static class NestedStruct
                 case QueryType.EnabledRefRW:
                     fieldName = $"{arg.Name}_ComponentTypeHandle_RW";
                     fieldDeclaration = $"Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
-                    fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly);";
+                    fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: false);";
                     resolvedChunkInitializerArgument = $"archetypeChunk.GetEnabledMask(ref {fieldName});";
 
                     yield return
@@ -390,7 +390,7 @@ static class NestedStruct
                 case QueryType.UnityEngineComponent:
                     fieldName = $"{arg.Name}_ManagedComponentTypeHandle_RO";
                     fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
-                    fieldAssignment = $"{fieldName} = systemState.EntityManager.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(true);";
+                    fieldAssignment = $"{fieldName} = systemState.EntityManager.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: false);";
                     resolvedChunkInitializerArgument = $"archetypeChunk.GetManagedComponentAccessor(ref {fieldName}, _entityManager);";
 
                     yield return
@@ -406,7 +406,7 @@ static class NestedStruct
                 case QueryType.ManagedComponent:
                     fieldName = $"{arg.Name}_ManagedComponentTypeHandle_RO";
                     fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeSymbolFullName}> {fieldName};";
-                    fieldAssignment = $"{fieldName} = systemState.EntityManager.GetComponentTypeHandle<{arg.TypeSymbolFullName}>(true);";
+                    fieldAssignment = $"{fieldName} = systemState.EntityManager.GetComponentTypeHandle<{arg.TypeSymbolFullName}>(isReadOnly: false);";
                     resolvedChunkInitializerArgument = $"archetypeChunk.GetManagedComponentAccessor(ref {fieldName}, _entityManager);";
 
                     yield return
@@ -422,7 +422,7 @@ static class NestedStruct
                 case QueryType.DynamicBuffer:
                     fieldName = $"{arg.Name}_BufferTypeHandle_RW";
                     fieldDeclaration = $"Unity.Entities.BufferTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
-                    fieldAssignment = $"{fieldName} = systemState.GetBufferTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly);";
+                    fieldAssignment = $"{fieldName} = systemState.GetBufferTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: false);";
                     resolvedChunkInitializerArgument = $"archetypeChunk.GetBufferAccessor(ref {fieldName});";
 
                     yield return

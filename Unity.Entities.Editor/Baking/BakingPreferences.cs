@@ -68,14 +68,6 @@ namespace Unity.Entities.Editor
             public override VisualElement Build()
             {
                 var root = new VisualElement();
-
-                if (Unsupported.IsDeveloperMode())
-                {
-                    var liveBaking = new VisualElement();
-                    DoDefaultGui(liveBaking, nameof(LiveBaking));
-                    root.Add(liveBaking);
-                }
-
                 var sceneViewMode = new VisualElement();
                 var liveBakingLogging = new VisualElement();
 

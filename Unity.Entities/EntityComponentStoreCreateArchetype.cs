@@ -110,6 +110,8 @@ namespace Unity.Entities
 
             var hasCleanup = false;
             var removedTypes = 0;
+            var legIndex = -1;
+            var omitLegFromPrefabIndex = -1;
             for (var t = 0; t < srcArchetype->TypesCount; ++t)
             {
                 var type = srcArchetype->Types[t];
@@ -121,6 +123,14 @@ namespace Unity.Entities
                     ++removedTypes;
                 else
                     types[t - removedTypes] = srcArchetype->Types[t];
+
+                if (removePrefab)
+                {
+                    if (type.TypeIndex == m_LinkedGroupType)
+                        legIndex = t - removedTypes;
+                    else if (type.TypeIndex == m_OmitLinkedEntityGroupFromPrefabInstanceType)
+                        omitLegFromPrefabIndex = t - removedTypes;
+                }
             }
 
             // Entity has already been destroyed, so it shouldn't be instantiated anymore
@@ -128,14 +138,17 @@ namespace Unity.Entities
             {
                 return null;
             }
-            else if (removedTypes > 0)
+
+            if (legIndex >= 0 && omitLegFromPrefabIndex >= 0)
             {
-                return GetOrCreateArchetype(types, count - removedTypes);
+                for (int i = math.min(legIndex, omitLegFromPrefabIndex), end = math.max(legIndex, omitLegFromPrefabIndex) - 1; i < end; ++i)
+                    types[i] = types[i + 1];
+                for (int i = math.max(legIndex, omitLegFromPrefabIndex) - 1, end = count - removedTypes - 2; i < end; ++i)
+                    types[i] = types[i + 2];
+                removedTypes += 2;
             }
-            else
-            {
-                return srcArchetype;
-            }
+
+            return removedTypes > 0 ? GetOrCreateArchetype(types, count - removedTypes) : srcArchetype;
         }
 
         // ----------------------------------------------------------------------------------------------------------

@@ -124,7 +124,11 @@ namespace Unity.Entities.Editor
 
         static void CancelEvent(EventBase evt)
         {
+#if !UNITY_2023_2_OR_NEWER
             evt.PreventDefault();
+#else
+            evt.StopPropagation();
+#endif
             evt.StopImmediatePropagation();
         }
 

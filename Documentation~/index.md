@@ -8,7 +8,7 @@ See the [DOTS Guide and Samples](https://github.com/Unity-Technologies/EntityCom
 
 ## Package installation
 
-To use the Entities package, you must have Unity version 2022.3.0f1 and later installed.
+To use the Entities package, you must have a 2022.3 version of Unity installed.
 
 To install the package, open the Package Manager window (**Window &gt; Package Manager**) and perform one of the following options:
 

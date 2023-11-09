@@ -16,22 +16,22 @@ namespace Unity.Entities.SourceGen.Common
         {
             public override SyntaxTrivia VisitTrivia(SyntaxTrivia trivia)
             {
-                if (trivia.Kind() == SyntaxKind.DisabledTextTrivia ||
-                    trivia.Kind() == SyntaxKind.PreprocessingMessageTrivia ||
-                    trivia.Kind() == SyntaxKind.IfDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.ElifDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.ElseDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.EndIfDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.RegionDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.EndRegionDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.DefineDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.UndefDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.ErrorDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.WarningDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.PragmaWarningDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.PragmaChecksumDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.ReferenceDirectiveTrivia ||
-                    trivia.Kind() == SyntaxKind.BadDirectiveTrivia)
+                if (trivia.IsKind(SyntaxKind.DisabledTextTrivia) ||
+                    trivia.IsKind(SyntaxKind.PreprocessingMessageTrivia) ||
+                    trivia.IsKind(SyntaxKind.IfDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.ElifDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.ElseDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.RegionDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.EndRegionDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.DefineDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.UndefDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.ErrorDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.WarningDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.PragmaWarningDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.PragmaChecksumDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.ReferenceDirectiveTrivia) ||
+                    trivia.IsKind(SyntaxKind.BadDirectiveTrivia))
                     return default;
                 return trivia;
             }

@@ -1,4 +1,6 @@
 using NUnit.Framework;
+using Unity.Burst;
+using Unity.Collections.LowLevel.Unsafe;
 #if UNITY_EDITOR
 using UnityEngine;
 using UnityEngine.TestTools;
@@ -6,6 +8,7 @@ using Unity.Scenes.Editor.Tests;
 #endif
 using Unity.Entities;
 using Unity.Entities.Tests;
+using UnityEditor;
 
 namespace Unity.Scenes.Hybrid.Tests
 {
@@ -420,6 +423,31 @@ namespace Unity.Scenes.Hybrid.Tests
                     return sectionEntity;
             }
             return Entity.Null;
+        }
+
+        [Test]
+        public unsafe void TestBUR2491()
+        {
+            // This test isn't strictly about section data.
+            // But the layout of the struct can cause invalid Burst code to be generated.
+            // See BUR-2491 for details.
+            var data = new SceneSectionData();
+            void* a = &data.ExternalEntitiesRefRange;
+            void* b = TestBUR2491Helper.GetFieldAddress(ref data);
+            Assert.AreEqual((ulong)a, (ulong)b);
+        }
+    }
+
+    [BurstCompile(CompileSynchronously = true)]
+    static class TestBUR2491Helper
+    {
+        [BurstCompile(CompileSynchronously = true)]
+        public static unsafe void* GetFieldAddress(ref SceneSectionData data)
+        {
+            fixed (void* a = &data.ExternalEntitiesRefRange)
+            {
+                return a;
+            }
         }
     }
 }

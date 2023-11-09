@@ -7,7 +7,7 @@ using UnityEditor.Search;
 using UnityEngine.TestTools;
 using Unity.Entities;
 
-namespace Unity.Entities.Editor.Tests
+namespace Unity.Entities.Editor.Tests.Search
 {
     [System.Serializable]
     public struct SearchBoid : ISharedComponentData
@@ -43,7 +43,7 @@ namespace Unity.Entities.Editor.Tests
     }
 }
 
-namespace Unity.Entities.Editor.Tests
+namespace Unity.Entities.Editor.Tests.Search
 {
     public class QueryTestCase
     {

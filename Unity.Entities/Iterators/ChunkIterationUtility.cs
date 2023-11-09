@@ -103,10 +103,15 @@ namespace Unity.Entities
             }
         }
 
-        [BurstCompile]
-        public static void ToArchetypeChunkList(in UnsafeCachedChunkList cachedChunkList,
+        private interface IChunkGatherer
+        {
+            void AddNoResize(ChunkIndex chunkIndex);
+        }
+
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        private static void ToChunkList<TGatherer>(in UnsafeCachedChunkList cachedChunkList,
             in UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, int hasEnableableComponents,
-            ref NativeList<ArchetypeChunk> outChunks)
+            ref TGatherer outChunks) where TGatherer : struct, IChunkGatherer
         {
             var cachedChunkIndices = cachedChunkList.ChunkIndices;
             var matchingArchetypesPtr = matchingArchetypes.Ptr;
@@ -125,7 +130,7 @@ namespace Unity.Entities
             {
                 for (int chunkIndexInCache = 0; chunkIndexInCache < cachedChunkCount; ++chunkIndexInCache)
                 {
-                    outChunks.AddNoResize(new ArchetypeChunk(cachedChunkIndices[chunkIndexInCache], ecs));
+                    outChunks.AddNoResize(cachedChunkIndices[chunkIndexInCache]);
                 }
             }
             else if (hasEnableable)
@@ -149,7 +154,7 @@ namespace Unity.Entities
                         out var chunkEnabledMask);
                     if (chunkEnabledMask.ULong0 == 0 && chunkEnabledMask.ULong1 == 0)
                         continue;
-                    outChunks.AddNoResize(new ArchetypeChunk(cachedChunkIndices[chunkIndexInCache], ecs));
+                    outChunks.AddNoResize(cachedChunkIndices[chunkIndexInCache]);
                 }
             }
             else
@@ -165,9 +170,47 @@ namespace Unity.Entities
                     int chunkIndexInArchetype = chunkIndexInArchetypePtr[chunkIndexInCache];
                     if (!currentMatchingArchetype->ChunkMatchesFilter(chunkIndexInArchetype, ref filter))
                         continue;
-                    outChunks.AddNoResize(new ArchetypeChunk(cachedChunkIndices[chunkIndexInCache], ecs));
+                    outChunks.AddNoResize(cachedChunkIndices[chunkIndexInCache]);
                 }
             }
+        }
+
+        private struct ArchetypeChunkListGatherer : IChunkGatherer
+        {
+            public NativeList<ArchetypeChunk> ArchetypeChunks;
+            public EntityComponentStore* Ecs;
+            public void AddNoResize(ChunkIndex chunkIndex) => ArchetypeChunks.AddNoResize(new ArchetypeChunk(chunkIndex, Ecs));
+        }
+
+        [BurstCompile]
+        public static void ToArchetypeChunkList(in UnsafeCachedChunkList cachedChunkList,
+            in UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, int hasEnableableComponents,
+            ref NativeList<ArchetypeChunk> outChunks)
+        {
+            var gatherer = new ArchetypeChunkListGatherer
+            {
+                ArchetypeChunks = outChunks,
+                Ecs = cachedChunkList.EntityComponentStore
+            };
+            ToChunkList(cachedChunkList, matchingArchetypes, ref filter, hasEnableableComponents, ref gatherer);
+        }
+
+        private struct ChunkIndexListGatherer : IChunkGatherer
+        {
+            public NativeList<ChunkIndex> ChunkIndices;
+            public void AddNoResize(ChunkIndex chunkIndex) => ChunkIndices.AddNoResize(chunkIndex);
+        }
+
+        [BurstCompile]
+        public static void ToChunkIndexList(in UnsafeCachedChunkList cachedChunkList,
+            in UnsafeMatchingArchetypePtrList matchingArchetypes, ref EntityQueryFilter filter, int hasEnableableComponents,
+            ref NativeList<ChunkIndex> outChunkIndices)
+        {
+            var gatherer = new ChunkIndexListGatherer
+            {
+                ChunkIndices = outChunkIndices
+            };
+            ToChunkList(cachedChunkList, matchingArchetypes, ref filter, hasEnableableComponents, ref gatherer);
         }
 
         [BurstCompile]

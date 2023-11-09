@@ -106,7 +106,9 @@ namespace Unity.Entities.Editor
         public const string type = "system";
 
         internal static Dictionary<string, string[]> s_SystemDependencyMap = new Dictionary<string, string[]>();
+        internal static World s_CurrentWorld;
         internal static WorldProxyManager s_WorldProxyManager;
+        internal static WorldProxy s_WorldProxy;
         internal static bool s_MoreTimePrecision;
         
         internal static QueryEngine<SystemDescriptor> s_QueryEngine;
@@ -132,6 +134,12 @@ namespace Unity.Entities.Editor
                 }
                 return s_Systems;
             }
+        }
+
+        static void SetWorld(string worldName)
+        {
+            Cleanup();
+            s_CurrentWorld = SearchUtils.FindWorld(worldName);
         }
 
         static void SelectItem(SearchItem item, SearchContext ctx)
@@ -264,6 +272,9 @@ namespace Unity.Entities.Editor
             SearchBridge.AddFilter<string, SystemDescriptor>(s_QueryEngine, "c", OnComponentTypeFilter, new[] { ":", "=" });
             SearchBridge.AddFilter<string, SystemDescriptor>(s_QueryEngine, "sd", OnSystemDependencyFilter, new[] { ":", "=" });
 
+            // Note: Skip filter for world filter that shouldn't be tested against the dataset
+            s_QueryEngine.skipUnknownFilters = true;
+
             SearchBridge.SetFilter(s_QueryEngine, "entitycount", data => data.proxy.TotalEntityMatches)
                 .AddOrUpdateProposition(category: null, label: "Entity Count", replacement: "entitycount>10", help: "Search Systems by Entity Count");
 
@@ -272,7 +283,6 @@ namespace Unity.Entities.Editor
 
             SearchBridge.SetFilter(s_QueryEngine, "dependencycount", data => data.systemDependencyCache.Length)
                 .AddOrUpdateProposition(category: null, label: "Dependency Count", replacement: "dependencycount>0", help: "Search Systems by Dependency Count");
-
             SearchBridge.SetFilter(s_QueryEngine, "time", data => data.proxy.RunTimeMillisecondsForDisplay)
                 .AddOrUpdateProposition(category: null, label: "Time", replacement: "time>100", help: "Search Systems by time");
 
@@ -295,17 +305,22 @@ namespace Unity.Entities.Editor
         static bool SetupSystemDescriptors()
         {
             s_WorldProxyManager = new WorldProxyManager();
-            s_SystemDependencyMap = new();
-            s_WorldProxyManager.CreateWorldProxiesForAllWorlds();
-            foreach (var updater in s_WorldProxyManager.GetAllWorldProxyUpdaters())
+            s_SystemDependencyMap = new();            
+            if (s_CurrentWorld == null)
             {
-                updater.EnableUpdater();
+                Debug.LogWarning("System Search provider: cannot find a valid World");
+                return false;
             }
+            s_WorldProxyManager.CreateWorldProxiesForAllWorlds();
+            s_WorldProxy = s_WorldProxyManager.GetWorldProxyForGivenWorld(s_CurrentWorld);
+            s_WorldProxyManager.SelectedWorldProxy = s_WorldProxy;
             return true;
         }
 
         static void OnEnable()
         {
+            s_CurrentWorld = World.DefaultGameObjectInjectionWorld;
+
             s_MoreTimePrecision = UserSettings<SystemsWindowPreferenceSettings>.GetOrCreate(Constants.Settings.SystemsWindow).Configuration.ShowMorePrecisionForRunningTime;
             EditorApplication.playModeStateChanged -= OnPlayModeStateChanged;
             EditorApplication.playModeStateChanged += OnPlayModeStateChanged;
@@ -319,6 +334,7 @@ namespace Unity.Entities.Editor
 
         static void Cleanup()
         {
+            s_CurrentWorld = null;
             s_WorldProxyManager?.Dispose();
             s_WorldProxyManager = null;
             s_Systems?.Clear();
@@ -441,9 +457,9 @@ namespace Unity.Entities.Editor
 
         static IEnumerable<SearchItem> FetchItems(SearchContext context, SearchProvider provider)
         {
-            if (systems == null)
-                yield break;
-
+            if (s_CurrentWorld == null)
+                s_CurrentWorld = World.DefaultGameObjectInjectionWorld;
+            
             var searchQuery = context.searchQuery;
             ParsedQuery<SystemDescriptor> query = null;
             if (!string.IsNullOrEmpty(searchQuery))
@@ -451,9 +467,27 @@ namespace Unity.Entities.Editor
                 query = queryEngine.ParseQuery(context.searchQuery);
                 if (!query.valid)
                 {
-                    Debug.LogError(string.Join(" ", query.errors.Select(e => e.reason)));
+                    context.AddSearchQueryErrors(query.errors.Select(e => new SearchQueryError(e, context, provider)));
                     yield break;
                 }
+
+                var toggles = new List<IQueryNode>();
+                var filters = new List<IFilterNode>();
+                var searches = new List<ISearchNode>();
+                SearchUtils.GetQueryParts(query.queryGraph.root, filters, toggles, searches);
+                var worldFilter = filters.Where(f => f.filterId == "w").FirstOrDefault();
+                if (worldFilter != null && s_CurrentWorld != null && worldFilter.filterValue != s_CurrentWorld.Name)
+                {
+                    // Note: since wolrd filter is skipped, the quotes are not removed automatically.
+                    var worldName = worldFilter.filterValue.Replace("\"", "");
+                    SetWorld(worldName);
+                }
+            }
+
+            if (s_CurrentWorld == null || systems == null)
+            {
+                SearchUtils.AddError("Cannot find a world to execute the query", context, provider);
+                yield break;
             }
 
             var results = string.IsNullOrEmpty(searchQuery) ? systems : query.Apply(systems);
@@ -468,6 +502,9 @@ namespace Unity.Entities.Editor
         {
             if (!options.flags.HasAny(SearchPropositionFlags.QueryBuilder))
                 yield break;
+
+            foreach (var p in SearchBridge.GetPropositionsFromListBlockType(typeof(QueryWorldBlock)))
+                yield return p;
 
             foreach (var p in SearchBridge.GetAndOrQueryBlockPropositions())
                 yield return p;
@@ -520,9 +557,10 @@ namespace Unity.Entities.Editor
         /// Open SearchWindow with SystemSearchProvider enabled.
         /// </summary>
         /// <param name="query">Optional initial query.</param>
-        public static void OpenProvider(string query = null)
+        public static void OpenProvider(string query = null, World world = null)
         {
-            SearchBridge.OpenContextualTable(type, query ?? "", GetDefaultTableConfig(null));
+            query = SearchUtils.GetDefaultWorldQuery(query, world);
+            SearchBridge.OpenContextualTable(type, query, GetDefaultTableConfig(null));
         }
     }
 

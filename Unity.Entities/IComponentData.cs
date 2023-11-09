@@ -268,6 +268,23 @@ namespace Unity.Entities
     }
 
     /// <summary>
+    /// The presence of this component instructs <see cref="M:EntityManager.Instantiate"/> to not to create the
+    /// <see cref="LinkedEntityGroup"/> buffer component for every prefab instance, and the prefab child entities
+    /// are still created. This component is not kept on the instantiated entities afterwards. This component is
+    /// completely ignored and treated as a regular tag component when LinkedEntityGroup is not present on the
+    /// source prefab entity.
+    /// </summary>
+    /// <remarks>
+    /// The use of this component is likely for performance consideration, because creating buffer components is
+    /// an expensive process involving heap memory allocations linear to the number of instances being instantiated.
+    /// Omitting the LinkedEntityGroup could make it difficult to associate the children entities with their prefab
+    /// roots; in such case components with Entity reference like <see cref="Unity.Transforms.Parent"/> could be
+    /// useful.
+    /// </remarks>
+    public struct OmitLinkedEntityGroupFromPrefabInstance : IComponentData
+    { }
+
+    /// <summary>
     /// A Unity-defined shared component assigned to all entities in the same subscene.
     /// </summary>
     [Serializable][ChunkSerializable]

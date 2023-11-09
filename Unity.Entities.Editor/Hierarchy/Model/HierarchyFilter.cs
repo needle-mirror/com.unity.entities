@@ -1,6 +1,7 @@
 using System;
 using System.Collections.Generic;
 using Unity.Collections;
+using Unity.Entities.UniversalDelegates;
 using Unity.Profiling;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -55,6 +56,10 @@ namespace Unity.Entities.Editor
 
         public string ErrorCategory { get; set; }
 
+        public delegate void ModifyEntityQuery(ref EntityQuery query);
+        private static ModifyEntityQuery[] s_EmptyModifiers = new ModifyEntityQuery[0];
+        public ModifyEntityQuery[] EntityQueryModifiers { get; set; }
+
         static readonly string k_ComponentTypeNotFoundTitle = L10n.Tr("Type not found");
         static readonly string k_ComponentTypeNotFoundContent = L10n.Tr("\"{0}\" is not a component type");
 
@@ -91,6 +96,8 @@ namespace Unity.Entities.Editor
                     ProcessSearchValueTokens(m_Tokens);
                 }
             }
+
+            EntityQueryModifiers = s_EmptyModifiers;
         }
 
         public void Dispose()
@@ -214,7 +221,8 @@ namespace Unity.Entities.Editor
             mask.SetBits(0, true, mask.Length);
 
             m_HierarchySearch.ApplyEntityIndexFilter(nodes, m_EntityIndex, mask);
-            m_HierarchySearch.ApplyEntityQueryFilter(nodes, m_QueryResult.EntityQueryDesc, mask);
+            m_HierarchySearch.ApplyEntityQueryFilter(nodes, m_QueryResult.EntityQueryDesc, EntityQueryModifiers, mask, allocator);
+
             m_HierarchySearch.ApplyNameFilter(nodes, m_Tokens, mask);
             m_HierarchySearch.ApplyIncludeSubSceneFilter(nodes, mask);
             if (m_Kind != NodeKind.None)

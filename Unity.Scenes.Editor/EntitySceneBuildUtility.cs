@@ -730,7 +730,14 @@ namespace Unity.Scenes.Editor
                         if (loadPath == null)
                             Debug.LogError($"Failed to find artifact load path for id {id}");
                         else
-                            loadingOperation = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForgetAsync(loadPath, 1);
+                        {
+                            #if !UNITY_DISABLE_MANAGED_COMPONENTS
+                            Scene dstScene = CompanionGameObjectUtility.GetCompanionScene(false);
+                            #else
+                            Scene dstScene = default(Scene);
+                            #endif
+                            loadingOperation = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForgetAsync(loadPath, 1, 0UL, -1L, dstScene);
+                        }
                     }
                     else
                     {

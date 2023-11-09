@@ -63,15 +63,15 @@ namespace Unity.Entities.SourceGenerators.Test
             foreach (var additionalReference in additionalAssembliesOverride)
                 test.TestState.AdditionalReferences.Add(additionalReference);
 
-            // Create verification-results folder if not present
+            // Create results folder if not present
             var executingAssemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;
 
             try
             {
-                // Include expected files with name from expectedFileNames from verification-results folder as expected source generated files!
+                // Include expected files with name from expectedFileNames from results folder as expected source generated files!
                 if (checksGeneratedSource)
                 {
-                    var generatedFolderPath = Path.Join(executingAssemblyPath, "verification-results", generatedFolderName);
+                    var generatedFolderPath = Path.Join(executingAssemblyPath, "results", generatedFolderName);
                     Directory.CreateDirectory(generatedFolderPath);
                     var foundExpectedFiles = Directory.EnumerateFiles(generatedFolderPath).Select(Path.GetFileName).Where(expectedFileNames.Contains);
                     var existingSources = foundExpectedFiles.Select(file =>
@@ -109,7 +109,7 @@ namespace Unity.Entities.SourceGenerators.Test
                     Assert.Fail(expectedFileNameDiffErrorMsg);
 
                 // Recreate Testing Folder
-                var verificationPath = Path.Join(Path.Combine(executingAssemblyPath, "..","..",".."), "verification-results", generatedFolderName);
+                var verificationPath = Path.Join(Path.Combine(executingAssemblyPath, "..","..",".."), "results", generatedFolderName);
                 if (Directory.Exists(verificationPath))
                 {
                     var dir = new DirectoryInfo(verificationPath);

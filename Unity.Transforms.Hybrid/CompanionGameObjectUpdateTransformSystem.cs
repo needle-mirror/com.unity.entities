@@ -16,11 +16,14 @@ namespace Unity.Entities
     [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor)]
     [UpdateAfter(typeof(TransformSystemGroup))]
     [BurstCompile]
-    public partial class CompanionGameObjectUpdateTransformSystem : SystemBase
+    public partial struct CompanionGameObjectUpdateTransformSystem : ISystem
     {
-        readonly ProfilerMarker s_ProfilerMarkerAddNew = new("AddNew");
-        readonly ProfilerMarker s_ProfilerMarkerRemove = new("Remove");
-        readonly ProfilerMarker s_ProfilerMarkerUpdate = new("Update");
+        static readonly string s_ProfilerMarkerAddNewString = "AddNew";
+        static readonly string s_ProfilerMarkerRemoveString = "Remove";
+        static readonly string s_ProfilerMarkerUpdateString = "Update";
+        static readonly ProfilerMarker s_ProfilerMarkerAddNew = new(s_ProfilerMarkerAddNewString);
+        static readonly ProfilerMarker s_ProfilerMarkerRemove = new(s_ProfilerMarkerRemoveString);
+        static readonly ProfilerMarker s_ProfilerMarkerUpdate = new(s_ProfilerMarkerUpdateString);
 
         struct IndexAndInstance
         {
@@ -34,28 +37,29 @@ namespace Unity.Entities
 
         EntityQuery m_CreatedQuery;
         EntityQuery m_DestroyedQuery;
-        EntityQuery m_ModifiedQuery;
 
-        protected override void OnCreate()
+        ComponentLookup<LocalToWorld> m_LocalToWorldLookup;
+
+        [BurstCompile]
+        public void OnCreate(ref SystemState state)
         {
-            m_TransformAccessArray = new TransformAccessArray(0);
+            m_TransformAccessArray = new TransformAccessArray(64);
             m_Entities = new NativeList<Entity>(64, Allocator.Persistent);
             m_EntitiesMap = new NativeHashMap<Entity, IndexAndInstance>(64, Allocator.Persistent);
             m_CreatedQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CompanionLink>()
                 .WithNone<CompanionGameObjectUpdateTransformCleanup>()
-                .Build(this);
+                .Build(ref state);
             m_DestroyedQuery = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<CompanionGameObjectUpdateTransformCleanup>()
                 .WithNone<CompanionLink>()
-                .Build(this);
-            m_ModifiedQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<CompanionLink>()
-                .Build(this);
-            m_ModifiedQuery.SetChangedVersionFilter(typeof(CompanionLink));
+                .Build(ref state);
+
+            m_LocalToWorldLookup = state.GetComponentLookup<LocalToWorld>();
         }
 
-        protected override void OnDestroy()
+        [BurstCompile]
+        public void OnDestroy(ref SystemState state)
         {
             m_TransformAccessArray.Dispose();
             m_Entities.Dispose();
@@ -98,7 +102,8 @@ namespace Unity.Entities
             args.EntityManager.RemoveComponent<CompanionGameObjectUpdateTransformCleanup>(args.DestroyedQuery);
         }
 
-        protected override void OnUpdate()
+        [BurstCompile]
+        public void OnUpdate(ref SystemState state)
         {
             using (s_ProfilerMarkerAddNew.Auto())
             {
@@ -108,22 +113,22 @@ namespace Unity.Entities
                     for (int i = 0; i < entities.Length; i++)
                     {
                         var entity = entities[i];
-                        var link = EntityManager.GetComponentData<CompanionLink>(entity);
+                        var link = state.EntityManager.GetComponentData<CompanionLinkTransform>(entity);
 
                         // It is possible that an object is created and immediately destroyed, and then this shouldn't run.
-                        if (link.Companion != null)
+                        if (link.CompanionTransform.IsValid())
                         {
                             IndexAndInstance indexAndInstance = default;
                             indexAndInstance.transformAccessArrayIndex = m_Entities.Length;
-                            indexAndInstance.instanceID = link.Companion.GetInstanceID();
+                            indexAndInstance.instanceID = link.CompanionTransform.Id.instanceId;
                             m_EntitiesMap.Add(entity, indexAndInstance);
-                            m_TransformAccessArray.Add(link.Companion.transform);
+                            m_TransformAccessArray.Add(link.CompanionTransform.Id.instanceId);
                             m_Entities.Add(entity);
                         }
                     }
 
                     entities.Dispose();
-                    EntityManager.AddComponent<CompanionGameObjectUpdateTransformCleanup>(m_CreatedQuery);
+                    state.EntityManager.AddComponent<CompanionGameObjectUpdateTransformCleanup>(m_CreatedQuery);
                 }
             }
 
@@ -136,7 +141,7 @@ namespace Unity.Entities
                         Entities = m_Entities,
                         DestroyedQuery = m_DestroyedQuery,
                         EntitiesMap = m_EntitiesMap,
-                        EntityManager = EntityManager,
+                        EntityManager = state.EntityManager,
                         TransformAccessArray = m_TransformAccessArray
                     };
                     RemoveDestroyedEntities(ref args);
@@ -145,10 +150,10 @@ namespace Unity.Entities
 
             using (s_ProfilerMarkerUpdate.Auto())
             {
-                foreach (var (link, entity) in SystemAPI.Query<CompanionLink>().WithChangeFilter<CompanionLink>().WithEntityAccess())
+                foreach (var (link, entity) in SystemAPI.Query<CompanionLinkTransform>().WithChangeFilter<CompanionLink>().WithEntityAccess())
                 {
                     var cached = m_EntitiesMap[entity];
-                    var currentID = link.Companion.GetInstanceID();
+                    var currentID = link.CompanionTransform.Id.instanceId;
                     if (cached.instanceID != currentID)
                     {
                         // We avoid the need to update the indices and reorder the entities array by adding
@@ -157,7 +162,7 @@ namespace Unity.Entities
                         // 1. ABCD + X = ABCDX
                         // 2. ABCDX - B = AXCD
                         // -> the transform is updated, but the index remains unchanged
-                        m_TransformAccessArray.Add(link.Companion.transform);
+                        m_TransformAccessArray.Add(link.CompanionTransform.Id.instanceId);
                         m_TransformAccessArray.RemoveAtSwapBack(cached.transformAccessArrayIndex);
                         cached.instanceID = currentID;
                         m_EntitiesMap[entity] = cached;
@@ -165,11 +170,12 @@ namespace Unity.Entities
                 }
             }
 
-            Dependency = new CopyTransformJob
+            m_LocalToWorldLookup.Update(ref state);
+            state.Dependency = new CopyTransformJob
             {
-                localToWorld = GetComponentLookup<LocalToWorld>(),
+                localToWorld = m_LocalToWorldLookup,
                 entities = m_Entities
-            }.Schedule(m_TransformAccessArray, Dependency);
+            }.Schedule(m_TransformAccessArray, state.Dependency);
         }
 
         [BurstCompile]

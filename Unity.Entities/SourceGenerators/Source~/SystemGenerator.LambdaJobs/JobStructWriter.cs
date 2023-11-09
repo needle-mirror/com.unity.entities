@@ -163,24 +163,6 @@ public struct JobStructWriter : IMemberWriter
             writer.WriteLine("public global::Unity.Collections.NativeArray<int> __ChunkBaseEntityIndices;");
         }
 
-        if (LambdaJobDescription.NeedsJobFunctionPointers)
-        {
-            // Add functional pointer fields
-            // TODO: Once Burst 1.6 lands in Entities, we should be able to just run through .Invoke everywhere as Burst will do IL patching to remove
-            string delegateName = LambdaJobDescription.LambdaJobKind switch
-            {
-                LambdaJobKind.Entities =>
-                    "global::Unity.Entities.Internal.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegate",
-                LambdaJobKind.Job =>
-                    "global::Unity.Entities.Internal.InternalCompilerInterface.JobRunWithoutJobSystemDelegate",
-                _ => throw new ArgumentOutOfRangeException()
-            };
-
-            writer.WriteLine($"internal static {delegateName} FunctionPtrFieldNoBurst;");
-            if (LambdaJobDescription.Burst.IsEnabled)
-                writer.WriteLine($"internal static {delegateName} FunctionPtrFieldBurst;");
-        }
-
         if (LambdaJobDescription.NeedsTimeData)
             writer.WriteLine("public global::Unity.Core.TimeData __Time;");
 
@@ -285,15 +267,14 @@ public struct JobStructWriter : IMemberWriter
             }
         }
 
-        if (LambdaJobDescription.NeedsJobFunctionPointers)
+        if (LambdaJobDescription.Schedule.Mode == ScheduleMode.Run && !LambdaJobDescription.WithStructuralChanges)
         {
             if (LambdaJobDescription.LambdaJobKind == LambdaJobKind.Entities)
             {
                 WriteBurstCompileAttribute(writer);
-                WriteMonoPInvokeCallbackAttributeAttribute(writer);
 
                 writer.WriteLine(
-                    "public static void RunWithoutJobSystem(ref global::Unity.Entities.EntityQuery query, global::System.IntPtr jobPtr)");
+                    $"public static void RunWithoutJobSystem(ref global::Unity.Entities.EntityQuery query, global::System.IntPtr jobPtr)");
                 writer.WriteLine("{");
                 writer.Indent++;
                 if (LambdaJobDescription.IsForDOTSRuntime)
@@ -301,8 +282,8 @@ public struct JobStructWriter : IMemberWriter
                 writer.WriteLine("try");
                 writer.WriteLine("{");
                 writer.Indent++;
-                writer.WriteLine(
-                    $"global::Unity.Entities.Internal.InternalCompilerInterface.JobChunkInterface.RunWithoutJobsInternal(ref global::Unity.Entities.Internal.InternalCompilerInterface.UnsafeAsRef<{LambdaJobDescription.JobStructName}>(jobPtr), ref query);");
+                writer.WriteLine($"ref var jobData = ref global::Unity.Entities.Internal.InternalCompilerInterface.UnsafeAsRef<{LambdaJobDescription.JobStructName}>(jobPtr);");
+                writer.WriteLine("global::Unity.Entities.Internal.InternalCompilerInterface.JobChunkInterface.RunWithoutJobsInternal(ref jobData, ref query);");
                 writer.Indent--;
                 writer.WriteLine("}");
                 writer.WriteLine("finally");
@@ -318,8 +299,7 @@ public struct JobStructWriter : IMemberWriter
             else
             {
                 WriteBurstCompileAttribute(writer);
-                WriteMonoPInvokeCallbackAttributeAttribute(writer);
-                writer.WriteLine("public static void RunWithoutJobSystem(global::System.IntPtr jobPtr)");
+                writer.WriteLine($"public static void RunWithoutJobSystem(global::System.IntPtr jobPtr)");
                 writer.WriteLine("{");
                 writer.Indent++;
                 if (LambdaJobDescription.IsForDOTSRuntime)
@@ -327,8 +307,8 @@ public struct JobStructWriter : IMemberWriter
                 writer.WriteLine("try");
                 writer.WriteLine("{");
                 writer.Indent++;
-                writer.WriteLine(
-                    $"global::Unity.Entities.Internal.InternalCompilerInterface.UnsafeAsRef<{LambdaJobDescription.JobStructName}>(jobPtr).Execute();");
+                writer.WriteLine($"ref var jobData = ref global::Unity.Entities.Internal.InternalCompilerInterface.UnsafeAsRef<{LambdaJobDescription.JobStructName}>(jobPtr);");
+                writer.WriteLine("jobData.Execute();");
                 writer.Indent--;
                 writer.WriteLine("}");
                 writer.WriteLine("finally");
@@ -559,14 +539,6 @@ public struct JobStructWriter : IMemberWriter
             }
             textWriter.WriteLine(")]");
         }
-    }
-
-    void WriteMonoPInvokeCallbackAttributeAttribute(IndentedTextWriter indentedTextWriter)
-    {
-        indentedTextWriter.WriteLine(
-            LambdaJobDescription.LambdaJobKind != LambdaJobKind.Entities
-                ? @"[global::AOT.MonoPInvokeCallback(typeof(global::Unity.Entities.Internal.InternalCompilerInterface.JobRunWithoutJobSystemDelegate))]"
-                : @"[global::AOT.MonoPInvokeCallback(typeof(global::Unity.Entities.Internal.InternalCompilerInterface.JobChunkRunWithoutJobSystemDelegate))]");
     }
 
     void WritePerformLambda(IndentedTextWriter writer)

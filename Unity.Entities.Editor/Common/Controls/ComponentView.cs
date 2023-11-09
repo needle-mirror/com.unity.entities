@@ -23,7 +23,9 @@ namespace Unity.Entities.Editor
             this.Q(className: UssClasses.ComponentView.GoTo).RegisterCallback<MouseDownEvent, ComponentView>((evt, @this) =>
             {
                 evt.StopPropagation();
+#if !UNITY_2023_2_OR_NEWER
                 evt.PreventDefault();
+#endif
                 Analytics.SendEditorEvent(Analytics.Window.Inspector, Analytics.EventType.RelationshipGoTo, Analytics.GoToComponentDestination);
                 ComponentsWindow.HighlightComponent(@this.m_Data.InComponentType);
                 ContentUtilities.ShowComponentInspectorContent(@this.m_Data.InComponentType);

@@ -1,8 +1,11 @@
 // #define ENABLE_UNITY_CHUNK_METADATA_ACCESSOR_COUNTERS
 
 using System;
+using System.Diagnostics;
 using System.Runtime.CompilerServices;
 using System.Runtime.InteropServices;
+using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
 
 #if ENABLE_UNITY_CHUNK_METADATA_ACCESSOR_COUNTERS
 using Unity.Profiling;
@@ -20,6 +23,7 @@ namespace Unity.Entities
         TempAssertWillDestroyAllInLinkedEntityGroup = 1 << 2
     }
 
+    [DebuggerTypeProxy(typeof(ChunkIndexDebugProxy))]
     struct ChunkIndex : IComparable<ChunkIndex>
     {
 #if ENABLE_UNITY_CHUNK_METADATA_ACCESSOR_COUNTERS
@@ -259,6 +263,42 @@ namespace Unity.Entities
         public int CompareTo(ChunkIndex other)
         {
             return Value.CompareTo(other.Value);
+        }
+    }
+
+    class ChunkIndexDebugProxy
+    {
+        [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        ChunkIndex m_ChunkIndex;
+
+        ChunkIndexDebugProxy(ChunkIndex chunkIndex)
+        {
+            m_ChunkIndex = chunkIndex;
+        }
+
+        public Entity[] Entities
+        {
+            get
+            {
+                unsafe
+                {
+                    if (m_ChunkIndex == ChunkIndex.Null)
+                    {
+                        return null;
+                    }
+
+                    var buffer = (Entity*)m_ChunkIndex.Buffer;
+                    var count = m_ChunkIndex.Count;
+                    var result = new Entity[count];
+
+                    for (int i = 0; i < count; i++)
+                    {
+                        result[i] = buffer[i];
+                    }
+
+                    return result;
+                }
+            }
         }
     }
 

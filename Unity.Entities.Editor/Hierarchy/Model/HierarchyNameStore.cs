@@ -111,7 +111,11 @@ namespace Unity.Entities.Editor
         internal NativeParallelHashMap<HierarchyNodeHandle, FixedString64Bytes> NameByHandleLowerInvariant => m_NamesLowerInvariant;
 
 #if !DOTS_DISABLE_DEBUG_NAMES
+#if ENTITY_STORE_V1
         internal EntityName* NameByEntity => m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameByEntity;
+#else
+        internal EntityNameStoreAccess NameStoreAccess => m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameStoreAccess;
+#endif
         internal EntityNameStorageLowerInvariant EntityNameStorageLowerInvariant => m_EntityNameStorageLowerInvariant;
 #endif
 
@@ -152,7 +156,7 @@ namespace Unity.Entities.Editor
                     if (!m_World.EntityManager.GetCheckedEntityDataAccess()->Exists(handle.ToEntity()))
                         return false;
 
-                    return m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->NameByEntity[handle.Index].Index > 0;
+                    return m_World.EntityManager.GetCheckedEntityDataAccess()->EntityComponentStore->GetEntityNameByEntityIndex(handle.Index).Index > 0;
 #else
                     return false;
 #endif // !DOTS_DISABLE_DEBUG_NAMES
@@ -181,7 +185,7 @@ namespace Unity.Entities.Editor
 
 #if !DOTS_DISABLE_DEBUG_NAMES
                     var entityComponentStore = m_World.EntityManager.GetCheckedEntityDataAccessExclusive()->EntityComponentStore;
-                    var entry = entityComponentStore->NameByEntity[handle.Index];
+                    var entry = entityComponentStore->GetEntityNameByEntityIndex(handle.Index);
 
                     if (entry.Index != 0 && entityComponentStore->Exists(handle.ToEntity()))
                     {

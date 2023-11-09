@@ -9,4 +9,4 @@ Explore Unity's entity component system (ECS) workflow and understand the combin
 
 ## Additional resources
 
-* [ECS tanks tutorial](https://github.com/Unity-Technologies/EntityComponentSystemSamples/blob/master/DOTS_Guide/ecs_tutorial/README.md)
+* [ECS tanks tutorial](https://github.com/Unity-Technologies/EntityComponentSystemSamples/blob/master/EntitiesSamples/Assets/Tutorials/Tanks/README.md)

@@ -55,14 +55,14 @@ namespace Unity.Entities
 
         public string GetDebugNameWithWorld (Entity entity)
         {
-            if (!entity.Equals(default) && IsCreated)
+            if (ComponentStore != null && !entity.Equals(default) && IsCreated)
                 return $"'{GetName(entity)}' Entity({entity.Index}:{entity.Version}) {GetWorld()}";
             return entity.ToString();
         }
 
         public string GetDebugNameWithoutWorld (Entity entity)
         {
-            if (!entity.Equals(default) && IsCreated)
+            if (ComponentStore != null && !entity.Equals(default) && IsCreated)
                 return $"'{GetName(entity)}' Entity({entity.Index}:{entity.Version})";
             return entity.ToString();
         }

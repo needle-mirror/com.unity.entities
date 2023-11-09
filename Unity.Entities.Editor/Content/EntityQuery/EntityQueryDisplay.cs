@@ -80,7 +80,9 @@ namespace Unity.Entities.Editor
                 header.Query(className: UssClasses.Content.Query.EntityQuery.HeaderGoTo).ForEach(v => v.RegisterCallback<MouseDownEvent>((evt) =>
                 {
                     evt.StopPropagation();
+#if !UNITY_2023_2_OR_NEWER
                     evt.PreventDefault();
+#endif
                     SystemScheduleWindow.HighlightSystem(Target.Content.SystemProxy);
                     ContentUtilities.ShowSystemInspectorContent(Target.Content.SystemProxy);
                 }));
@@ -95,7 +97,9 @@ namespace Unity.Entities.Editor
                 header.Query(className: UssClasses.Content.Query.EntityQuery.HeaderGoTo).ForEach(v => v.RegisterCallback<MouseDownEvent>((evt) =>
                 {
                     evt.StopPropagation();
+#if !UNITY_2023_2_OR_NEWER
                     evt.PreventDefault();
+#endif
                     ComponentsWindow.HighlightComponent(@componentType);
                     ContentUtilities.ShowComponentInspectorContent(@componentType);
                 }));

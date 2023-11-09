@@ -1178,41 +1178,46 @@ namespace Unity.Entities.Tests
             using (var created = new NativeList<Entity>(World.UpdateAllocator.ToAllocator))
             using (var destroyed = new NativeList<Entity>(World.UpdateAllocator.ToAllocator))
             {
+                void CallCreatedAndDestroyed() =>
+#pragma warning disable CS0618 // Type or member is obsolete
+                    m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+#pragma warning restore
+
                 // Create e0 & e1
                 var e0 = m_Manager.CreateEntity();
                 var e1 = m_Manager.CreateEntity();
-                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                CallCreatedAndDestroyed();
                 Assert.AreEqual(new[] { e0, e1 }, created.ToArrayNBC());
                 Assert.AreEqual(0, destroyed.Length);
 
                 // Create e3, destroy e0
                 var e3 = m_Manager.CreateEntity();
                 m_Manager.DestroyEntity(e0);
-                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                CallCreatedAndDestroyed();
                 Assert.AreEqual(new[] { e3 }, created.ToArrayNBC());
                 Assert.AreEqual(new[] { e0 }, destroyed.ToArrayNBC());
 
                 // Change nothing
-                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                CallCreatedAndDestroyed();
                 Assert.AreEqual(0, created.Length);
                 Assert.AreEqual(0, destroyed.Length);
 
                 // Destroy e2 and e3
                 m_Manager.DestroyEntity(e1);
                 m_Manager.DestroyEntity(e3);
-                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                CallCreatedAndDestroyed();
                 Assert.AreEqual(0, created.Length);
                 Assert.AreEqual(new[] { e1, e3 }, destroyed.ToArrayNBC());
 
                 // Create e4
                 var e4 = m_Manager.CreateEntity();
-                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                CallCreatedAndDestroyed();
                 Assert.AreEqual(new[] { e4 }, created.AsArray());
                 Assert.AreEqual(0, destroyed.Length);
 
                 // Create & Destroy
-                m_Manager.DestroyEntity(m_Manager.CreateEntity());;
-                m_Manager.GetCreatedAndDestroyedEntitiesAsync(state, created, destroyed).Complete();
+                m_Manager.DestroyEntity(m_Manager.CreateEntity());
+                CallCreatedAndDestroyed();
                 Assert.AreEqual(0, created.Length);
                 Assert.AreEqual(0, destroyed.Length);
             }
@@ -1225,14 +1230,18 @@ namespace Unity.Entities.Tests
             using (var created = new NativeList<Entity>(World.UpdateAllocator.ToAllocator))
             using (var destroyed = new NativeList<Entity>(World.UpdateAllocator.ToAllocator))
             {
+#pragma warning disable CS0618 // Type or member is obsolete
                 m_Manager.GetCreatedAndDestroyedEntities(state, created, destroyed);
+#pragma warning restore
 
                 var entity0 = m_Manager.CreateEntity(typeof(BoundsComponent), ComponentType.ChunkComponent<ChunkBoundsComponent>());
                 m_Manager.SetComponentData(entity0, new BoundsComponent {boundsMin = new Mathematics.float3(-10, -10, -10), boundsMax = new Mathematics.float3(0, 0, 0)});
                 var entity1 = m_Manager.CreateEntity(typeof(BoundsComponent), ComponentType.ChunkComponent<ChunkBoundsComponent>());
                 m_Manager.SetComponentData(entity1, new BoundsComponent {boundsMin = new Mathematics.float3(0, 0, 0), boundsMax = new Mathematics.float3(10, 10, 10)});
 
+#pragma warning disable CS0618 // Type or member is obsolete
                 m_Manager.GetCreatedAndDestroyedEntities(state, created, destroyed);
+#pragma warning restore
 
                 var metaQuery = m_Manager.CreateEntityQuery(typeof(ChunkBoundsComponent), typeof(ChunkHeader));
                 var metaBoundsCount = metaQuery.CalculateEntityCount();

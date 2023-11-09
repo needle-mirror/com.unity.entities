@@ -10,9 +10,15 @@ using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.IO.LowLevel.Unsafe;
 using Unity.Mathematics;
+using UnityEngine;
 
 namespace Unity.Entities.Serialization
 {
+    struct ExternalEntityReference : IBufferElementData
+    {
+        public Entity Entity;
+    }
+
     struct StableArchetypeCompare : IComparer<IntPtr>
     {
         unsafe public int Compare(IntPtr x, IntPtr y)
@@ -27,11 +33,13 @@ namespace Unity.Entities.Serialization
     [BurstCompile]
     internal unsafe partial struct SerializeUtilityInterop
     {
+#if ENTITY_STORE_V1
         [BurstCompile]
         internal static void AllocateConsecutiveEntitiesForLoading(EntityComponentStore* store, int entityCount)
         {
             store->AllocateConsecutiveEntitiesForLoading(entityCount);
         }
+#endif
 
         [BurstCompile]
         internal static int AllocAndQueueReadChunkCommands(long readOffset, int totalChunkCount, UnsafeList<SerializeUtility.MegaChunkInfo>* megaChunkInfo, UnsafeList<ReadCommand>* readCommands)
@@ -76,7 +84,11 @@ namespace Unity.Entities.Serialization
             byte* componentEnabledBits,
             int* enabledBitsHierarchicalData,
             EntityComponentStore* ecs,
-            UnsafeList<ArchetypeChunk>* chunksWithMetaChunkEntities)
+			ref NativeArray<int> instanceIds,
+            UnsafeList<ArchetypeChunk>* chunksWithMetaChunkEntities,
+            Entity* externalEntitiesReferences,
+            int externalEntitiesRefCount,
+            ref Entity prefabRoot)
         {
             var tc = bufferReader.ReadInt();
             var totalChunkCount = status->TotalChunkCount;
@@ -91,6 +103,7 @@ namespace Unity.Entities.Serialization
             // The entity counts for each chuck are stored in the chunk metadata for serialization.
             // They need to be hoisted out and stored in the global per chunk metadata array.
 
+            var totalEntityCount = 0;
             var megaChunkInfoList = status->MegaChunkInfoList;
             var megaChunkInfoLength = megaChunkInfoList.Length;
             for (int i = 0; i < megaChunkInfoLength; i++)
@@ -102,10 +115,68 @@ namespace Unity.Entities.Serialization
                 for (int j = 0; j < chunkCount; j++)
                 {
                     var chunkIndex = new ChunkIndex(megaChunkIndex + j);
-                    chunkIndex.Count = chunkPointer->CountForSerialization;
+                    var entityCount = chunkPointer->CountForSerialization;
+                    chunkIndex.Count = entityCount;
                     chunkPointer = (Chunk*)((byte*)chunkPointer + Chunk.kChunkSize);
+                    totalEntityCount += entityCount;
                 }
             }
+
+#if !ENTITY_STORE_V1
+            var entityRemap = new NativeArray<EntityRemapUtility.EntityRemapInfo>(totalEntityCount + externalEntitiesRefCount, Allocator.Temp);
+
+            // TODO - entity versions are getting in the way here, it would be better if we could allocate
+            // all the entities directly in the remap array. Also, versions make little sense when deserializing.
+            var globalEntities = new NativeArray<Entity>(totalEntityCount, Allocator.Temp);
+            EntityComponentStore.s_entityStore.Data.AllocateEntities(globalEntities);
+
+            // In the case of section zero, this buffer is meaningless and uninitialized.
+            if (externalEntitiesReferences != null)
+            {
+                EntityComponentStore.s_entityStore.Data.AllocateEntities(externalEntitiesReferences, externalEntitiesRefCount);
+            }
+
+            {
+                int globalEntitiesBaseIndex = 0;
+
+                for (int i = 0; i < megaChunkInfoLength; i++)
+                {
+                    var chunkCount = megaChunkInfoList[i].MegaChunkSize;
+                    var megaChunkIndex = megaChunkInfoList[i].MegaChunkIndex;
+
+                    for (int j = 0; j < chunkCount; j++)
+                    {
+                        var chunkIndex = new ChunkIndex(megaChunkIndex + j);
+                        {
+                            var entityBuffer = (Entity*)chunkIndex.Buffer;
+                            var entityCount = chunkIndex.Count;
+                            for (int entityIndex = 0; entityIndex < entityCount; entityIndex++)
+                            {
+                                var target = globalEntities[globalEntitiesBaseIndex + entityIndex];
+                                EntityRemapUtility.AddEntityRemapping(ref entityRemap, entityBuffer[entityIndex], target);
+                            }
+
+                            globalEntitiesBaseIndex += entityCount;
+                        }
+                    }
+                }
+
+                for (int i = 0; i < externalEntitiesRefCount; i++)
+                {
+                    // Pay close attention to the version number of the target entity being replaced by zero.
+                    // The idea is to store a valid index, but force the entity to be considered as invalid.
+                    // It will only become valid once the section is merged into the main world.
+
+                    // Setting the external reference placeholder to have version 0 makes it more explicit
+                    // that this isn't a valid entity. If we would keep the actual version it would still
+                    // be detected as not part of the world because because the entity has no chunk.
+                    // So this is only an extra precaution which shouldn't be strictly required.
+                    var src = new Entity { Index = globalEntitiesBaseIndex + i, Version = 1 };
+                    var dst = new Entity { Index = externalEntitiesReferences[i].Index, Version = 0 };
+                    EntityRemapUtility.AddEntityRemapping(ref entityRemap, src, dst);
+                }
+            }
+#endif
 
             var curMegaChunkIndex = 0;
             var megaChunkInfo = status->MegaChunkInfoList;
@@ -159,7 +230,25 @@ namespace Unity.Entities.Serialization
                     PatchBlobAssetsInChunkAfterLoad(archetype, chunk.Buffer, chunk.Count, (byte*) blobAssetBuffer);
                 }
 
+                if (archetype->HasUnityObjectRefs)
+                    PatchUnityObjectRefsInChunkAfterLoad(archetype, chunk.Buffer, chunk.Count, instanceIds);
+
                 chunk.SequenceNumber = ecs->AllocateSequenceNumber();
+
+#if !ENTITY_STORE_V1
+                chunk.MetaChunkEntity = EntityRemapUtility.RemapEntity(ref entityRemap, chunk.MetaChunkEntity);
+
+                EntityRemapUtility.PatchEntities(
+                    archetype->ScalarEntityPatches,
+                    archetype->ScalarEntityPatchCount,
+                    archetype->BufferEntityPatches,
+                    archetype->BufferEntityPatchCount,
+                    chunk.Buffer,
+                    chunk.Count,
+                    ref entityRemap);
+
+                ecs->ManagedChangesTracker.PatchEntities(archetype, chunk, chunk.Count, entityRemap);
+#endif
 
                 SerializeUtilityInterop.AddExistingChunk(archetype, chunk, remapedSharedComponentValues, enabledBitsForChunk, enabledBitsHierarchicalDataForChunk);
                 enabledBitsForChunk += archetype->Chunks.ComponentEnabledBitsSizeTotalPerChunk;
@@ -180,6 +269,10 @@ namespace Unity.Entities.Serialization
                     chunk = new ChunkIndex(chunk + 1);
                 }
             }
+
+#if !ENTITY_STORE_V1
+            prefabRoot = EntityRemapUtility.RemapEntity(ref entityRemap, prefabRoot);
+#endif
         }
         static void RemapSharedComponentIndices(int* destValues, Archetype* archetype, int* remappedIndices, int* sourceValues)
         {
@@ -194,6 +287,68 @@ namespace Unity.Entities.Serialization
         static byte* OffsetFromPointer(void* ptr, int offset)
         {
             return ((byte*)ptr) + offset;
+        }
+
+        private static unsafe void PatchUnityObjectRefsInChunkAfterLoad(Archetype* archetype, byte* chunkBuffer, int entityCount, NativeArray<int> instanceIds)
+        {
+            var typeCount = archetype->TypesCount;
+            for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
+            {
+                var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
+                var type = archetype->Types[ti];
+                if (type.IsZeroSized || type.IsManagedComponent)
+                    continue;
+
+                ref readonly var ct = ref TypeManager.GetTypeInfo(type.TypeIndex);
+                var unityObjectRefCount = ct.UnityObjectRefOffsetCount;
+
+                if (unityObjectRefCount == 0)
+                    continue;
+
+                var unityObjectRefOffsets = TypeManager.GetUnityObjectRefOffsets(ct);
+                int subArrayOffset = archetype->Offsets[ti];
+                byte* componentArrayStart = OffsetFromPointer(chunkBuffer, subArrayOffset);
+
+                if (type.IsBuffer)
+                {
+                    BufferHeader* header = (BufferHeader*)componentArrayStart;
+                    int strideSize = archetype->SizeOfs[ti];
+                    var elementSize = ct.ElementSize;
+
+                    for (int bi = 0; bi < entityCount; ++bi)
+                    {
+                        var bufferStart = BufferHeader.GetElementPointer(header);
+                        var bufferEnd = bufferStart + header->Length * elementSize;
+                        for (var componentData = bufferStart; componentData < bufferEnd; componentData += elementSize)
+                        {
+                            PatchUnityObjectRefsInComponentAfterLoad(componentData, unityObjectRefOffsets,unityObjectRefCount, instanceIds);
+                        }
+
+                        header = (BufferHeader*)OffsetFromPointer(header, strideSize);
+                    }
+                }
+                else
+                {
+                    int size = archetype->SizeOfs[ti];
+                    byte* end = componentArrayStart + size * entityCount;
+                    for (var componentData = componentArrayStart; componentData < end; componentData += size)
+                    {
+                        PatchUnityObjectRefsInComponentAfterLoad(componentData, unityObjectRefOffsets, unityObjectRefCount, instanceIds);
+                    }
+                }
+            }
+        }
+
+        internal static unsafe void PatchUnityObjectRefsInComponentAfterLoad(byte* componentData, TypeManager.EntityOffsetInfo* unityObjectRefOffsets, int unityObjectRefCount, NativeArray<int> instanceIds)
+        {
+            for (int i = 0; i < unityObjectRefCount; ++i)
+            {
+                var unityObjectRefOffset = unityObjectRefOffsets[i].Offset;
+                var unityObjectRefPtr = (UntypedUnityObjectRef*)(componentData + unityObjectRefOffset);
+                var index = unityObjectRefPtr->instanceId;
+                var instanceId = index != -1 ? instanceIds[index] : 0;
+                unityObjectRefPtr->instanceId = instanceId;
+            }
         }
 
         private static void PatchBlobAssetsInChunkAfterLoad(Archetype* archetype, byte* chunkBuffer, int entityCount, byte* allBlobAssetData)
@@ -583,8 +738,13 @@ namespace Unity.Entities.Serialization
         /// <param name="writer">The serialization object.</param>
         public static void SerializeWorld(EntityManager entityManager, BinaryWriter writer)
         {
-            var entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(entityManager.EntityCapacity, Allocator.Temp);
-            SerializeWorldInternal(entityManager, writer, out var referencedObjects, entityRemapInfos, default, Settings.Default);
+#if !ENTITY_STORE_V1
+            var remapSize = entityManager.HighestEntityIndex() + 1;
+#else
+            var remapSize = entityManager.EntityCapacity;
+#endif
+            var entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(remapSize, Allocator.Temp);
+            SerializeWorldInternal(entityManager, writer, default, entityRemapInfos, default, Settings.Default);
             entityRemapInfos.Dispose();
         }
 
@@ -596,9 +756,19 @@ namespace Unity.Entities.Serialization
         /// <param name="referencedObjects">The UnityEngine.Object references from the serialized world.</param>
         public static void SerializeWorld(EntityManager entityManager, BinaryWriter writer, out object[] referencedObjects)
         {
-            var entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(entityManager.EntityCapacity, Allocator.Temp);
-            SerializeWorldInternal(entityManager, writer, out referencedObjects, entityRemapInfos,default, Settings.Default);
+#if !ENTITY_STORE_V1
+            var remapSize = entityManager.HighestEntityIndex() + 1;
+#else
+            var remapSize = entityManager.EntityCapacity;
+#endif
+            var entityRemapInfos = new NativeArray<EntityRemapUtility.EntityRemapInfo>(remapSize, Allocator.Temp);
+            var unityObjectRefs = new UnityObjectRefMap(Allocator.Temp);
+            SerializeWorldInternal(entityManager, writer, unityObjectRefs, entityRemapInfos,default, Settings.Default);
+
+            referencedObjects = unityObjectRefs.ToObjectArray();
+
             entityRemapInfos.Dispose();
+            unityObjectRefs.Dispose();
         }
 
         /// <summary>
@@ -609,7 +779,7 @@ namespace Unity.Entities.Serialization
         /// <param name="entityRemapInfos">The Entity remapping to apply during serialization.</param>
         public static unsafe void SerializeWorld(EntityManager entityManager, BinaryWriter writer, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
         {
-            SerializeWorldInternal(entityManager, writer, out var referencedObjects, entityRemapInfos, default, Settings.Default);
+            SerializeWorldInternal(entityManager, writer, default, entityRemapInfos, default, Settings.Default);
         }
 
         /// <summary>
@@ -621,7 +791,10 @@ namespace Unity.Entities.Serialization
         /// <param name="entityRemapInfos">The entity remapping to apply during serialization.</param>
         public static void SerializeWorld(EntityManager entityManager, BinaryWriter writer, out object[] referencedObjects, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
         {
-            SerializeWorldInternal(entityManager, writer, out referencedObjects, entityRemapInfos, default, Settings.Default);
+            var unityObjectRefs = new UnityObjectRefMap(Allocator.Temp);
+            SerializeWorldInternal(entityManager, writer, unityObjectRefs, entityRemapInfos, default, Settings.Default);
+            referencedObjects = unityObjectRefs.ToObjectArray();
+            unityObjectRefs.Dispose();
         }
 
         /// <summary>
@@ -838,12 +1011,26 @@ namespace Unity.Entities.Serialization
             return res;
         }
 
-        internal static unsafe void EndDeserializeWorld(ExclusiveEntityTransaction manager, DotsSerializationReader dotsReader, ref WorldDeserializationStatus status, out WorldDeserializationResult deserializationResult ,object[] unityObjects = null)
+        internal static unsafe void EndDeserializeWorld(ExclusiveEntityTransaction manager, DotsSerializationReader dotsReader, ref WorldDeserializationStatus status, out WorldDeserializationResult deserializationResult, int externalEntitiesRefRange, int sceneSectionIndex, NativeArray<int> unityObjects)
         {
             deserializationResult = default;
             var access = manager.EntityManager.GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
             var mcs = access->ManagedComponentStore;
+
+            void CleanupWhenDeserializationIsInterrupted(ref WorldDeserializationStatus status)
+            {
+                var megaChunkInfoList = status.MegaChunkInfoList;
+                var megaChunkInfoLength = megaChunkInfoList.Length;
+                for (int i = 0; i < megaChunkInfoLength; i++)
+                {
+                    var chunkCount = megaChunkInfoList[i].MegaChunkSize;
+                    var firstChunk = new ChunkIndex(megaChunkInfoList[i].MegaChunkIndex);
+                    EntityComponentStore.FreeContiguousChunks(firstChunk, chunkCount);
+                }
+
+                status.Dispose();
+            }
 
             if (ecs->CountEntities() != 0)
             {
@@ -853,12 +1040,19 @@ namespace Unity.Entities.Serialization
                 using (var query = manager.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<SystemInstance>()))
                 {
                     if (!query.IsEmptyIgnoreFilter)
+                    {
+                        CleanupWhenDeserializationIsInterrupted(ref status);
                         throw new ArgumentException(
                             $"DeserializeWorld can only be used on completely empty World. Please create a new empty World and add Systems after loading is complete instead.");
+                    }
                 }
+
                 if (ecs->CountEntities() != 0)
+                {
+                    CleanupWhenDeserializationIsInterrupted(ref status);
                     throw new ArgumentException(
                         $"DeserializeWorld can only be used on completely empty EntityManager. Please create a new empty World and use EntityManager.MoveEntitiesFrom to move the loaded entities into the destination world instead.");
+                }
             }
 
             int totalEntityCount;
@@ -901,7 +1095,7 @@ namespace Unity.Entities.Serialization
             sharedComponentRemap.Add(0);
 
             var unmanagedSharedComponentCount = ReadUnmanagedSharedComponents(manager, sharedComponentReader, sharedComponentRemap,
-                (WorldDeserializationStatus*)UnsafeUtility.AddressOf(ref status));
+                (WorldDeserializationStatus*)UnsafeUtility.AddressOf(ref status), unityObjects);
 
             var managedSharedComponentCount = ReadManagedSharedComponents(manager, sharedComponentReader, sharedComponentRemap, unityObjects, blobAssetBuffer);
             numSharedComponents = unmanagedSharedComponentCount + managedSharedComponentCount;
@@ -914,8 +1108,10 @@ namespace Unity.Entities.Serialization
             enabledBitsData += sizeof(int);
             var enabledBitsHierarchicalData = (int*)(enabledBitsData + enabledBitsSizeInBytes + sizeof(int));
 
+#if ENTITY_STORE_V1
             // Chunk initialization
             SerializeUtilityInterop.AllocateConsecutiveEntitiesForLoading(ecs, totalEntityCount);
+#endif
 
             // Read Chunk Buffer data elements
             var totalChunkCount = status.TotalChunkCount;
@@ -923,6 +1119,34 @@ namespace Unity.Entities.Serialization
             using (var bufferReader = (BurstableMemoryBinaryReader)status.BufferElementPrefetchState.CreateStream())
             {
                 var reader = bufferReader;
+                NativeArray<Entity> extRefBuffer = default;
+
+#if !ENTITY_STORE_V1
+                // Make sure this code doesn't run if the entity store V2 isn't active.
+                // It looks harmless enough, but the creation of an additional entity at this point with
+                // entity store V1 throws off the external references.
+
+                // IMPORTANT : it is a valid edge case for section 0 to have 0 entities,
+                // so checking if externalEntitiesRefRange is 0 or not isn't equivalent to checking if the section
+                // index itself is 0 or not. Every section beyond 0 needs a ExternalEntityReference buffer, even if empty.
+                if (sceneSectionIndex > 0)
+                {
+                    // Only sections above zero are expected to have external entities.
+                    // When using entity store V2, those need to be allocated in the streaming world.
+                    // So we need to keep track of those, and we do so through an entity with a singleton buffer.
+                    var externalRefEntity = manager.CreateEntity();
+                    var externalRefBuffer = manager.AddBuffer<ExternalEntityReference>(externalRefEntity);
+                    externalRefBuffer.ResizeUninitialized(externalEntitiesRefRange);
+                    extRefBuffer = externalRefBuffer.AsNativeArray().Reinterpret<Entity>();
+                }
+#endif
+
+                if (status.PrefabPrefetchState._buffer != null)
+                {
+                    if(status.PrefabPrefetchState._size != sizeof(Entity))
+                        throw new InvalidOperationException($"Internal deserialization error: Unexpected size of PrefabPrefetchState Expected:{sizeof(Entity)} Actual:{status.PrefabPrefetchState._size}");
+                    deserializationResult.PrefabRoot = *(Entity*)status.PrefabPrefetchState._buffer;
+                }
 
                 SerializeUtilityInterop.ImportChunks((WorldDeserializationStatus*)UnsafeUtility.AddressOf(ref status),
                     ref reader,
@@ -934,7 +1158,11 @@ namespace Unity.Entities.Serialization
                     enabledBitsData,
                     enabledBitsHierarchicalData,
                     ecs,
-                    &chunksWithMetaChunkEntities);
+                    ref unityObjects,
+                    &chunksWithMetaChunkEntities,
+                    extRefBuffer.IsCreated ? (Entity*)extRefBuffer.GetUnsafePtr() : null,
+                    extRefBuffer.Length,
+                    ref deserializationResult.PrefabRoot);
 
                 status.BlobAssetBuffer = null; // BlobAssetOwner takes ownership of BlobAssetBuffer
                 for (int i = 0; i < chunksWithMetaChunkEntities.Length; ++i)
@@ -957,12 +1185,7 @@ namespace Unity.Entities.Serialization
                 blobAssetRefChunks.Dispose();
                 barc.Dispose();
             }
-            if (status.PrefabPrefetchState._buffer != null)
-            {
-                if(status.PrefabPrefetchState._size != sizeof(Entity))
-                    throw new InvalidOperationException($"Internal deserialization error: Unexpected size of PrefabPrefetchState Expected:{sizeof(Entity)} Actual:{status.PrefabPrefetchState._size}");
-                deserializationResult.PrefabRoot = *(Entity*)status.PrefabPrefetchState._buffer;
-            }
+
             status.Dispose();
             blobAssetOwner.Release();
             types.Dispose();
@@ -983,12 +1206,28 @@ namespace Unity.Entities.Serialization
         /// <param name="manager">The <see cref="ExclusiveEntityTransaction"/> object ensuring that the deserialization is atomic.</param>
         /// <param name="reader">The deserialization object.</param>
         /// <param name="unityObjects">The UnityEngine.Object references that are patched in during deserialization.</param>
-        public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, object[] unityObjects = null)
+        public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, object[] unityObjectArray = null)
         {
-            DeserializeWorldInternal(manager, reader, out _, unityObjects);
+            // So we do this to keep compatibility
+            NativeArray<int> unityObjects = default;
+            if (unityObjectArray != null && unityObjectArray.Length > 0)
+            {
+                unityObjects = new NativeArray<int>(unityObjectArray.Length, Allocator.Temp);
+
+                for (int i = 0; i < unityObjectArray.Length; i++)
+                {
+                    unityObjects[i] = ((UnityEngine.Object)unityObjectArray[i]).GetInstanceID();
+                }
+            }
+            else
+            {
+                unityObjects = new NativeArray<int>(0, Allocator.Temp);
+            }
+            DeserializeWorldInternal(manager, reader, out _, 0, 0, unityObjects);
+            unityObjects.Dispose();
         }
 
-        internal static unsafe void DeserializeWorldInternal(ExclusiveEntityTransaction manager, BinaryReader reader, out WorldDeserializationResult deserializationResult, object[] unityObjects = null)
+        internal static unsafe void DeserializeWorldInternal(ExclusiveEntityTransaction manager, BinaryReader reader, out WorldDeserializationResult deserializationResult, int externalEntitiesRefRange, int sceneSectionIndex, NativeArray<int> unityObjects)
         {
 
             if (reader is StreamBinaryReader)
@@ -999,7 +1238,7 @@ namespace Unity.Entities.Serialization
                     var readHandle = BeginDeserializeWorld(filePath, dotsReader, out var status, out var readCommands);
                     readHandle.JobHandle.Complete();
                     readCommands.Dispose();
-                    EndDeserializeWorld(manager, dotsReader, ref status, out deserializationResult, unityObjects);
+                    EndDeserializeWorld(manager, dotsReader, ref status, out deserializationResult, externalEntitiesRefRange, sceneSectionIndex, unityObjects);
                     return;
                 }
             }
@@ -1013,17 +1252,11 @@ namespace Unity.Entities.Serialization
                     reader.Position = readCommands[i].Offset;
                     reader.ReadBytes(readCommands[i].Buffer, (int)readCommands[i].Size);
                 }
-                EndDeserializeWorld(manager, dotsReader, ref status, out deserializationResult, unityObjects);
+                EndDeserializeWorld(manager, dotsReader, ref status, out deserializationResult, externalEntitiesRefRange, sceneSectionIndex, unityObjects);
             }
         }
 
-        internal static void SerializeWorldInternal(EntityManager entityManager, BinaryWriter writer, out object[] referencedObjects,
-            NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos)
-        {
-            SerializeWorldInternal(entityManager, writer, out referencedObjects, entityRemapInfos, default, new Settings());
-        }
-
-        internal static unsafe BlobAssetReference<DotsSerialization.BlobHeader> SerializeWorldInternal(EntityManager entityManager, BinaryWriter writer, out object[] referencedObjects, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs, Settings settings, bool buildBlobHeader = false)
+        internal static unsafe BlobAssetReference<DotsSerialization.BlobHeader> SerializeWorldInternal(EntityManager entityManager, BinaryWriter writer, UnityObjectRefMap unityObjectRefs, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs, Settings settings, bool buildBlobHeader = false)
         {
             BlobAssetReference<DotsSerialization.BlobHeader> blobHeader = default;
             using (var dotsWriter = DotsSerialization.CreateWriter(writer, WorldFileType, "EntityBinaryFile"))
@@ -1060,7 +1293,7 @@ namespace Unity.Entities.Serialization
                             var totalChunkCount = GenerateRemapInfo(entityManager, archetypeArray, entityRemapInfos);
 
                             // Write Shared and Managed components
-                            referencedObjects = WriteSharedAndManagedComponents(entityManager,
+                            WriteSharedAndManagedComponents(entityManager,
                                 entityRemapInfos,
                                 dotsWriter,
                                 sharedComponentArrays,
@@ -1069,7 +1302,8 @@ namespace Unity.Entities.Serialization
                                 unmanagedSharedComponentIndices,
                                 blobAssetMap,
                                 blobAssetOffsets,
-                                weakAssetRefs);
+                                weakAssetRefs,
+                                unityObjectRefs);
 
                             WriteEnabledBits(dotsWriter, archetypeArray);
 
@@ -1083,7 +1317,7 @@ namespace Unity.Entities.Serialization
 
                                 // Write chunks
                                 WriteChunks(entityRemapInfos, dotsWriter, archetypeArray, tempChunk, mcs, blobAssetOffsets,
-                                    blobAssetMap, bufferPatches, bufferPatchesCountPerChunk, bufferDataList, weakAssetRefs);
+                                    blobAssetMap, bufferPatches, bufferPatchesCountPerChunk, bufferDataList, weakAssetRefs, unityObjectRefs);
 
                                 var j = 0;
                                 for (int i = 0; i < bufferPatchesCountPerChunk.Length; i++)
@@ -1170,7 +1404,8 @@ namespace Unity.Entities.Serialization
             NativeList<BufferPatchRecord> bufferPatches,
             NativeList<int> bufferPatchesCountPerChunk,
             NativeList<IntPtr> bufferDataList,
-            NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
+            NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs,
+            UnityObjectRefMap unityObjectRefs)
         {
             using (var chunkNode = dotsWriter.CreateNode<DotsSerialization.RevisionedRawDataNode>(ChunksNodeType))
             using (var writerHandle = chunkNode.GetWriterHandle())
@@ -1209,6 +1444,9 @@ namespace Unity.Entities.Serialization
                         if (archetype->HasWeakAssetRefs)
                             GetWeakAssetRefsInChunk(archetype, tempChunkBuffer, entityCount, weakAssetRefs);
 
+                        if (archetype->HasUnityObjectRefs)
+                            GetAndPatchUnityObjectRefsInChunkBeforeSave(archetype, tempChunkBuffer, entityCount, unityObjectRefs);
+
                         ClearChunkHeaderComponents(archetype, tempChunkBuffer, entityCount);
                         ChunkDataUtility.MemsetUnusedChunkData(archetype, tempChunkBuffer, 0, entityCount);
                         var startPatchesIndex = bufferPatches.Length;
@@ -1225,13 +1463,14 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        private static unsafe object[] WriteSharedAndManagedComponents(EntityManager entityManager, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, DotsSerializationWriter dotsWriter,
+        private static unsafe void WriteSharedAndManagedComponents(EntityManager entityManager, NativeArray<EntityRemapUtility.EntityRemapInfo> entityRemapInfos, DotsSerializationWriter dotsWriter,
             NativeArray<int> sharedComponentArrays, UnsafePtrList<Archetype> archetypeArray,
             NativeArray<int> managedSharedComponentIndices, NativeArray<int> unmanagedSharedComponentIndices,
             NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap, NativeArray<int> blobAssetOffsets,
-            NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
+            NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs,
+            UnityObjectRefMap unityObjectRefs
+            )
         {
-            object[] referencedObjects = null;
             using (var sharedComponentsNode = dotsWriter.CreateNode<DotsSerialization.RevisionedRawDataNode>(SharedAndManagedComponentsNodeType))
             using (var writerHandle = sharedComponentsNode.GetWriterHandle())
             {
@@ -1244,6 +1483,7 @@ namespace Unity.Entities.Serialization
                     entityManager,
                     unmanagedSharedComponentIndices,
                     w,
+                    unityObjectRefs,
                     (EntityRemapUtility.EntityRemapInfo*) entityRemapInfos.GetUnsafePtr(),
                     blobAssetMap,
                     blobAssetOffsets);
@@ -1253,14 +1493,12 @@ namespace Unity.Entities.Serialization
                     archetypeArray,
                     managedSharedComponentIndices,
                     w,
-                    out referencedObjects,
+                    unityObjectRefs,
                     (EntityRemapUtility.EntityRemapInfo*) entityRemapInfos.GetUnsafePtr(),
                     blobAssetMap,
                     blobAssetOffsets,
                     weakAssetRefs);
             }
-
-            return referencedObjects;
         }
 
         private static unsafe void WriteEnabledBits(DotsSerializationWriter dotsWriter, UnsafePtrList<Archetype> archetypeArray)
@@ -1537,14 +1775,13 @@ namespace Unity.Entities.Serialization
             UnsafePtrList<Archetype> archetypeArray,
             NativeArray<int> sharedComponentIndices,
             BinaryWriter writer,
-            out object[] referencedObjects,
+            UnityObjectRefMap unityObjectRefs,
             EntityRemapUtility.EntityRemapInfo* remapping,
             NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap,
             NativeArray<int> blobAssetOffsets,
             NativeParallelHashSet<UntypedWeakReferenceId> weakAssetRefs)
         {
             int managedComponentCount = 0;
-            referencedObjects = null;
             var allManagedObjectsBuffer = new UnsafeAppendBuffer(0, 16, Allocator.Temp);
 
             var access = entityManager.GetCheckedEntityDataAccess();
@@ -1552,7 +1789,7 @@ namespace Unity.Entities.Serialization
 
             var sharedComponentRecordArray = new NativeArray<SharedComponentRecord>(sharedComponentIndices.Length, Allocator.Temp);
 
-            var propertiesWriter = new ManagedObjectBinaryWriter(&allManagedObjectsBuffer);
+            var propertiesWriter = new ManagedObjectBinaryWriter(&allManagedObjectsBuffer, unityObjectRefs);
 
             // Custom handling for blob asset fields. This adapter will take care of writing out the byte offset for each blob asset encountered.
             var adapter = new ManagedObjectWriterAdapter(remapping, blobAssetMap, blobAssetOffsets, weakAssetRefs);
@@ -1618,8 +1855,6 @@ namespace Unity.Entities.Serialization
                     }
                 }
             }
-            referencedObjects = propertiesWriter.GetUnityObjects();
-
             writer.Write(sharedComponentRecordArray.Length);
             writer.WriteArray(sharedComponentRecordArray);
 
@@ -1636,6 +1871,7 @@ namespace Unity.Entities.Serialization
             EntityManager entityManager,
             NativeArray<int> unmanagedSharedComponentIndices,
             BinaryWriter writer,
+            UnityObjectRefMap unityObjectRefs,
             EntityRemapUtility.EntityRemapInfo* remapping,
             NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap,
             NativeArray<int> blobAssetOffsets)
@@ -1649,7 +1885,7 @@ namespace Unity.Entities.Serialization
             {
                 var index = unmanagedSharedComponentIndices[i];
                 Assert.IsTrue(Entities.EntityComponentStore.IsUnmanagedSharedComponentIndex(index));
-                sharedComponentRecordArray[i] = WriteUnmanagedSharedComponent(index, remapping, blobAssetMap, blobAssetOffsets, access, ref allUnmanagedSharedComponentBuffer);
+                sharedComponentRecordArray[i] = WriteUnmanagedSharedComponent(index, remapping, blobAssetMap, blobAssetOffsets, access, ref allUnmanagedSharedComponentBuffer, unityObjectRefs);
             }
 
             writer.Write(sharedComponentRecordArray.Length);
@@ -1667,7 +1903,8 @@ namespace Unity.Entities.Serialization
             EntityRemapUtility.EntityRemapInfo* remapping,
             NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap,
             NativeArray<int> blobAssetOffsets, EntityDataAccess* access,
-            ref UnsafeAppendBuffer allManagedObjectsBuffer)
+            ref UnsafeAppendBuffer allManagedObjectsBuffer,
+            UnityObjectRefMap unityObjectRefs)
         {
             var typeIndex = Entities.EntityComponentStore.GetComponentTypeFromSharedComponentIndex(sharedComponentIndex);
             var dataPtr = (byte*)access->EntityComponentStore->GetSharedComponentDataAddr_Unmanaged(sharedComponentIndex, typeIndex);
@@ -1698,12 +1935,15 @@ namespace Unity.Entities.Serialization
                 PatchBlobAssetRefInfoBeforeSave(dataPtr, TypeManager.GetBlobAssetRefOffsets(typeInfo), typeInfo.BlobAssetRefOffsetCount, blobAssetOffsets, blobAssetMap);
             }
 
+            if (typeInfo.HasUnityObjectRefs)
+                GetAndPatchUnityObjectRefsInComponentBeforeSave(dataPtr, TypeManager.GetUnityObjectRefOffsets(typeInfo), typeInfo.UnityObjectRefOffsetCount, unityObjectRefs);
+
             allManagedObjectsBuffer.Add(dataPtr, size);
             return record;
         }
 
         static unsafe int ReadUnmanagedSharedComponents(ExclusiveEntityTransaction manager, BinaryReader reader, NativeList<int> sharedComponentRemap,
-            SerializeUtility.WorldDeserializationStatus* status)
+            SerializeUtility.WorldDeserializationStatus* status, NativeArray<int> unityObjects)
         {
             byte* blobAssetBuffer = (byte*)status->BlobAssetBuffer;
 
@@ -1746,6 +1986,9 @@ namespace Unity.Entities.Serialization
                         }
                     }
 
+                    if (ct.HasUnityObjectRefs)
+                        SerializeUtilityInterop.PatchUnityObjectRefsInComponentAfterLoad(data, TypeManager.GetUnityObjectRefOffsets(ct), ct.UnityObjectRefOffsetCount, unityObjects);
+
                     var hashCode = TypeManager.GetHashCode(data, typeIndex);
                     sharedComponentIndex = access->EntityComponentStore->InsertSharedComponent_Unmanaged(typeIndex, hashCode, data, null);
                 }
@@ -1760,7 +2003,7 @@ namespace Unity.Entities.Serialization
             return unmanagedSharedComponentCount;
         }
 
-        static unsafe int ReadManagedSharedComponents(ExclusiveEntityTransaction manager, BinaryReader reader, NativeList<int> sharedComponentRemap, object[] unityObjects, void* blobAssetBuffer)
+        static unsafe int ReadManagedSharedComponents(ExclusiveEntityTransaction manager, BinaryReader reader, NativeList<int> sharedComponentRemap, NativeArray<int> unityObjects, void* blobAssetBuffer)
         {
             var access = manager.EntityManager.GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
@@ -1774,7 +2017,7 @@ namespace Unity.Entities.Serialization
             sharedAndManagedBuffer.ResizeUninitialized(sharedAndManagedDataSize);
             reader.ReadBytes(sharedAndManagedBuffer.Ptr, sharedAndManagedDataSize);
             var sharedAndManagedStream = sharedAndManagedBuffer.AsReader();
-            var managedDataReader = new ManagedObjectBinaryReader(&sharedAndManagedStream, (UnityEngine.Object[])unityObjects);
+            var managedDataReader = new ManagedObjectBinaryReader(&sharedAndManagedStream, unityObjects);
             managedDataReader.AddAdapter(new ManagedObjectReaderAdapter((byte*) blobAssetBuffer));
             ReadSharedComponents(manager, ref sharedAndManagedStream, managedDataReader, sharedAndManagedDataSize, sharedComponentRemap, sharedComponentRecordArray);
             mcs.ResetManagedComponentStoreForDeserialization(managedComponentCount, ref *ecs);
@@ -2042,6 +2285,68 @@ namespace Unity.Entities.Serialization
                     blobAssets.Add(blobAssetPtr);
                     blobAssetMap.TryAdd(blobAssetPtr, blobAssetIndex);
                 }
+            }
+        }
+
+        private static unsafe void GetAndPatchUnityObjectRefsInChunkBeforeSave(Archetype* archetype, byte* chunkBuffer, int entityCount, UnityObjectRefMap unityObjectRefs)
+        {
+            var typeCount = archetype->TypesCount;
+            for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
+            {
+                var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
+                var type = archetype->Types[ti];
+                if (type.IsZeroSized || type.IsManagedComponent)
+                    continue;
+
+                ref readonly var ct = ref TypeManager.GetTypeInfo(type.TypeIndex);
+                var unityObjectRefCount = ct.UnityObjectRefOffsetCount;
+
+                if (unityObjectRefCount == 0)
+                    continue;
+
+                var unityObjectRefOffsets = TypeManager.GetUnityObjectRefOffsets(ct);
+                int subArrayOffset = archetype->Offsets[ti];
+                byte* componentArrayStart = OffsetFromPointer(chunkBuffer, subArrayOffset);
+
+                if (type.IsBuffer)
+                {
+                    BufferHeader* header = (BufferHeader*)componentArrayStart;
+                    int strideSize = archetype->SizeOfs[ti];
+                    var elementSize = ct.ElementSize;
+
+                    for (int bi = 0; bi < entityCount; ++bi)
+                    {
+                        var bufferStart = BufferHeader.GetElementPointer(header);
+                        var bufferEnd = bufferStart + header->Length * elementSize;
+                        for (var componentData = bufferStart; componentData < bufferEnd; componentData += elementSize)
+                        {
+                            GetAndPatchUnityObjectRefsInComponentBeforeSave(componentData, unityObjectRefOffsets, unityObjectRefCount, unityObjectRefs);
+                        }
+
+                        header = (BufferHeader*)OffsetFromPointer(header, strideSize);
+                    }
+                }
+                else
+                {
+                    int size = archetype->SizeOfs[ti];
+                    byte* end = componentArrayStart + size * entityCount;
+                    for (var componentData = componentArrayStart; componentData < end; componentData += size)
+                    {
+                        GetAndPatchUnityObjectRefsInComponentBeforeSave(componentData, unityObjectRefOffsets, unityObjectRefCount, unityObjectRefs);
+                    }
+                }
+            }
+        }
+
+        private static unsafe void GetAndPatchUnityObjectRefsInComponentBeforeSave(byte* componentData, TypeManager.EntityOffsetInfo* unityObjectRefOffsets, int unityObjectRefCount,
+            UnityObjectRefMap unityObjectRefs)
+        {
+            for (int i = 0; i < unityObjectRefCount; ++i)
+            {
+                var unityObjectRefOffset = unityObjectRefOffsets[i].Offset;
+                var unityObjectRefPtr = (UntypedUnityObjectRef*)(componentData + unityObjectRefOffset);
+                var value = unityObjectRefs.Add(unityObjectRefPtr->instanceId);
+                unityObjectRefPtr->instanceId = value;
             }
         }
 

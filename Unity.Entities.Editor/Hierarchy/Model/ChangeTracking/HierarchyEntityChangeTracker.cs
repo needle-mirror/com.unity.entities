@@ -260,7 +260,11 @@ namespace Unity.Entities.Editor
             {
                 new DistinctJob
                 {
+#if !ENTITY_STORE_V1
+                    EntityCapacity = m_World.EntityManager.HighestEntityIndex() + 1,
+#else
                     EntityCapacity = m_World.EntityManager.EntityCapacity,
+#endif
                     Changes = changes,
                     DistinctBuffer = m_DistinctBuffer
                 }.Run();

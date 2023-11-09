@@ -628,6 +628,10 @@ namespace Unity.Entities.Tests
             }
         }
 
+#if !DOTS_DISABLE_DEBUG_NAMES
+// TODO - rewrite this test now that the assumption that entity indices are identical in both worlds
+// has been invalidated
+#if ENTITY_STORE_V1
         [Test]
         [TestCase(100)]
         public void EntityDiffer_GetChanges_EntityReferenceChange_DependsOnGUID_NameByIndexAligned(int entityCount)
@@ -685,7 +689,6 @@ namespace Unity.Entities.Tests
 
                     // Confirm that two worlds' have the same entity capacity
                     Assert.AreEqual(SrcEntityManager.EntityCapacity, ShadowEntityManager.EntityCapacity);
-
                     for(int i = 0; i < SrcEntityManager.EntityCapacity; i++)
                     {
                         var srcEntity = SrcEntityManager.GetEntityByEntityIndex(i);
@@ -712,7 +715,8 @@ namespace Unity.Entities.Tests
             entityArray2.Dispose();
             entityGuidArray2.Dispose();
         }
-
+#endif
+#endif
 
         [Test]
         [TestCase(20)]
@@ -821,8 +825,10 @@ namespace Unity.Entities.Tests
                 {
                     var ShadowEntityManager = differ.ShadowEntityManager;
 
+#if ENTITY_STORE_V1
                     // Confirm that two worlds' have the same entity capacity
                     Assert.AreEqual(SrcEntityManager.EntityCapacity, ShadowEntityManager.EntityCapacity);
+#endif
 
                     var summaryString = EntityChangeSetFormatter.PrintSummary(changes.ForwardChangeSet, SrcEntityManager);
                 }
@@ -1121,7 +1127,9 @@ namespace Unity.Entities.Tests
 
                 // NOTE: the cleanup component being copied to shadow world is not required by the public API.
                 //       This is simply defining the expected internal behaviour.
-                Assert.AreEqual(10, differ.ShadowEntityManager.GetComponentData<EcsCleanup1>(entity).Value);
+
+                using var query = differ.ShadowEntityManager.CreateEntityQuery(typeof(EcsCleanup1));
+                Assert.AreEqual(10, query.GetSingleton<EcsCleanup1>().Value);
             }
         }
 

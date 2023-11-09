@@ -939,6 +939,54 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires data validation checks")]
+        public void ACS_SetComponentEnabled_NonEnableableDynamicComponent_Throws()
+        {
+            var e = m_Manager.CreateEntity(typeof(EcsTestData));
+            var chunk = m_Manager.GetChunk(e);
+            var typeHandle = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadWrite<EcsTestData>());
+            Assert.That(() => chunk.SetComponentEnabled(ref typeHandle, 0, false),
+                Throws.ArgumentException.With.Message.Contains($"must implement {nameof(IEnableableComponent)}"));
+        }
+
+        [Test]
+        public void ACS_SetComponentEnabledForAll_Works()
+        {
+            int entityCount = 120;
+            CreateEnableableEntities(entityCount);
+
+            var entityTypeHandle = m_Manager.GetEntityTypeHandle();
+            var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
+            var dynamicTypeHandle = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadWrite<EcsTestDataEnableable2>());
+            var bufferTypeHandle = m_Manager.GetBufferTypeHandle<EcsIntElementEnableable>(false);
+
+            using var query = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsTestDataEnableable>());
+            var chunks = query.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            Assert.AreEqual(1, chunks.Length, "This test assumes all entities fit in a single chunk");
+            var chunk = chunks[0];
+
+            var entities = chunk.GetNativeArray(entityTypeHandle);
+            chunk.SetComponentEnabledForAll(ref typeHandle, false);
+            chunk.SetComponentEnabledForAll(ref dynamicTypeHandle, false);
+            chunk.SetComponentEnabledForAll(ref bufferTypeHandle, false);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                Assert.IsFalse(m_Manager.IsComponentEnabled<EcsTestDataEnableable>(entities[i]));
+                Assert.IsFalse(m_Manager.IsComponentEnabled<EcsTestDataEnableable2>(entities[i]));
+                Assert.IsFalse(m_Manager.IsComponentEnabled<EcsIntElementEnableable>(entities[i]));
+            }
+            chunk.SetComponentEnabledForAll(ref typeHandle, true);
+            chunk.SetComponentEnabledForAll(ref dynamicTypeHandle, true);
+            chunk.SetComponentEnabledForAll(ref bufferTypeHandle, true);
+            for (int i = 0; i < entities.Length; ++i)
+            {
+                Assert.IsTrue(m_Manager.IsComponentEnabled<EcsTestDataEnableable>(entities[i]));
+                Assert.IsTrue(m_Manager.IsComponentEnabled<EcsTestDataEnableable2>(entities[i]));
+                Assert.IsTrue(m_Manager.IsComponentEnabled<EcsIntElementEnableable>(entities[i]));
+            }
+        }
+
+        [Test]
         public void ACS_IsComponentEnabled_SetComponentEnabled_Works()
         {
             int entityCount = 120;

@@ -1,7 +1,4 @@
 using System;
-using System.ComponentModel;
-using System.Linq;
-using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 
@@ -350,11 +347,8 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="lhs">The left-hand side</param>
         /// <param name="rhs">The right-hand side</param>
-        /// <returns>True if the left-hand side is greater than the right-hand side</returns>
-        public static bool operator>(ComponentType lhs, ComponentType rhs)
-        {
-            return rhs < lhs;
-        }
+        /// <returns>True if the left-hand side's <see cref="TypeIndex"/> is less than the right-hand side's. If the type indices match, the <see cref="AccessModeType"/> fields are compared instead.</returns>
+        public static bool operator>(ComponentType lhs, ComponentType rhs) => rhs < lhs;
 
         /// <summary>
         /// Evaluates if two component types are equal based on <see cref="TypeIndex"/> and <see cref="AccessModeType"/>.
@@ -362,10 +356,7 @@ namespace Unity.Entities
         /// <param name="lhs">The left-hand side</param>
         /// <param name="rhs">The right-hand side</param>
         /// <returns>Returns true if both their type indices are equal and their access modes are equal.</returns>
-        public static bool operator==(ComponentType lhs, ComponentType rhs)
-        {
-            return lhs.TypeIndex == rhs.TypeIndex && lhs.AccessModeType == rhs.AccessModeType;
-        }
+        public static bool operator==(ComponentType lhs, ComponentType rhs) => lhs.Equals(rhs);
 
         /// <summary>
         /// Evaluates if two component types are not equal based on <see cref="TypeIndex"/> and <see cref="AccessModeType"/>.
@@ -373,10 +364,7 @@ namespace Unity.Entities
         /// <param name="lhs">The left-hand side</param>
         /// <param name="rhs">The right-hand side</param>
         /// <returns>Returns true if their type indices are not equal or their access modes are not equal.</returns>
-        public static bool operator!=(ComponentType lhs, ComponentType rhs)
-        {
-            return lhs.TypeIndex != rhs.TypeIndex || lhs.AccessModeType != rhs.AccessModeType;
-        }
+        public static bool operator!=(ComponentType lhs, ComponentType rhs) => !lhs.Equals(rhs);
 
         internal static unsafe bool CompareArray(ComponentType* type1, int typeCount1, ComponentType* type2,
             int typeCount2)
@@ -481,14 +469,11 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Checks if this component type has the same <see cref="TypeIndex"/> as the other component type.
+        /// Checks if this component type has the same <see cref="TypeIndex"/> and <see cref="AccessModeType"/> as the other component type.
         /// </summary>
         /// <param name="other">The other component type to compare to</param>
-        /// <returns>True if the <see cref="TypeIndex"/> of both are equal</returns>
-        public bool Equals(ComponentType other)
-        {
-            return TypeIndex == other.TypeIndex;
-        }
+        /// <returns>True if the <see cref="TypeIndex"/> and <see cref="AccessModeType"/>of both are equal</returns>
+        public bool Equals(ComponentType other) => TypeIndex == other.TypeIndex && AccessModeType == other.AccessModeType;
 
         /// <summary>
         /// Returns the sort order this component type compared to another
@@ -500,8 +485,7 @@ namespace Unity.Entities
         {
             if (TypeIndex != other.TypeIndex)
                 return TypeIndex.CompareTo(other.TypeIndex);
-            else
-                return ((int)AccessModeType).CompareTo((int)other.AccessModeType);
+            return ((int)AccessModeType).CompareTo((int)other.AccessModeType);
         }
 
         /// <summary>
@@ -510,18 +494,14 @@ namespace Unity.Entities
         /// <param name="obj">The object to check</param>
         /// <returns>True if the object is a <see cref="ComponentType"/> and the object equals this component type</returns>
         [ExcludeFromBurstCompatTesting("Takes managed object")]
-        public override bool Equals(object obj)
-        {
-            return obj is ComponentType && (ComponentType)obj == this;
-        }
+        public override bool Equals(object obj) => obj is ComponentType type && type == this;
 
-        /// <summary>
-        /// Gets the hash code for this component type
-        /// </summary>
-        /// <returns>The hash code as an int</returns>
         public override int GetHashCode()
         {
-            return TypeIndex.GetHashCode();
+            unchecked
+            {
+                return TypeIndex.GetHashCode() * 397 ^ (int)AccessModeType;
+            }
         }
     }
 }

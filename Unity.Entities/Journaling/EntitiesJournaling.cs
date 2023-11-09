@@ -24,6 +24,7 @@ namespace Unity.Entities
         sealed class SharedState { internal static readonly SharedStatic<JournalingState> Ref = SharedStatic<JournalingState>.GetOrCreate<SharedState>(); }
 
         static ref bool s_Initialized => ref SharedInit.Ref.Data;
+        static ref bool s_Enabled => ref SharedEnabled.Ref.Data;
         static ref TypeIndex s_EntityTypeIndex => ref SharedEntityTypeIndex.Ref.Data;
         static ref JournalingState s_State => ref SharedState.Ref.Data;
 
@@ -45,13 +46,23 @@ namespace Unity.Entities
         [ExcludeFromBurstCompatTesting("Managed collections")]
         public static bool Enabled
         {
-            get => SharedEnabled.Ref.Data;
+            get => s_Enabled;
             set
             {
+                // In case we are trying to enable journaling, but default
+                // world was not initialized yet, initialize journaling now.
+                if (value)
+                    Internal_Initialize();
+
+                // Do not allow to change value if not initialized
                 if (!s_Initialized)
                     return;
 
-                SharedEnabled.Ref.Data = value;
+                // If value is same, do nothing
+                if (s_Enabled == value)
+                    return;
+
+                s_Enabled = value;
                 UpdateState();
 
                 // Reset record session caches
@@ -121,35 +132,14 @@ namespace Unity.Entities
         [ExcludeFromBurstCompatTesting("Managed collections")]
         internal static void Initialize()
         {
-            if (s_Initialized)
-                return;
-
-            s_WorldWeakRefMap = new Dictionary<ulong, WeakReference<World>>();
-            s_WorldNameMap = new Dictionary<ulong, string>();
-            s_SystemTypeMap = new Dictionary<SystemHandle, SystemTypeIndex>();
-            s_RecordDataMap = new Dictionary<RecordView, object>();
-            s_EntityTypeIndex = TypeManager.GetTypeIndex<Entity>();
-            s_State = new JournalingState(Preferences.TotalMemoryMB * 1024 * 1024);
-
+            Internal_Initialize();
             Enabled = Preferences.Enabled;
-            UpdateState();
-
-            s_Initialized = true;
         }
 
         [ExcludeFromBurstCompatTesting("Managed collections")]
         internal static void Shutdown()
         {
-            if (!s_Initialized)
-                return;
-
-            s_State.Dispose();
-            s_RecordDataMap = null;
-            s_SystemTypeMap = null;
-            s_WorldNameMap = null;
-            s_WorldWeakRefMap = null;
-
-            s_Initialized = false;
+            Internal_Shutdown();
         }
 
         [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "(UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING")]
@@ -329,6 +319,36 @@ namespace Unity.Entities
 #endif
 
             s_SystemTypeMap.TryAdd(systemHandle, systemType);
+        }
+
+        static void Internal_Initialize()
+        {
+            if (s_Initialized)
+                return;
+
+            s_WorldWeakRefMap = new Dictionary<ulong, WeakReference<World>>();
+            s_WorldNameMap = new Dictionary<ulong, string>();
+            s_SystemTypeMap = new Dictionary<SystemHandle, SystemTypeIndex>();
+            s_RecordDataMap = new Dictionary<RecordView, object>();
+            s_EntityTypeIndex = TypeManager.GetTypeIndex<Entity>();
+            s_State = new JournalingState(Preferences.TotalMemoryMB * 1024 * 1024);
+            s_Initialized = true;
+
+            UpdateState();
+        }
+
+        static void Internal_Shutdown()
+        {
+            if (!s_Initialized)
+                return;
+
+            s_State.Dispose();
+            s_RecordDataMap = null;
+            s_SystemTypeMap = null;
+            s_WorldNameMap = null;
+            s_WorldWeakRefMap = null;
+            s_Enabled = false;
+            s_Initialized = false;
         }
 
         static void UpdateState()

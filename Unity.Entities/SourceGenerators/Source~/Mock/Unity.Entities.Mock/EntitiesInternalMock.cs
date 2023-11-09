@@ -173,6 +173,7 @@ public static partial class InternalCompilerInterface
     public delegate void JobRunWithoutJobSystemDelegate(IntPtr jobPtr);
     public delegate void JobChunkRunWithoutJobSystemDelegateLimitEntities(ref EntityQuery query, IntPtr limitToEntityArrayPtr, int limitToEntityArrayLength, IntPtr jobPtr);
     public static unsafe ref T UnsafeAsRef<T>(IntPtr value) where T : struct => throw new Exception();
+    public static unsafe IntPtr AddressOf<T>(ref T value) where T : struct => throw new Exception();
     public static unsafe T GetComponentData<T>(EntityManager manager, Entity entity, int typeIndex, out T originalComponent) where T : struct, IComponentData => throw new Exception();
     public static unsafe void WriteComponentData<T>(EntityManager manager, Entity entity, int typeIndex, ref T lambdaComponent, ref T originalComponent) where T : struct, IComponentData {}
     public static unsafe IntPtr UnsafeGetChunkNativeArrayReadOnlyIntPtr<T>(ArchetypeChunk chunk, ref ComponentTypeHandle<T> typeHandle) where T : struct, IComponentData => default;

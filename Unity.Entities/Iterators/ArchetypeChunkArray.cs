@@ -752,38 +752,6 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Enable or disable a <see cref="IComponentData"/> on the specified <see cref="Entity"/>. This operation does
-        /// not cause a structural change, or affect the value of the component. For the purposes
-        /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
-        /// </summary>
-        /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
-        /// <exception cref="ArgumentException">The target component type is not present in the this chunk.</exception>
-        /// <param name="typeHandle">A type handle for the component type that will be enabled or disabled.</param>
-        /// <param name="entityIndexInChunk">The index within this chunk of the entity whose component should be checked.</param>
-        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
-        public readonly void SetComponentEnabled(ref DynamicComponentTypeHandle typeHandle, int entityIndexInChunk, bool value)
-        {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckWriteAndThrow(typeHandle.m_Safety0);
-#endif
-            ChunkDataUtility.GetIndexInTypeArray(m_EntityComponentStore->GetArchetype(m_Chunk), typeHandle.m_TypeIndex, ref typeHandle.m_TypeLookupCache);
-            var typeIndexInArchetype = typeHandle.m_TypeLookupCache;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (Hint.Unlikely(typeIndexInArchetype == -1))
-            {
-                var typeName = typeHandle.m_TypeIndex.ToFixedString();
-                throw new ArgumentException($"The target chunk does not have data for Component type {typeName}");
-            }
-#endif
-            m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value);
-
-#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
-            if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))
-                JournalAddRecordSetComponentEnabled(ref typeHandle, value);
-#endif
-        }
-
-        /// <summary>
         /// Gets a copy of all the Enableable bits for the specified type handle.
         /// </summary>
         /// <param name="handle">A type handle for the component type whose enabled bits you want to query.</param>
@@ -843,6 +811,176 @@ namespace Unity.Entities
             return result;
         }
 
+        private readonly short GetRequiredTypeIndexInArchetype<T>(ref ComponentTypeHandle<T> typeHandle, Archetype* archetype)
+            where T:
+#if UNITY_DISABLE_MANAGED_COMPONENTS
+            struct,
+#endif
+            IComponentData
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            , new()
+#endif
+        {
+            if (Hint.Unlikely(typeHandle.m_LookupCache.Archetype != archetype))
+            {
+                typeHandle.m_LookupCache.Update(archetype, typeHandle.m_TypeIndex);
+            }
+            var typeIndexInArchetype = typeHandle.m_LookupCache.IndexInArchetype;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(typeIndexInArchetype == -1))
+            {
+                var typeName = typeHandle.m_TypeIndex.ToFixedString();
+                throw new ArgumentException($"The target chunk does not have data for Component type {typeName}");
+            }
+#endif
+            return typeIndexInArchetype;
+        }
+
+        private readonly short GetRequiredTypeIndexInArchetype<T>(ref BufferTypeHandle<T> bufferTypeHandle, Archetype* archetype)
+            where T : unmanaged, IBufferElementData
+        {
+            if (Hint.Unlikely(bufferTypeHandle.m_LookupCache.Archetype != archetype))
+            {
+                bufferTypeHandle.m_LookupCache.Update(archetype, bufferTypeHandle.m_TypeIndex);
+            }
+
+            var typeIndexInArchetype = bufferTypeHandle.m_LookupCache.IndexInArchetype;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(typeIndexInArchetype == -1))
+            {
+                var typeName = bufferTypeHandle.m_TypeIndex.ToFixedString();
+                throw new ArgumentException($"The target chunk does not have data for Component type {typeName}");
+            }
+#endif
+            return typeIndexInArchetype;
+        }
+
+        private readonly short GetRequiredTypeIndexInArchetype(ref DynamicComponentTypeHandle typeHandle, Archetype* archetype)
+        {
+            ChunkDataUtility.GetIndexInTypeArray(archetype, typeHandle.m_TypeIndex, ref typeHandle.m_TypeLookupCache);
+            var typeIndexInArchetype = typeHandle.m_TypeLookupCache;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(typeIndexInArchetype == -1))
+            {
+                var typeName = typeHandle.m_TypeIndex.ToFixedString();
+                throw new ArgumentException($"The target chunk does not have data for Component type {typeName}");
+            }
+#endif
+            return typeIndexInArchetype;
+        }
+
+        private readonly void SetComponentEnabledForAllInChunk(Archetype* archetype, short typeIndexInArchetype, bool value)
+        {
+            var bits = ChunkDataUtility.GetEnabledRefRW(m_Chunk, archetype,
+                typeIndexInArchetype, m_EntityComponentStore->GlobalSystemVersion, out var ptrChunkDisabledCount);
+            bits.SetBits(0, value, Count);
+            *ptrChunkDisabledCount = value ? 0 : Count;
+        }
+
+        /// <summary>
+        /// Enable or disable a <see cref="IComponentData"/> on all entities in this chunk.
+        /// </summary>
+        /// <remarks>
+        /// This is more efficient than calling <see cref="SetComponentEnabled"/> on each entity individually, but
+        /// has the same net result.
+        /// This operation does not cause a structural change, or affect the value of the components. For the purposes
+        /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
+        /// </remarks>
+        /// <exception cref="ArgumentException">The target component type <typeparamref name="T"/> is not present in the this chunk.</exception>
+        /// <typeparam name="T">The component type to enable or disable. This type must implement the
+        /// <see cref="IEnableableComponent"/> interface.</typeparam>
+        /// <param name="typeHandle">A type handle for the component type that will be enabled or disabled.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        /// <exception cref="ArgumentException"></exception>
+        public readonly void SetComponentEnabledForAll<T>(ref ComponentTypeHandle<T> typeHandle, bool value) where T :
+#if UNITY_DISABLE_MANAGED_COMPONENTS
+            struct,
+#endif
+            IComponentData, IEnableableComponent
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            , new()
+#endif
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(typeHandle.m_Safety);
+#endif
+            var archetype = Archetype.Archetype;
+            var typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref typeHandle, archetype);
+            SetComponentEnabledForAllInChunk(archetype, typeIndexInArchetype, value);
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecordSetComponentEnabled(ref typeHandle, value);
+#endif
+        }
+
+        /// <summary>
+        /// Enable or disable an <see cref="IBufferElementData"/> on all entities in this chunk.
+        /// </summary>
+        /// <remarks>
+        /// This is more efficient than calling <see cref="SetComponentEnabled"/> on each entity individually, but
+        /// has the same net result.
+        /// This operation does not cause a structural change, or affect the value of the components. For the purposes
+        /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
+        /// </remarks>
+        /// <exception cref="ArgumentException">The target component type <typeparamref name="T"/> is not present in the this chunk.</exception>
+        /// <typeparam name="T">The component type to enable or disable. This type must implement the
+        /// <see cref="IEnableableComponent"/> interface.</typeparam>
+        /// <param name="bufferTypeHandle">A type handle for the buffer component type that will be enabled or disabled.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        /// <exception cref="ArgumentException"></exception>
+        public readonly void SetComponentEnabledForAll<T>(ref BufferTypeHandle<T> bufferTypeHandle, bool value) where T : unmanaged, IBufferElementData, IEnableableComponent
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(bufferTypeHandle.m_Safety0);
+#endif
+            var archetype = Archetype.Archetype;
+            var typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref bufferTypeHandle, archetype);
+            SetComponentEnabledForAllInChunk(archetype, typeIndexInArchetype, value);
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecordSetComponentEnabled(ref bufferTypeHandle, value);
+#endif
+        }
+
+        /// <summary>
+        /// Enable or disable a component on all entities in this chunk.
+        /// </summary>
+        /// <remarks>
+        /// This is more efficient than calling <see cref="SetComponentEnabled"/> on each entity individually, but
+        /// has the same net result.
+        /// This operation does not cause a structural change, or affect the value of the components. For the purposes
+        /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
+        /// </remarks>
+        /// <exception cref="ArgumentException">The target component type is not present in the this chunk.</exception>
+        /// <param name="typeHandle">A type handle for the component type that will be enabled or disabled. This component must implement the
+        /// <see cref="IEnableableComponent"/> interface.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        /// <exception cref="ArgumentException">Thrown if this chunk does not have the target component type.</exception>
+        /// <exception cref="ArgumentException">Thrown if the component type does not implement <see cref="IEnableableComponent"/>.</exception>
+        public readonly void SetComponentEnabledForAll(ref DynamicComponentTypeHandle typeHandle, bool value)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(typeHandle.m_Safety0);
+#endif
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(!TypeManager.IsEnableableType(typeHandle.m_TypeIndex)))
+            {
+                var typeName = typeHandle.m_TypeIndex.ToFixedString();
+                throw new ArgumentException($"Component type {typeName} must implement {nameof(IEnableableComponent)}");
+            }
+#endif
+            var archetype = Archetype.Archetype;
+            short typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref typeHandle, archetype);
+            SetComponentEnabledForAllInChunk(archetype, typeIndexInArchetype, value);
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecordSetComponentEnabled(ref typeHandle, value);
+#endif
+        }
+
         /// <summary>
         /// Enable or disable a <see cref="IComponentData"/> on the specified <see cref="Entity"/>. This operation does
         /// not cause a structural change, or affect the value of the component. For the purposes
@@ -868,19 +1006,8 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(typeHandle.m_Safety);
 #endif
-            var archetype = m_EntityComponentStore->GetArchetype(m_Chunk);
-            if (Hint.Unlikely(typeHandle.m_LookupCache.Archetype != archetype))
-            {
-                typeHandle.m_LookupCache.Update(archetype, typeHandle.m_TypeIndex);
-            }
-            var typeIndexInArchetype = typeHandle.m_LookupCache.IndexInArchetype;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (Hint.Unlikely(typeIndexInArchetype == -1))
-            {
-                var typeName = typeHandle.m_TypeIndex.ToFixedString();
-                throw new ArgumentException($"The target chunk does not have data for Component type {typeName}");
-            }
-#endif
+            var archetype = Archetype.Archetype;
+            short typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref typeHandle, archetype);
             m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
@@ -928,19 +1055,8 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckWriteAndThrow(bufferTypeHandle.m_Safety0);
 #endif
-            var archetype = m_EntityComponentStore->GetArchetype(m_Chunk);
-            if (Hint.Unlikely(bufferTypeHandle.m_LookupCache.Archetype != archetype))
-            {
-                bufferTypeHandle.m_LookupCache.Update(archetype, bufferTypeHandle.m_TypeIndex);
-            }
-            var typeIndexInArchetype = bufferTypeHandle.m_LookupCache.IndexInArchetype;
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (Hint.Unlikely(typeIndexInArchetype == -1))
-            {
-                var typeName = bufferTypeHandle.m_TypeIndex.ToFixedString();
-                throw new ArgumentException($"The target chunk does not have data for Component type {typeName}");
-            }
-#endif
+            var archetype = Archetype.Archetype;
+            short typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref bufferTypeHandle, archetype);
             m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
@@ -960,6 +1076,39 @@ namespace Unity.Entities
         public readonly void SetComponentEnabled<T>(BufferTypeHandle<T> bufferTypeHandle, int entityIndexInChunk, bool value) where T : unmanaged, IBufferElementData, IEnableableComponent
         {
             SetComponentEnabled(ref bufferTypeHandle, entityIndexInChunk, value);
+        }
+
+        /// <summary>
+        /// Enable or disable a <see cref="IComponentData"/> on the specified <see cref="Entity"/>. This operation does
+        /// not cause a structural change, or affect the value of the component. For the purposes
+        /// of EntityQuery matching, an entity with a disabled component will behave as if it does not have that component.
+        /// </summary>
+        /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+        /// <exception cref="ArgumentException">The target component type is not present in the this chunk.</exception>
+        /// <exception cref="ArgumentException">The target component type does not implement <see cref="IEnableableComponent"/>.</exception>
+        /// <param name="typeHandle">A type handle for the component type that will be enabled or disabled.</param>
+        /// <param name="entityIndexInChunk">The index within this chunk of the entity whose component should be checked.</param>
+        /// <param name="value">True if the specified component should be enabled, or false if it should be disabled.</param>
+        public readonly void SetComponentEnabled(ref DynamicComponentTypeHandle typeHandle, int entityIndexInChunk, bool value)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(typeHandle.m_Safety0);
+#endif
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(!TypeManager.IsEnableableType(typeHandle.m_TypeIndex)))
+            {
+                var typeName = typeHandle.m_TypeIndex.ToFixedString();
+                throw new ArgumentException($"Component type {typeName} must implement {nameof(IEnableableComponent)}");
+            }
+#endif
+            var archetype = Archetype.Archetype;
+            short typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref typeHandle, archetype);
+            m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value);
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecordSetComponentEnabled(ref typeHandle, value);
+#endif
         }
 
         /// <summary>

@@ -48,7 +48,6 @@ namespace Unity.Entities
             s_ProjectComplexityData.prefabs_count = prefabCount;
         }
 
-
         static BakingAnalytics()
         {
             s_BakeTypeIndices = new NativeList<TypeIndex>(Allocator.Persistent);// de-allocate
@@ -70,6 +69,7 @@ namespace Unity.Entities
 
         static bool EnableAnalytics()
         {
+#if !UNITY_2023_2_OR_NEWER
             if (!s_EventsRegistered)
             {
                 AnalyticsResult resultComplexity = EditorAnalytics.RegisterEventWithLimit(k_EventNameComplexity, k_MaxEventsPerHour,
@@ -85,6 +85,9 @@ namespace Unity.Entities
                     resultOpen == AnalyticsResult.Ok || resultImporter == AnalyticsResult.Ok)
                     s_EventsRegistered = true;
             }
+#else
+            s_EventsRegistered = true;
+#endif
 
             return s_EventsRegistered;
         }
@@ -184,23 +187,42 @@ namespace Unity.Entities
             s_ProjectComplexityData.skinned_mesh_renderer_component_count = skinnedMeshRendererComponentCount;
 
             // collect max every playmode enter, send when project is closed
+#if !UNITY_2023_2_OR_NEWER
             EditorAnalytics.SendEventWithLimit(k_EventNameComplexity, s_ProjectComplexityData);
+#else
+            EditorAnalytics.SendAnalytic(new ProjectComplexityAnalytic(s_ProjectComplexityData));
+#endif
         }
 
         static void SendIncrementalBakingPerformanceEvents(float elapsedMs)
         {
+#if !UNITY_2023_2_OR_NEWER
             EditorAnalytics.SendEventWithLimit(k_EventNameIncremental, new PerformanceData(){elapsedMs = elapsedMs});
+#else
+            EditorAnalytics.SendAnalytic(new IncrementalAnalytic(new PerformanceData(){elapsedMs = elapsedMs}));
+#endif
         }
         static void SendOpenSubScenePerformanceEvents(float elapsedMs)
         {
+#if !UNITY_2023_2_OR_NEWER
             EditorAnalytics.SendEventWithLimit(k_EventNameOpen, new PerformanceData(){elapsedMs = elapsedMs});
+#else
+            EditorAnalytics.SendAnalytic(new OpenAnalytic(new PerformanceData(){elapsedMs = elapsedMs}));
+#endif
         }
         static void SendBackgroundImporterPerformanceEvents(float elapsedMs)
         {
+#if !UNITY_2023_2_OR_NEWER
             EditorAnalytics.SendEventWithLimit(k_EventNameImporter, new PerformanceData(){elapsedMs = elapsedMs});
+#else
+            EditorAnalytics.SendAnalytic(new ImporterAnalytic(new PerformanceData(){elapsedMs = elapsedMs}));
+#endif
         }
 
-        struct ProjectComplexityData
+        class ProjectComplexityData
+#if UNITY_2023_2_OR_NEWER
+            : IAnalytic.IData
+#endif
         {
             public int default_components_count;
             public int custom_bakers_count;
@@ -208,16 +230,6 @@ namespace Unity.Entities
             public int blob_assets_count;
             public int prefabs_count;
             public int skinned_mesh_renderer_component_count;
-
-            internal void Print()
-            {
-                UnityEngine.Debug.Log($"default_components_count = {default_components_count}, " +
-                    $"custom_bakers_count = {custom_bakers_count}, " +
-                    $"custom_baking_systems_count = {custom_baking_systems_count}, " +
-                    $"blob_assets_count = {blob_assets_count}, " +
-                    $"prefabs_count = {prefabs_count}, " +
-                    $"skinned_mesh_renderer_component_count = {skinned_mesh_renderer_component_count},");
-            }
 
             public void Clear()
             {
@@ -230,10 +242,53 @@ namespace Unity.Entities
             }
         }
 
-        struct PerformanceData
+        class PerformanceData
+#if UNITY_2023_2_OR_NEWER
+            : IAnalytic.IData
+#endif
         {
             public float elapsedMs;
         }
+
+#if UNITY_2023_2_OR_NEWER
+        abstract class BakingAnalytic<T> : IAnalytic where T : class, IAnalytic.IData
+        {
+            readonly T _data;
+
+            public bool TryGatherData(out IAnalytic.IData data, out Exception error)
+            {
+                data = _data;
+                error = null;
+                return true;
+            }
+
+            protected BakingAnalytic(T data) => _data = data;
+        }
+
+        [AnalyticInfo(eventName: k_EventNameComplexity, vendorKey: k_VendorKey, maxEventsPerHour: k_MaxEventsPerHour, maxNumberOfElements: k_MaxNumberOfElements)]
+        class ProjectComplexityAnalytic : BakingAnalytic<ProjectComplexityData>
+        {
+            public ProjectComplexityAnalytic(ProjectComplexityData data) : base(data) {}
+        }
+
+        [AnalyticInfo(eventName: k_EventNameIncremental, vendorKey: k_VendorKey, maxEventsPerHour: k_MaxEventsPerHour, maxNumberOfElements: k_MaxNumberOfElements)]
+        class IncrementalAnalytic : BakingAnalytic<PerformanceData>
+        {
+            public IncrementalAnalytic(PerformanceData data) : base(data) {}
+        }
+
+        [AnalyticInfo(eventName: k_EventNameOpen, vendorKey: k_VendorKey, maxEventsPerHour: k_MaxEventsPerHour, maxNumberOfElements: k_MaxNumberOfElements)]
+        class OpenAnalytic : BakingAnalytic<PerformanceData>
+        {
+            public OpenAnalytic(PerformanceData data) : base(data) {}
+        }
+
+        [AnalyticInfo(eventName: k_EventNameImporter, vendorKey: k_VendorKey, maxEventsPerHour: k_MaxEventsPerHour, maxNumberOfElements: k_MaxNumberOfElements)]
+        class ImporterAnalytic : BakingAnalytic<PerformanceData>
+        {
+            public ImporterAnalytic(PerformanceData data) : base(data) {}
+        }
+#endif
     }
 }
 #endif // ENABLE_CLOUD_SERVICES_ANALYTICS

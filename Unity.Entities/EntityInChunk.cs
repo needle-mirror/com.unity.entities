@@ -15,6 +15,11 @@ namespace Unity.Entities
         internal int IndexInChunk;
 
         /// <summary>
+        /// Null is a special value that does not refer to an actual entity. The chunk index it contains is ChunkIndex.Null.
+        /// </summary>
+        public static EntityInChunk Null => default;
+
+        /// <summary>
         /// Compares two <see cref="EntityInChunk"/> objects to determine their relative ordering
         /// </summary>
         /// <param name="other">The other instance to compare.</param>

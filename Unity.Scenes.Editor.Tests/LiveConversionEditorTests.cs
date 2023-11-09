@@ -899,7 +899,11 @@ namespace Unity.Scenes.Editor.Tests
                 Assert.That(entities.Select(e => w.EntityManager.GetComponentData<TestComponentAuthoring.UnmanagedTestComponent>(e).IntValue), Is.EquivalentTo(new[] { 1, 2 }));
             }
 
+#if !UNITY_2023_2_OR_NEWER
             var parent = Object.FindObjectsOfType<TestComponentAuthoring>(true).Single(c => c.IntValue == 1).gameObject;
+#else
+            var parent = Object.FindObjectsByType<TestComponentAuthoring>(FindObjectsSortMode.None).Single(c => c.IntValue == 1).gameObject;
+#endif
 
             Undo.RecordObject(parent, "ReEnableObject");
             parent.SetActive(true);
@@ -2498,7 +2502,7 @@ namespace Unity.Scenes.Editor.Tests
 
             foreach (var entity in entities)
             {
-                var companion = w.EntityManager.GetComponentData<CompanionLink>(entity).Companion;
+                var companion = w.EntityManager.GetComponentData<CompanionLink>(entity).Companion.Value;
                 var value = companion.GetComponent<CompanionComponentTestAuthoring>().Value;
 
                 switch(value)

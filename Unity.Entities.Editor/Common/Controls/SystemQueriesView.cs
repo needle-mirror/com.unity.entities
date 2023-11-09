@@ -17,7 +17,9 @@ namespace Unity.Entities.Editor
             ActionButton.RegisterCallback<MouseDownEvent, SystemQueriesView>((evt, @this) =>
             {
                 evt.StopPropagation();
+#if !UNITY_2023_2_OR_NEWER
                 evt.PreventDefault();
+#endif
                 Analytics.SendEditorEvent(Analytics.Window.Inspector, Analytics.EventType.RelationshipGoTo, Analytics.GoToSystemDestination);
                 SystemScheduleWindow.HighlightSystem(@this.Data.SystemProxy);
                 ContentUtilities.ShowSystemInspectorContent(@this.Data.SystemProxy);

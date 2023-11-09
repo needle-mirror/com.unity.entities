@@ -97,7 +97,9 @@ namespace Unity.Entities.Editor.PerformanceTests
 
             using (k_CloneWorldMarker.Auto())
             {
+#pragma warning disable CS0618 // Type or member is obsolete
                 clone.EntityManager.CopyAndReplaceEntitiesFrom(m_World.EntityManager);
+#pragma warning restore CS0618 // Type or member is obsolete
             }
 
             m_Clones.Add(clone);

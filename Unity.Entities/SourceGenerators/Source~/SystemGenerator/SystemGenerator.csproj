@@ -1,0 +1,31 @@
+<Project Sdk="Microsoft.NET.Sdk">
+
+    <PropertyGroup>
+        <TreatWarningsAsErrors>true</TreatWarningsAsErrors>
+        <TargetFramework>netstandard2.0</TargetFramework>
+        <LangVersion>latest</LangVersion>
+        <Deterministic>True</Deterministic>
+        <PlatformTarget>AnyCPU</PlatformTarget>
+    </PropertyGroup>
+
+    <ItemGroup>
+      <PackageReference ExcludeAssets="runtime" Include="Microsoft.CodeAnalysis.CSharp" Version="4.0.1" />
+    </ItemGroup>
+
+    <ItemGroup>
+      <ProjectReference Include="..\Common\Common.csproj" />
+      <ProjectReference Include="..\SystemGenerator.EntityQueryBulkOperations\SystemGenerator.EntityQueryBulkOperations.csproj" />
+      <ProjectReference Include="..\SystemGenerator.SystemAPI.Query\SystemGenerator.SystemAPI.Query.csproj" />
+      <ProjectReference Include="..\JobEntityGenerator\JobEntityGenerator.csproj" />
+      <ProjectReference Include="..\SystemGenerator.LambdaJobs\SystemGenerator.LambdaJobs.csproj" />
+      <ProjectReference Include="..\SystemGenerator.SystemAPI\SystemGenerator.SystemAPI.csproj" />
+      <ProjectReference Include="..\SystemGenerator.SystemAPI.QueryBuilder\SystemGenerator.SystemAPI.QueryBuilder.csproj" />
+    </ItemGroup>
+
+    <Target Name="CustomAfterBuild" AfterTargets="Build">
+      <ItemGroup>
+        <_FilesToCopy Include="$(OutputPath)**\$(AssemblyName).dll" /><_FilesToCopy Include="$(OutputPath)**\$(AssemblyName).pdb" />
+      </ItemGroup>
+      <Copy SourceFiles="@(_FilesToCopy)" DestinationFolder="$(OutputPath)..\..\..\..\.." />
+    </Target>
+</Project>

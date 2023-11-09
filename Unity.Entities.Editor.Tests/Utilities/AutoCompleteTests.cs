@@ -164,86 +164,132 @@ namespace Unity.Entities.Editor.Tests
         }
     }
 
-    class AutoCompleteComponentTests
+    public class AutoCompleteTestCase
     {
-        public class TestCase
-        {
-            public string token;
-            public bool shouldAutoComplete;
+        public string token;
+        public bool shouldAutoComplete;
 
-            public override string ToString()
-            {
+        public string input;
+        public string expectedToken;
+
+
+        public override string ToString()
+        {
+            if (token != null)
                 return $"{token} -> {shouldAutoComplete}";
-            }
+            return $"{input} -> {expectedToken}";
         }
+    }
 
-        static TestCase[] testCases = new []
+    class AutoCompleteComponentTests
+    {        
+        static AutoCompleteTestCase[] testCases = new []
         {
-            new TestCase() { token = "c", shouldAutoComplete = false },
-            new TestCase() { token = "C", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "c", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "C", shouldAutoComplete = false },
 
-            new TestCase() { token = "c=", shouldAutoComplete = false },
-            new TestCase() { token = "c=a", shouldAutoComplete = true },
-            new TestCase() { token = "c=acc", shouldAutoComplete = true },
-            new TestCase() { token = "C=", shouldAutoComplete = false },
-            new TestCase() { token = "C=acc", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "c=", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "c=a", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "c=acc", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "C=", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "C=acc", shouldAutoComplete = true },
 
-            new TestCase() { token = "c:", shouldAutoComplete = false },
-            new TestCase() { token = "c:a", shouldAutoComplete = false },
-            new TestCase() { token = "C:", shouldAutoComplete = false },
-            new TestCase() { token = "C:a", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "c:", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "c:a", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "C:", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "C:a", shouldAutoComplete = false },
 
-            new TestCase() { token = "k=a", shouldAutoComplete = false },
-            new TestCase() { token = "dummy=a", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "k=a", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "dummy=a", shouldAutoComplete = false },
         };
 
         [Test]
-        public void Run([ValueSource(nameof(testCases))] TestCase testCase)
+        public void ShouldAutocompleteType([ValueSource(nameof(testCases))] AutoCompleteTestCase testCase)
         {
             var autoComplete = ComponentTypeAutoComplete.Instance;
             Assert.AreEqual(autoComplete.ShouldStartAutoCompletion(testCase.token, testCase.token.Length), testCase.shouldAutoComplete);
         }
 
-        static TestCase[] advancedTestCases = new[]
+        static AutoCompleteTestCase[] advancedTestCases = new[]
         {
-            new TestCase() { token = "c=a", shouldAutoComplete = true },
-            new TestCase() { token = "c=acc", shouldAutoComplete = true },
-            new TestCase() { token = "C=acc", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "c=a", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "c=acc", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "C=acc", shouldAutoComplete = true },
 
-            new TestCase() { token = "none=acc", shouldAutoComplete = true },
-            new TestCase() { token = "nOne=acc", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "none=acc", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "nOne=acc", shouldAutoComplete = true },
 
-            new TestCase() { token = "any=acc", shouldAutoComplete = true },
-            new TestCase() { token = "Any=acc", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "any=acc", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "Any=acc", shouldAutoComplete = true },
 
-            new TestCase() { token = "all=acc", shouldAutoComplete = true },
-            new TestCase() { token = "aLL=acc", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "all=acc", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "aLL=acc", shouldAutoComplete = true },
 
-            new TestCase() { token = "none:acc", shouldAutoComplete = false },
-            new TestCase() { token = "all:acc", shouldAutoComplete = false },
-            new TestCase() { token = "any:acc", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "none:acc", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "all:acc", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "any:acc", shouldAutoComplete = false },
 
-            new TestCase() { token = "c:a", shouldAutoComplete = false },
-            new TestCase() { token = "C:a", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "c:a", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "C:a", shouldAutoComplete = false },
 
-            new TestCase() { token = "c", shouldAutoComplete = false },
-            new TestCase() { token = "C", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "c", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "C", shouldAutoComplete = false },
 
-            new TestCase() { token = "c=", shouldAutoComplete = false },
-            new TestCase() { token = "C=", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "c=", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "C=", shouldAutoComplete = false },
 
-            new TestCase() { token = "c:", shouldAutoComplete = false },
-            new TestCase() { token = "C:", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "c:", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "C:", shouldAutoComplete = false },
 
-            new TestCase() { token = "k=a", shouldAutoComplete = false },
-            new TestCase() { token = "dummy=a", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "k=a", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "dummy=a", shouldAutoComplete = false },
         };
 
         [Test]
-        public void RunAdvanceEntityQuery([ValueSource(nameof(advancedTestCases))] TestCase testCase)
+        public void ShouldAutocompleteTypeAdvance([ValueSource(nameof(advancedTestCases))] AutoCompleteTestCase testCase)
         {
             var autoComplete = ComponentTypeAutoComplete.EntityQueryInstance;
             Assert.AreEqual(autoComplete.ShouldStartAutoCompletion(testCase.token, testCase.token.Length), testCase.shouldAutoComplete);
+        }
+
+        static AutoCompleteTestCase[] sharedComponentCases = new[]
+        {
+            new AutoCompleteTestCase() { token = "all=", shouldAutoComplete = false },
+            new AutoCompleteTestCase() { token = "#", shouldAutoComplete = true },
+            new AutoCompleteTestCase() { token = "#u", shouldAutoComplete = true },
+        };
+
+        [Test]
+        public void ShouldAutocompleteSharedComponent([ValueSource(nameof(sharedComponentCases))] AutoCompleteTestCase testCase)
+        {
+            var autoComplete = SharedComponentTypeAutoComplete.Instance;
+            Assert.AreEqual(autoComplete.ShouldStartAutoCompletion(testCase.token, testCase.token.Length), testCase.shouldAutoComplete);
+        }
+
+        static AutoCompleteTestCase[] typeTokenCases = new[]
+        {
+            new AutoCompleteTestCase() { input = "all=Search", expectedToken = "Search" },
+            new AutoCompleteTestCase() { input = "all=ScriptableObject all=Boid", expectedToken = "Boid" },
+        };
+
+        [Test]
+        public void GetTokenTypeAdvance([ValueSource(nameof(typeTokenCases))] AutoCompleteTestCase testCase)
+        {
+            var autoComplete = ComponentTypeAutoComplete.EntityQueryInstance;
+            Assert.AreEqual(autoComplete.GetToken(testCase.input, testCase.input.Length), testCase.expectedToken);
+        }
+
+        static AutoCompleteTestCase[] sharedComponentTokenCases = new[]
+        {
+            new AutoCompleteTestCase() { input = "#Search", expectedToken = "Search" },
+            new AutoCompleteTestCase() { input = "#SearchTestSharedComponent.intValue=0 #Boid", expectedToken = "Boid" },
+        };
+
+        [Test]
+        public void GetTokenSharedComponent([ValueSource(nameof(sharedComponentTokenCases))] AutoCompleteTestCase testCase)
+        {
+            var autoComplete = SharedComponentTypeAutoComplete.Instance;
+            Assert.AreEqual(autoComplete.GetToken(testCase.input, testCase.input.Length), testCase.expectedToken);
         }
     }
 }

@@ -121,6 +121,7 @@ namespace Unity.Entities
         // INTERNAL
         // ----------------------------------------------------------------------------------------------------------
 
+#if ENTITY_STORE_V1
         internal void AllocateConsecutiveEntitiesForLoading(int count)
         {
             EntityComponentStore* s = GetCheckedEntityDataAccess()->EntityComponentStore;
@@ -131,6 +132,7 @@ namespace Unity.Entities
 #endif
             s->AllocateConsecutiveEntitiesForLoading(count);
         }
+#endif
 
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
         internal void AddSharedComponentManaged<T>(NativeArray<ArchetypeChunk> chunks, T componentData)

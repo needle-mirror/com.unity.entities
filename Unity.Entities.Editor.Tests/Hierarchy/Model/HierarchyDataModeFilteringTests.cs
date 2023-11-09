@@ -43,6 +43,19 @@ namespace Unity.Entities.Editor.Tests
                 m_HierarchyNodeStore.SetSortIndex(goB, 2);
             }
 
+            var emptyArchetype = m_World.EntityManager.CreateArchetype();
+            var entities = m_World.EntityManager.CreateEntity(emptyArchetype, 11, Allocator.Temp);
+
+            // This test relies on entities having specific indices and versions.
+            // But it also requires those entities to effectively exists.
+            // As long as it runs in an empty world, it should be fine.
+            // The following loop makes sure of that.
+            for (int i = 0; i < entities.Length; i++)
+            {
+                Assert.AreEqual(entities[i].Index, i);
+                Assert.AreEqual(entities[i].Version, 1);
+            }
+
             var entityA = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 5, 1), subSceneNode);
             var entityB = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 6, 1), subSceneNode);
             var entityC = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 7, 1));

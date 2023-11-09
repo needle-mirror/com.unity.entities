@@ -5,6 +5,7 @@ using Unity.Collections;
 using Unity.Entities.Conversion;
 using Unity.Mathematics;
 using Unity.Profiling;
+using UnityEngine;
 
 namespace Unity.Entities
 {
@@ -77,8 +78,11 @@ namespace Unity.Entities
 
                 UpdateCompanionQuery();
 
-                // Clean up Companion Components
+                // Clean up Companion Components dangling after a potential companion was removed
                 EntityManager.RemoveComponent<CompanionLink>(m_RemoveCompanionComponentsQuery);
+                EntityManager.RemoveComponent<CompanionLinkTransform>(m_RemoveCompanionComponentsQuery);
+                EntityManager.RemoveComponent<CompanionReference>(m_RemoveCompanionComponentsQuery);
+                EntityManager.RemoveComponent<CompanionGameObjectActiveCleanup>(m_RemoveCompanionComponentsQuery);
 
                 var mcs = EntityManager.GetCheckedEntityDataAccess()->ManagedComponentStore;
 
@@ -184,7 +188,24 @@ namespace Unity.Entities
                             {
                                 UnityEngine.Object.DestroyImmediate(unwanted);
                             }
-                            EntityManager.AddComponentData(entity, new CompanionLink { Companion = companionGameObject });
+
+                            // Delete old object if it exists
+                            if (EntityManager.HasComponent<CompanionLink>(entity))
+                            {
+                                var link = EntityManager.GetComponentData<CompanionLink>(entity);
+                                CompanionLink.DestroyObject(link.Companion.Id.instanceId);
+                            }
+
+                            if (EntityManager.HasComponent<CompanionGameObjectActiveCleanup>(entity))
+                                EntityManager.RemoveComponent<CompanionGameObjectActiveCleanup>(entity);
+
+                            var newInstanceID = companionGameObject.GetInstanceID();
+                            EntityManager.AddComponentData(entity, new CompanionLink { Companion = UnityObjectRef<GameObject>.FromInstanceID(newInstanceID) });
+                            EntityManager.AddComponentData(entity, new CompanionLinkTransform { CompanionTransform = companionGameObject.transform });
+
+                            // We only add the CompanionReference in a serialised Bake, as this doesn't play nice with EntityDiffer
+                            if (!bakingSystem.IsLiveConversion())
+                                EntityManager.AddComponentObject(entity, new CompanionReference { Companion = UnityObjectRef<GameObject>.FromInstanceID(newInstanceID)});
 
                             // We only move into the companion scene if we're currently doing live conversion.
                             // Otherwise this is handled by de-serialisation.

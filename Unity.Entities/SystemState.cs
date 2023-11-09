@@ -237,7 +237,7 @@ namespace Unity.Entities
         /// Retrieve the world update allocator of the World in which this system exists.
         /// </summary>
         /// <value>The Allocator retrieved.</value>
-        /// <remarks>Behind the world update allocator are double reewindable allocators, and the two allocators
+        /// <remarks>Behind the world update allocator are double rewindable allocators, and the two allocators
         /// are switched in each world update.  Therefore user cannot cache the world update allocator.</remarks>
         public Allocator WorldUpdateAllocator => m_WorldUnmanaged.UpdateAllocator.ToAllocator;
 

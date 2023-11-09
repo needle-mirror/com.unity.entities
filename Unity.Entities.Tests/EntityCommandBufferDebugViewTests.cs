@@ -33,8 +33,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(ECBCommand.CreateEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
 
-            Assert.AreEqual(IntPtr.Size == 8 ? 32 : 24, cmdView.TotalSizeInBytes);
-
             var createCmdView = cmdView as EntityCommandBuffer.CreateCommandView;
             Assert.IsFalse(createCmdView.EntityArchetype.Valid);
             Assert.AreEqual(ent.Index, createCmdView.EntityIdentityIndex);
@@ -56,7 +54,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.CreateEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 32 : 24, cmdView.TotalSizeInBytes);
 
             var createCmdView = cmdView as EntityCommandBuffer.CreateCommandView;
             Assert.AreEqual(archetype, createCmdView.EntityArchetype);
@@ -79,7 +76,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.InstantiateEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(32, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(prefab, entityCmdView.Entity);
@@ -103,7 +99,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.InstantiateEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(32, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(prefab, entityCmdView.Entity);
@@ -126,7 +121,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.DestroyEntity, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(32, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -151,10 +145,10 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddBuffer, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 112 : 104, cmdView.TotalSizeInBytes);
 
             var bufferCmdView = cmdView as EntityCommandBuffer.EntityBufferCommandView;
             var typeInfo = TypeManager.GetTypeInfo<EcsIntElement>();
+            Assert.IsFalse(bufferCmdView.ValueRequiresEntityFixup);
             Assert.AreEqual(typeInfo.TypeIndex, bufferCmdView.ComponentTypeIndex);
             Assert.AreEqual(typeInfo.SizeInChunk, bufferCmdView.ComponentSize);
             Assert.AreEqual(2, bufferCmdView.BufferNode->TempBuffer.Length);
@@ -183,12 +177,12 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, commands.Length); // the two create commands are batched
 
             var cmdView = commands[1];
-            Assert.AreEqual(ECBCommand.AddBufferWithEntityFixUp, cmdView.CommandType);
+            Assert.AreEqual(ECBCommand.AddBuffer, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 128 : 120, cmdView.TotalSizeInBytes);
 
             var bufferCmdView = cmdView as EntityCommandBuffer.EntityBufferCommandView;
             var typeInfo = TypeManager.GetTypeInfo<EcsComplexEntityRefElement>();
+            Assert.IsTrue(bufferCmdView.ValueRequiresEntityFixup);
             Assert.AreEqual(typeInfo.TypeIndex, bufferCmdView.ComponentTypeIndex);
             Assert.AreEqual(typeInfo.SizeInChunk, bufferCmdView.ComponentSize);
             Assert.AreEqual(2, bufferCmdView.BufferNode->TempBuffer.Length);
@@ -219,10 +213,10 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetBuffer, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 112 : 104, cmdView.TotalSizeInBytes);
 
             var bufferCmdView = cmdView as EntityCommandBuffer.EntityBufferCommandView;
             var typeInfo = TypeManager.GetTypeInfo<EcsIntElement>();
+            Assert.IsFalse(bufferCmdView.ValueRequiresEntityFixup);
             Assert.AreEqual(typeInfo.TypeIndex, bufferCmdView.ComponentTypeIndex);
             Assert.AreEqual(typeInfo.SizeInChunk, bufferCmdView.ComponentSize);
             Assert.AreEqual(2, bufferCmdView.BufferNode->TempBuffer.Length);
@@ -250,12 +244,12 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, commands.Length); // the two create commands are batched
 
             var cmdView = commands[1];
-            Assert.AreEqual(ECBCommand.SetBufferWithEntityFixUp, cmdView.CommandType);
+            Assert.AreEqual(ECBCommand.SetBuffer, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 128 : 120, cmdView.TotalSizeInBytes);
 
             var bufferCmdView = cmdView as EntityCommandBuffer.EntityBufferCommandView;
             var typeInfo = TypeManager.GetTypeInfo<EcsComplexEntityRefElement>();
+            Assert.IsTrue(bufferCmdView.ValueRequiresEntityFixup);
             Assert.AreEqual(typeInfo.TypeIndex, bufferCmdView.ComponentTypeIndex);
             Assert.AreEqual(typeInfo.SizeInChunk, bufferCmdView.ComponentSize);
             Assert.AreEqual(2, bufferCmdView.BufferNode->TempBuffer.Length);
@@ -284,7 +278,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AppendToBuffer, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -293,6 +286,7 @@ namespace Unity.Entities.Tests
 
             var componentCmdView = cmdView as EntityCommandBuffer.EntityComponentCommandView;
             var typeInfo = TypeManager.GetTypeInfo<EcsIntElement>();
+            Assert.IsFalse(componentCmdView.ValueRequiresEntityFixup);
             Assert.AreEqual(typeInfo.TypeIndex, componentCmdView.ComponentTypeIndex);
             Assert.AreEqual(sizeof(EcsIntElement), componentCmdView.ComponentSize);
             var actualValue = (EcsIntElement)componentCmdView.ComponentValue;
@@ -313,9 +307,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, commands.Length);
 
             var cmdView = commands[1];
-            Assert.AreEqual(ECBCommand.AppendToBufferWithEntityFixUp, cmdView.CommandType);
+            Assert.AreEqual(ECBCommand.AppendToBuffer, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(48, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -324,6 +317,7 @@ namespace Unity.Entities.Tests
 
             var componentCmdView = cmdView as EntityCommandBuffer.EntityComponentCommandView;
             var typeInfo = TypeManager.GetTypeInfo<EcsComplexEntityRefElement>();
+            Assert.IsTrue(componentCmdView.ValueRequiresEntityFixup);
             Assert.AreEqual(typeInfo.TypeIndex, componentCmdView.ComponentTypeIndex);
             Assert.AreEqual(sizeof(EcsComplexEntityRefElement), componentCmdView.ComponentSize);
             var actualValue = (EcsComplexEntityRefElement)componentCmdView.ComponentValue;
@@ -347,7 +341,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -355,6 +348,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, entityCmdView.BatchCount);
 
             var componentCmdView = cmdView as EntityCommandBuffer.EntityComponentCommandView;
+            Assert.IsFalse(componentCmdView.ValueRequiresEntityFixup);
             Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestData>(), componentCmdView.ComponentTypeIndex);
             Assert.AreEqual(sizeof(EcsTestData), componentCmdView.ComponentSize);
             Assert.AreEqual(value, (EcsTestData)componentCmdView.ComponentValue);
@@ -375,9 +369,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, commands.Length);
 
             var cmdView = commands[1];
-            Assert.AreEqual(ECBCommand.AddComponentWithEntityFixUp, cmdView.CommandType);
+            Assert.AreEqual(ECBCommand.AddComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(48, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -385,6 +378,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, entityCmdView.BatchCount);
 
             var componentCmdView = cmdView as EntityCommandBuffer.EntityComponentCommandView;
+            Assert.IsTrue(componentCmdView.ValueRequiresEntityFixup);
             Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestDataEntity>(), componentCmdView.ComponentTypeIndex);
             Assert.AreEqual(sizeof(EcsTestDataEntity), componentCmdView.ComponentSize);
             var actualValue = (EcsTestDataEntity)componentCmdView.ComponentValue;
@@ -407,7 +401,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -435,7 +428,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -465,7 +457,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddMultipleComponents, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(104, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -506,7 +497,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponentLinkedEntityGroup, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 64 : 56, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(rootEntity, entityCmdView.Entity);
@@ -553,7 +543,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetComponentLinkedEntityGroup, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 64 : 48, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(rootEntity, entityCmdView.Entity);
@@ -597,7 +586,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.ReplaceComponentLinkedEntityGroup, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(rootEntity, entityCmdView.Entity);
@@ -627,7 +615,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -635,6 +622,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, entityCmdView.BatchCount);
 
             var componentCmdView = cmdView as EntityCommandBuffer.EntityComponentCommandView;
+            Assert.IsFalse(componentCmdView.ValueRequiresEntityFixup);
             Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestData>(), componentCmdView.ComponentTypeIndex);
             Assert.AreEqual(sizeof(EcsTestData), componentCmdView.ComponentSize);
             Assert.AreEqual(value, (EcsTestData)componentCmdView.ComponentValue);
@@ -655,9 +643,8 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(2, commands.Length);
 
             var cmdView = commands[1];
-            Assert.AreEqual(ECBCommand.SetComponentWithEntityFixUp, cmdView.CommandType);
+            Assert.AreEqual(ECBCommand.SetComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(48, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -665,6 +652,7 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, entityCmdView.BatchCount);
 
             var componentCmdView = cmdView as EntityCommandBuffer.EntityComponentCommandView;
+            Assert.IsTrue(componentCmdView.ValueRequiresEntityFixup);
             Assert.AreEqual(TypeManager.GetTypeIndex<EcsTestDataEntity>(), componentCmdView.ComponentTypeIndex);
             Assert.AreEqual(sizeof(EcsTestDataEntity), componentCmdView.ComponentSize);
             var actualValue = (EcsTestDataEntity)componentCmdView.ComponentValue;
@@ -688,7 +676,6 @@ namespace Unity.Entities.Tests
             var enabledCommand = commands[0];
             Assert.AreEqual(ECBCommand.SetEntityEnabled, enabledCommand.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, enabledCommand.SortKey);
-            Assert.AreEqual(32, enabledCommand.TotalSizeInBytes);
 
             var enabledEntityCmdView = enabledCommand as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, enabledEntityCmdView.Entity);
@@ -702,7 +689,6 @@ namespace Unity.Entities.Tests
             var disabledCommand = commands[1];
             Assert.AreEqual(ECBCommand.SetEntityEnabled, disabledCommand.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, disabledCommand.SortKey);
-            Assert.AreEqual(32, disabledCommand.TotalSizeInBytes);
 
             var disabledEntityCmdView = disabledCommand as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, disabledEntityCmdView.Entity);
@@ -730,7 +716,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetName, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(96, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -757,7 +742,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -785,7 +769,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveComponent, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(40, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -816,7 +799,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveMultipleComponents, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(104, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -850,7 +832,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponentForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 56 : 40, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator.Handle, multiEntityCmdView.Allocator);
@@ -890,7 +871,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponentForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 56 : 40, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -930,7 +910,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponentForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 64 : 48, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesComponentCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -974,7 +953,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddMultipleComponentsForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 120 : 104, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -1018,7 +996,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddUnmanagedSharedComponentValueForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 80 : 56, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesComponentCommandView_WithUnmanagedSharedValue;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -1064,7 +1041,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddComponentObjectForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 72 : 48, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -1108,7 +1084,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetComponentObjectForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 72 : 48, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -1152,7 +1127,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetUnmanagedSharedComponentValueForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 80 : 56, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -1195,7 +1169,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveComponentForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 56 : 40, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -1235,7 +1208,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveComponentForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 56 : 40, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -1278,7 +1250,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.RemoveMultipleComponentsForMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 120 : 104, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -1322,7 +1293,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.DestroyMultipleEntities, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(IntPtr.Size == 8 ? 48 : 32, cmdView.TotalSizeInBytes);
 
             var multiEntityCmdView = cmdView as EntityCommandBuffer.MultipleEntitiesCommandView;
             Assert.AreEqual(ecb.m_Data->m_Allocator, multiEntityCmdView.Allocator);
@@ -1354,7 +1324,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.AddUnmanagedSharedComponentData, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(48, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);
@@ -1384,7 +1353,6 @@ namespace Unity.Entities.Tests
             var cmdView = commands[0];
             Assert.AreEqual(ECBCommand.SetUnmanagedSharedComponentData, cmdView.CommandType);
             Assert.AreEqual(ecb.MainThreadSortKey, cmdView.SortKey);
-            Assert.AreEqual(48, cmdView.TotalSizeInBytes);
 
             var entityCmdView = cmdView as EntityCommandBuffer.EntityCommandView;
             Assert.AreEqual(ent, entityCmdView.Entity);

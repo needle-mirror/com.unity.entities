@@ -38,11 +38,19 @@ namespace Unity.Entities
             return companion;
         }
 
-        internal static void MoveToCompanionScene(GameObject gameObject, bool isLiveConversion)
+        internal static Scene GetCompanionScene(bool isLiveConversion)
         {
             if (_companionScene == default || _companionSceneLiveConversion == default)
                 CreateCompanionScenes();
 
+            if (isLiveConversion)
+                return _companionSceneLiveConversion;
+            else
+                return _companionScene;
+        }
+
+        internal static void SetCompanionFlags(GameObject gameObject)
+        {
             var companionFlags = CompanionFlags;
             if (EditorSceneManager.GetPreviewScenesVisibleInHierarchy())
             {
@@ -50,11 +58,13 @@ namespace Unity.Entities
             }
 
             gameObject.hideFlags = companionFlags;
+        }
 
-            if(isLiveConversion)
-                SceneManager.MoveGameObjectToScene(gameObject, _companionSceneLiveConversion);
-            else
-                SceneManager.MoveGameObjectToScene(gameObject, _companionScene);
+        internal static void MoveToCompanionScene(GameObject gameObject, bool isLiveConversion)
+        {
+            var scene = GetCompanionScene(isLiveConversion);
+            SetCompanionFlags(gameObject);
+            SceneManager.MoveGameObjectToScene(gameObject, scene);
         }
 
         static void CreateCompanionScenes()

@@ -20,23 +20,21 @@ namespace Unity.Entities
 
         internal bool IsComponentEnabled(Entity entity, TypeIndex typeIndex)
         {
-            var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
-            var archetype = GetArchetype(chunk);
-            var indexInChunk = m_EntityInChunkByEntity[entity.Index].IndexInChunk;
+            var entityInChunk = GetEntityInChunk(entity);
+            var archetype = GetArchetype(entityInChunk.Chunk);
             var typeOffset = ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex);
 
-            return IsComponentEnabled(chunk, indexInChunk, typeOffset);
+            return IsComponentEnabled(entityInChunk.Chunk, entityInChunk.IndexInChunk, typeOffset);
         }
 
         internal bool IsComponentEnabled(Entity entity, TypeIndex typeIndex, ref LookupCache typeLookupCache)
         {
-            var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
-            var archetype = GetArchetype(chunk);
+            var entityInChunk = GetEntityInChunk(entity);
+            var archetype = GetArchetype(entityInChunk.Chunk);
             if (Hint.Unlikely(archetype != typeLookupCache.Archetype))
                 typeLookupCache.Update(archetype, typeIndex);
-            var indexInChunk = m_EntityInChunkByEntity[entity.Index].IndexInChunk;
 
-            return IsComponentEnabled(chunk, indexInChunk, typeLookupCache.IndexInArchetype);
+            return IsComponentEnabled(entityInChunk.Chunk, entityInChunk.IndexInChunk, typeLookupCache.IndexInArchetype);
         }
 
         internal bool IsComponentEnabled(ChunkIndex chunk, int indexInChunk, int typeIndexInArchetype)
@@ -56,23 +54,21 @@ namespace Unity.Entities
 
         internal void SetComponentEnabled(Entity entity, TypeIndex typeIndex, bool value)
         {
-            var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
-            var archetype = GetArchetype(chunk);
-            var indexInChunk = m_EntityInChunkByEntity[entity.Index].IndexInChunk;
+            var entityInChunk = GetEntityInChunk(entity);
+            var archetype = GetArchetype(entityInChunk.Chunk);
             var typeOffset = ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex);
 
-            SetComponentEnabled(chunk, indexInChunk, typeOffset, value);
+            SetComponentEnabled(entityInChunk.Chunk, entityInChunk.IndexInChunk, typeOffset, value);
         }
 
         internal void SetComponentEnabled(Entity entity, TypeIndex typeIndex, bool value, ref LookupCache typeLookupCache)
         {
-            var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
-            var archetype = GetArchetype(chunk);
-            var indexInChunk = m_EntityInChunkByEntity[entity.Index].IndexInChunk;
+            var entityInChunk = GetEntityInChunk(entity);
+            var archetype = GetArchetype(entityInChunk.Chunk);
             if (Hint.Unlikely(archetype != typeLookupCache.Archetype))
                 typeLookupCache.Update(archetype, typeIndex);
 
-            SetComponentEnabled(chunk, indexInChunk, typeLookupCache.IndexInArchetype, value);
+            SetComponentEnabled(entityInChunk.Chunk, entityInChunk.IndexInChunk, typeLookupCache.IndexInArchetype, value);
         }
 
         internal void SetComponentEnabled(ChunkIndex chunk, int indexInChunk, int typeIndexInArchetype, bool value)
@@ -126,12 +122,12 @@ namespace Unity.Entities
         public ulong* GetEnabledRawRW(Entity entity, TypeIndex typeIndex, ref LookupCache typeLookupCache, uint globalSystemVersion, out int indexInBitField, out int* ptrChunkDisabledCount)
         {
             AssertEntityHasComponent(entity, typeIndex, ref typeLookupCache);
-            var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
-            var archetype = GetArchetype(chunk);
-            indexInBitField = m_EntityInChunkByEntity[entity.Index].IndexInChunk;
+            var entityInChunk = GetEntityInChunk(entity);
+            var archetype = GetArchetype(entityInChunk.Chunk);
+            indexInBitField = entityInChunk.IndexInChunk;
             if (Hint.Unlikely(archetype != typeLookupCache.Archetype))
                 typeLookupCache.Update(archetype, typeIndex);
-            return ChunkDataUtility.GetEnabledRefRW(m_EntityInChunkByEntity[entity.Index].Chunk, archetype, typeLookupCache.IndexInArchetype, globalSystemVersion, out ptrChunkDisabledCount).Ptr;
+            return ChunkDataUtility.GetEnabledRefRW(entityInChunk.Chunk, archetype, typeLookupCache.IndexInArchetype, globalSystemVersion, out ptrChunkDisabledCount).Ptr;
         }
 
         /// <summary>
@@ -147,14 +143,14 @@ namespace Unity.Entities
         public ulong* GetEnabledRawRO(Entity entity, TypeIndex typeIndex, ref LookupCache typeLookupCache, out int indexInBitField, out int* ptrChunkDisabledCount)
         {
             AssertEntityHasComponent(entity, typeIndex, ref typeLookupCache);
-            var chunk = m_EntityInChunkByEntity[entity.Index].Chunk;
-            var archetype = GetArchetype(chunk);
-            indexInBitField = m_EntityInChunkByEntity[entity.Index].IndexInChunk;
+            var entityInChunk = GetEntityInChunk(entity);
+            var archetype = GetArchetype(entityInChunk.Chunk);
+            indexInBitField = entityInChunk.IndexInChunk;
             if (Hint.Unlikely(archetype != typeLookupCache.Archetype))
                 typeLookupCache.Update(archetype, typeIndex);
             int memoryOrderIndexInArchetype = archetype->TypeIndexInArchetypeToMemoryOrderIndex[typeLookupCache.IndexInArchetype];
-            ptrChunkDisabledCount = archetype->Chunks.GetPointerToChunkDisabledCountForType(memoryOrderIndexInArchetype, chunk.ListIndex);
-            return ChunkDataUtility.GetEnabledRefRO(chunk, archetype, typeLookupCache.IndexInArchetype).Ptr;
+            ptrChunkDisabledCount = archetype->Chunks.GetPointerToChunkDisabledCountForType(memoryOrderIndexInArchetype, entityInChunk.Chunk.ListIndex);
+            return ChunkDataUtility.GetEnabledRefRO(entityInChunk.Chunk, archetype, typeLookupCache.IndexInArchetype).Ptr;
         }
 
         //                              | ChangeVersion | OrderVersion |
@@ -178,6 +174,14 @@ namespace Unity.Entities
 
             var entityInChunkStart = (Entity*)chunk.Buffer + baseIndex;
 
+#if !ENTITY_STORE_V1
+            s_entityStore.Data.AllocateEntities(entityInChunkStart, count, chunk, baseIndex);
+
+            if (outputEntities != null)
+            {
+                UnsafeUtility.MemCpy(outputEntities, entityInChunkStart, count * sizeof(Entity));
+            }
+#else
             for (var i = 0; i != count; i++)
             {
                 var entityIndexInChunk = m_EntityInChunkByEntity[m_NextFreeEntityIndex].IndexInChunk;
@@ -209,6 +213,7 @@ namespace Unity.Entities
                 m_NextFreeEntityIndex = entityIndexInChunk;
                 m_EntityCreateDestroyVersion++;
             }
+#endif
         }
 
         internal void DeallocateDataEntitiesInChunk(ChunkIndex chunk, Archetype* archetype, int indexInChunk, int batchCount)
@@ -216,8 +221,10 @@ namespace Unity.Entities
             DeallocateBuffers(chunk, indexInChunk, batchCount);
             DeallocateManagedComponents(chunk, indexInChunk, batchCount);
 
-            var freeIndex = m_NextFreeEntityIndex;
             var entities = (Entity*)chunk.Buffer + indexInChunk;
+
+#if ENTITY_STORE_V1
+            var freeIndex = m_NextFreeEntityIndex;
 
             for (var i = batchCount - 1; i >= 0; --i)
             {
@@ -235,6 +242,10 @@ namespace Unity.Entities
 
             m_NextFreeEntityIndex = freeIndex;
             m_EntityCreateDestroyVersion++;
+#else
+            s_entityStore.Data.DeallocateEntities(entities, batchCount);
+#endif
+
 
             // Compute the number of things that need to moved and patched.
             int patchCount = Math.Min(batchCount, chunk.Count - indexInChunk - batchCount);
@@ -251,7 +262,15 @@ namespace Unity.Entities
             //Assert.IsTrue(chunk->archetype->sizeOfs[0] == sizeof(Entity) && chunk->archetype->offsets[0] == 0);
             var movedEntities = (Entity*)chunk.Buffer + (chunk.Count - patchCount);
             for (var i = 0; i != patchCount; i++)
+            {
+#if ENTITY_STORE_V1
                 m_EntityInChunkByEntity[movedEntities[i].Index].IndexInChunk = indexInChunk + i;
+#else
+                var entityInChunk = GetEntityInChunk(movedEntities[i]);
+                entityInChunk.IndexInChunk = indexInChunk + i;
+                SetEntityInChunk(movedEntities[i], entityInChunk);
+#endif
+            }
 
             // Move component data from the end to where we deleted components
             var startIndex = chunk.Count - patchCount;

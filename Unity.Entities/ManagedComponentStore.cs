@@ -77,7 +77,7 @@ namespace Unity.Entities
 
         int m_FreeListIndex;
 
-        internal delegate void InstantiateCompanionComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstComponentLinkIndices, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore);
+        internal delegate void InstantiateCompanionComponentDelegate(int* srcArray, int componentCount, Entity* dstEntities, int* dstComponentReferenceIndices, int* dstComponentLinkIds, int* dstArray, int instanceCount, ManagedComponentStore managedComponentStore);
         internal static InstantiateCompanionComponentDelegate InstantiateCompanionComponent;
 
         internal delegate void AssignCompanionComponentsToCompanionGameObjectsDelegate(EntityManager entityManager, NativeArray<Entity> entities);
@@ -85,6 +85,17 @@ namespace Unity.Entities
 
         private sealed class ManagedComponentStoreKeyContext
         {
+        }
+
+        private sealed class CompanionReferenceTypeIndexStatic
+        {
+            public static readonly SharedStatic<TypeIndex> Ref = SharedStatic<TypeIndex>.GetOrCreate<ManagedComponentStoreKeyContext, CompanionReferenceTypeIndexStatic>();
+        }
+
+        public static TypeIndex CompanionReferenceTypeIndex
+        {
+            get => CompanionReferenceTypeIndexStatic.Ref.Data;
+            set => CompanionReferenceTypeIndexStatic.Ref.Data = value;
         }
 
         private sealed class CompanionLinkTypeIndexStatic
@@ -96,6 +107,17 @@ namespace Unity.Entities
         {
             get => CompanionLinkTypeIndexStatic.Ref.Data;
             set => CompanionLinkTypeIndexStatic.Ref.Data = value;
+        }
+
+        private sealed class CompanionLinkTransformTypeIndexStatic
+        {
+            public static readonly SharedStatic<TypeIndex> Ref = SharedStatic<TypeIndex>.GetOrCreate<ManagedComponentStoreKeyContext, CompanionLinkTransformTypeIndexStatic>();
+        }
+
+        public static TypeIndex CompanionLinkTransformTypeIndex
+        {
+            get => CompanionLinkTransformTypeIndexStatic.Ref.Data;
+            set => CompanionLinkTransformTypeIndexStatic.Ref.Data = value;
         }
 
         public ManagedComponentStore(EntityComponentStore* entityComponentStore)
@@ -751,11 +773,12 @@ namespace Unity.Entities
                     {
                         var srcArray = (int*)reader.ReadNextArray<int>(out var componentCount);
                         var entities = (Entity*)reader.ReadNextArray<Entity>(out var instanceCount);
-                        var dstComponentLinkIndices = (int*)reader.ReadNextArray<int>(out _);
+                        var dstComponentReferenceIndices = (int*)reader.ReadNextArray<int>(out _);
+                        var dstComponentLinkIds = (int*)reader.ReadNextArray<int>(out _);
                         var dstArray = (int*)reader.ReadNextArray<int>(out _);
 
                         if (InstantiateCompanionComponent != null)
-                            InstantiateCompanionComponent(srcArray, componentCount, entities, dstComponentLinkIndices, dstArray, instanceCount, this);
+                            InstantiateCompanionComponent(srcArray, componentCount, entities, dstComponentReferenceIndices, dstComponentLinkIds, dstArray, instanceCount, this);
                         else
                         {
                             // InstantiateHybridComponent was not injected just copy the reference to the object and dont clone it
@@ -831,7 +854,9 @@ namespace Unity.Entities
 
             if (iManagedComponent != 0 && !ReferenceEquals(value, m_ManagedComponentData[iManagedComponent]))
             {
-                (m_ManagedComponentData[iManagedComponent] as IDisposable)?.Dispose();
+                var oldObject = m_ManagedComponentData[iManagedComponent];
+                (oldObject as IRefCounted)?.Release();
+                (oldObject as IDisposable)?.Dispose();
             }
 
             if (value != null)

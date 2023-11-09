@@ -1823,7 +1823,8 @@ namespace Unity.Entities
         /// To create another EntityQuery without allocating additional memory, call this method after you create an
         /// query with <see cref="M:EntityQueryBuilder.Build"/>.
         /// </remarks>
-        public void Reset()
+        /// <returns>The builder object that invoked this method.</returns>
+        public EntityQueryBuilder Reset()
         {
             CheckBuilderPtr();
 
@@ -1837,6 +1838,8 @@ namespace Unity.Entities
             _builderDataPtr->_present.Clear();
             _builderDataPtr->_pendingOptions = default;
             _builderDataPtr->_isFinalized = 0;
+
+            return this;
         }
 
         /// <summary>

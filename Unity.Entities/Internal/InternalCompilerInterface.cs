@@ -228,17 +228,15 @@ namespace Unity.Entities.Internal
             return sharedComponentTypeHandle;
         }
 
-        public static JobRunWithoutJobSystemDelegate BurstCompile(JobRunWithoutJobSystemDelegate d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
-        public static JobChunkRunWithoutJobSystemDelegate BurstCompile(JobChunkRunWithoutJobSystemDelegate d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
-        public static JobChunkRunWithoutJobSystemDelegateLimitEntities BurstCompile(JobChunkRunWithoutJobSystemDelegateLimitEntities d) => BurstCompiler.CompileFunctionPointer(d).Invoke;
-
-        public delegate void JobChunkRunWithoutJobSystemDelegate(ref EntityQuery query, IntPtr jobPtr);
-        public delegate void JobRunWithoutJobSystemDelegate(IntPtr jobPtr);
-        public delegate void JobChunkRunWithoutJobSystemDelegateLimitEntities(ref EntityQuery query, IntPtr limitToEntityArrayPtr, int limitToEntityArrayLength, IntPtr jobPtr);
-
         public static unsafe ref T UnsafeAsRef<T>(IntPtr value) where T : struct
         {
             return ref UnsafeUtility.AsRef<T>((byte*) value);
+        }
+
+        // Dangerous, only works because the pointer is only passed down one call in the callstack
+        public static unsafe IntPtr AddressOf<T>(ref T value) where T : struct
+        {
+            return (IntPtr)UnsafeUtility.AddressOf(ref value);
         }
 
         // Unsafe methods used to provide access for StructuralChanges

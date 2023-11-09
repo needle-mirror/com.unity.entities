@@ -9,6 +9,7 @@ using System.Collections;
 using System.IO;
 using System.Linq;
 using System.Text;
+using System.Text.RegularExpressions;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -381,6 +382,18 @@ namespace Unity.Entities.Tests
             base.TearDown();
             Enabled = false;
             Clear();
+        }
+
+        [Test]
+        public void Enabled_WhenNotInitialized_CanBeSet()
+        {
+            // Shutdown journaling to test that it gets initialized
+            Shutdown();
+
+            // Now verify we can enable journaling while its not initialized
+            Assert.That(Enabled, Is.False);
+            Enabled = true;
+            Assert.That(Enabled, Is.True);
         }
 
         [Test]
@@ -1614,11 +1627,19 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(expected.Length, actual.Length);
 
                 var frameIndexColumnNumber = Array.IndexOf(expected[0].Split(','), "FrameIndex");
+                var entitiesIndexColumnNumber = Array.IndexOf(expected[0].Split(','), "Entities");
+
                 // start at 1 to skip the CSV header
                 for (int line = 1; line < expected.Length; ++line)
                 {
                     var actualLine = actual[line];
                     var expectedLine = expected[line];
+
+#if !ENTITY_STORE_V1
+                    // global allocation means we cannot guarantee determinism of entity IDs for that kind of tests
+                    actualLine = Regex.Replace(actualLine, @"\((\d+):(\d+)\)", "<EntityID>");
+                    expectedLine = Regex.Replace(expectedLine, @"\((\d+):(\d+)\)", "<EntityID>");
+#endif
 
                     var actualColumns = actualLine.Split(',');
                     var expectedColumns = expectedLine.Split(',');

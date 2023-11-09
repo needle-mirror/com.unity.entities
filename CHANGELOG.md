@@ -4,6 +4,48 @@ uid: changelog
 
 # Changelog
 
+## [1.2.0-exp.3] - 2023-11-09
+
+### Added
+
+* Baking user-errors now include additional Authoring GameObject context, to help you diagnose them.
+* Analyzer and code fix for missing "ref" keyword before SystemState
+* Serialization support for UnityObjectRef<> which works with the build system. This means an unmanaged IComponentData can reference Unity assets and it works in a build or from a loaded SubScene the same as with Managed components.
+* IEntitySceneBuildAdditions Interface to force the addition of unreferenced SubScenes into a build.
+* `ArchetypeChunk.SetComponentEnabledForAll()` method to enable or disable a component on all entities in the chunk. This is more efficient than calling `SetComponentEnabled()` on each entity individually.
+
+### Changed
+
+* Update package `com.unity.mathematics` from `1.2.6` to `1.3.1` version.
+* Error message when attempting to schedule an IJobChunk while an exclusive entity transaction is active.
+* obsolete `EventBase.PreventDefault()` removed or changed for `StopPropagation` in `2023.2` or higher.
+* obsolete `FindObjectsOfType<T>()` changed for `FindObjectsByType<T>()` in `2023.2` or higher.
+* Shortened file names for source generator projects and test verification results.
+* Several `EntityCommandBuffer` commands will now correctly fix up Entity references within component values in recorded commands, to replace temporary entities created at record-time with the corresponding "final" entities created at playback time. These include commands that add/set unmanaged shared components, commands targeting an entity's `LinkedEntityGroup`, and `AddComponent<T>(NativeArray<Entity>, T)`.
+* The minimum supported editor version is now 2022.3.11f1
+
+### Deprecated
+
+* `CopyAndReplaceEntitiesFrom` is unreliable and should be avoided. Entities are not the same across worlds anymore, so an optional remapping table can be passed to the function in order to look up which entity in the destination world corresponds a given entity in the source world.
+
+### Fixed
+
+* Fixed issue where Entities IL post-processors were causing output assemblies to be non-deterministic between compilations.
+* Ensure consistency in how the `==`/`!=` operators and the `Equals()`/`GetHashCode()` methods in `ComponentType` are implemented.
+* UnityException: Calls to "AssetDatabase.RegisterCustomDependency" are restricted during importing when saving the EntitiesClientSettings assets.
+* Minor performance optimization to EntityQuery.ToComponentArray when used with a managed component type.
+* Issue where Burst would fail to compile an Entities.ForEach or Job.WithCode, resulting in a runtime casting error.
+* Journaling can now be enabled even if no default world initialization is used.
+* You can now exit playmode while having an Entity with a buffer selected in the Entities Hierarchy, without getting any errors.
+* Streaming hitches when using a lot of Companion Components (e.g. Lights) in a SubScene
+* Fixed false-positive error check in `EntityCommandBuffer.AddComponent<T>(NativeArray<Entity>, T)`.
+* Validation for world's existence before accessing within `EntitySelectionProxy`.
+* `ArchetypeChunk.SetComponentEnabled(DynamicComponentTypeHandle)` will now throw an exception if the provided component type does not implement `IEnableableComponent`.
+* An exception thrown during world deserialization could cause a memory leak.
+
+### Security
+
+
 ## [1.1.0-pre.3] - 2023-10-17
 
 ### Added
@@ -67,7 +109,7 @@ uid: changelog
 
 ### Deprecated
 
-* Deprecate GetSharedComponentDataIndex as it is a dupplicate of GetSharedComponentIndex
+* Deprecate GetSharedComponentDataIndex as it is a duplicate of GetSharedComponentIndex
 
 ### Removed
 
@@ -89,14 +131,12 @@ uid: changelog
 * A source generator error is not thrown anymore when using the fully qualified name of `SystemAPI.Time` (e.g. `Unity.Entities.SystemAPI.Time`).
 * The main entity in LinkedEntityGroups were not added in incremental baking.
 * Fix memory leak in the BakerEntityUsage not disposing properly the list of ReferencedEntityUsage
-* Fixed `isReadOnly` being ignored in `EntityManager.GetBuffer`.
 * ArgumentException on an unknown type when using the GetComponent API in a baker with an abstract type.
 * Subscenes no longer redundantly rebake on recompile due to type order changes.
 * Serialization of blob asset references in unmanaged shared components
 * `SystemGenerator` in the source-generation solution runs in ~48% less time when tested on a small game project shared by one of our users.
 * You now no longer get a compile error for methods containing SystemAPI, EFE, or IJE scheduling, that include a signature with nullables, multiple generics, or parameter modifiers.
-* KeyNotFoundException thrown by the  Entities.Editor.HierarchyWindow when loading a new gameobject scene
-* Users can now specify duplicate components in the same `IJobEntity.Execute()` method, insofar as exactly one of them is wrapped in `EnabledRef<T>`.
+* KeyNotFoundException thrown by the Entities.Editor.HierarchyWindow when loading a new gameobject scene
 * Fixed issue where ambiguous types used in a `SystemAPI.Query<T>()` call would generate a compiler error from source generators.
 * Entities Hierarchy: when entering playmode without fast enter playmode the hierarchy was showing the authoring datamode content even though the switch in the window header was showing the mixed datamode.
 * Validation for world's existence before accessing within EntityContainer and EntitySelectionProxy.
@@ -134,6 +174,8 @@ uid: changelog
 * Fixed memory leak in some cases when an `EntityCommandBuffer` containing `DynamicBuffer` commands was disposed before it was played back.
 * `World.AddSystemManaged<T>(T system)` no longer throws an exception if the system type `T` is not registered. Instead, it registers the type just in time. This matches the existing behavior of `World.CreateSystemManaged()`.
 * Fixed a hash mismatch on DependOnParentTransformHierarchy
+* Users can now specify duplicate components in the same `IJobEntity.Execute()` method, insofar as exactly one of them is wrapped in `EnabledRef<T>`. 
+* You can now use SystemAPI.GetBufferTypeHandle and SystemAPI.GetSharedComponentTypeHandle with unspecified types coming from systems. Like a `MySystem<TUnspecifiedType>` using SystemAPI.GetBufferTypeHandle<TUnspecifiedType>.
 
 
 ## [1.0.14] - 2023-07-27
@@ -146,7 +188,6 @@ uid: changelog
 * Early null entity check in ECB commands
 * More error logging in DotsGlobalSettings
 * Error logging in UpdateLoadOperation()
-* Added `EntityCommandBuffer.MoveComponent<T>(Entity src, Entity dst)`
 
 ### Changed
 
@@ -155,6 +196,7 @@ uid: changelog
 * Obsolete API containing `FindObjectsOfType<>()` for `FindObjectsByType<>(FindObjectsSortMode.None)` in SubSceneInspectorUtility.cs and `FindObjectOfType<>()` for `FindFirstObjectByType<>()` in LiveConversionEditorPerformanceTests.cs and LiveConversionEditorTests.cs.
 * Increased allocation size in RuntimeContentManager initialization
 * More informative error message in WriteSceneHeader()
+
 
 ### Removed
 
@@ -452,6 +494,7 @@ uid: changelog
 
 * Stripping (e.g. on IL2CPP) now won't strip whole assemblies that have important systems, like graphics.
 * Generic systems created at runtime no longer break sorting functionality.
+
 
 ## [1.0.0-pre.44] - 2023-02-13
 

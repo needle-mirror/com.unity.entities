@@ -30,8 +30,11 @@ namespace Unity.Entities.Build
         public string CustomDependency => GetFilePath();
         void IEntitiesPlayerSettings.RegisterCustomDependency()
         {
-            var hash = GetHash();
-            AssetDatabase.RegisterCustomDependency(CustomDependency, hash);
+            if (!AssetDatabase.IsAssetImportWorkerProcess())
+            {
+                var hash = GetHash();
+                AssetDatabase.RegisterCustomDependency(CustomDependency, hash);
+            }
         }
 
         public UnityEngine.Hash128 GetHash()
@@ -62,18 +65,25 @@ namespace Unity.Entities.Build
 
         internal void Save()
         {
-            ((IEntitiesPlayerSettings)this).RegisterCustomDependency();
-            if (!AssetDatabase.IsAssetImportWorkerProcess())
+            if (AssetDatabase.IsAssetImportWorkerProcess())
+                return;
+
+            if (!EditorApplication.isUpdating)
             {
-                Save(true);
-                AssetDatabase.Refresh();
+                ((IEntitiesPlayerSettings) this).RegisterCustomDependency();
             }
+
+            Save(true);
+            AssetDatabase.Refresh();
         }
 
 #if UNITY_2023_2_OR_NEWER
         private void OnEnable()
         {
-            ((IEntitiesPlayerSettings)this).RegisterCustomDependency();
+            if (!AssetDatabase.IsAssetImportWorkerProcess())
+            {
+                ((IEntitiesPlayerSettings)this).RegisterCustomDependency();
+            }
         }
 #endif
 

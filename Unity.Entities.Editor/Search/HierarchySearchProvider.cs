@@ -7,6 +7,7 @@ using UnityEditor;
 using UnityEditor.Search;
 using UnityEngine;
 using Unity.Editor.Bridge;
+using System.Reflection;
 
 namespace Unity.Entities.Editor
 {
@@ -19,6 +20,7 @@ namespace Unity.Entities.Editor
         /// Search Provider type id. 
         /// </summary>
         public const string type = "nodehierarchy";
+        private static readonly Regex s_SharedComponentFilterRegex = new Regex(@"#([\w\.]+)");
 
         static Hierarchy s_Hierarchy;
         static QueryEngine<HierarchyNode.Immutable> m_EntityQueryEngine;
@@ -35,6 +37,8 @@ namespace Unity.Entities.Editor
         }
         static HashSet<string> s_EntityFilters;
         static HashSet<string> s_HierarchyFilters;
+        static SharedComponentModifierDesc[] s_NoModifier = new SharedComponentModifierDesc[0];
+        static List<SearchProposition> s_SharedComponentPropositions;
 
         internal class HierarchyQueryDescriptor
         {
@@ -46,6 +50,7 @@ namespace Unity.Entities.Editor
                 searchValueTokenStr = "";
                 searchValueTokens = new string[0];
                 dataMode = DataMode.Authoring;
+                sharedComponentModifiers = s_NoModifier;
             }
 
             public string parsingErrors;
@@ -61,6 +66,7 @@ namespace Unity.Entities.Editor
             public string[] searchValueTokens;
             public string searchValueTokenStr;
             public string unusedFilters;
+            internal SharedComponentModifierDesc[] sharedComponentModifiers;
         }
 
         internal static void SetupQueries()
@@ -80,6 +86,8 @@ namespace Unity.Entities.Editor
             s_EntityQueryEngine.AddFilter("any", node => "dummytype", new[] { "=" });
             s_EntityQueryEngine.AddFilter("all", node => "dummytype", new[] { "=" });
             s_EntityQueryEngine.AddFilter("k", node => node.GetHandle().Kind, new[] { "=" });
+
+            s_EntityQueryEngine.AddFilter(s_SharedComponentFilterRegex, (node, value) => "dummysharedtype", new[] { "=" });
 
             s_EntityFilters = new HashSet<string>(new[] { "c", "none", "all", "any" });
             s_HierarchyFilters = new HashSet<string>(new[] { "ei", "k", "w", "dm" });
@@ -144,9 +152,115 @@ namespace Unity.Entities.Editor
             return allQuery;
         }
 
+        internal class SharedComponentModifierDesc
+        {            
+            public Type componentType => propertyDescs[0].componentInfo.Type;
+            internal List<SharedComponentPropertyDesc> propertyDescs;
+            internal List<string> propertyValues;
+
+            public SharedComponentModifierDesc()
+            {
+                propertyDescs = new();
+                propertyValues = new();
+            }
+
+            public void AddPropertyModifier(SharedComponentPropertyDesc propertyDesc, string value)
+            {
+                propertyDescs.Add(propertyDesc);
+                propertyValues.Add(value);
+            }
+
+            public bool SetupSharedComponent(out object component, out string errors)
+            {
+                errors = "";
+                component = Activator.CreateInstance(componentType);
+                var propertyModified = false;
+                for (var i = 0; i < propertyDescs.Count; ++i)
+                {
+                    try
+                    {
+                        var property = propertyDescs[i];
+                        var strValue = propertyValues[i];
+                        
+                        if (!SearchUtils.TryConvertValue(property.propertyType, strValue, out var value))
+                        {
+                            errors += $"Failed to set property {property.propertyName} to value {strValue}";
+                            continue;
+                        }
+
+                        property.propertyField.SetValue(component, value);
+                        propertyModified = true;
+                    }
+                    catch (System.Exception)
+                    {
+                        errors += $"Failed to set property {propertyDescs[i].propertyName} to value {propertyValues[i]}";
+                    }
+                }
+                return propertyModified;
+            }
+
+            public void ModifyQuery(ref EntityQuery query)
+            {                
+                if (SetupSharedComponent(out var component, out var errors))
+                {
+                    SetSharedComponentFilter(ref query, component);
+                }
+            }
+        }
+
+        internal static bool SetSharedComponentFilter(ref EntityQuery query, object sharedComponent)
+        {
+            try
+            {
+                
+                var methods = typeof(EntityQuery).GetMethods(BindingFlags.Public | BindingFlags.Instance);
+                var setSharedComponentMethod = methods.Where(m => m.Name == "SetSharedComponentFilter" && m.GetParameters().Length == 1).FirstOrDefault();
+                var genSetSharedComponentMethod = setSharedComponentMethod.MakeGenericMethod(sharedComponent.GetType());
+                genSetSharedComponentMethod.Invoke(query, new object[] { sharedComponent });
+            }
+            catch(Exception e)
+            {
+                Debug.LogError(e);
+                return false;
+            }
+            return true;
+        }
+
+        static void SetupSharedComponentFilters(HierarchyQueryDescriptor desc, IFilterNode[] sharedComponentFilters)
+        {
+            var sharedComponentModifierDescs = new Dictionary<string, SharedComponentModifierDesc>();
+
+            // Group all properties per type
+            foreach (var sharedComponentFilter in sharedComponentFilters)
+            {
+                if (SearchUtils.TryGetSharedComponentPropertyDesc(sharedComponentFilter.filterId, out var propertyDesc))
+                {
+                    if (!sharedComponentModifierDescs.TryGetValue(propertyDesc.fullComponentName, out var modifierDesc))
+                    {
+                        modifierDesc = new SharedComponentModifierDesc();
+                        sharedComponentModifierDescs[propertyDesc.fullComponentName] = modifierDesc;
+                    }
+                    modifierDesc.AddPropertyModifier(propertyDesc, sharedComponentFilter.filterValue);
+                }
+            }
+
+            if (sharedComponentModifierDescs.Count > 0)
+            {
+                desc.sharedComponentModifiers = sharedComponentModifierDescs.Values.ToArray();
+            }
+            else if (sharedComponentFilters.Length > 0)
+            {
+                desc.parsingErrors = $"Cannot resolve shared components: {string.Join(",", sharedComponentFilters.Select(cf => cf.filterId))}";
+            }
+        }
+
         internal static HierarchyFilter CreateHierarchyFilter(HierarchySearch search, HierarchyQueryDescriptor desc, Allocator allocator)
         {
             var filter = new HierarchyFilter(search, desc.entityQueryResult, desc.searchValueTokens, desc.entityIndex, desc.kind, allocator, parseTokensForFilter: false);
+            if (desc.sharedComponentModifiers != null && desc.sharedComponentModifiers.Length > 0)
+            {
+                filter.EntityQueryModifiers = desc.sharedComponentModifiers.Select(modifierDesc => (HierarchyFilter.ModifyEntityQuery)modifierDesc.ModifyQuery).ToArray();
+            }
             if (!desc.query.valid && desc.query.errors.Count > 0)
             {
                 filter.ErrorCategory = "Invalid Query";
@@ -160,6 +274,7 @@ namespace Unity.Entities.Editor
             var desc = new HierarchyQueryDescriptor(query);
 
             desc.query = s_EntityQueryEngine.ParseQuery(desc.processedQueryStr);
+
             if (desc.query.errors.Any())
                 return desc;
 
@@ -182,8 +297,12 @@ namespace Unity.Entities.Editor
             desc.searchValueTokens = searches.Select(s => s.searchValue).ToArray();
             desc.searchValueTokenStr = string.Join(" ", desc.searchValueTokens);
 
+            var sharedComponentFilters = filters.Where(f => f.identifier.StartsWith("#")).ToArray();
+            if (sharedComponentFilters.Length > 0)
+                SetupSharedComponentFilters(desc, sharedComponentFilters);
+
             var entityFilters = filters.Where(f => s_EntityFilters.Contains(f.filterId)).ToArray();
-            if (entityFilters.Any())
+            if (entityFilters.Any() || sharedComponentFilters.Length > 0)
             {
                 var entityQueryOptions = EntityQueryOptions.Default;
                 foreach (var toggle in toggles)
@@ -198,7 +317,8 @@ namespace Unity.Entities.Editor
                 }
 
                 string unknownComponent = null;
-                var all = GetComponentTypes(entityFilters, "all", ref unknownComponent);
+                var allComponentNames = filters.Where(f => f.filterId == "all").Select(f => f.filterValue).Concat(desc.sharedComponentModifiers.Select(mod => mod.componentType.Name));
+                var all = GetComponentTypes(allComponentNames, ref unknownComponent);
                 var none = GetComponentTypes(entityFilters, "none", ref unknownComponent);
                 var any = GetComponentTypes(entityFilters, "any", ref unknownComponent);
                 if (all == null || none == null || any == null)
@@ -232,8 +352,12 @@ namespace Unity.Entities.Editor
             {
                 desc.kind = SearchUtils.ParseEnum<NodeKind>(kindFilter.filterValue);
             }
-
-            var unusedFilters = filters.Where(f => !s_EntityFilters.Contains(f.filterId) && !s_HierarchyFilters.Contains(f.filterId)).Select(f => f.token.text);
+            
+            var unusedFilters = filters.Where(f =>
+                !s_EntityFilters.Contains(f.filterId) &&
+                !s_HierarchyFilters.Contains(f.filterId) &&
+                !sharedComponentFilters.Contains(f)
+                ).Select(f => f.token.text);
             desc.unusedFilters = string.Join(" ", unusedFilters);
 
             return desc;
@@ -271,14 +395,16 @@ namespace Unity.Entities.Editor
             var queryDesc = CreateHierarchyQueryDescriptor(queryStr);
             if (!queryDesc.query.valid)
             {
-                foreach (var e in queryDesc.query.errors)
-                    Debug.LogError(e.reason);
+                context.AddSearchQueryErrors(queryDesc.query.errors.Select(e => new SearchQueryError(e, context, provider)));
                 yield break;
             }
 
             var world = SearchUtils.FindWorld(queryDesc.world);
             if (world == null)
+            {
+                SearchUtils.AddError("Cannot find a world to execute the query", context, provider);
                 yield break;
+            }
 
             s_Hierarchy.SetWorld(world);
 
@@ -292,6 +418,7 @@ namespace Unity.Entities.Editor
             var filter = CreateHierarchyFilter(s_Hierarchy.HierarchySearch, queryDesc, s_Hierarchy.Allocator);
             if (!filter.IsValid)
             {
+                SearchUtils.AddError(filter.ErrorMsg, context, provider);
                 yield break;
             }
 
@@ -307,7 +434,6 @@ namespace Unity.Entities.Editor
             ParsedQuery<HierarchyNode.Immutable> nodeQuery = null;
             if (!string.IsNullOrEmpty(queryDesc.unusedFilters))
             {
-                // Debug.Log($"Node Query: {queryDesc.unusedFilters}");
                 nodeQuery = s_EntityQueryEngine.ParseQuery(queryDesc.unusedFilters);
             }
 
@@ -375,15 +501,32 @@ namespace Unity.Entities.Editor
 
             foreach (var p in SearchBridge.GetPropositionsFromListBlockType(typeof(QueryPrefabTypeBlock)))
                 yield return p;
-
+            
             foreach (var p in SearchBridge.GetEnumToggle("Entity Query Options", "Refine entity query",
                 EntityQueryOptions.FilterWriteGroup,
                 EntityQueryOptions.IgnoreComponentEnabledState,
                 EntityQueryOptions.IncludeDisabledEntities,
                 EntityQueryOptions.IncludePrefab, EntityQueryOptions.IncludeSystems))
                 yield return p;
-        }
 
+            if (s_SharedComponentPropositions == null)
+            {
+                s_SharedComponentPropositions = new();
+                foreach (var propInfo in SearchUtils.GetSharedComponentPropertyDescs())
+                {
+                    s_SharedComponentPropositions.Add(new SearchProposition(
+                        category: "Shared Components Filter",
+                        label: propInfo.propertyName,
+                        replacement: propInfo.propertyQueryReplacement,
+                        help: $"Search {propInfo.propertyName}",
+                        0, TextCursorPlacement.MoveAutoComplete, null));
+                }
+            }
+            foreach (var propInfo in s_SharedComponentPropositions)
+            {
+                yield return propInfo;
+            }
+        }
 
         private static SearchTable GetDefaultTableConfig(SearchContext context)
         {
@@ -524,6 +667,7 @@ namespace Unity.Entities.Editor
             OpenProvider();
         }
 
+
         [UnityEditor.ShortcutManagement.Shortcut("Help/Search/Node Hierarchy")]
         static void OpenShortcut()
         {
@@ -534,9 +678,10 @@ namespace Unity.Entities.Editor
         /// Open SearchWindow with HierarchySearchProvider enabled.
         /// </summary>
         /// <param name="query">Optional initial query.</param>
-        public static void OpenProvider(string query = null)
+        public static void OpenProvider(string query = null, World world = null)
         {
-            SearchBridge.OpenContextualTable(type, query ?? "",
+            query = SearchUtils.GetDefaultWorldQuery(query, world);
+            SearchBridge.OpenContextualTable(type, query,
                 GetDefaultTableConfig(null),
                 viewState => {
                     viewState.flags |= UnityEngine.Search.SearchViewFlags.DisableInspectorPreview;
