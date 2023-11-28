@@ -4,9 +4,14 @@ using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    class TabView : BindableElement, INotifyValueChanged<int>
+#if UNITY_2023_3_OR_NEWER
+    [UxmlElement]
+#endif
+    partial class TabView : BindableElement, INotifyValueChanged<int>
     {
+#if !UNITY_2023_3_OR_NEWER
         class TabViewFactory : UxmlFactory<TabView, UxmlTraits> { }
+#endif
 
         static readonly string s_UssClassName = "tab-view";
         static readonly string s_TabHeaderClassName = "tab-view__tab-header";

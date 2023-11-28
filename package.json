@@ -1,13 +1,13 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.2.0-exp.3",
+  "version": "1.2.0-pre.4",
   "unity": "2022.3",
   "unityRelease": "11f1",
   "dependencies": {
-    "com.unity.burst": "1.8.8",
+    "com.unity.burst": "1.8.10",
     "com.unity.serialization": "3.1.1",
-    "com.unity.collections": "2.4.0-exp.2",
+    "com.unity.collections": "2.4.0-pre.2",
     "com.unity.mathematics": "1.3.1",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
@@ -25,15 +25,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Added\n\n* Baking user-errors now include additional Authoring GameObject context, to help you diagnose them.\n* Analyzer and code fix for missing \"ref\" keyword before SystemState\n* Serialization support for UnityObjectRef<> which works with the build system. This means an unmanaged IComponentData can reference Unity assets and it works in a build or from a loaded SubScene the same as with Managed components.\n* IEntitySceneBuildAdditions Interface to force the addition of unreferenced SubScenes into a build.\n* `ArchetypeChunk.SetComponentEnabledForAll()` method to enable or disable a component on all entities in the chunk. This is more efficient than calling `SetComponentEnabled()` on each entity individually.\n\n### Changed\n\n* Update package `com.unity.mathematics` from `1.2.6` to `1.3.1` version.\n* Error message when attempting to schedule an IJobChunk while an exclusive entity transaction is active.\n* obsolete `EventBase.PreventDefault()` removed or changed for `StopPropagation` in `2023.2` or higher.\n* obsolete `FindObjectsOfType<T>()` changed for `FindObjectsByType<T>()` in `2023.2` or higher.\n* Shortened file names for source generator projects and test verification results.\n* Several `EntityCommandBuffer` commands will now correctly fix up Entity references within component values in recorded commands, to replace temporary entities created at record-time with the corresponding \"final\" entities created at playback time. These include commands that add/set unmanaged shared components, commands targeting an entity's `LinkedEntityGroup`, and `AddComponent<T>(NativeArray<Entity>, T)`.\n* The minimum supported editor version is now 2022.3.11f1\n\n### Deprecated\n\n* `CopyAndReplaceEntitiesFrom` is unreliable and should be avoided. Entities are not the same across worlds anymore, so an optional remapping table can be passed to the function in order to look up which entity in the destination world corresponds a given entity in the source world.\n\n### Fixed\n\n* Fixed issue where Entities IL post-processors were causing output assemblies to be non-deterministic between compilations.\n* Ensure consistency in how the `==`/`!=` operators and the `Equals()`/`GetHashCode()` methods in `ComponentType` are implemented.\n* UnityException: Calls to \"AssetDatabase.RegisterCustomDependency\" are restricted during importing when saving the EntitiesClientSettings assets.\n* Minor performance optimization to EntityQuery.ToComponentArray when used with a managed component type.\n* Issue where Burst would fail to compile an Entities.ForEach or Job.WithCode, resulting in a runtime casting error.\n* Journaling can now be enabled even if no default world initialization is used.\n* You can now exit playmode while having an Entity with a buffer selected in the Entities Hierarchy, without getting any errors.\n* Streaming hitches when using a lot of Companion Components (e.g. Lights) in a SubScene\n* Fixed false-positive error check in `EntityCommandBuffer.AddComponent<T>(NativeArray<Entity>, T)`.\n* Validation for world's existence before accessing within `EntitySelectionProxy`.\n* `ArchetypeChunk.SetComponentEnabled(DynamicComponentTypeHandle)` will now throw an exception if the provided component type does not implement `IEnableableComponent`.\n* An exception thrown during world deserialization could cause a memory leak.\n\n### Security"
+    "changelog": "### Changed\n\n* Updated Burst dependency to 1.8.10\n\n\n### Fixed\n\n* Fixed: NullReferenceException when doing GetComponent in a baker of a monobehaviour that the Editor failed to load the associated script.\n* Defensive fix for rare HierarchyWindow.OnCleanup exception (typically when breakpoint debugging).\n* The `Unity.Scenes.Editor.Tests.LiveLinkBakingEditorTests.LiveConversion_ReEnableEntityHierarchy_WhenParentGameObjectIsReEnabledFromSavedSubScene` test no longer fails.\n* An `EntityQuery` that uses `WithNone<T>` with an enableable component `T` will now insert a read dependency on `T` into the query's system, so that jobs which enable/disable `T` are correctly included in the system's input dependencies.\n* Background importing of subscenes using sections would occasionally throw an exception.\n* Selecting entities and systems now works again."
   },
   "upmCi": {
-    "footprint": "266fe9ecdfb7b825c78e7bef8d8caa0dd5600f2a"
+    "footprint": "527172a11411c6a0d84351427b77dd5e4dcad445"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "9bfd95fb576e8fa710c8544b6706bdd73e25afef"
+    "revision": "38c44b22a14cc4a35bc1b7a2f5ab1846208176d5"
   }
 }

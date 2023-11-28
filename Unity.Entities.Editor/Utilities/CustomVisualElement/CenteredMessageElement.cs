@@ -3,13 +3,17 @@ using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    class CenteredMessageElement : VisualElement
+#if UNITY_2023_3_OR_NEWER
+    [UxmlElement]
+#endif
+    partial class CenteredMessageElement : VisualElement
     {
         internal readonly Label m_Title;
         internal readonly Label m_Message;
         string m_TitleContent;
         string m_MessageContent;
 
+#if !UNITY_2023_3_OR_NEWER
         new class UxmlFactory : UxmlFactory<CenteredMessageElement, UxmlTraits> { }
 
         new class UxmlTraits : VisualElement.UxmlTraits
@@ -29,7 +33,8 @@ namespace Unity.Entities.Editor
                 ((CenteredMessageElement)ve).Message = m_Message.GetValueFromBag(bag, cc);
             }
         }
-
+#endif
+        
         public CenteredMessageElement()
         {
             Resources.Templates.CenteredMessageElement.Clone(this);
@@ -39,6 +44,9 @@ namespace Unity.Entities.Editor
             m_Message = this.Q<Label>(className: UssClasses.DotsEditorCommon.CenteredMessageElementMessage);
         }
 
+#if UNITY_2023_3_OR_NEWER
+        [UxmlAttribute]
+#endif
         public string Title
         {
             get => m_TitleContent;
@@ -53,6 +61,9 @@ namespace Unity.Entities.Editor
             }
         }
 
+#if UNITY_2023_3_OR_NEWER
+        [UxmlAttribute]
+#endif
         public string Message
         {
             get => m_MessageContent;

@@ -8,7 +8,10 @@ namespace Unity.Entities.UI
     /// the target and its properties, inspector types deriving from <see cref="PropertyInspector{TValue}"/> and
     /// <see cref="PropertyInspector{TValue, TAttribute}"/> will be considered.
     /// </summary>
-    internal sealed class PropertyElement : BindingContextElement
+#if UNITY_2023_3_OR_NEWER
+    [UxmlElement]
+#endif
+    internal sealed partial class PropertyElement : BindingContextElement
     {
         /// <summary>
         /// Creates a new instance of <see cref="PropertyElement"/> with the provided target value.
@@ -22,7 +25,8 @@ namespace Unity.Entities.UI
             element.SetTarget(value);
             return element;
         }
-
+        
+#if !UNITY_2023_3_OR_NEWER
         /// <summary>
         ///   <para>Instantiates a <see cref="PropertyElement"/> using the data read from a UXML file.</para>
         /// </summary>
@@ -37,5 +41,6 @@ namespace Unity.Entities.UI
         class PropertyElementTraits : UxmlTraits
         {
         }
+#endif
     }
 }

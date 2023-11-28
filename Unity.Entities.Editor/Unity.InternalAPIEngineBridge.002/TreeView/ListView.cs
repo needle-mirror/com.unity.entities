@@ -17,41 +17,6 @@ namespace Unity.Editor.Bridge
 
     class ListView : BindableElement, ISerializationCallbackReceiver
     {
-        public new class UxmlFactory : UxmlFactory<ListView, UxmlTraits> {}
-
-        public new class UxmlTraits : BindableElement.UxmlTraits
-        {
-            private readonly UxmlIntAttributeDescription m_ItemHeight = new UxmlIntAttributeDescription { name = "item-height", obsoleteNames = new[] {"itemHeight"}, defaultValue = s_DefaultItemHeight };
-            private readonly UxmlBoolAttributeDescription m_ShowBorder = new UxmlBoolAttributeDescription { name = "show-border", defaultValue = false };
-            private readonly UxmlEnumAttributeDescription<SelectionType> m_SelectionType = new UxmlEnumAttributeDescription<SelectionType> { name = "selection-type", defaultValue = SelectionType.Single };
-            private readonly UxmlEnumAttributeDescription<AlternatingRowBackground> m_ShowAlternatingRowBackgrounds = new UxmlEnumAttributeDescription<AlternatingRowBackground> { name = "show-alternating-row-backgrounds", defaultValue = AlternatingRowBackground.None };
-            private readonly UxmlBoolAttributeDescription m_ShowBoundCollectionSize = new UxmlBoolAttributeDescription { name = "show-bound-collection-size", defaultValue = true };
-
-            public override IEnumerable<UxmlChildElementDescription> uxmlChildElementsDescription
-            {
-                get { yield break; }
-            }
-
-            public override void Init(VisualElement ve, IUxmlAttributes bag, CreationContext cc)
-            {
-                base.Init(ve, bag, cc);
-                var itemHeight = 0;
-                var listView = (ListView)ve;
-
-                // Avoid setting itemHeight unless it's explicitly defined.
-                // Setting itemHeight property will activate inline property mode.
-                if (m_ItemHeight.TryGetValueFromBag(bag, cc, ref itemHeight))
-                {
-                    listView.itemHeight = itemHeight;
-                }
-
-                listView.showBorder = m_ShowBorder.GetValueFromBag(bag, cc);
-                listView.selectionType = m_SelectionType.GetValueFromBag(bag, cc);
-                listView.showAlternatingRowBackgrounds = m_ShowAlternatingRowBackgrounds.GetValueFromBag(bag, cc);
-                listView.showBoundCollectionSize = m_ShowBoundCollectionSize.GetValueFromBag(bag, cc);
-            }
-        }
-
         internal class RecycledItem
         {
             public const int kUndefinedIndex = -1;

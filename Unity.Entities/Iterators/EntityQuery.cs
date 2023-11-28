@@ -592,39 +592,11 @@ namespace Unity.Entities
             }
         }
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        /// <summary>
-        ///     Gets safety handle to a ComponentType required by this EntityQuery.
-        /// </summary>
-        /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list.</param>
-        /// <returns>AtomicSafetyHandle for a ComponentType</returns>
-        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
-        internal AtomicSafetyHandle GetSafetyHandle(int indexInEntityQuery)
+        bool GetIsReadWrite(int indexInEntityQuery)
         {
             var type = _QueryData->RequiredComponents + indexInEntityQuery;
-            var isReadOnly = type->AccessModeType == ComponentType.AccessMode.ReadOnly;
-            return SafetyHandles->GetSafetyHandle(type->TypeIndex, isReadOnly);
-        }
-
-        /// <summary>
-        ///     Gets buffer safety handle to a ComponentType required by this EntityQuery.
-        /// </summary>
-        /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list.</param>
-        /// <returns>AtomicSafetyHandle for a buffer</returns>
-        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS", CompileTarget = GenerateTestsForBurstCompatibilityAttribute.BurstCompatibleCompileTarget.Editor)]
-        internal AtomicSafetyHandle GetBufferSafetyHandle(int indexInEntityQuery)
-        {
-            var type = _QueryData->RequiredComponents + indexInEntityQuery;
-            return SafetyHandles->GetBufferSafetyHandle(type->TypeIndex);
-        }
-
-#endif
-
-        bool GetIsReadOnly(int indexInEntityQuery)
-        {
-            var type = _QueryData->RequiredComponents + indexInEntityQuery;
-            var isReadOnly = type->AccessModeType == ComponentType.AccessMode.ReadOnly;
-            return isReadOnly;
+            var isReadWrite = type->AccessModeType == ComponentType.AccessMode.ReadWrite;
+            return isReadWrite;
         }
 
         public int CalculateEntityCount()
@@ -1401,8 +1373,8 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (GetIsReadOnly(GetIndexInEntityQuery(typeIndex)))
-                throw new InvalidOperationException($"Can't call GetSingletonRW<{typeof(T)}>() on query where access to {typeof(T)} is read-only.");
+            if (!GetIsReadWrite(GetIndexInEntityQuery(typeIndex)))
+                throw new InvalidOperationException($"Can't call GetSingletonRW<{typeof(T)}>() on query where access to {typeof(T)} is not read-write.");
             if (TypeManager.IsZeroSized(typeIndex))
                 throw new InvalidOperationException($"Can't call GetSingletonRW<{typeof(T)}>() with zero-size type {typeof(T)}.");
             if (TypeManager.IsEnableable(typeIndex))
@@ -2318,25 +2290,6 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
                 }
             }
         }
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-        /// <summary>
-        ///     Gets safety handle to a ComponentType required by this EntityQuery.
-        /// </summary>
-        /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list.</param>
-        /// <returns>AtomicSafetyHandle for a ComponentType</returns>
-        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal AtomicSafetyHandle GetSafetyHandle(int indexInEntityQuery) => _GetImpl()->GetSafetyHandle(indexInEntityQuery);
-
-        /// <summary>
-        ///     Gets buffer safety handle to a ComponentType required by this EntityQuery.
-        /// </summary>
-        /// <param name="indexInEntityQuery">Index of a ComponentType in this EntityQuery's RequiredComponents list.</param>
-        /// <returns>AtomicSafetyHandle for a buffer</returns>
-        [GenerateTestsForBurstCompatibility(RequiredUnityDefine = "ENABLE_UNITY_COLLECTIONS_CHECKS")]
-        internal AtomicSafetyHandle GetBufferSafetyHandle(int indexInEntityQuery) => _GetImpl()->GetBufferSafetyHandle(indexInEntityQuery);
-
-#endif
 
         /// <summary>
         /// Calculates the number of entities selected by this EntityQuery.

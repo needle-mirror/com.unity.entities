@@ -600,9 +600,13 @@ namespace Unity.Entities.Baking
 
                 foreach (var component in returnedComponents)
                 {
-                    int instanceID = component.GetInstanceID();
-                    if (instanceID != 0)
-                        AddObjectReference(instanceID);
+                    int instanceID = 0;
+                    if (component != null)
+                    {
+                        instanceID = component.GetInstanceID();
+                        if (instanceID != 0)
+                            AddObjectReference(instanceID);
+                    }
                     hashGenerator.Update(instanceID);
                 }
 

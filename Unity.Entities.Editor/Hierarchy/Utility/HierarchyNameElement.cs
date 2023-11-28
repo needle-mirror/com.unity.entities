@@ -5,13 +5,18 @@ using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    class HierarchyNameElement : VisualElement
+#if UNITY_2023_3_OR_NEWER
+    [UxmlElement]
+#endif
+    partial class HierarchyNameElement : VisualElement
     {
+#if !UNITY_2023_3_OR_NEWER
         [UsedImplicitly]
         class HierarchyNameElementFactory : UxmlFactory<HierarchyNameElement, HierarchyNameElementTraits> { }
 
         [UsedImplicitly]
         class HierarchyNameElementTraits : UxmlTraits { }
+#endif
 
         public string Text
         {

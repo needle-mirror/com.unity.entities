@@ -393,9 +393,15 @@ namespace Unity.Scenes.Editor
 
                         // The remap array might not be large enough this time, because the new entities allocated
                         // in the section world can have larger indices than what the main world used.
+                        // Beware that the remapping table should still accomodate the entities from the main section
+                        // which might have still larger indices than what is now in the section.
 
-                        entityRemapping.Dispose();
-                        entityRemapping = sectionWorld.EntityManager.CreateEntityRemapArray(Allocator.TempJob);
+                        var highestIndexInSectionWorld = sectionWorld.EntityManager.HighestEntityIndex();
+                        if (highestIndexInSectionWorld + 1 > entityRemapping.Length)
+                        {
+                            entityRemapping.Dispose();
+                            entityRemapping = CollectionHelper.CreateNativeArray<EntityRemapUtility.EntityRemapInfo>(highestIndexInSectionWorld + 1, Allocator.TempJob);
+                        }
 
 #else
                         // Now that all the required entities have been moved over, we can get rid of the gap between

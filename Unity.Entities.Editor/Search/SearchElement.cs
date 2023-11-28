@@ -77,10 +77,14 @@ namespace Unity.Entities.Editor
     /// Represents a reusable control for searching and filtering.
     /// </summary>
     [UsedImplicitly]
-    sealed class SearchElement : VisualElement, INotifyValueChanged<string>
+#if UNITY_2023_3_OR_NEWER
+    [UxmlElement]
+#endif
+    sealed partial class SearchElement : VisualElement, INotifyValueChanged<string>
     {
         internal const StringComparison DefaultGlobalStringComparison = StringComparison.OrdinalIgnoreCase;
 
+#if !UNITY_2023_3_OR_NEWER
         /// <summary>
         /// Instantiates a SearchElement using the data read from a UXML file.
         /// </summary>
@@ -194,6 +198,7 @@ namespace Unity.Entities.Editor
                 }
             }
         }
+#endif
 
         /// <summary>
         /// Helper class to store data related to uxml bindings for deferred execution.
@@ -513,6 +518,9 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// Gets or sets the search delay. This is the number of millisecond after input is receive for the search to be executed. The default value is 200.
         /// </summary>
+#if UNITY_2023_3_OR_NEWER
+        [UxmlAttribute("search-delay")]
+#endif
         public long SearchDelay { get; set; } = 200;
 
         /// <summary>
@@ -523,6 +531,9 @@ namespace Unity.Entities.Editor
         /// <summary>
         /// Global string comparison options for word matching and filter handling (if not overridden).
         /// </summary>
+#if UNITY_2023_3_OR_NEWER
+        [UxmlAttribute("global-string-comparison")]
+#endif
         public StringComparison GlobalStringComparison
         {
             get => m_SearchEngine.GlobalStringComparison;
@@ -597,6 +608,9 @@ namespace Unity.Entities.Editor
 
         void OnAttachToPanel(AttachToPanelEvent evt)
         {
+#if UNITY_2023_3_OR_NEWER
+            InitAttributes();
+#endif
             if (null == m_UxmlSearchHandlerBinding)
                 return;
 
@@ -629,6 +643,101 @@ namespace Unity.Entities.Editor
             m_UxmlSearchHandlerBinding.SearchHandler = handler;
             Search();
         }
+
+#if UNITY_2023_3_OR_NEWER
+        [UxmlAttribute("search-data")] private string SearchData { get; set; } = string.Empty;
+        [UxmlAttribute("search-filters")] private string SearchFilters { get; set; } = string.Empty;
+        [UxmlAttribute("source-data")] private string SourceData { get; set; } = string.Empty;
+        [UxmlAttribute("filtered-data")] private string FilteredData { get; set; } = string.Empty;
+        [UxmlAttribute("handler-type")] private string HandlerType { get; set; } = "sync";
+        [UxmlAttribute("max-frame-time")] private int MaxFrameTime { get; set; } = 33;
+        [UxmlAttribute("global-string-comparison")] private string UxmlGlobalStringComparison { get; set; } = DefaultGlobalStringComparison.ToString();
+
+        void InitAttributes()
+        {
+            m_SearchEngine.Clear();
+            m_FilterPopupElementItems.Clear();
+
+            foreach (var searchData in SearchData.Split(' '))
+            {
+                if (string.IsNullOrEmpty(searchData))
+                    continue;
+
+                AddSearchDataProperty(new PropertyPath(searchData));
+            }
+
+            foreach (var filters in SearchFilters.Split(' '))
+            {
+                var filter = filters.Split(':');
+
+                if (filter.Length != 2 || string.IsNullOrEmpty(filter[0]) || string.IsNullOrEmpty(filter[1]))
+                    continue;
+
+                var token = filter[0];
+                var path = new PropertyPath(filter[1]);
+
+                try
+                {
+                    AddSearchFilterProperty(token, path);
+                }
+                catch (Exception e)
+                {
+                    Debug.LogWarning(e.Message);
+                }
+
+                AddSearchFilterPopupItem(token, path.ToString().SplitPascalCase());
+            }
+
+            var sourceData = SourceData;
+            var filteredData = FilteredData;
+
+            if (!Enum.TryParse(HandlerType, out SearchHandlerType handlerType))
+            {
+                Debug.LogWarning(
+                    $"SearchElement has invalid HandlerType=[{HandlerType}]. Expected values are [{string.Join(",", Enum.GetNames(typeof(SearchHandlerType)))}]. Defaulting to {nameof(SearchHandlerType.sync)}");
+                handlerType = SearchHandlerType.sync;
+            }
+
+            if (!string.IsNullOrEmpty(sourceData) && !string.IsNullOrEmpty(filteredData))
+            {
+                if (sourceData != filteredData)
+                {
+                    m_UxmlSearchHandlerBinding = new SearchHandlerBinding
+                    {
+                        SourceDataPath = new PropertyPath(sourceData),
+                        FilteredDataPath = new PropertyPath(filteredData),
+                        HandlerType = handlerType,
+                        MaxFrameTime = MaxFrameTime,
+                        SearchHandler = null,
+                    };
+                }
+                else
+                {
+                    Debug.LogWarning(
+                        $"SearchElement has invalid data bindings. SourceData=[{sourceData}] FilteredData=[{filteredData}]. Can not read and write to the same property.");
+                }
+            }
+            else if (!string.IsNullOrEmpty(sourceData))
+            {
+                Debug.LogWarning(
+                    "SearchElement has invalid data bindings. The 'source-data' attribute requires the 'filtered-data' to also be set.");
+            }
+            else if (!string.IsNullOrEmpty(filteredData))
+            {
+                Debug.LogWarning(
+                    "SearchElement has invalid data bindings. The 'filtered-data' attribute requires the 'source-data' to also be set.");
+            }
+
+            if (Enum.TryParse(UxmlGlobalStringComparison, out StringComparison stringComparison))
+            {
+                GlobalStringComparison = stringComparison;
+            }
+            else
+            {
+                Debug.LogWarning($"SearchElement has invalid StringComparison=[{UxmlGlobalStringComparison}]. Expected values are {string.Join(",", Enum.GetNames(typeof(StringComparison)))}.");
+            }
+        }
+#endif
 
         /// <summary>
         /// Returns the search handler registered through UXML bindings.

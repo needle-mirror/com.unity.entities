@@ -92,8 +92,23 @@ namespace Unity.Entities.Editor
             };
             m_SystemListView.RegisterCallback<PointerDownEvent>(evt =>
             {
-                if (evt.button == (int)MouseButton.LeftMouse)
+#if UNITY_2023_2_OR_NEWER
+                if (evt.target == m_SystemListView.Q(className: ScrollView.contentAndVerticalScrollUssClassName))
                     Selection.activeObject = null;
+#else
+                if (evt.button == (int) MouseButton.LeftMouse)
+                    Selection.activeObject = null;
+#endif
+            });
+            m_SystemTreeView.RegisterCallback<PointerDownEvent>(evt =>
+            {
+#if UNITY_2023_2_OR_NEWER
+                if (evt.target == m_SystemTreeView.Q(className: ScrollView.contentAndVerticalScrollUssClassName))
+                    Selection.activeObject = null;
+#else
+                if (evt.button == (int) MouseButton.LeftMouse)
+                    Selection.activeObject = null;
+#endif
             });
 
             m_SystemListView.onSelectionChange += OnSelectionChanged;
@@ -389,9 +404,6 @@ namespace Unity.Entities.Editor
                 filteredItem.Release();
             }
             m_ListViewFilteredItems.Clear();
-
-            m_SystemTreeView.Refresh();
-            m_SystemListView.Refresh();
         }
     }
 }

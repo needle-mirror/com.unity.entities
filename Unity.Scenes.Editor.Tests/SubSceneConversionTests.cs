@@ -3,6 +3,7 @@ using System.IO;
 using System.Linq;
 using System.Text.RegularExpressions;
 using NUnit.Framework;
+using Unity.Collections;
 using Unity.Entities;
 using Unity.Entities.Conversion;
 using Unity.Entities.Hybrid.Tests;
@@ -942,6 +943,73 @@ namespace Unity.Scenes.Editor.Tests
             }
 
             LogAssert.NoUnexpectedReceived();
+        }
+
+        // ReSharper disable once InconsistentNaming
+        class RegressionTest_UUM56543_AuthoringComponent : MonoBehaviour
+        {
+            class Baker : Baker<RegressionTest_UUM56543_AuthoringComponent>
+            {
+                public override void Bake(RegressionTest_UUM56543_AuthoringComponent authoring)
+                {
+                    var entities = new NativeArray<Entity>(10, Allocator.Temp);
+                    CreateAdditionalEntities(entities, TransformUsageFlags.None);
+
+                    // There's a very high chance that the entities are already sorted by indices, but we
+                    // cannot rely on it so we search the highest index instead of taking the last one.
+
+                    var highestIndex = entities[0];
+                    for (int i = 1; i < entities.Length; i++)
+                    {
+                        if (entities[i].Index > highestIndex.Index)
+                        {
+                            highestIndex = entities[i];
+                        }
+                    }
+
+                    // Putting the highest index entity in a section above zero will require the remapping
+                    // table for external references to exceed the highest index in the section itself.
+                    // This case wasn't handled properly and caused the issue UUM-56543.
+
+                    AddSharedComponent(highestIndex, new SceneSection { SceneGUID = GetSceneGUID(), Section = 1 });
+                }
+            }
+        }
+
+        [Test]
+        public void RegressionTest_UUM56543()
+        {
+            // Because of UUM-56542, this test might not always execute properly.
+            // When it does, it validates that UUM-56543 has been properly fixed.
+            // When it doesn't, the worker process will log a warning (missing script) but the test will pass.
+            // NOTE - UUM-56542 and UUM-56543 are two different tickets, it's not a typo.
+
+            var subScene = SubSceneTestsHelper.CreateSubSceneFromObjects(ref m_TempAssets, "SceneStreamingState", false, () =>
+            {
+                var go = new GameObject("GO");
+                go.AddComponent<RegressionTest_UUM56543_AuthoringComponent>();
+                return new List<GameObject> { go };
+            });
+
+            // Note that the problem only happens when loading a file from disk. If this tests gets refactored,
+            // please ensure that it isn't converted into a live baking one.
+
+            SubSceneInspectorUtility.ForceReimport(subScene);
+
+            using var world = TestWorldSetup.CreateEntityWorld("World", TestWorldSetup.TestWorldSystemFilterFlags.OnlyStreaming);
+            var resolveParamsAutoload = new SceneSystem.LoadParameters
+            {
+                Flags = SceneLoadFlags.BlockOnImport | SceneLoadFlags.BlockOnStreamIn
+            };
+
+            var sceneGuid = AssetDatabaseCompatibility.PathToGUID(AssetDatabase.GetAssetPath(subScene.SceneAsset));
+            SceneSystem.LoadSceneAsync(world.Unmanaged, sceneGuid, resolveParamsAutoload);
+
+            // When UUM-56543 triggers, an exception will be thrown in the background import worker.
+            // As a result the baked file won't be written to disk and the load will fail with an exception.
+            // That latter exception is what causes the current test to fail.
+
+            world.Update();
         }
     }
 }

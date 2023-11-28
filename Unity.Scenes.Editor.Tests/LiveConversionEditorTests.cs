@@ -902,7 +902,7 @@ namespace Unity.Scenes.Editor.Tests
 #if !UNITY_2023_2_OR_NEWER
             var parent = Object.FindObjectsOfType<TestComponentAuthoring>(true).Single(c => c.IntValue == 1).gameObject;
 #else
-            var parent = Object.FindObjectsByType<TestComponentAuthoring>(FindObjectsSortMode.None).Single(c => c.IntValue == 1).gameObject;
+            var parent = Object.FindObjectsByType<TestComponentAuthoring>(FindObjectsInactive.Include, FindObjectsSortMode.None).Single(c => c.IntValue == 1).gameObject;
 #endif
 
             Undo.RecordObject(parent, "ReEnableObject");

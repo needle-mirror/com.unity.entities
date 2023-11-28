@@ -469,13 +469,14 @@ namespace Unity.Entities
         }
 
         // Calculates the intersection of "All", "Disabled", and "Present" arrays from the provided ArchetypeQuery objects.
+        // "None" types are also considered, if the type is an enableable component; see DOTS-9730.
         // The intersection is returned as a new array of ComponentType objects, which must be freed by the caller.
         // The Entity component is always required (and will be returned as the first element of the output array), so the
         // return value will never be null (unless the allocator is out of memory).
         private ComponentType* CalculateRequiredComponentsFromQuery(ref UnsafeScratchAllocator allocator, ArchetypeQuery* queries, int queryCount, out int outRequiredComponentsCount)
         {
             // Populate and sort a combined array of required component types and their access modes from the first ArchetypeQuery
-            var maxIntersectionCount = queries[0].AllCount + queries[0].DisabledCount + queries[0].PresentCount;
+            var maxIntersectionCount = queries[0].AllCount + queries[0].DisabledCount + queries[0].PresentCount + queries[0].NoneCount;
             // The first required component is always Entity.
             var outRequiredComponents = (ComponentType*)allocator.Allocate<ComponentType>(maxIntersectionCount+1);
             outRequiredComponents[0] = ComponentType.ReadWrite<Entity>();
@@ -486,9 +487,10 @@ namespace Unity.Entities
                 return outRequiredComponents;
             }
             var intersectionComponents = outRequiredComponents + 1;
+            int currentIntersectionCount = 0;
             for (int j = 0; j < queries[0].AllCount; ++j)
             {
-                intersectionComponents[j] = new ComponentType
+                intersectionComponents[currentIntersectionCount++] = new ComponentType
                 {
                     TypeIndex = queries[0].All[j],
                     AccessModeType = (ComponentType.AccessMode)queries[0].AllAccessMode[j],
@@ -496,7 +498,7 @@ namespace Unity.Entities
             }
             for (int j = 0; j < queries[0].DisabledCount; ++j)
             {
-                intersectionComponents[j+queries[0].AllCount] = new ComponentType
+                intersectionComponents[currentIntersectionCount++] = new ComponentType
                 {
                     TypeIndex = queries[0].Disabled[j],
                     AccessModeType = (ComponentType.AccessMode)queries[0].DisabledAccessMode[j],
@@ -504,13 +506,27 @@ namespace Unity.Entities
             }
             for (int j = 0; j < queries[0].PresentCount; ++j)
             {
-                intersectionComponents[j+queries[0].AllCount+queries[0].DisabledCount] = new ComponentType
+                intersectionComponents[currentIntersectionCount++] = new ComponentType
                 {
                     TypeIndex = queries[0].Present[j],
                     AccessModeType = (ComponentType.AccessMode)queries[0].PresentAccessMode[j],
                 };
             }
-            NativeSortExtension.Sort(intersectionComponents, maxIntersectionCount);
+            for (int j = 0; j < queries[0].NoneCount; ++j)
+            {
+                // If T is an enableable component used in WithNone, we conservatively add a T as a
+                // required excluded (??) component. This does not mean T is required to be present in matching
+                // archetypes (see the branch handling Exclude in AddArchetypeIfMatching), but it does ensure that
+                // it's added as a read dependency on any systems that use this query.
+                if (!TypeManager.IsEnableable(queries[0].None[j]))
+                    continue;
+                intersectionComponents[currentIntersectionCount++] = new ComponentType
+                {
+                    TypeIndex = queries[0].None[j],
+                    AccessModeType = ComponentType.AccessMode.Exclude,
+                };
+            }
+            NativeSortExtension.Sort(intersectionComponents, currentIntersectionCount);
 
             // For each additional ArchetypeQuery, create the same sorted array of component types, and reduce the
             // original array to the intersection of these two arrays.
@@ -518,16 +534,15 @@ namespace Unity.Entities
             for (int i = 1; i < queryCount; ++i)
             {
                 maxQueryRequiredCount = math.max(maxQueryRequiredCount,
-                    queries[i].AllCount + queries[i].DisabledCount + queries[i].PresentCount);
+                    queries[i].AllCount + queries[i].DisabledCount + queries[i].PresentCount + queries[i].NoneCount);
             }
             var queryRequiredTypes = (ComponentType*)allocator.Allocate<ComponentType>(maxQueryRequiredCount);
-            var intersectionCount = maxIntersectionCount;
             for (int i = 1; i < queryCount; ++i)
             {
-                int queryRequiredCount = queries[i].AllCount + queries[i].DisabledCount + queries[i].PresentCount;
+                int queryRequiredCount = 0;
                 for (int j = 0; j < queries[i].AllCount; ++j)
                 {
-                    queryRequiredTypes[j] = new ComponentType
+                    queryRequiredTypes[queryRequiredCount++] = new ComponentType
                     {
                         TypeIndex = queries[i].All[j],
                         AccessModeType = (ComponentType.AccessMode)queries[i].AllAccessMode[j],
@@ -535,7 +550,7 @@ namespace Unity.Entities
                 }
                 for (int j = 0; j < queries[i].DisabledCount; ++j)
                 {
-                    queryRequiredTypes[j+queries[i].AllCount] = new ComponentType
+                    queryRequiredTypes[queryRequiredCount++] = new ComponentType
                     {
                         TypeIndex = queries[i].Disabled[j],
                         AccessModeType = (ComponentType.AccessMode)queries[i].DisabledAccessMode[j],
@@ -543,17 +558,31 @@ namespace Unity.Entities
                 }
                 for (int j = 0; j < queries[i].PresentCount; ++j)
                 {
-                    queryRequiredTypes[j+queries[i].AllCount+queries[i].DisabledCount] = new ComponentType
+                    queryRequiredTypes[queryRequiredCount++] = new ComponentType
                     {
                         TypeIndex = queries[i].Present[j],
                         AccessModeType = (ComponentType.AccessMode)queries[i].PresentAccessMode[j],
                     };
                 }
+                for (int j = 0; j < queries[0].NoneCount; ++j)
+                {
+                    // If T is an enableable component used in WithNone, we conservatively add a T as a
+                    // required excluded (??) component. This does not mean T is required to be present in matching
+                    // archetypes (see the branch handling Exclude in AddArchetypeIfMatching), but it does ensure that
+                    // it's added as a read dependency on any systems that use this query.
+                    if (!TypeManager.IsEnableable(queries[0].None[j]))
+                        continue;
+                    queryRequiredTypes[queryRequiredCount++] = new ComponentType
+                    {
+                        TypeIndex = queries[0].None[j],
+                        AccessModeType = ComponentType.AccessMode.Exclude,
+                    };
+                }
                 NativeSortExtension.Sort(queryRequiredTypes, queryRequiredCount);
-                intersectionCount = IntersectSortedComponentIndexArrays(intersectionComponents, intersectionCount,
+                currentIntersectionCount = IntersectSortedComponentIndexArrays(intersectionComponents, currentIntersectionCount,
                     queryRequiredTypes, queryRequiredCount, intersectionComponents);
             }
-            outRequiredComponentsCount = intersectionCount + 1; // again, the +1 is for the Entity type at outRequiredComponents[0]
+            outRequiredComponentsCount = currentIntersectionCount + 1; // again, the +1 is for the Entity type at outRequiredComponents[0]
             return outRequiredComponents;
         }
 
@@ -810,9 +839,10 @@ namespace Unity.Entities
                 switch (requiredTypes[i].AccessModeType)
                 {
                     case ComponentType.AccessMode.ReadOnly:
+                    case ComponentType.AccessMode.Exclude: // we must include required excluded types as readers in case they're enableable; see DOTS-9730
                         queryData->ReaderTypesCount++;
                         break;
-                    default:
+                    case ComponentType.AccessMode.ReadWrite:
                         queryData->WriterTypesCount++;
                         break;
                 }
@@ -831,9 +861,10 @@ namespace Unity.Entities
                 switch (requiredTypes[i].AccessModeType)
                 {
                     case ComponentType.AccessMode.ReadOnly:
+                    case ComponentType.AccessMode.Exclude: // we must include required excluded types as readers in case they're enableable; see DOTS-9730
                         queryData->ReaderTypes[curReader++] = requiredTypes[i].TypeIndex;
                         break;
-                    default:
+                    case ComponentType.AccessMode.ReadWrite:
                         queryData->WriterTypes[curWriter++] = requiredTypes[i].TypeIndex;
                         break;
                 }

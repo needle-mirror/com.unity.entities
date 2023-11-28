@@ -2068,6 +2068,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
         private BakingSystem m_BakingSystem;
         private GameObject m_Prefab;
         private GameObject m_Prefab1;
+        private GameObject m_PrefabWithAbtractMB;
         private bool m_PreviousBakingState;
         private TestLiveConversionSettings m_Settings;
 
@@ -2092,6 +2093,7 @@ namespace Unity.Entities.Hybrid.Tests.Baking
             m_Manager = World.EntityManager;
             m_Prefab = InstantiatePrefab("Prefab");
             m_Prefab1 = InstantiatePrefab("Prefab");
+            m_PrefabWithAbtractMB = InstantiatePrefab("Prefab_AbstractMB");
         }
 
         [TearDown]
@@ -3854,6 +3856,24 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 Assert.AreEqual(1, testQuery.CalculateEntityCount());
                 var entity = testQuery.ToEntityArray(Allocator.Temp)[0];
                 Assert.AreEqual(3, m_BakingSystem.EntityManager.GetComponentData<ComponentTest4>(entity).Field);
+            }
+        }
+
+        public sealed class GetComponent_Of_AbstractAuthoring : Baker<DefaultAuthoringComponent>
+        {
+            public override void Bake(DefaultAuthoringComponent authoring)
+            {
+                GetComponents<AbstractAuthoring>();
+            }
+        }
+
+        [Test]
+        public void GetComponent_Of_AbstractAuthoring_DoesNotThrow()
+        {
+            m_PrefabWithAbtractMB.AddComponent<DefaultAuthoringComponent>();
+            using (new BakerDataUtility.OverrideBakers(true, typeof(GetComponent_Of_AbstractAuthoring)))
+            {
+                Assert.DoesNotThrow(() => BakingUtility.BakeGameObjects(World, new[] {m_PrefabWithAbtractMB}, m_BakingSystem.BakingSettings));
             }
         }
     }

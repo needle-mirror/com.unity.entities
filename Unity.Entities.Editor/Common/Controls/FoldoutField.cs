@@ -3,11 +3,15 @@ using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    class FoldoutField : VisualElement
+#if UNITY_2023_3_OR_NEWER
+    [UxmlElement]
+#endif
+    partial class FoldoutField : VisualElement
     {
+#if !UNITY_2023_3_OR_NEWER
         class FoldoutFieldFactory : UxmlFactory<FoldoutField, FoldoutFieldTraits> { }
         class FoldoutFieldTraits : UxmlTraits { }
-
+#endif
         const string s_UssClassName = "foldout-field";
         const string s_IconOpenClassName = s_UssClassName + "__icon-open";
         const string s_IconClosedClassName = s_UssClassName + "__icon-closed";

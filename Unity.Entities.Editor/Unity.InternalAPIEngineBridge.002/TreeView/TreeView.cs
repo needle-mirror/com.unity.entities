@@ -18,36 +18,6 @@ namespace Unity.Editor.Bridge
         static readonly string s_ItemIndentName = "unity-tree-view__item-indent";
         static readonly string s_ItemContentContainerName = "unity-tree-view__item-content";
 
-        public new class UxmlFactory : UxmlFactory<TreeView, UxmlTraits> {}
-
-        public new class UxmlTraits : VisualElement.UxmlTraits
-        {
-            readonly UxmlIntAttributeDescription m_ItemHeight = new UxmlIntAttributeDescription { name = "item-height", defaultValue = ListView.s_DefaultItemHeight };
-            readonly UxmlBoolAttributeDescription m_ShowBorder = new UxmlBoolAttributeDescription { name = "show-border", defaultValue = false };
-            readonly UxmlEnumAttributeDescription<SelectionType> m_SelectionType = new UxmlEnumAttributeDescription<SelectionType> { name = "selection-type", defaultValue = SelectionType.Single };
-            // "AlternatingRowBackground" is only supported in 2020.1.
-            //private readonly UxmlEnumAttributeDescription<AlternatingRowBackground> m_ShowAlternatingRowBackgrounds = new UxmlEnumAttributeDescription<AlternatingRowBackground> { name = "show-alternating-row-backgrounds", defaultValue = AlternatingRowBackground.None };
-
-            public override IEnumerable<UxmlChildElementDescription> uxmlChildElementsDescription
-            {
-                get { yield break; }
-            }
-
-            public override void Init(VisualElement ve, IUxmlAttributes bag, CreationContext cc)
-            {
-                base.Init(ve, bag, cc);
-                int itemHeight = 0;
-                var veTemp = (TreeView)ve;
-                if (m_ItemHeight.TryGetValueFromBag(bag, cc, ref itemHeight))
-                {
-                    veTemp.itemHeight = itemHeight;
-                }
-                //veTemp.showBorder = m_ShowBorder.GetValueFromBag(bag, cc);
-                veTemp.selectionType = m_SelectionType.GetValueFromBag(bag, cc);
-                //veTemp.showAlternatingRowBackgrounds = m_ShowAlternatingRowBackgrounds.GetValueFromBag(bag, cc);
-            }
-        }
-
         Func<VisualElement> m_MakeItem;
         public Func<VisualElement> makeItem
         {

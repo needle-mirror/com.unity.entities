@@ -4,35 +4,31 @@ using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    class SpinnerElement : VisualElement
+#if UNITY_2023_3_OR_NEWER
+    [UxmlElement]
+#endif
+    partial class SpinnerElement : VisualElement
     {
-        /// <summary>
-        /// Instantiates a <see cref="SpinnerElement"/> using the data read from a UXML file.
-        /// </summary>
+#if !UNITY_2023_3_OR_NEWER
         [UsedImplicitly]
-        class SearchElementFactory : UxmlFactory<SpinnerElement, SpinnerElementTraits>
-        {
-            
-        }
+        class SpinnerElementFactory : UxmlFactory<SpinnerElement, SpinnerElementTraits> { }
 
-        /// <summary>
-        /// Defines UxmlTraits for the SpinnerElement.
-        /// </summary>
         [UsedImplicitly]
         class SpinnerElementTraits : UxmlTraits
         {
         }
+#endif
 
         static readonly VisualElementTemplate k_Template = new(Resources.PackageId, "Spinner/spinner");
 
         readonly IVisualElementScheduledItem m_ScheduledItem;
-        
+
         int m_Index;
 
         public SpinnerElement()
         {
             k_Template.AddStyles(this);
-            
+
             AddToClassList("spinner");
             AddToClassList("spinner-icons");
             AddToClassList(GetSpinnerClass(m_Index));
@@ -41,7 +37,7 @@ namespace Unity.Entities.Editor
 
         static string GetSpinnerClass(int index)
             => $"spinner-background-image-{index}";
-            
+
         void UpdateSpinner(TimerState obj)
         {
             RemoveFromClassList(GetSpinnerClass(m_Index));

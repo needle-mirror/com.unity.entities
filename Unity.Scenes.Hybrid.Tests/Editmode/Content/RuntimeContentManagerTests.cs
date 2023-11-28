@@ -198,6 +198,10 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             p.Item2.Set();
         }
 
+#if false
+        // APV doesn't respect the Ignore attribute to disable tests, so ifdef explicitly
+        // https://unity.slack.com/archives/C04UGPY27S9/p1683136704435259
+
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadAndReleaseFromThreads()
         {
@@ -238,6 +242,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             }
             ids.Dispose();
         }
+#endif
 
         struct LoadObjectJob : IJob
         {
@@ -256,6 +261,8 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
                 RuntimeContentManager.ReleaseObjectAsync(id);
             }
         }
+#if false
+
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadAdditive_GOScenes()
         {
@@ -324,6 +331,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             }
             ids.Dispose();
         }
+#endif
 
         IEnumerator AssertCanLoadAndRelease<TObject>(UntypedWeakReferenceId id) where TObject : UnityEngine.Object
         {
@@ -339,7 +347,8 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             RuntimeContentManager.ProcessQueuedCommands();
             Assert.AreEqual(ObjectLoadingStatus.None, RuntimeContentManager.GetObjectLoadingStatus(id));
         }
-
+        
+#if false
         [Test]
         public void LoadingObjectsCountIsCorrectAfterLoadsAndReleases()
         {
@@ -358,6 +367,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             Assert.AreEqual(0, RuntimeContentManager.LoadingObjectsCount());
             ids.Dispose();
         }
+
 
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadLocalAssets()
@@ -398,7 +408,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             RuntimeContentManager.ReleaseInstancesAsync(handle2);
             RuntimeContentManager.ProcessQueuedCommands();
         }
-
+#endif
 
         bool InitializeCatalogForTest()
         {
@@ -408,6 +418,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             return RuntimeContentManager.LoadLocalCatalogData(catalogPath, RuntimeContentManager.DefaultContentFileNameFunc, f => $"{TestStreamingAssetsFullPath}/{RuntimeContentManager.DefaultArchivePathFunc(f)}");
         }
 
+#if false
         [UnityTest]
 #if UNITY_EDITOR_LINUX
         [Ignore("DOTS-7790 - Ubuntu editor often crashes when running this test")]
@@ -495,7 +506,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             wr.Id.GenerationType = WeakReferenceGenerationType.UnityObject;
             Assert.IsFalse(wr.IsReferenceValid);
         }
-
+#endif
     }
 }
 #endif

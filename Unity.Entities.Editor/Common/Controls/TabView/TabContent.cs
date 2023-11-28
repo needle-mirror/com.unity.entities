@@ -2,10 +2,15 @@ using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    class TabContent : VisualElement, ITabContent, INotifyValueChanged<string>
+#if UNITY_2023_3_OR_NEWER
+    [UxmlElement]
+#endif
+    partial class TabContent : VisualElement, ITabContent, INotifyValueChanged<string>
     {
+#if !UNITY_2023_3_OR_NEWER
         class TabContentFactory : UxmlFactory<TabContent, TabContentTraits> { }
         class TabContentTraits : UxmlTraits { }
+#endif
 
         static readonly string s_UssClassName = "tab-element";
         string m_TabName;

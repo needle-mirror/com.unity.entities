@@ -4,6 +4,23 @@ uid: changelog
 
 # Changelog
 
+## [1.2.0-pre.4] - 2023-11-28
+
+### Changed
+
+* Updated Burst dependency to 1.8.10
+
+
+### Fixed
+
+* Fixed: NullReferenceException when doing GetComponent in a baker of a monobehaviour that the Editor failed to load the associated script.
+* Defensive fix for rare HierarchyWindow.OnCleanup exception (typically when breakpoint debugging).
+* The `Unity.Scenes.Editor.Tests.LiveLinkBakingEditorTests.LiveConversion_ReEnableEntityHierarchy_WhenParentGameObjectIsReEnabledFromSavedSubScene` test no longer fails.
+* An `EntityQuery` that uses `WithNone<T>` with an enableable component `T` will now insert a read dependency on `T` into the query's system, so that jobs which enable/disable `T` are correctly included in the system's input dependencies.
+* Background importing of subscenes using sections would occasionally throw an exception.
+* Selecting entities and systems now works again.
+
+
 ## [1.2.0-exp.3] - 2023-11-09
 
 ### Added
@@ -174,7 +191,7 @@ uid: changelog
 * Fixed memory leak in some cases when an `EntityCommandBuffer` containing `DynamicBuffer` commands was disposed before it was played back.
 * `World.AddSystemManaged<T>(T system)` no longer throws an exception if the system type `T` is not registered. Instead, it registers the type just in time. This matches the existing behavior of `World.CreateSystemManaged()`.
 * Fixed a hash mismatch on DependOnParentTransformHierarchy
-* Users can now specify duplicate components in the same `IJobEntity.Execute()` method, insofar as exactly one of them is wrapped in `EnabledRef<T>`. 
+* Users can now specify duplicate components in the same `IJobEntity.Execute()` method, insofar as exactly one of them is wrapped in `EnabledRef<T>`.
 * You can now use SystemAPI.GetBufferTypeHandle and SystemAPI.GetSharedComponentTypeHandle with unspecified types coming from systems. Like a `MySystem<TUnspecifiedType>` using SystemAPI.GetBufferTypeHandle<TUnspecifiedType>.
 
 

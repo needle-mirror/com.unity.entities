@@ -170,11 +170,19 @@ namespace Unity.Entities.Editor
 
             HierarchyMultiColumnListView.RegisterCallback<PointerDownEvent>(evt =>
             {
+                #if UNITY_2023_2_OR_NEWER
+                if (evt.target == HierarchyMultiColumnListView.Q(className: ScrollView.contentAndVerticalScrollUssClassName))
+                {
+                    // Clear the global selection.
+                    Selection.activeObject = null;
+                }
+                #else
                 if (evt.button == (int) MouseButton.LeftMouse)
                 {
                     // Clear the global selection.
                     Selection.activeObject = null;
                 }
+                #endif
             });
 
             listViewInnerScrollView.StretchToParentSize();
