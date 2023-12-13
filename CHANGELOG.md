@@ -4,6 +4,13 @@ uid: changelog
 
 # Changelog
 
+## [1.2.0-pre.6] - 2023-12-13
+
+### Changed
+
+* Promotion preparation
+
+
 ## [1.2.0-pre.4] - 2023-11-28
 
 ### Changed
