@@ -141,7 +141,7 @@ namespace Unity.Entities.Content
         /// <summary>
         /// Remaps the orignal content path to the path of the content in the local cache.
         /// </summary>
-        /// <param name="originalPath">The original content path, relative to teh streaming assets folder.</param>
+        /// <param name="originalPath">The original content path, relative to the streaming assets folder.</param>
         /// <returns>The remapped path in the local cache.  If the content is not already in the cache, the original path is returned.</returns>
         public string RemapContentPath(string originalPath)
         {
@@ -198,7 +198,8 @@ namespace Unity.Entities.Content
                 if (ds.Value.Name == service.Name)
                 {
                     locationServices.Remove(ds.Key);
-                    break;
+                    ds.Value.Dispose();
+                    break; 
                 }
             }
 
@@ -380,6 +381,9 @@ namespace Unity.Entities.Content
         {
             foreach(var d in downloadStates)
                 CancelDelivery(d.Key);
+
+            foreach (var cs in contentSets)
+                cs.Value.Dispose();
             contentSets.Clear();
         }
 
@@ -629,6 +633,8 @@ namespace Unity.Entities.Content
                 }
                 if (downloadStates.IsCreated)
                     downloadStates.Dispose();
+                if(activeDownloads.IsCreated)
+                    activeDownloads.Dispose();
             }
             catch (Exception e)
             {

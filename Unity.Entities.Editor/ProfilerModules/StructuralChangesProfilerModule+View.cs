@@ -99,7 +99,12 @@ namespace Unity.Entities.Editor
                 header.Q<Label>("column2").text = s_Cost;
                 header.Q<Label>("column3").text = s_Count;
 
-                m_TreeView = m_Content.Q<TreeView>("tree-view");
+                var container = m_Content.Q("tree-view-container");
+
+                m_TreeView = new TreeView();
+                container.Add(m_TreeView);
+                m_TreeView.itemHeight = 18;
+                m_TreeView.AddToClassList("structural-changes-profiler-window__tree-view");
                 m_TreeView.makeItem = () =>
                 {
                     return s_TreeViewItemTemplate.Clone();

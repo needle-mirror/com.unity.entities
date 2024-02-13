@@ -1233,6 +1233,38 @@ namespace Unity.Entities.PerformanceTests
         // Query Creation ------
 
         [Test, Performance]
+        public void EntityQuery_CreateEntityQuery_RealArchetypes([Values(1,8,16)] int componentsPerQuery)
+        {
+            int archetypeCount = 10000;
+            NativeArray<EntityArchetype> archetypes = default;
+            var queryTypes = new ComponentType[componentsPerQuery];
+            var rng = new Random(1234);
+            Measure.Method(
+                    () =>
+                    {
+                        var query = m_Manager.CreateEntityQuery(queryTypes);
+                    })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                // Create and destroy the World (and EntityManager) each measurement, so we know it's not caching query data
+                .SetUp(() =>
+                {
+                    Setup();
+                    archetypes = CreateUniqueTagArchetypes(archetypeCount);
+                    int ti = rng.NextInt(TagTypes.Length);
+                    for (int i = 0; i < componentsPerQuery; ++i)
+                        queryTypes[i] = TagTypes[(ti+i) % TagTypes.Length];
+                })
+                .CleanUp(() =>
+                {
+                    TearDown();
+                    archetypes.Dispose();
+                })
+                .SampleGroup(new SampleGroup("CreateEntityQuery", SampleUnit.Microsecond))
+                .Run();
+        }
+
+        [Test, Performance]
         public void EntityQuery_CreateEntityQuery_ComponentTypeArray_UniqueArchetypes(
             [Values(1, 100, 1000)] int queryCount, [Values(1,2,16)] int componentsPerQuery)
         {

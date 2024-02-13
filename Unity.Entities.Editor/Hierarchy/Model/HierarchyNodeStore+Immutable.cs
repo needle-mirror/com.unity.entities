@@ -66,7 +66,11 @@ namespace Unity.Entities.Editor
             /// <summary>
             /// The packed index per entity which maps to the packed sets <see cref="m_HandleNodes"/> and <see cref="m_EntityNodes"/>.
             /// </summary>
+#if ENTITY_STORE_V1
             [NativeDisableUnsafePtrRestriction] internal UnsafeList<int>* m_IndexByEntity;
+#else
+            [NativeDisableUnsafePtrRestriction] internal UnsafeHashMap<int, int>* m_IndexByEntity;
+#endif
 
             /// <summary>
             /// The packed index per non-entity handle.
@@ -130,7 +134,12 @@ namespace Unity.Entities.Editor
                 m_Data->ChangeVersion = 0;
                 m_HandleNodes = UnsafeList<HierarchyImmutableNodeData>.Create(16, allocator);
                 m_EntityNodes = UnsafeList<Entity>.Create(16, allocator);
+#if ENTITY_STORE_V1
                 m_IndexByEntity = UnsafeList<int>.Create(16, allocator);
+#else
+                m_IndexByEntity = AllocatorManager.Allocate<UnsafeHashMap<int, int>>(allocator);
+                *m_IndexByEntity = new UnsafeHashMap<int, int>(16, allocator);
+#endif
                 m_IndexByHandle = new UnsafeParallelHashMap<HierarchyNodeHandle, int>(16, allocator);
                 Clear();
             }
@@ -139,7 +148,12 @@ namespace Unity.Entities.Editor
             {
                 UnsafeList<HierarchyImmutableNodeData>.Destroy(m_HandleNodes);
                 UnsafeList<Entity>.Destroy(m_EntityNodes);
+#if ENTITY_STORE_V1
                 UnsafeList<int>.Destroy(m_IndexByEntity);
+#else
+                m_IndexByEntity->Dispose();
+                AllocatorManager.Free(m_Allocator, m_IndexByEntity);
+#endif
                 m_IndexByHandle.Dispose();
                 Memory.Unmanaged.Free(m_Data, m_Allocator);
                 m_Data = null;
@@ -154,10 +168,16 @@ namespace Unity.Entities.Editor
                 m_HandleNodes->Clear();
                 m_EntityNodes->Clear();
                 m_IndexByEntity->Clear();
-                m_IndexByHandle.Clear();
 
+#if ENTITY_STORE_V1
                 // Setup the list to always include a virtual root node.
                 m_IndexByEntity->Add(0);
+#else
+                // Setup the list to always include a virtual root node.
+                m_IndexByEntity->Add(0, 0);
+#endif
+
+                m_IndexByHandle.Clear();
 
                 m_HandleNodes->Add(new HierarchyImmutableNodeData
                 {
@@ -226,10 +246,15 @@ namespace Unity.Entities.Editor
                 {
                     case NodeKind.Entity:
                     {
+#if ENTITY_STORE_V1
                         if (handle.Index < 0 || handle.Index >= m_IndexByEntity->Length)
                             return -1;
-
                         return m_IndexByEntity->ElementAt(handle.Index);
+#else
+                        if (!m_IndexByEntity->TryGetValue(handle.Index, out var value))
+                            value = -1;
+                        return value;
+#endif
                     }
 
                     default:
@@ -247,7 +272,11 @@ namespace Unity.Entities.Editor
                 switch (handle.Kind)
                 {
                     case NodeKind.Entity:
+#if ENTITY_STORE_V1
                         m_IndexByEntity->ElementAt(handle.Index) = index;
+#else
+                        (*m_IndexByEntity)[handle.Index] = index;
+#endif
                         break;
                     default:
                         m_IndexByHandle[handle] = index;
@@ -260,7 +289,11 @@ namespace Unity.Entities.Editor
                 switch (handle.Kind)
                 {
                     case NodeKind.Entity:
+#if ENTITY_STORE_V1
                         return m_IndexByEntity->ElementAt(handle.Index);
+#else
+                        return (*m_IndexByEntity)[handle.Index];
+#endif
                     default:
                         if (!m_IndexByHandle.TryGetValue(handle, out var index))
                             index = -1;
@@ -433,9 +466,7 @@ namespace Unity.Entities.Editor
                             var job = new ExportImmutableHierarchyNodesBatchJob
                             {
                                 ExceptionThrown = &exceptionThrown,
-#if !ENTITY_STORE_V1
-                                EntityCapacity = m_World != null ? m_World.EntityManager.HighestEntityIndex() + 1 : 0,
-#else
+#if ENTITY_STORE_V1
                                 EntityCapacity = m_World != null ? m_World.EntityManager.EntityCapacity : 0,
 #endif
                                 Nodes = m_Hierarchy.m_Nodes,
@@ -522,7 +553,10 @@ namespace Unity.Entities.Editor
         unsafe struct ExportImmutableHierarchyNodesBatchJob : IJob
         {
             [NativeDisableUnsafePtrRestriction] public int* ExceptionThrown;
+
+#if ENTITY_STORE_V1
             public int EntityCapacity;
+#endif
 
             [ReadOnly] public HierarchyNodeMap<HierarchyNodeData> Nodes;
             [ReadOnly] public UnsafeParallelMultiHashMap<HierarchyNodeHandle, HierarchyNodeHandle> Children;
@@ -574,8 +608,10 @@ namespace Unity.Entities.Editor
                     WriteNodes.m_HandleNodes->Resize(handleCount, NativeArrayOptions.ClearMemory);
                     WriteNodes.m_HandleNodes->Length = handleCount;
 
+#if ENTITY_STORE_V1
                     // Allocate a sparse lookup from 'entity' to the baked out index.
                     WriteNodes.m_IndexByEntity->Resize(EntityCapacity, NativeArrayOptions.ClearMemory);
+#endif
 
                     // Start at the root and depth first traverse.
                     PushNode(HierarchyNodeHandle.Root, -1);
@@ -627,8 +663,10 @@ namespace Unity.Entities.Editor
 
             void PushNode(HierarchyNodeHandle handle, int parentIndex)
             {
+#if ENTITY_STORE_V1
                 // Broad phase check to see if the node has changed since the last pack.
                 // This optimization lets us re-use the information from a previous depth first traversal by referring to the last packed buffer (see 'ReadNodes')
+
                 if (handle.Kind != NodeKind.Root && Nodes[handle].ChangeVersion <= ReadChangeVersion)
                 {
                     // The read buffer contains the data we are interested, we can perform a copy and remap.
@@ -678,6 +716,7 @@ namespace Unity.Entities.Editor
                     m_PackingIndex += nextSiblingOffset;
                     return;
                 }
+#endif
 
                 var childrenBufferStartIndex = State.ChildrenBuffer.Length;
                 var childCount = 0;
@@ -766,7 +805,11 @@ namespace Unity.Entities.Editor
                 for (var i = 0; i < entityCount; i++)
                 {
                     var entity = WriteNodes.m_EntityNodes->ElementAt(i);
+#if ENTITY_STORE_V1
                     WriteNodes.m_IndexByEntity->ElementAt(entity.Index) = packingIndex++;
+#else
+                    (*WriteNodes.m_IndexByEntity)[entity.Index] = packingIndex++;
+#endif
                 }
 
                 State.PackingIndex = packingIndex;

@@ -320,56 +320,75 @@ namespace Unity.Entities.Internal
             return (IntPtr)ptr;
         }
 
-// `UnsafeGetUncheckedRefRO<T>()` is called from within source-generated code for `foreach` iterations
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        /// <summary>
+        /// Dont USE! -`UnsafeGetUncheckedRefRO&lt;T&gt;()` is called from within source-generated code for `foreach` iterations
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UncheckedRefRO<T> UnsafeGetUncheckedRefRO<T>(IntPtr ptr, int index, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
-            => new(ptr + UnsafeUtility.SizeOf<T>() * index, typeHandle.m_Safety);
-#else
+        {
+            return new UncheckedRefRO<T>(ptr + UnsafeUtility.SizeOf<T>() * index
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    , typeHandle.m_Safety
+#endif
+            );
+        }
+#if !ENABLE_UNITY_COLLECTIONS_CHECKS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UncheckedRefRO<T> UnsafeGetUncheckedRefRO<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData
             => new(ptr + UnsafeUtility.SizeOf<T>() * index);
 #endif
 
-// `UnsafeGetUncheckedRefRW<T>()` is called from within source-generated code for `foreach` iterations
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        /// <summary>
+        /// Dont USE! - `UnsafeGetUncheckedRefRW&lt;T&gt;()` is called from within source-generated code for `foreach` iterations
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UncheckedRefRW<T> UnsafeGetUncheckedRefRW<T>(IntPtr ptr, int index, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
-            => new(ptr + UnsafeUtility.SizeOf<T>() * index, typeHandle.m_Safety);
-#else
+        {
+            return new UncheckedRefRW<T>(ptr + UnsafeUtility.SizeOf<T>() * index
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                    , typeHandle.m_Safety
+#endif
+            );
+        }
+#if !ENABLE_UNITY_COLLECTIONS_CHECKS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static UncheckedRefRW<T> UnsafeGetUncheckedRefRW<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData
             => new(ptr + UnsafeUtility.SizeOf<T>() * index);
 #endif
-
-// `GetRefRO<T>()` is called from within source-generated `IJobChunk`s
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        /// <summary>
+        /// Dont USE! -`GetRefRO&lt;T&gt;()` is called from within source-generated `IJobChunk`s
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe RefRO<T> GetRefRO<T>(IntPtr ptr, int index, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
         {
-            return new RefRO<T>((byte*)ptr + UnsafeUtility.SizeOf<T>() * index, typeHandle.m_Safety);
+            return new RefRO<T>((byte*)ptr + UnsafeUtility.SizeOf<T>() * index
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                , typeHandle.m_Safety
+#endif
+                );
         }
-#else
+#if !ENABLE_UNITY_COLLECTIONS_CHECKS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe RefRO<T> GetRefRO<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData
-        {
-            return new RefRO<T>((byte*)ptr + UnsafeUtility.SizeOf<T>() * index);
-        }
+            => new ((byte*)ptr + UnsafeUtility.SizeOf<T>() * index);
 #endif
 
-// `GetRefRW<T>()` is called from within source-generated `IJobChunk`s
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
+        /// <summary>
+        /// Dont USE! - `GetRefRW&lt;T&gt;()` is called from within source-generated `IJobChunk`s
+        /// </summary>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe RefRW<T> GetRefRW<T>(IntPtr ptr, int index, ref ComponentTypeHandle<T> typeHandle) where T : unmanaged, IComponentData
         {
-            return new RefRW<T>((byte*)ptr + UnsafeUtility.SizeOf<T>() * index, typeHandle.m_Safety);
+            return new RefRW<T>((byte*)ptr + UnsafeUtility.SizeOf<T>() * index
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                , typeHandle.m_Safety
+#endif
+            );
         }
-#else
+#if !ENABLE_UNITY_COLLECTIONS_CHECKS
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public static unsafe RefRW<T> GetRefRW<T>(IntPtr ptr, int index) where T : unmanaged, IComponentData
-        {
-            return new RefRW<T>((byte*)ptr + UnsafeUtility.SizeOf<T>() * index);
-        }
+            => new((byte*)ptr + UnsafeUtility.SizeOf<T>() * index);
 #endif
 
         /// <summary>

@@ -11,13 +11,13 @@ namespace Unity.Entities.Editor
     /// </summary>
     /// <remarks>
     /// This structure uses a sparse array mapping to an internal dense array. This uses a fixed size overhead to save on per-entity storage costs.
-    /// 
+    ///
     /// This structure is best used if:
     ///     - the size of <typeparamref name="T"/> is larger than ~8 bytes
     ///     - the data must exist on FEW entity in a world
     ///
     /// otherwise; consider using <seealso cref="EntityMapSparse{T}"/>
-    /// 
+    ///
     /// This data structure has a fixed memory overhead of 8 bytes per entity and will expand as data is added.
     /// </remarks>
     /// <typeparam name="T">The data type to store per entity.</typeparam>
@@ -42,7 +42,7 @@ namespace Unity.Entities.Editor
         /// Returns the number of entries in the storage.
         /// </summary>
         public int Count => m_EntityMapDenseData->Count;
-        
+
         /// <summary>
         /// Returns the total number of unique entries, not including shared instances.
         /// </summary>
@@ -95,7 +95,7 @@ namespace Unity.Entities.Editor
         /// <param name="value">The shared default value to set.</param>
         public void SetSharedDefaultValue(T value)
             => m_EntityMapDenseData->SetSharedDefaultValue(value);
-        
+
         /// <summary>
         /// Gets the shared default value.
         /// </summary>
@@ -104,7 +104,7 @@ namespace Unity.Entities.Editor
 
         internal void GetDefaultEntities(Entity* entities)
             => m_EntityMapDenseData->GetDefaultEntities(entities);
-        
+
         /// <summary>
         /// Clears the storage for re-use.
         /// </summary>
@@ -132,7 +132,7 @@ namespace Unity.Entities.Editor
         /// <param name="entity">The entity to remove data for.</param>
         public void Remove(Entity entity)
             => m_EntityMapDenseData->Remove(entity);
-        
+
         /// <summary>
         /// Registers an entity to the dense set and assigns it the default value. This method performs no validation for free list checking. Use with caution.
         /// </summary>
@@ -142,7 +142,7 @@ namespace Unity.Entities.Editor
 
         public Enumerator GetEnumerator()
             => new Enumerator(m_EntityMapDenseData->GetEnumerator());
-        
+
         public NonDefaultEntityEnumerator GetNonDefaultEntityEnumerator()
             => new NonDefaultEntityEnumerator(m_EntityMapDenseData->GetNonDefaultEntityEnumerator());
 
@@ -165,13 +165,13 @@ namespace Unity.Entities.Editor
             public void Reset()
                 => m_Enumerator.Reset();
 
-            public EntityWithValue<T> Current 
+            public EntityWithValue<T> Current
                 => m_Enumerator.Current;
 
-            object IEnumerator.Current 
+            object IEnumerator.Current
                 => Current;
         }
-        
+
         public struct NonDefaultEntityEnumerator : IEnumerator<EntityWithValue<T>>
         {
             UnsafeEntityMapDense<T>.NonDefaultEntityEnumerator m_Enumerator;
@@ -191,29 +191,33 @@ namespace Unity.Entities.Editor
             public void Reset()
                 => m_Enumerator.Reset();
 
-            public EntityWithValue<T> Current 
+            public EntityWithValue<T> Current
                 => m_Enumerator.Current;
 
-            object IEnumerator.Current 
+            object IEnumerator.Current
                 => Current;
         }
     }
-    
+
     /// <summary>
     /// The internal storage for the <see cref="EntityMapDense{T}"/>.
     /// </summary>
     unsafe struct UnsafeEntityMapDense<T> : IDisposable where T : unmanaged
     {
+#if ENTITY_STORE_V1
         /// <summary>
         /// Sparse indexing in to the dense data set.
         /// </summary>
         UnsafeEntityMapSparse<int> m_IndexByEntity;
-        
+#else
+        UnsafeHashMap<Entity, int> m_IndexByEntity;
+#endif
+
         /// <summary>
         /// A set of free indices in the dense data set.
         /// </summary>
         UnsafeList<int> m_FreeIndex;
-        
+
         /// <summary>
         /// The densely packed data array.
         /// </summary>
@@ -252,7 +256,7 @@ namespace Unity.Entities.Editor
         /// <param name="allocator">The allocator type.</param>
         public UnsafeEntityMapDense(int initialCapacity, Allocator allocator)
         {
-            m_IndexByEntity = new UnsafeEntityMapSparse<int>(initialCapacity, allocator);
+            m_IndexByEntity = new(initialCapacity, allocator);
             m_FreeIndex = new UnsafeList<int>(initialCapacity, allocator);
             m_DataByIndex = new UnsafeList<T>(initialCapacity, allocator) {default};
         }
@@ -296,14 +300,18 @@ namespace Unity.Entities.Editor
         internal void GetDefaultEntities(Entity* entities)
         {
             var index = 0;
-            
+
             foreach (var entityValuePair in m_IndexByEntity)
             {
                 if (entityValuePair.Value == 0)
+#if ENTITY_STORE_V1
                     entities[index++] = entityValuePair.Entity;
+#else
+                    entities[index++] = entityValuePair.Key;
+#endif
             }
         }
-        
+
         /// <summary>
         /// Clears the storage for re-use.
         /// </summary>
@@ -320,9 +328,11 @@ namespace Unity.Entities.Editor
         /// <param name="capacity">The capacity to set.</param>
         public void Resize(int capacity)
         {
+#if ENTITY_STORE_V1
             m_IndexByEntity.Resize(capacity);
+#endif
         }
-        
+
         /// <summary>
         /// Returns true if the given entity exists in the sparse data set.
         /// </summary>
@@ -330,7 +340,11 @@ namespace Unity.Entities.Editor
         /// <returns></returns>
         public bool Exists(Entity entity)
         {
+#if ENTITY_STORE_V1
             return m_IndexByEntity.Exists(entity);
+#else
+            return m_IndexByEntity.ContainsKey(entity);
+#endif
         }
 
         /// <summary>
@@ -344,7 +358,7 @@ namespace Unity.Entities.Editor
 
             if (m_IndexByEntity[entity] != 0)
                 m_FreeIndex.Add(m_IndexByEntity[entity]);
-            
+
             m_IndexByEntity.Remove(entity);
         }
 
@@ -370,7 +384,7 @@ namespace Unity.Entities.Editor
                 Resize(entity.Index + 1);
             }
 
-            if (m_IndexByEntity.Exists(entity)) // This entity already exists in the sparse set.
+            if (Exists(entity)) // This entity already exists in the sparse set.
             {
                 if (m_IndexByEntity[entity] == 0) // This entity is currently pointing to the shared 0 index.
                 {
@@ -458,23 +472,34 @@ namespace Unity.Entities.Editor
 
         public Enumerator GetEnumerator()
             => new Enumerator(m_IndexByEntity.GetEnumerator(), m_DataByIndex);
-        
+
         public NonDefaultEntityEnumerator GetNonDefaultEntityEnumerator()
             => new NonDefaultEntityEnumerator(m_IndexByEntity.GetEnumerator(), m_DataByIndex);
-        
+
         /// <summary>
         /// An enumerator which will iterate all key-value pairs in the map.
         /// </summary>
         public struct Enumerator : IEnumerator<EntityWithValue<T>>
         {
-            UnsafeEntityMapSparse<int>.Enumerator m_Enumerator;
             UnsafeList<T> m_Data;
+
+#if ENTITY_STORE_V1
+            UnsafeEntityMapSparse<int>.Enumerator m_Enumerator;
 
             public Enumerator(UnsafeEntityMapSparse<int>.Enumerator enumerator, UnsafeList<T> data)
             {
                 m_Enumerator = enumerator;
                 m_Data = data;
             }
+#else
+            UnsafeHashMap<Entity, int>.Enumerator m_Enumerator;
+
+            public Enumerator(UnsafeHashMap<Entity, int>.Enumerator enumerator, UnsafeList<T> data)
+            {
+                m_Enumerator = enumerator;
+                m_Data = data;
+            }
+#endif
 
             public void Dispose()
             {
@@ -498,7 +523,11 @@ namespace Unity.Entities.Editor
 
                     return new EntityWithValue<T>
                     {
+#if ENTITY_STORE_V1
                         Entity = entityWithIndex.Entity,
+#else
+                        Entity = entityWithIndex.Key,
+#endif
                         Value = m_Data[entityWithIndex.Value]
                     };
                 }
@@ -506,20 +535,31 @@ namespace Unity.Entities.Editor
 
             object IEnumerator.Current => Current;
         }
-        
+
         /// <summary>
         /// An enumerator which will iterate all non-default key-value pairs in the map.
         /// </summary>
         public struct NonDefaultEntityEnumerator : IEnumerator<EntityWithValue<T>>
         {
-            UnsafeEntityMapSparse<int>.Enumerator m_Enumerator;
             UnsafeList<T> m_DataByIndex;
+
+#if ENTITY_STORE_V1
+            UnsafeEntityMapSparse<int>.Enumerator m_Enumerator;
 
             public NonDefaultEntityEnumerator(UnsafeEntityMapSparse<int>.Enumerator enumerator, UnsafeList<T> dataByIndex)
             {
                 m_Enumerator = enumerator;
                 m_DataByIndex = dataByIndex;
             }
+#else
+            UnsafeHashMap<Entity, int>.Enumerator m_Enumerator;
+
+            public NonDefaultEntityEnumerator(UnsafeHashMap<Entity, int>.Enumerator enumerator, UnsafeList<T> dataByIndex)
+            {
+                m_Enumerator = enumerator;
+                m_DataByIndex = dataByIndex;
+            }
+#endif
 
             public void Dispose()
             {
@@ -533,9 +573,9 @@ namespace Unity.Entities.Editor
                     {
                         return false;
                     }
-                } 
+                }
                 while (m_Enumerator.Current.Value == 0);
-                
+
                 return true;
             }
 
@@ -552,7 +592,11 @@ namespace Unity.Entities.Editor
 
                     return new EntityWithValue<T>
                     {
+#if ENTITY_STORE_V1
                         Entity = entityWithIndex.Entity,
+#else
+                        Entity = entityWithIndex.Key,
+#endif
                         Value = m_DataByIndex[entityWithIndex.Value]
                     };
                 }

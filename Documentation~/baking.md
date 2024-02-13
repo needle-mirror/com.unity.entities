@@ -1,7 +1,7 @@
 
 # Baking
 
-Baking is a process that transforms GameObject data in the Unity Editor (authoring data) into to entities written to entity scenes (runtime data).
+Baking is a process that transforms GameObject data in the Unity Editor (authoring data) into entities written to entity scenes (runtime data).
 
 |**Topic**|**Description**|
 |---|---|

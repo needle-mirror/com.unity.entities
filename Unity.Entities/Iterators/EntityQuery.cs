@@ -1302,15 +1302,17 @@ namespace Unity.Entities
             if (_QueryData->HasEnableableComponents != 0)
                 throw new InvalidOperationException($"Can't call GetSingletonEntity() on queries containing enableable component types.");
 #endif
-            GetSingletonChunk(TypeManager.GetTypeIndex<Entity>(), out var indexInArchetype, out var chunk);
+            GetSingletonChunkAndEntity(TypeManager.GetTypeIndex<Entity>(), out var indexInArchetype, out var chunk, out var entityIndexInChunk);
             var archetype = _Access->EntityComponentStore->GetArchetype(chunk);
-            return UnsafeUtility.AsRef<Entity>(ChunkIterationUtility.GetChunkComponentDataROPtr(archetype, chunk, 0));
+            Entity* chunkEntities = (Entity*)ChunkIterationUtility.GetChunkComponentDataROPtr(archetype, chunk, 0);
+            return UnsafeUtility.AsRef<Entity>(chunkEntities + entityIndexInChunk);
         }
 
         [MethodImpl(MethodImplOptions.NoInlining)]
-        internal void GetSingletonChunk(TypeIndex typeIndex, out int outIndexInArchetype, out ChunkIndex outChunk)
+        internal void GetSingletonChunkAndEntity(TypeIndex typeIndex, out int outIndexInArchetype, out ChunkIndex outChunk, out int outEntityIndexInChunk)
         {
-            if (!_Filter.RequiresMatchesFilter && _QueryData->RequiredComponentsCount <= 2 && _QueryData->RequiredComponents[1].TypeIndex == typeIndex)
+            if (!_Filter.RequiresMatchesFilter && _QueryData->HasEnableableComponents == 0 &&
+                _QueryData->RequiredComponentsCount <= 2 && _QueryData->RequiredComponents[1].TypeIndex == typeIndex)
             {
                 // Fast path with no filtering
                 var matchingChunkCache = GetMatchingChunkCache();
@@ -1330,12 +1332,16 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
                 var matchIndex = matchingChunkCache.PerChunkMatchingArchetypeIndex->Ptr[0];
                 var match = _QueryData->MatchingArchetypes.Ptr[matchIndex];
                 outIndexInArchetype = match->IndexInArchetype[1];
+                outEntityIndexInChunk = 0;
             }
             else
             {
                 // Slow path with filtering, can't just use first matching archetype/chunk
+                SyncFilterTypes();
+                int queryEntityCount = ChunkIterationUtility.CalculateEntityCountAndSingleton(GetMatchingChunkCache(),
+                    ref _QueryData->MatchingArchetypes, ref _Filter, _QueryData->HasEnableableComponents,
+                    out MatchingArchetype* firstMatchArchetype, out outChunk, out outEntityIndexInChunk);
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-                var queryEntityCount = CalculateEntityCount();
                 if (queryEntityCount != 1)
                 {
                     _QueryData->CheckChunkListCacheConsistency(false);
@@ -1344,27 +1350,7 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
                 }
 #endif
                 var indexInQuery = GetIndexInEntityQuery(typeIndex);
-
-                var matchingChunkCache = GetMatchingChunkCache();
-                var chunkList = *matchingChunkCache.MatchingChunks;
-                var matchingArchetypeIndices = *matchingChunkCache.PerChunkMatchingArchetypeIndex;
-                var matchingArchetypes = _QueryData->MatchingArchetypes.Ptr;
-                int chunkCount = chunkList.Length;
-                // per-chunk filtering only
-                for (int i = 0; i < chunkCount; ++i)
-                {
-                    var chunk = chunkList[i];
-                    var matchIndex = matchingArchetypeIndices[i];
-                    var match = matchingArchetypes[matchIndex];
-                    if (match->ChunkMatchesFilter(chunk.ListIndex, ref _Filter))
-                    {
-                        outIndexInArchetype = match->IndexInArchetype[indexInQuery];
-                        outChunk = chunk;
-                        return;
-                    }
-                }
-
-                throw new InvalidOperationException("GetSingleton() failed: found no chunk that matches the provided filter.");
+                outIndexInArchetype = firstMatchArchetype->IndexInArchetype[indexInQuery];
             }
         }
 
@@ -1385,10 +1371,11 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
             _Access->DependencyManager->Safety.CompleteReadAndWriteDependency(typeIndex);
 #endif
 
-            GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
+            GetSingletonChunkAndEntity(typeIndex, out var indexInArchetype, out var chunk, out var entityIndexInChunk);
 
             var archetype = _Access->EntityComponentStore->GetArchetype(chunk);
-            var data = ChunkDataUtility.GetComponentDataRW(chunk, archetype, 0, indexInArchetype, _Access->EntityComponentStore->GlobalSystemVersion);
+            var data = ChunkDataUtility.GetComponentDataRW(chunk, archetype, entityIndexInChunk,
+                indexInArchetype, _Access->EntityComponentStore->GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(_Access->EntityComponentStore->m_RecordToJournal != 0))
@@ -1431,12 +1418,13 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
                 throw new InvalidOperationException($"Can't call GetSingleton<{typeName}>() with zero-size type {typeName}.");
             }
 
-            if (TypeManager.IsEnableable(typeIndex))
-            {
-                var typeName = typeIndex.ToFixedString();
-                throw new InvalidOperationException(
-                    $"Can't call GetSingleton<{typeName}>() with enableable component type {typeName}.");
-            }
+            if (_QueryData->HasEnableableComponents != 0)
+                if (TypeManager.IsEnableable(typeIndex))
+                {
+                    var typeName = typeIndex.ToFixedString();
+                    throw new InvalidOperationException(
+                        $"Can't call GetSingleton<{typeName}>() with enableable component type {typeName}.");
+                }
 #endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             _Access->DependencyManager->Safety.CompleteWriteDependency(typeIndex);
@@ -1468,9 +1456,10 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
             }
             else
             {
-                GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
+                GetSingletonChunkAndEntity(typeIndex, out var indexInArchetype, out var chunk, out var entityIndexInChunk);
                 var archetype = _Access->EntityComponentStore->GetArchetype(chunk);
-                return UnsafeUtility.AsRef<T>(ChunkIterationUtility.GetChunkComponentDataROPtr(archetype, chunk, indexInArchetype));
+                T* chunkComponentValues = (T*)ChunkIterationUtility.GetChunkComponentDataROPtr(archetype, chunk, indexInArchetype);
+                return UnsafeUtility.AsRef<T>(chunkComponentValues + entityIndexInChunk);
             }
         }
 
@@ -1491,7 +1480,7 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
             else
                 _Access->DependencyManager->CompleteReadAndWriteDependencyNoChecks(typeIndex);
 
-            GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
+            GetSingletonChunkAndEntity(typeIndex, out var indexInArchetype, out var chunk, out var entityIndexInChunk);
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(_Access->EntityComponentStore->m_RecordToJournal != 0) && !isReadOnly)
                 RecordSingletonJournalRW(chunk, typeIndex, EntitiesJournaling.RecordType.GetBufferRW);
@@ -1506,7 +1495,7 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
             var bufferAccessor = ChunkIterationUtility.GetChunkBufferAccessor<T>(archetype, chunk, !isReadOnly, indexInArchetype,
                 _Access->EntityComponentStore->GlobalSystemVersion);
 #endif
-            return bufferAccessor[0];
+            return bufferAccessor[entityIndexInChunk];
         }
 
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
@@ -2719,6 +2708,7 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// </summary>
         /// <returns>The only entity matching this query.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the number of entities that match this query is not exactly one.</exception>
+        /// <exception cref="InvalidOperationException">Thrown the query references any enableable components.</exception>
         public Entity GetSingletonEntity() => _GetImpl()->GetSingletonEntity();
 
         /// <summary>
@@ -2821,6 +2811,7 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         ///  If a singleton of the specified types does not exist in the current <see cref="World"/>, this is set to Entity.Null</param>
         /// <returns>True, if exactly one <see cref="Entity"/> matches the <see cref="EntityQuery"/> with the provided component type.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the number of entities that match this query is greater than one.</exception>
+        /// <exception cref="InvalidOperationException">Thrown the query references any enableable components.</exception>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public bool TryGetSingletonEntity<T>(out Entity value)
             => _GetImpl()->TryGetSingletonEntity<T>(out value);
@@ -3295,10 +3286,10 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
             var access = impl->_Access;
             access->DependencyManager->CompleteWriteDependencyNoChecks(typeIndex);
 
-            impl->GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
+            impl->GetSingletonChunkAndEntity(typeIndex, out var indexInArchetype, out var chunk, out var entityIndexInChunk);
 
             var archetype = query.GetEntityComponentStore()->GetArchetype(chunk);
-            int managedComponentIndex = *(int*)ChunkDataUtility.GetComponentDataRO(chunk, archetype, 0, indexInArchetype);
+            int managedComponentIndex = *(int*)ChunkDataUtility.GetComponentDataRO(chunk, archetype, entityIndexInChunk, indexInArchetype);
             return (T)access->ManagedComponentStore.GetManagedComponent(managedComponentIndex);
         }
 
@@ -3353,10 +3344,11 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
             access->DependencyManager->Safety.CompleteReadAndWriteDependency(typeIndex);
 #endif
 
-            impl->GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
+            impl->GetSingletonChunkAndEntity(typeIndex, out var indexInArchetype, out var chunk, out var entityIndexInChunk);
             var archetype = access->EntityComponentStore->GetArchetype(chunk);
 
-            int managedComponentIndex = *(int*)ChunkDataUtility.GetComponentDataRW(chunk, archetype, 0, indexInArchetype, access->EntityComponentStore->GlobalSystemVersion);
+            int managedComponentIndex = *(int*)ChunkDataUtility.GetComponentDataRW(chunk, archetype, entityIndexInChunk,
+                indexInArchetype, access->EntityComponentStore->GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             var store = access->EntityComponentStore;
@@ -3441,10 +3433,11 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
 
             var store = access->EntityComponentStore;
 
-            impl->GetSingletonChunk(typeIndex, out var indexInArchetype, out var chunk);
+            impl->GetSingletonChunkAndEntity(typeIndex, out var indexInArchetype, out var chunk, out var entityIndexInChunk);
             var archetype = store->GetArchetype(chunk);
 
-            managedComponentIndex = (int*)ChunkDataUtility.GetComponentDataRW(chunk, archetype, 0, indexInArchetype, store->GlobalSystemVersion);
+            managedComponentIndex = (int*)ChunkDataUtility.GetComponentDataRW(chunk, archetype, entityIndexInChunk,
+                indexInArchetype, store->GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(store->m_RecordToJournal != 0))

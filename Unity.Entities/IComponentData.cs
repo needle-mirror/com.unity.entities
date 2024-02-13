@@ -123,6 +123,9 @@ namespace Unity.Entities
     /// An interface for a component that must be removed individually after its entity is destroyed.
     /// </summary>
     /// <remarks>
+    /// Cleanup components should only be added to individual entities at runtime.
+    /// They will not be serialized during the baking process, will not be copied to entity instances
+    /// during instantiation, and are not included when entities are copied between Worlds.
     /// See [Cleanup Components](xref:components-cleanup) for additional information.
     /// </remarks>
     [RequireImplementors]
@@ -146,6 +149,12 @@ namespace Unity.Entities
     /// <summary>
     /// An interface for a buffer component that must be removed individually after its entity is destroyed.
     /// </summary>
+    /// <remarks>
+    /// Cleanup components should only be added to individual entities at runtime.
+    /// They will not be serialized during the baking process, will not be copied to entity instances
+    /// during instantiation, and are not included when entities are copied between Worlds.
+    /// See [Cleanup Components](xref:components-cleanup) for additional information.
+    /// </remarks>
     /// <seealso cref="ICleanupComponentData"/>
     /// <seealso cref="IBufferElementData"/>
     [RequireImplementors]
@@ -169,6 +178,12 @@ namespace Unity.Entities
     /// <summary>
     /// An interface for a shared component that must be removed individually after its entity is destroyed.
     /// </summary>
+    /// <remarks>
+    /// Cleanup components should only be added to individual entities at runtime.
+    /// They will not be serialized during the baking process, will not be copied to entity instances
+    /// during instantiation, and are not included when entities are copied between Worlds.
+    /// See [Cleanup Shared Components](xref:components-cleanup-shared) for additional information.
+    /// </remarks>
     /// <seealso cref="ICleanupComponentData"/>
     /// <seealso cref="ISharedComponentData"/>
     [RequireImplementors]

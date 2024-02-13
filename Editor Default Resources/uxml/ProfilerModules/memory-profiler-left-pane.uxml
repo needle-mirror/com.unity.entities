@@ -11,6 +11,6 @@
             <ui:Label name="column2" class="memory-profiler-left-pane__column2"/>
             <ui:Label name="column3" class="memory-profiler-left-pane__column3"/>
         </ui:VisualElement>
-        <uib:TreeView name="tree-view" item-height="18" class="memory-profiler-left-pane__tree-view"/>
+        <ui:VisualElement name="tree-view-container" />
     </ui:VisualElement>
 </UXML>

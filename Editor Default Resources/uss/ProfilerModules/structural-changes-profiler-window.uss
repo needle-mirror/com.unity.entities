@@ -72,6 +72,10 @@
     -unity-text-align: middle-left;
 }
 
+#tree-view-container
+{
+    flex-grow: 1;
+}
 .structural-changes-profiler-window__tree-view
 {
     flex-grow: 1;

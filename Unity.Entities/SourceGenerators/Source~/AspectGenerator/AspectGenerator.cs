@@ -17,8 +17,8 @@ namespace Unity.Entities.SourceGen.Aspect
     public class AspectGenerator : ISourceGenerator, IDiagnosticFrame
     {
         static readonly string s_GeneratorName = "Aspect";
-        private static Dictionary<string, AspectDefinition> m_cache = null;
-        private static Dictionary<string, AspectDefinition> AspectCache => m_cache ??= new Dictionary<string, AspectDefinition>();
+        Dictionary<string, AspectDefinition> m_cache = null;
+        Dictionary<string, AspectDefinition> AspectCache => m_cache ??= new Dictionary<string, AspectDefinition>();
 
         /// <summary>
         /// Register our syntax receiver

@@ -1,5 +1,6 @@
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
@@ -55,10 +56,20 @@ namespace Unity.Entities.Hybrid.PerformanceTests
             BakingFlags = BakingUtility.BakingFlags.AssignName |
                               BakingUtility.BakingFlags.AddEntityGUID
         };
-//reducing tested values due to ubuntu failure.
+
+        private static IEnumerable<int> GetParameterValuesForCompanionComponent_TransformSync()
+        {
+            yield return 1;
+            yield return 10;
+            yield return 100;
+            yield return 1000;
+#if !UNITY_EDITOR_LINUX // [DOTS-9856] Linux editor performance is much slower than other desktop platforms
+            yield return 9000;
+#endif
+        }
 
         [Test, Performance]
-        public unsafe void CompanionComponent_TransformSync([Values(1, 10, 100)] int companionCount)
+        public unsafe void CompanionComponent_TransformSync([ValueSource("GetParameterValuesForCompanionComponent_TransformSync")] int companionCount)
         {
             BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
 
@@ -112,8 +123,19 @@ namespace Unity.Entities.Hybrid.PerformanceTests
             entities.Dispose();
         }
 
-        [Test, Performance]
-        public void CompanionComponent_ConvertScene([Values(1, 10, 100)] int numObjects)
+        private static IEnumerable<int> GetParameterValuesForCompanionComponent_ConvertScene()
+        {
+            yield return 1;
+            yield return 10;
+            yield return 100;
+            yield return 1000;
+#if !UNITY_EDITOR_LINUX // [DOTS-9856] Linux editor performance is much slower than other desktop platforms
+            yield return 10000;
+#endif
+        }
+
+        [Test, Performance, Timeout(1000000)]
+        public void CompanionComponent_ConvertScene([ValueSource("GetParameterValuesForCompanionComponent_ConvertScene")] int numObjects)
         {
             BakingUtility.AddAdditionalCompanionComponentType(typeof(ConversionTestCompanionComponent));
 

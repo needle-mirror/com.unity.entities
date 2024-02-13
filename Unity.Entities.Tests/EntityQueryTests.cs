@@ -2807,8 +2807,6 @@ namespace Unity.Entities.Tests
 
             public void OnCreate(ref SystemState state)
             {
-                // state.GetComponentTypeHandle<TestComponent2>(); // UNCOMMENT TO WORK AROUND BUG
-
                 _query = SystemAPI.QueryBuilder()
                     .WithAll<EcsTestData>()
                     .WithNone<EcsTestDataEnableable>()

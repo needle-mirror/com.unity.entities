@@ -185,7 +185,6 @@ namespace Unity.Entities
                 if (m_DidPushTime)
                 {
                     group.World.PopTime();
-                    group.World.RestoreGroupAllocator(m_OldGroupAllocators);
                 }
                 else
                 {
@@ -204,7 +203,13 @@ namespace Unity.Entities
                 }
                 else
                 {
-                    // No update is necessary at this time.
+                    // Restore old allocator only when we stop fixed updates
+                    if (m_DidPushTime)
+                    {
+                        group.World.RestoreGroupAllocator(m_OldGroupAllocators);
+                    }
+
+                    // No update is necessary at this time
                     m_DidPushTime = false;
                     return false;
                 }
@@ -215,10 +220,15 @@ namespace Unity.Entities
                     elapsedTime: m_LastFixedUpdateTime,
                     deltaTime: m_FixedTimestep));
 
-                m_DidPushTime = true;
+                // Set the world update allocator to be fixed rate system group allocator
+                // at the start of fixed updates
+                if(!m_DidPushTime)
+                {
+                    m_DidPushTime = true;
+                    m_OldGroupAllocators = group.World.CurrentGroupAllocators;
+                    group.World.SetGroupAllocator(group.RateGroupAllocators);
+                }
 
-                m_OldGroupAllocators = group.World.CurrentGroupAllocators;
-                group.World.SetGroupAllocator(group.RateGroupAllocators);
                 return true;
             }
         }

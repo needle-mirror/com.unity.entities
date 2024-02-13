@@ -141,7 +141,11 @@ namespace Unity.Entities.Editor
         EntityQuery m_ParentQuery;
         EntityQuery m_SceneTagWithoutParentQuery;
 
+#if ENTITY_STORE_V1
         NativeList<int> m_DistinctBuffer;
+#else
+        NativeHashMap<Entity, int> m_DistinctBuffer;
+#endif
 
         /// <summary>
         /// Gets or sets the operation mode used by the change tracker. This determines which components and data drives the hierarchy.
@@ -213,7 +217,12 @@ namespace Unity.Entities.Editor
             m_ParentChangeTracker = new ComponentDataDiffer(ecs, ComponentType.ReadOnly<Parent>());
             m_SceneTagWithoutParentChangeTracker = new UnmanagedSharedComponentDataDiffer(ComponentType.ReadOnly<SceneTag>());
 
+#if ENTITY_STORE_V1
             m_DistinctBuffer = new NativeList<int>(16, allocator);
+#else
+            m_DistinctBuffer = new NativeHashMap<Entity, int>(16, allocator);
+#endif
+
             m_EmptyQuery = m_World.EntityManager.CreateEntityQuery(new EntityQueryDesc{All = new ComponentType[] {typeof(UnusedTag)}});
 
             RebuildQueryCache(null);
@@ -260,9 +269,7 @@ namespace Unity.Entities.Editor
             {
                 new DistinctJob
                 {
-#if !ENTITY_STORE_V1
-                    EntityCapacity = m_World.EntityManager.HighestEntityIndex() + 1,
-#else
+#if ENTITY_STORE_V1
                     EntityCapacity = m_World.EntityManager.EntityCapacity,
 #endif
                     Changes = changes,
@@ -290,37 +297,72 @@ namespace Unity.Entities.Editor
         [BurstCompile]
         struct DistinctJob : IJob
         {
-            public int EntityCapacity;
             public HierarchyEntityChanges Changes;
+
+#if ENTITY_STORE_V1
+            public int EntityCapacity;
             public NativeList<int> DistinctBuffer;
+#else
+            public NativeHashMap<Entity, int> DistinctBuffer;
+#endif
 
             public void Execute()
             {
+#if ENTITY_STORE_V1
                 DistinctBuffer.ResizeUninitialized(EntityCapacity);
+#endif
 
                 if (Changes.CreatedEntities.Length > 0 && Changes.DestroyedEntities.Length > 0)
                     RemoveDuplicate(DistinctBuffer, Changes.CreatedEntities, Changes.DestroyedEntities);
 
                 if (Changes.AddedParentEntities.Length > 0 && Changes.RemovedParentEntities.Length > 0)
+#if ENTITY_STORE_V1
                     RemoveDuplicate(DistinctBuffer.AsArray(), Changes.AddedParentEntities, Changes.RemovedParentEntities, Changes.AddedParentComponents, Changes.RemovedParentComponents);
+#else
+                    RemoveDuplicate(DistinctBuffer, Changes.AddedParentEntities, Changes.RemovedParentEntities, Changes.AddedParentComponents, Changes.RemovedParentComponents);
+#endif
 
                 if (Changes.AddedSceneTagWithoutParentEntities.Length > 0 && Changes.RemovedSceneTagWithoutParentEntities.Length > 0)
+#if ENTITY_STORE_V1
                     RemoveDuplicate(DistinctBuffer.AsArray(), Changes.AddedSceneTagWithoutParentEntities, Changes.RemovedSceneTagWithoutParentEntities, Changes.AddedSceneTagWithoutParentComponents);
+#else
+                    RemoveDuplicate(DistinctBuffer, Changes.AddedSceneTagWithoutParentEntities, Changes.RemovedSceneTagWithoutParentEntities, Changes.AddedSceneTagWithoutParentComponents);
+#endif
             }
 
-            static unsafe void RemoveDuplicate(NativeList<int> index, NativeList<Entity> added, NativeList<Entity> removed)
+            static unsafe void RemoveDuplicate(
+#if ENTITY_STORE_V1
+                NativeList<int> index,
+#else
+                NativeHashMap<Entity, int> index,
+#endif
+                NativeList<Entity> added, NativeList<Entity> removed)
             {
+#if ENTITY_STORE_V1
                 UnsafeUtility.MemClear(index.GetUnsafePtr(), index.Length * sizeof(int));
+#else
+                index.Clear();
+#endif
 
                 var addedLength = added.Length;
                 var removedLength = removed.Length;
 
                 for (var i = 0; i < addedLength; i++)
+#if ENTITY_STORE_V1
                     index[added[i].Index] = i + 1;
+#else
+                    index[added[i]] = i + 1;
+#endif
 
                 for (var i = 0; i < removedLength; i++)
                 {
+#if ENTITY_STORE_V1
                     var addIndex = index[removed[i].Index] - 1;
+#else
+                    // TryGetValue returns default is the value is missing.
+                    index.TryGetValue(removed[i], out var addIndex);
+                    addIndex -= 1;
+#endif
 
                     if (addIndex < 0)
                         continue;
@@ -336,7 +378,11 @@ namespace Unity.Entities.Editor
                     added[addIndex] = added[addedLength - 1];
                     removed[i] = removed[removedLength - 1];
 
+#if ENTITY_STORE_V1
                     index[added[addIndex].Index] = addIndex + 1;
+#else
+                    index[added[addIndex]] = addIndex + 1;
+#endif
 
                     addedLength--;
                     removedLength--;
@@ -347,19 +393,39 @@ namespace Unity.Entities.Editor
                 removed.ResizeUninitialized(removedLength);
             }
 
-            unsafe void RemoveDuplicate<TData>(NativeArray<int> index, NativeList<Entity> added, NativeList<Entity> removed, NativeList<TData> data) where TData : unmanaged
+            unsafe void RemoveDuplicate<TData>(
+#if ENTITY_STORE_V1
+                NativeArray<int> index,
+#else
+                NativeHashMap<Entity, int> index,
+#endif
+                NativeList<Entity> added, NativeList<Entity> removed, NativeList<TData> data) where TData : unmanaged
             {
+#if ENTITY_STORE_V1
                 UnsafeUtility.MemClear(index.GetUnsafePtr(), index.Length * sizeof(int));
+#else
+                index.Clear();
+#endif
 
                 var addedLength = added.Length;
                 var removedLength = removed.Length;
 
                 for (var i = 0; i < addedLength; i++)
+#if ENTITY_STORE_V1
                     index[added[i].Index] = i + 1;
+#else
+                    index[added[i]] = i + 1;
+#endif
 
                 for (var i = 0; i < removedLength; i++)
                 {
+#if ENTITY_STORE_V1
                     var addIndex = index[removed[i].Index] - 1;
+#else
+                    // TryGetValue returns default is the value is missing.
+                    index.TryGetValue(removed[i], out var addIndex);
+                    addIndex -= 1;
+#endif
 
                     if (addIndex < 0)
                         continue;
@@ -376,7 +442,11 @@ namespace Unity.Entities.Editor
                     data[addIndex] = data[addedLength - 1];
                     removed[i] = removed[removedLength - 1];
 
+#if ENTITY_STORE_V1
                     index[added[addIndex].Index] = addIndex + 1;
+#else
+                    index[added[addIndex]] = addIndex + 1;
+#endif
 
                     addedLength--;
                     removedLength--;
@@ -387,19 +457,39 @@ namespace Unity.Entities.Editor
                 removed.ResizeUninitialized(removedLength);
             }
 
-            unsafe void RemoveDuplicate<TData>(NativeArray<int> index, NativeList<Entity> addedEntities, NativeList<Entity> removedEntities, NativeList<TData> addedData, NativeList<TData> removedData) where TData : unmanaged
+            unsafe void RemoveDuplicate<TData>(
+#if ENTITY_STORE_V1
+                NativeArray<int> index,
+#else
+                NativeHashMap<Entity, int> index,
+#endif
+                NativeList<Entity> addedEntities, NativeList<Entity> removedEntities, NativeList<TData> addedData, NativeList<TData> removedData) where TData : unmanaged
             {
+#if ENTITY_STORE_V1
                 UnsafeUtility.MemClear(index.GetUnsafePtr(), index.Length * sizeof(int));
+#else
+                index.Clear();
+#endif
 
                 var addedLength = addedEntities.Length;
                 var removedLength = removedEntities.Length;
 
                 for (var i = 0; i < addedLength; i++)
+#if ENTITY_STORE_V1
                     index[addedEntities[i].Index] = i + 1;
+#else
+                    index[addedEntities[i]] = i + 1;
+#endif
 
                 for (var i = 0; i < removedLength; i++)
                 {
+#if ENTITY_STORE_V1
                     var addIndex = index[removedEntities[i].Index] - 1;
+#else
+                    // TryGetValue returns default is the value is missing.
+                    index.TryGetValue(removedEntities[i], out var addIndex);
+                    addIndex -= 1;
+#endif
 
                     if (addIndex < 0)
                         continue;
@@ -424,7 +514,11 @@ namespace Unity.Entities.Editor
                     removedEntities[i] = removedEntities[removedLength - 1];
                     removedData[i] = removedData[removedLength - 1];
 
+#if ENTITY_STORE_V1
                     index[addedEntities[addIndex].Index] = addIndex + 1;
+#else
+                    index[addedEntities[addIndex]] = addIndex + 1;
+#endif
 
                     addedLength--;
                     removedLength--;

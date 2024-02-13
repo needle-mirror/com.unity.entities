@@ -113,6 +113,7 @@ namespace Unity.Entities.Content
             }
             else
             {
+                contentUpdateState = ContentUpdateState.None;
                 contentUpdateContext = new ContentUpdateContext()
                 {
                     remoteUrlRoot = remoteUrlRoot,

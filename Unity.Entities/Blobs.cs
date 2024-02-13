@@ -326,13 +326,16 @@ namespace Unity.Entities
 
         public override int GetHashCode()
         {
-#if UNITY_64
-            int low = (int) m_Ptr;
-            int hi  = (int) m_Ptr >> 32;
-            return (low * 397) ^ hi;
-#else
-            return (int) m_Ptr;
-#endif
+            if (IntPtr.Size == 8)
+            {
+                int low = (int) m_Ptr;
+                int hi  = (int) ((nuint)m_Ptr >> 32);
+                return (low * 397) ^ hi;
+            }
+            else
+            {
+                return (int) m_Ptr;
+            }
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -344,11 +347,10 @@ namespace Unity.Entities
             {
                 throw new InvalidOperationException("Cannot protect this BlobAssetReference, it is already protected.");
             }
-#if UNITY_64
-            Header->ValidationPtr = (void*)~(long)m_Ptr;
-#else
-            Header->ValidationPtr = (void*)~(int)m_Ptr;
-#endif
+
+            //Header->ValidationPtr = (void*)~(nuint)m_Ptr; // Required to work around BUR-2548
+            //Header->ValidationPtr = (void*)((nuint)0 - (nuint)m_Ptr - 1); // Incorrect result due to BUR-2561
+            Header->ValidationPtr = (void*)((ulong)0 - (nuint)m_Ptr - 1);
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -379,11 +381,9 @@ namespace Unity.Entities
             {
                 ThrowIfNull();
 
-#if UNITY_64
-                return Header->ValidationPtr == (void*)~(long)m_Ptr;
-#else
-                return Header->ValidationPtr == (void*)~(int)m_Ptr;
-#endif
+                //return Header->ValidationPtr == (void*)~(nuint)m_Ptr; // Required to work around BUR-2548
+                //return Header->ValidationPtr == (void*)((nuint)0 - (nuint)m_Ptr - 1); // Incorrect result due to BUR-2561
+                return Header->ValidationPtr == (void*)((ulong)0 - (nuint)m_Ptr - 1);
             }
         }
     }

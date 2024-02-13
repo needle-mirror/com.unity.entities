@@ -266,6 +266,7 @@ namespace Unity.Entities.Conversion
 
                 hierarchy.ChildIndicesByIndex[parentIndex] = childList;
                 siblingIndices.Dispose();
+                copiedChildList.Dispose();
             }
         }
 

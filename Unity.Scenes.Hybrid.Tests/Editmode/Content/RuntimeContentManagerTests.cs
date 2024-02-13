@@ -330,6 +330,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
                 yield return null;
             }
             ids.Dispose();
+            jobs.Dispose();
         }
 #endif
 
@@ -428,10 +429,14 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             yield return new EnterPlayMode();
 
             Assert.IsTrue(InitializeCatalogForTest());
-            var ids = RuntimeContentManager.GetObjectIds(Allocator.Persistent);
-
             WeakObjectReference<UnityEngine.Object> matRef = default;
-            matRef.Id = ids[0];// new UntypedWeakReferenceId { GlobalId = new RuntimeGlobalObjectId { AssetGUID = ids[0] }, GenerationType = WeakReferenceGenerationType.UnityObject};
+
+            {
+                var ids = RuntimeContentManager.GetObjectIds(Allocator.Persistent);
+                matRef.Id = ids[0];// new UntypedWeakReferenceId { GlobalId = new RuntimeGlobalObjectId { AssetGUID = ids[0] }, GenerationType = WeakReferenceGenerationType.UnityObject};
+                ids.Dispose();
+            }
+
             matRef.LoadAsync();
             RuntimeContentManager.ProcessQueuedCommands();
             Assert.IsTrue(matRef.LoadingStatus >= ObjectLoadingStatus.Loading);

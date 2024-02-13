@@ -82,6 +82,7 @@ namespace Unity.Entities
         EntityQuery                                          _DisabledEntities;
         uint                                                 _EntityGUIDNameSpaceID;
         bool                                                 _AssignEntityGUID;
+        private bool                                         _CheckRevertPrefabs;
         internal Hash128                                     _SceneGUID;
         internal BakingUtility.BakingFlags _ConversionFlags;
 
@@ -145,6 +146,7 @@ namespace Unity.Entities
             _DefaultArchetypePrefabAdditionalEntityBakeOnly = default;
             _SceneGUID = default;
             _AssignEntityGUID = false;
+            _CheckRevertPrefabs = false;
             _EntityGUIDNameSpaceID = 0;
             _IsReferencedEntitiesDirty = true;
             _ConversionFlags = default;
@@ -423,7 +425,7 @@ namespace Unity.Entities
         }
 #endif
 
-        public void ApplyBakeInstructions(ref BakeDependencies dependencies, IncrementalBakingContext.IncrementalBakeInstructions instructions, BlobAssetStore blobAssetStore, BakingSettings bakingSettings, ref IncrementalHierarchy hierarchy, ref GameObjectComponents components)
+        public void ApplyBakeInstructions(ref BakeDependencies dependencies, IncrementalBakingContext.IncrementalBakeInstructions instructions, BlobAssetStore blobAssetStore, BakingSettings bakingSettings, ref GameObjectComponents components)
         {
             // Run the actual baking instructions, and record into an EntityCommandBuffer
 
@@ -868,64 +870,6 @@ namespace Unity.Entities
             tempDependencies.Dispose();
             tempUsage.Dispose();
 
-            // Clean up unused prefabs
-            var removedPrefabs = new NativeList<int>(Allocator.Temp);
-            foreach (var kvp in _PrefabStates)
-            {
-                var instanceId = kvp.Key;
-                var prefabState = kvp.Value;
-                if (prefabState.RefCount <= 0)
-                {
-                    if (_GameObjectToEntity.TryGetValue(instanceId, out var prefabEntity))
-                    {
-                        ecb.DestroyEntity(prefabEntity);
-
-                        _PrefabStates.Remove(instanceId);
-
-                        // We must remove all potential children of this GameObject as well
-                        if (hierarchy.IndexByInstanceId.TryGetValue(instanceId, out var parentIndex))
-                        {
-                            var children = IncrementalHierarchyFunctions.GetChildrenRecursively(hierarchy, parentIndex);
-                            foreach(var childIndex in children)
-                            {
-                                var childInstanceId = hierarchy.InstanceId[childIndex];
-                                _GameObjectToEntity.Remove(childInstanceId);
-                            }
-                        }
-
-                        _GameObjectToEntity.Remove(instanceId);
-
-                        removedPrefabs.Add(instanceId);
-
-                        foreach (var componentData in components.GetComponents(instanceId))
-                        {
-                            var componentID = componentData.InstanceID;
-                            IncrementalBakingLog.RecordComponentDestroyed(componentID);
-
-                            if (_AuthoringIDToBakerState.TryGetValue(componentID, out var bakerState))
-                            {
-                                ResetComponentAdditionalEntityCount(componentID, bakerState.GetPrimaryEntity());
-
-                                using (s_RevertDependencies.Auto())
-                                    BakeDependencies.ResetBakerDependencies(componentID, ref dependencies, ref bakerState.Dependencies);
-
-                                using (s_RevertComponents.Auto())
-                                {
-                                    bakerState.Revert(revertEcb, default, ref _ReferencedEntities,  blobAssetStore, ref _BakerDebugState, ref _IsReferencedEntitiesDirty, ref this);
-                                    bakerState.Usage.Revert(default, ref _ReferencedEntities, ref _IsReferencedEntitiesDirty);
-                                }
-
-                                bakerState.Dispose();
-                                _AuthoringIDToBakerState.Remove(componentID);
-                            }
-                        }
-                    }
-                }
-            }
-
-            IncrementalHierarchyFunctions.Remove(hierarchy, removedPrefabs.AsArray());
-            removedPrefabs.Dispose();
-
             // For all entities baked, add the BakedEntity tag
             foreach (var entity in entitiesBaked)
             {
@@ -1138,11 +1082,42 @@ namespace Unity.Entities
             return !_AdditionalGameObjectsToBake.IsEmpty;
         }
 
+        public bool HasPrefabsToCheck()
+        {
+            return _CheckRevertPrefabs;
+        }
+
         public NativeArray<int> GetAndClearAdditionalObjectsToBake(Allocator allocator)
         {
             var additionalObjectsToBakeArray = _AdditionalGameObjectsToBake.ToNativeArray(allocator);
             _AdditionalGameObjectsToBake.Clear();
             return additionalObjectsToBakeArray;
+        }
+
+        public NativeArray<int> GetAndClearPrefabObjectsToDestroy(ref IncrementalHierarchy hierarchy, Allocator allocator)
+        {
+            if (!_CheckRevertPrefabs)
+                return new NativeArray<int>();
+
+            var destroyedPrefabs = new NativeList<int>(0, Allocator.Temp);
+            foreach (var kvp in _PrefabStates)
+            {
+                if(kvp.Value.RefCount == 0)
+                {
+                    destroyedPrefabs.Add(kvp.Key);
+                    if (hierarchy.IndexByInstanceId.TryGetValue(kvp.Key, out var parentIndex))
+                    {
+                        var children = IncrementalHierarchyFunctions.GetChildrenRecursively(hierarchy, parentIndex);
+                        foreach (var childIndex in children)
+                            destroyedPrefabs.Add(hierarchy.InstanceId[childIndex]);
+                    }
+                }
+            }
+            var destroyedPrefabsArray = destroyedPrefabs.ToArray(allocator);
+            IncrementalHierarchyFunctions.Remove(hierarchy, destroyedPrefabsArray);
+            destroyedPrefabs.Dispose();
+            _CheckRevertPrefabs = false;
+            return destroyedPrefabsArray;
         }
 
 #if UNITY_EDITOR
@@ -1168,6 +1143,7 @@ namespace Unity.Entities
             _PrefabStates.TryGetValue(instanceId, out var prefabState);
             prefabState.RefCount--;
             _PrefabStates[instanceId] = prefabState;
+            _CheckRevertPrefabs = true;
         }
 #endif
 

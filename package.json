@@ -1,13 +1,13 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.2.0-pre.6",
+  "version": "1.2.0-pre.12",
   "unity": "2022.3",
   "unityRelease": "11f1",
   "dependencies": {
-    "com.unity.burst": "1.8.10",
+    "com.unity.burst": "1.8.12",
     "com.unity.serialization": "3.1.1",
-    "com.unity.collections": "2.4.0-pre.2",
+    "com.unity.collections": "2.4.0-pre.5",
     "com.unity.mathematics": "1.3.1",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
@@ -25,15 +25,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Changed\n\n* Promotion preparation"
+    "changelog": "### Added\n\n* A file with the code for both snippets in the custom transforms documentation was added to the \"DocCodeSamples.Tests\" folder.\n* The Create Menu now offers ScriptTemplates for the IComponentData, ISystem, IJobEntity and Baker types under Assets/Create/Entities\n\n### Changed\n\n* Fixed infinite loop that could occur due to concurrent use of non-concurrent Dictionary in Aspect Generator.\n* Reduce the set/restore frequency of the fixed rate system group allocator.\n* Various performance improvements in baking. Baking mesh-heavy scenes now takes 70% of what it did before.\n* Significant performance improvements when creating archetypes and entity queries in Worlds with a large number of existing archetypes/queries.\n* Updated Burst dependency to version 1.8.12\n\n### Fixed\n\n* EntityQuery singleton methods now correctly handle cases where the query contains enableable components. Note that `GetSingletonEntity()` and `TryGetSingletonEntity()` still can not be used on queries with enableable components, and that the singleton component itself can not be enableable. Both constraints may be lifted in a future release.\n* A broken link to a code snippet in the documentation for custom transforms was fixed.\n* Archetype window and Entity Memory Profiler module UI initialization.\n* Making a player build with define `UNITY_DOTS_DEBUG`, while using an IJobEntity using RefRO/RefRW no longer compile errors!\n* Clarified documentation for cleanup components\n* Fixed minor memory leak in content delivery system.\n* AABB.Contains.\n* The entities hierarchy view would sometimes throw exceptions when entities were destroyed.\n* remove use of UNITY_64 define, as is can not be reliably used to determine 64 bit nature of platforms. Fixes crashes related to pointer truncation."
   },
   "upmCi": {
-    "footprint": "8d01401df12edf9855550fcca2edd086d38a4674"
+    "footprint": "82d2dcb5e3d21ca28f27a5df571468121a8c0417"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "c2136868e2bfbe78d7c68475d8ced6c623b4cb6d"
+    "revision": "1ae43e0525b8a09c7fe52ab40c762938a4937244"
   }
 }

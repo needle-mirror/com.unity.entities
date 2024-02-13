@@ -24,43 +24,8 @@ To create your own custom transform system, you have to substitute the `LocalTra
 
 1. Create a .cs file that defines a substitute for the built-in `LocalTransform` component. You can copy the built-in `LocalTransform.cs` file from the Entities package into your assets folder and then edit the contents. To do this, go to **Packages &gt; Entities &gt; Unity.Transforms** in your project, copy the `LocalTransform.cs` file, and rename it.
 1. Change the properties and methods to suit your needs. See the following example of a custom `LocalTransform2D` component:
- 
-   ```c#
-   using System.Globalization;
-   using Unity.Entities;
-   using Unity.Mathematics;
-   using Unity.Properties;
-   using Unity.Transforms;
 
-   [WriteGroup(typeof(LocalToWorld))]
-   public struct LocalTransform2D : IComponentData
-   {
-       [CreateProperty]
-       public float2 Position;
-
-       [CreateProperty]
-       public float Scale;
-
-       [CreateProperty]
-       public float Rotation;
-
-       public override string ToString()
-       {
-           return $"Position={Position.ToString()} Rotation={Rotation.ToString()} Scale={Scale.ToString(CultureInfo.InvariantCulture)}";
-       }
-
-       /// <summary>
-       /// Gets the float4x4 equivalent of this transform.
-       /// </summary>
-       /// <returns>The float4x4 matrix.</returns>
-       public float4x4 ToMatrix()
-       {
-           quaternion rotation = quaternion.RotateZ(math.radians(Rotation));
-           var matrixTRS = float4x4.TRS(new float3(Position.xy, 0f), rotation, Scale);
-           return matrixTRS;
-       }
-   }
-   ```
+[!code-cs[LocalTransform2DDocsSnippet](../DocCodeSamples.Tests/TransformsCustom.cs#LocalTransform2D)]
 
 The above example modifies the built-in `LocalTransform` in the following ways:
 
@@ -82,7 +47,7 @@ Each entity that your custom transform system needs to process must fulfill the 
 
 To meet this criteria, add an authoring component to each entity, and use [transform usage flags](xref:Unity.Entities.TransformUsageFlags) to prevent the entity from receiving any components from the built-in transform system:
 
-[!code-cs[Transform2DAuthoringDocsSnippet](../../../Projects/EntitiesSamples/Assets/Custom%20Transform%20System/Authoring/Transform2DAuthoring.cs#Transform2DAuthoringDocsSnippet)]
+[!code-cs[Transform2DAuthoringDocsSnippet](../DocCodeSamples.Tests/TransformsCustom.cs#Transform2DAuthoring)]
 
 The above example adds the custom `LocalTransform2D` component and the built-in `LocalToWorld` component to the authoring component. If applicable, it also adds a `Parent` component that points to the entity's parent entity.
 

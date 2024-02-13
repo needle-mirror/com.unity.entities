@@ -804,12 +804,13 @@ namespace Unity.Entities
             /// <param name="weakAssetRefOffsetCount">Number of weak asset references this component contains</param>
             /// <param name="weakAssetRefOffsetStartIndex">Index into the weak asset reference array where this component's weak asset reference data begins</param>
             /// <param name="typeSize">Size of the component type</param>
+            /// <param name="bloomFilterMask">The bloom filter mask for this component, used to accelerate "is type T in set of types S" checks. The default value of zero is safe, but ineffective.</param>
             public TypeInfo(int typeIndex, TypeCategory category, int entityOffsetCount, int entityOffsetStartIndex,
                             ulong memoryOrdering, ulong stableTypeHash, int bufferCapacity, int sizeInChunk, int elementSize,
                             int alignmentInBytes, int maximumChunkCapacity, int writeGroupCount, int writeGroupStartIndex,
                             bool hasBlobRefs, int blobAssetRefOffsetCount, int blobAssetRefOffsetStartIndex,
                             int weakAssetRefOffsetCount, int weakAssetRefOffsetStartIndex,
-                            int unityObjectRefOffsetCount, int unityObjectRefOffsetStartIndex, int typeSize)
+                            int unityObjectRefOffsetCount, int unityObjectRefOffsetStartIndex, int typeSize, ulong bloomFilterMask = 0L)
             {
                 TypeIndex = new TypeIndex() { Value = typeIndex };
                 Category = category;
@@ -817,6 +818,7 @@ namespace Unity.Entities
                 EntityOffsetStartIndex = entityOffsetStartIndex;
                 MemoryOrdering = memoryOrdering;
                 StableTypeHash = stableTypeHash;
+                BloomFilterMask = bloomFilterMask;
                 BufferCapacity = bufferCapacity;
                 SizeInChunk = sizeInChunk;
                 ElementSize = elementSize;
@@ -873,6 +875,16 @@ namespace Unity.Entities
             /// </remarks>
             /// <seealso cref="TypeHash"/>
             public   readonly ulong         StableTypeHash;
+
+            /// <summary>
+            /// Bitmask used to accelerate "is type set A a subset of type set B?" queries.
+            /// </summary>
+            /// <remarks>
+            /// This value is a much lower-entropy hash than <see cref="StableTypeHash"/>, specialized for one particular
+            /// use case. It is not guaranteed to be unique for all types in the application.
+            /// </remarks>
+            /// <seealso cref="TypeHash"/>
+            public   readonly ulong         BloomFilterMask;
 
             /// <summary>
             /// The alignment requirement for the component. For buffer types, this is the alignment requirement of the element type.
@@ -1576,9 +1588,9 @@ namespace Unity.Entities
             AddFastEqualityInfo(null);
             AddTypeInfoToTables(null,
                 new TypeInfo(0, TypeCategory.ComponentData, 0, -1,
-                    0, 0, -1, 0, 0, 0,
+                    0L, 0L,  -1, 0, 0, 0,
                     TypeManager.MaximumChunkCapacity, 0, -1, false, 0,
-                    -1, 0, -1, 0, -1, 0),
+                    -1, 0, -1, 0, -1, 0, 0L),
                 "null", 0);
 
             // Push Entity TypeInfo
@@ -1598,7 +1610,8 @@ namespace Unity.Entities
                     0, entityStableTypeHash, -1, UnsafeUtility.SizeOf<Entity>(),
                     UnsafeUtility.SizeOf<Entity>(), CalculateAlignmentInChunk(sizeof(Entity)),
                     TypeManager.MaximumChunkCapacity, 0, -1, false, 0,
-                    -1, 0, -1, 0, -1, UnsafeUtility.SizeOf<Entity>()),
+                    -1, 0, -1, 0, -1, UnsafeUtility.SizeOf<Entity>(),
+                    bloomFilterMask:0L),
                 "Unity.Entities.Entity", 0);
 
             SharedTypeIndex<Entity>.Ref.Data = entityTypeIndex;
@@ -3052,6 +3065,27 @@ namespace Unity.Entities
                 t.GetFields((BindingFlags)0x34).All(fi => IsZeroSizeStruct(fi.FieldType));
         }
 
+        private static ulong ComputeBloomFilterMask(ulong typeHash)
+        {
+            // This function effectively computes k different hashes from the input typeHash to a single bit in the output
+            // mask. If k is too low, the odds increase that multiple types will have the same bloomFilterMask. If k is
+            // too high, the odds increase that bitwise-or'ing multiple masks together will have so many bits set that a
+            // missing type is "hidden". Either way, the net result is a higher false positive rate, reducing
+            // the effectiveness of the Bloom filter early-out check.
+            // k=5 seems to strike a reasonable balance, given the number of unique component types and the number
+            // of types per archetype in typical DOTS applications.
+            const int k = 5;
+            const int maxShift = 8 * sizeof(ulong);
+            uint seed = (uint)((typeHash & 0xFFFFFFFF) ^ (typeHash >> 32));
+            var rng = new Unity.Mathematics.Random(seed != 0 ? seed : 17);
+            ulong mask = 0;
+            for(int i = 0; i < k; i++)
+            {
+                mask |= 1UL << rng.NextInt(maxShift);
+            }
+            return mask;
+        }
+
         internal static TypeInfo BuildComponentType(Type type, BuildComponentCache caches)
         {
             return BuildComponentType(type, null, caches);
@@ -3067,6 +3101,7 @@ namespace Unity.Entities
             var memoryOrdering = TypeHash.CalculateMemoryOrdering(type, out var hasCustomMemoryOrder, caches.TypeHashCache);
             // The stable type hash is the same as the memory order if the user hasn't provided a custom memory ordering
             var stableTypeHash = !hasCustomMemoryOrder ? memoryOrdering : TypeHash.CalculateStableTypeHash(type, null, caches.TypeHashCache);
+            var bloomFilterMask = ComputeBloomFilterMask(stableTypeHash);
             bool isManaged = type.IsClass;
             var isRefCounted = typeof(IRefCounted).IsAssignableFrom(type);
             var maxChunkCapacity = MaximumChunkCapacity;
@@ -3284,7 +3319,8 @@ namespace Unity.Entities
                 elementSize > 0 ? elementSize : sizeInChunk, alignmentInBytes,
                 maxChunkCapacity, writeGroupCount, writeGroupIndex,
                 hasBlobReferences, blobAssetRefOffsetCount, blobAssetRefOffsetIndex,
-                weakAssetRefOffsetCount, weakAssetRefOffsetIndex, unityObjectRefOffsetCount, unityObjectRefOffsetIndex, valueTypeSize);
+                weakAssetRefOffsetCount, weakAssetRefOffsetIndex, unityObjectRefOffsetCount,
+                unityObjectRefOffsetIndex, valueTypeSize, bloomFilterMask);
         }
 
         private struct SharedTypeIndex

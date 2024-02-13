@@ -26,6 +26,11 @@ bool entityExists = EntityManager.Exists(e);
 
 > [!NOTE]
 > Cleanup components are unmanaged and have all of the same restrictions as [unmanaged components](components-unmanaged.md).
+>
+> The following limitations also apply:
+> - Cleanup components are not included when entities are copied between Worlds.
+>   - As a consequence, cleanup components added at baking time will not be serialized.
+> - Cleanup components on prefab entities will not be included on instantiated instances of that prefab.
 
 ## Additional resources
 * [Unmanaged components](components-unmanaged.md)

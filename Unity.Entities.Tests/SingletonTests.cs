@@ -202,6 +202,116 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
+        public void GetSingleton_QueryHasEnableableComponent_Works()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            m_Manager.SetComponentData(e1, new EcsTestData(17));
+            m_Manager.SetComponentData(e2, new EcsTestData(23));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAll<EcsTestData,EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.AreEqual(23, query.GetSingleton<EcsTestData>().value);
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
+        [Ignore("GetSingletonEntity forbids any enableable components in the query until DOTS-9695 is addressed.")] // TODO(DOTS-9695): re-enable this test
+        public void GetSingletonEntity_QueryHasEnableableComponent_Works()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            m_Manager.SetComponentData(e1, new EcsTestData(17));
+            m_Manager.SetComponentData(e2, new EcsTestData(23));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAll<EcsTestData,EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.AreEqual(e2, query.GetSingletonEntity());
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
+        public void GetSingletonBuffer_QueryHasEnableableComponent_Works()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsIntElement), typeof(EcsTestDataEnableable));
+            var e2 = m_Manager.CreateEntity(typeof(EcsIntElement), typeof(EcsTestDataEnableable));
+            m_Manager.GetBuffer<EcsIntElement>(e1).Add(new EcsIntElement { Value = 17});
+            m_Manager.GetBuffer<EcsIntElement>(e2).Add(new EcsIntElement { Value = 23});
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAll<EcsIntElement,EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.AreEqual(23, query.GetSingletonBuffer<EcsIntElement>()[0].Value);
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
+        public void TryGetSingleton_QueryHasEnableableComponent_Works()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            m_Manager.SetComponentData(e1, new EcsTestData(17));
+            m_Manager.SetComponentData(e2, new EcsTestData(23));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAll<EcsTestData,EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.IsTrue(query.TryGetSingleton<EcsTestData>(out var singleton));
+            Assert.AreEqual(23, singleton.value);
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
+        [Ignore("TryGetSingletonEntity forbids any enableable components in the query until DOTS-9695 is addressed.")] // TODO(DOTS-9695): re-enable this test
+        public void TryGetSingletonEntity_QueryHasEnableableComponent_Works()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            m_Manager.SetComponentData(e1, new EcsTestData(17));
+            m_Manager.SetComponentData(e2, new EcsTestData(23));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAll<EcsTestData,EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.IsTrue(query.TryGetSingletonEntity<EcsTestData>(out var singletonEntity));
+            Assert.AreEqual(e2, singletonEntity);
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
+        public void TryGetSingletonBuffer_QueryHasEnableableComponent_Works()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsIntElement), typeof(EcsTestDataEnableable));
+            var e2 = m_Manager.CreateEntity(typeof(EcsIntElement), typeof(EcsTestDataEnableable));
+            m_Manager.GetBuffer<EcsIntElement>(e1).Add(new EcsIntElement { Value = 17});
+            m_Manager.GetBuffer<EcsIntElement>(e2).Add(new EcsIntElement { Value = 23});
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAll<EcsIntElement,EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.IsTrue(query.TryGetSingletonBuffer<EcsIntElement>(out var buf));
+            Assert.AreEqual(23, buf[0].Value);
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
+        public void SetSingleton_QueryHasEnableableComponent_Works()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            m_Manager.SetComponentData(e1, new EcsTestData(17));
+            m_Manager.SetComponentData(e2, new EcsTestData(23));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAllRW<EcsTestData>().WithAll<EcsTestDataEnableable>().Build(EmptySystem);
+            query.SetSingleton(new EcsTestData(42));
+            Assert.AreEqual(42, m_Manager.GetComponentData<EcsTestData>(e2).value);
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity query safety checks")]
+        public void HasSingleton_QueryHasEnableableComponentWorks()
+        {
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            m_Manager.SetComponentData(e1, new EcsTestData(17));
+            m_Manager.SetComponentData(e2, new EcsTestData(23));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
+            var query = new EntityQueryBuilder(EmptySystem.WorldUpdateAllocator).WithAll<EcsTestData,EcsTestDataEnableable>().Build(EmptySystem);
+            Assert.IsTrue(query.HasSingleton<EcsTestData>());
+        }
+
+        [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires opt-in debug checks")]
         public void HasSingleton_MoreThanOneInstance_Throws()
         {

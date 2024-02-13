@@ -58,7 +58,7 @@ The output of a full baking pass is a set of files on the disk. The Editor or yo
 
 When a subscene loads an authoring scene, it also initializes incremental baking. Performing an incremental baking pass on the scene means that you can directly access the results of baking while you edit an authoring scene.
 
-During incremental baking, baking happens in memory instead of doing a run-trip to the disk. When you change the contents of authoring GameObjects, Unity re-bakes only the entities and components affected. Baking only a small subset of the data is much faster, and means ECS data can update in real time. This effectively gives the impression of directly editing ECS data, even though baking is continuously happening.
+During incremental baking, baking happens in memory instead of doing a round-trip to the disk. When you change the contents of authoring GameObjects, Unity re-bakes only the entities and components affected. Baking only a small subset of the data is much faster, and means ECS data can update in real time. This effectively gives the impression of directly editing ECS data, even though baking is continuously happening.
 
 Incremental baking comes with some additional complexity. While full baking always starts from a blank slate and systematically bakes everything, incremental baking always runs on top of the earlier baking pass and only bakes the entities that depend on the authoring GameObjects that have changed.
 

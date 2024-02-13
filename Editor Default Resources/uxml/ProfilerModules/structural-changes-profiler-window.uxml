@@ -9,6 +9,6 @@
             <ui:Label name="column2" class="structural-changes-profiler-window__column2"/>
             <ui:Label name="column3" class="structural-changes-profiler-window__column3"/>
         </ui:VisualElement>
-        <uib:TreeView name="tree-view" item-height="18" class="structural-changes-profiler-window__tree-view"/>
+        <ui:VisualElement name="tree-view-container" />
     </ui:VisualElement>
 </UXML>

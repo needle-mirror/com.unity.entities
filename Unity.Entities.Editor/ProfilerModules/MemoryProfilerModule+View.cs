@@ -167,7 +167,11 @@ namespace Unity.Entities.Editor
                 leftHeader.Q<Label>("column2").text = s_Allocated;
                 leftHeader.Q<Label>("column3").text = s_Unused;
 
-                m_TreeView = m_Content.Q<TreeView>("tree-view");
+                var container = m_Content.Q("tree-view-container");
+                m_TreeView = new TreeView();
+                container.Add(m_TreeView);
+                m_TreeView.itemHeight = 18;
+                m_TreeView.AddToClassList("memory-profiler-left-pane__tree-view");
                 m_TreeView.makeItem = () =>
                 {
                     return s_TreeViewItemTemplate.Clone();

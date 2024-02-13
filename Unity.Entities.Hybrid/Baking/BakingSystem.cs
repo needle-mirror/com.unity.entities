@@ -152,19 +152,23 @@ namespace Unity.Entities
                     return false;
             }
 
-            _BakedEntities.ApplyBakeInstructions(ref _BakingContext._Dependencies, instructions, BlobAssetStore, BakingSettings, ref _BakingContext._Hierarchy, ref _BakingContext._Components);
+            _BakedEntities.ApplyBakeInstructions(ref _BakingContext._Dependencies, instructions, BlobAssetStore, BakingSettings, ref _BakingContext._Components);
 
             // We must continue to iterate additional game objects as prefabs can express prefabs and so on
-            while (_BakedEntities.HasAdditionalGameObjectsToBake())
+            // In addition, Prefabs can be un-referenced and in need of being destroyed
+            while (_BakedEntities.HasAdditionalGameObjectsToBake() || _BakedEntities.HasPrefabsToCheck())
             {
                 var additionalObjectsToBake = _BakedEntities.GetAndClearAdditionalObjectsToBake(Allocator.Temp);
-                instructions = _BakingContext.BuildAdditionalInstructions(additionalObjectsToBake, ref _TransformAuthoringBaking);
+                var prefabObjectsToDestroy = _BakedEntities.GetAndClearPrefabObjectsToDestroy(ref _BakingContext._Hierarchy, Allocator.Temp);
+                instructions = _BakingContext.BuildAdditionalInstructions(additionalObjectsToBake, prefabObjectsToDestroy, ref _TransformAuthoringBaking);
+
                 additionalObjectsToBake.Dispose();
+                prefabObjectsToDestroy.Dispose();
 
                 var jobHandle = _TransformAuthoringBaking.Prepare(_BakingContext._Hierarchy, instructions.ChangedTransforms);
                 jobHandle.Complete();
 
-                _BakedEntities.ApplyBakeInstructions(ref _BakingContext._Dependencies, instructions, BlobAssetStore, BakingSettings, ref _BakingContext._Hierarchy, ref _BakingContext._Components);
+                _BakedEntities.ApplyBakeInstructions(ref _BakingContext._Dependencies, instructions, BlobAssetStore, BakingSettings, ref _BakingContext._Components);
             }
 
             // apply the static and active state on the additional entities

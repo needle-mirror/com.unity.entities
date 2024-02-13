@@ -11,7 +11,7 @@ A `NativeContainer` is safer and consistently meets expectations than an `Unsafe
 
 ## Component limitations
 
-If you put a container types in a component, they have the following limitations:
+If you put container types in a component, they have the following limitations:
 
 |**Functionality**|**Native containers**|**Unsafe containers**|
 |--|--|--|

@@ -251,16 +251,18 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystem.Blocks,
                 new[]
                 {
-                    1, 2, // SystemUpdateCount = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    1, 2, // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
+                    1, 2,   // SystemUpdateCount = 1, SystemGroupAllocator allocator0 starts from 1 block, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+
+                    2, 3,   // SystemUpdateCount = 2, SystemGroupAllocator allocator0 starts from 2 blocks, after allocating 512k, there are 3 blocks with block size (128k, 256k, 512k)
+
+                            // After SystemUpdateCount = 2 is done, SystemGroupAllocator is switched to allocator1, rewinds allocator1
                 });
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            Assert.Throws<ObjectDisposedException>(() =>
+            // Allocation from allocator0 is still valid.
+            for (int i = 0; i < 10; i++)
             {
-                allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
-            });
-#endif
+                Assert.AreEqual(allocNativeArraySystem.GroupAllocatorArray[i], i);
+            }
         }
 
         [Test]
@@ -299,18 +301,13 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystem.Blocks,
                 new[]
                 {
-                    1, 2, // allocatorBlocksSystem = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    1, 2, // allocatorBlocksSystem = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
+                    1, 2,   // SystemUpdateCount = 1, SystemGroupAllocator allocator0 starts from 1 block, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+
+                    2, 3,   // SystemUpdateCount = 2, SystemGroupAllocator allocator is not switched, still allocator0, after allocating 512k, there are 3 blocks with block size (128k, 256k, 512k)
+
+                            // After SystemUpdateCount = 2 is done, SystemGroupAllocator is switched to allocator1, rewinds allocator1
                 });
             allocatorBlocksSystem.Blocks.Clear();
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            // Allocated with RateSystemGroupDoubleAllocators
-            Assert.Throws<ObjectDisposedException>(() =>
-            {
-                allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
-            });
-#endif
 
             // Second group of updates
             fixedSimGroup.RemoveSystemFromUpdateList(allocNativeArraySystem);
@@ -326,9 +323,19 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystem.Blocks,
                 new[]
                 {
-                    2, 3, // SystemUpdateCount = 3, From world update allocator, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
+                    1, 2,   // SystemUpdateCount = 3, SystemGroupAllocator allocator1, starts from 1 block, after allocating 1024k, there are 2 blocks with block size (128, 1024k)
+
+                            // After SystemUpdateCount = 3 is done, SystemGroupAllocator is switched to allocator0, rewinds allocator0
                 });
             allocatorBlocksSystem.Blocks.Clear();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            // Allocations from SystemGroupAllocator allocator0 is not valid anymore
+            Assert.Throws<ObjectDisposedException>(() =>
+            {
+                allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
+            });
+#endif
 
             // Third group of updates
             fixedSimGroup.RemoveSystemFromUpdateList(allocatorBlocksSystem);
@@ -354,11 +361,13 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystem.Blocks,
                 new[]
                 {
-                    1, 1, // SystemUpdateCount = 4, allocator0 before 1 block, allocate 128k, after 2 block with block size (128k, 256k)
-                    2, 3, // SystemUpdateCount = 5, allocator0, before 2 blocks (allocNativeArraySystem allocated some memory), allocate 256k, after 3 blocks with block size (128k, 256k, 512k)
+                    1, 1, // SystemUpdateCount = 4, WorldUpdateAllocator allocator0, starts from 1 block, after allocating 128k, there is 1 block with block size (128k)
+
+                    2, 3, // SystemUpdateCount = 5, WorldUpdateAllocator allocator0, starts from 2 blocks (allocNativeArraySystem allocated some memory), after allocating 256k,
+                          // there are 3 blocks with block size (128k, 256k, 512k)
                 });
 
-            // Allocated with world update allocator
+            // Allocation from WorldUpdateAllocator allocator0 is still valid
             for (int i = 0; i < 10; i++)
             {
                 Assert.AreEqual(allocNativeArraySystem.GroupAllocatorArray[i], i);
@@ -397,13 +406,22 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystem.Blocks,
                 new[]
                 {
-                    1, 2, // SystemUpdateCount = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    1, 2, // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
-                    2, 3, // SystemUpdateCount = 3, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
-                    2, 2, // SystemUpdateCount = 4, allocator1, after rewind 2 blocks, allocate 128k, after 2 blocks with block size (128k, 384k), used 1 block
-                    3, 3, // SystemUpdateCount = 5, allocator0, after rewind 3 blocks, allocate 256k, after 3 blocks with block size (128, 256k, 640k), used 2 blocks
-                    1, 2, // SystemUpdateCount = 6, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
-                    2, 3, // SystemUpdateCount = 7, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
+                    1, 2,   // SystemUpdateCount = 1, SystemGroupAllocator, allocator0 starts from 1 block, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+
+                    2, 3,   // SystemUpdateCount = 2, SystemGroupAllocator, allocator0 starts from 2 blocks, after allocating 512k, there are 3 blocks with block size (128k, 256k, 512k)
+
+                    3, 4,   // SystemUpdateCount = 3, SystemGroupAllocator, allocator0 starts from 3 blocks, after allocating 1024k, there are 4 blocks with block size (128k, 256k, 512k, 1024k)
+
+                    4, 4,   // SystemUpdateCount = 4, SystemGroupAllocator, allocator0 starts from 4 blocks, after allocating 128k (memory available in block[0])
+                            // there are 4 blocks with block size (128k, 256k, 512k. 1024k, 2048k)
+
+                    4, 5,   // SystemUpdateCount = 5, SystemGroupAllocator, allocator0, starts from 4 blocks, after allocating 256k, there are 5 blocks with block size (128k, 256k, 512k. 1024k, 2048k)
+
+                    5, 5,   // SystemUpdateCount = 6, SystemGroupAllocator, allocator0, starts from 5 blocks, after allocating 512k, there are 5 blocks with block size (128k, 256k, 512k. 1024k, 2048k)
+
+                    5, 5,   // SystemUpdateCount = 7, SystemGroupAllocator, allocator0, starts from 5 blocks, after allocating 1024k, there are 5 blocks with block size (128k, 256k, 512k. 1024k, 2048k)
+
+                            // After SystemUpdateCount = 7 is done, SystemGroupAllocator is switched to allocator1, rewinds allocator1
                 });
         }
 
@@ -425,11 +443,13 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystem.Blocks,
                 new[]
                 {
-                    1, 2, // allocator0 before 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    2, 3, // allocator0, no rewind, before 2 blocks (allocNativeArraySystem allocated some memory), allocate 512k, after 3 blocks with block size (128k, 256k, 512k)
+                    1, 2, // SystemUpdateCount = 1, WorldUpdateAllocator allocator0 starts from 1 block, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+
+                    2, 3, // SystemUpdateCount = 2, WorldUpdateAllocator allocator0 starts from 2 blocks (allocNativeArraySystem allocated some memory), after allocating 512k,
+                          // there are 3 blocks with block size (128k, 256k, 512k)
                 });
 
-            // Allocated with world update allocator
+            // Allocation from WorldUpdateAllocator is still valid
             for (int i = 0; i < 10; i++)
             {
                 Assert.AreEqual(allocNativeArraySystem.GroupAllocatorArray[i], i);
@@ -455,8 +475,13 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystem.Blocks,
                 new[]
                 {
-                    1, 2, // SystemUpdateCount = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    1, 2, // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
+                    1, 2,   // SystemUpdateCount = 1, SystemGroupAllocator allocator0 starts from 1 block, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+
+                            // After SystemUpdateCount = 1 is done, SystemGroupAllocator is switched to allocator1, rewinds allocator1
+                    
+                    1, 2,   // SystemUpdateCount = 2, SystemGroupAllocator allocator1 starts from 1 block, after allocating 512k, there are 2 blocks with block size (128k, 512k)
+
+                            // After SystemUpdateCount = 1 is done, SystemGroupAllocator is switched to allocator0, rewinds allocator0
                 });
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -502,20 +527,31 @@ namespace Unity.Entities.Tests
             World.PopTime();
 
             // Inner with group owned allocator
+            // When outer system group, fixedSimGroup, gets updated, its group allocator points to the newly created sytem group allocator.
+            // For inner system group, simGroup, it does not have its own system group allocator.  When update, its group allocator remains
+            // pointing to the outer system group allocator.
             CollectionAssert.AreEqual(allocatorBlocksSystemInner.Blocks,
                 new[]
                 {
-                    1, 2, // SystemUpdateCount = 1, allocator0 before 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    1, 2, // SystemUpdateCount = 2, allocator1, before 1 block, allocate 512k, after 2 blocks with block size (128k, 512k)
+                    1, 2,   // SystemUpdateCount = 1, SystemGroupAllocator of outer system group, allocator0, starts from 1 block,
+                            // after allocating 256k, there are 2 blocks with block size (128k, 256k).
+
+                            // After inner system group, simGroup updates, SystemUpdateCount = 1 of outer system group, allocatorBlocksSystem gets updated.
+                            // After allocateing 256k, outer SystemGroupAllocator allocator0 contains 3 blocks with block size (128k, 256k, 512k)
+
+                    3, 4,   // SystemUpdateCount = 2, outer SystemGroupAllocator, allocator0, has 3 blocks,
+                            // after allocating 512k, there are 4 blocks with block size (128k, 256k, 512k, 1024k).
+
+                            // After inner system group, simGroup updates, SystemUpdateCount = 2 of outer system group, allocatorBlocksSystem gets updated.
+                            // After allocateing 512k, outer SystemGroupAllocator allocator0, contains 4 blocks with block size (128k, 256k, 512k, 1024k)
                 });
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            // Allocated with world update allocator
-            Assert.Throws<ObjectDisposedException>(() =>
+            // After outer system group, fixedSimGroup gets update, outer SystemGroupAllocator is switched to allocator1, rewinds allocator1.
+            // Allocation from SystemGroupAllocator allocator0 is still valid.
+            for (int i = 0; i < 10; i++)
             {
-                allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
-            });
-#endif
+                Assert.AreEqual(allocNativeArraySystemInner.GroupAllocatorArray[i], i);
+            }
 
             // Outer with group owned update allocator
             CollectionAssert.AreEqual(updateTimesSystem.Updates,
@@ -528,16 +564,24 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystem.Blocks,
                 new[]
                 {
-                    2, 3, // SystemUpdateCount = 1, allocator0 before 2 blocks, allocate 256k, after 2 blocks with block size (128k, 256k, 512k)
-                    2, 3, // SystemUpdateCount = 2, allocator1, before 2 blocks, allocate 512k, after 2 blocks with block size (128k, 512k, 1024k)
+                    2, 3,   // Inner system group, simGroup SystemUpdateCount = 1 was updated, SystemGroupAllocator allocator0, has 2 blocks with block size (128k, 256k)
+                            // Outer system group, allocatorBlocksSystem SystemUpdateCount = 1 updates, SystemGroupAllocator allocator0, after allocateing 256k,
+                            // there are 3 blocks with block size (128k, 256k, 512k)
+
+                            // Inner system group, simGroup SystemUpdateCount = 2 was updated, SystemGroupAllocator allocator0, after allocating 512k,
+                            // there are 4 blocks with block size (128k, 256k, 512k, 1024k).
+                            
+                    4, 4,   // SystemGroupAllocator, allocator0, starts from 4 blocks with block size (128k, 256k, 512k, 1024k).
+                            // Outer system group, allocatorBlocksSystem SystemUpdateCount = 2 updates, SystemGroupAllocator allocator0, after allocateing 512k (512k fits into the 4th block),
+                            // there are 4 blocks with block size (128k, 256k, 512k, 1024k).
                 });
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            Assert.Throws<ObjectDisposedException>(() =>
+            // After outer system group, fixedSimGroup gets update, outer SystemGroupAllocator is switched to allocator1, rewinds allocator1.
+            // Allocation from SystemGroupAllocator allocator0 is still valid.
+            for (int i = 0; i < 10; i++)
             {
-                allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
-            });
-#endif
+                Assert.AreEqual(allocNativeArraySystem.GroupAllocatorArray[i], i);
+            }
         }
 
         [Test]
@@ -574,21 +618,31 @@ namespace Unity.Entities.Tests
             fixedSimGroup.Update();
             World.PopTime();
 
-            // Inner with group owned allocator
+            // When outer system group, FixedStepSimulationSystemGroup, gets updated, its group allocator points to the newly created sytem group allocator.
+            // For inner system group, fixedNoAllocatorSimGroup, it does not have its own system group allocator.  When update, its group allocator remains
+            // pointing to the outer system group allocator.
             CollectionAssert.AreEqual(allocatorBlocksSystemInner.Blocks,
                 new[]
                 {
-                    1, 2, // SystemUpdateCount = 1, allocator0 before 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    1, 2, // SystemUpdateCount = 2, allocator1, before 1 block, allocate 512k, after 2 blocks with block size (128k, 512k)
+                    1, 2,   // SystemUpdateCount = 1, outer SystemGroupAllocator, allocator0, starts from 1 block,
+                            // after allocating 256k, there are 2 blocks with block size (128k, 256k).
+
+                            // After inner system group, fixedNoAllocatorSimGroup updates, SystemUpdateCount = 1 of outer system group, allocatorBlocksSystem gets updated.
+                            // After allocateing 256k, outer SystemGroupAllocator allocator0, has 3 blocks with block size (128k, 256k, 512k)
+
+                    3, 4,   // SystemUpdateCount = 2, outer SystemGroupAllocator, allocator0, has 3 blocks,
+                            // after allocating 512k, there are 4 blocks with block size (128k, 256k, 512k, 1024k).
+
+                            // After inner system group, fixedNoAllocatorSimGroup update, SystemUpdateCount = 2 of outer system group, allocatorBlocksSystem gets updated.
+                            // After allocateing 512k, outer SystemGroupAllocator, allocator0, has 4 blocks with block size (128k, 256k, 512k, 1024k)
                 });
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            // Allocated with world update allocator
-            Assert.Throws<ObjectDisposedException>(() =>
+            // After outer system group, fixedSimGroup gets update, outer SystemGroupAllocator is switched to allocator1, rewinds allocator1.
+            // Allocation from SystemGroupAllocator allocator0 is still valid.
+            for (int i = 0; i < 10; i++)
             {
-                allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
-            });
-#endif
+                Assert.AreEqual(allocNativeArraySystemInner.GroupAllocatorArray[i], i);
+            }
 
             // Outer with group owned update allocator
             CollectionAssert.AreEqual(updateTimesSystem.Updates,
@@ -601,16 +655,24 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystem.Blocks,
                 new[]
                 {
-                    2, 3, // SystemUpdateCount = 1, allocator0 before 2 blocks, allocate 256k, after 2 blocks with block size (128k, 256k, 512k)
-                    2, 3, // SystemUpdateCount = 2, allocator1, before 2 blocks, allocate 512k, after 2 blocks with block size (128k, 512k, 1024k)
+                    2, 3,   // Inner system group, fixedNoAllocatorSimGroup SystemUpdateCount = 1 was updated, SystemGroupAllocator allocator0, has 2 blocks with block size (128k, 256k)
+                            // Outer system group, allocatorBlocksSystem SystemUpdateCount = 1 update, SystemGroupAllocator allocator0, after allocateing 256k,
+                            // there are 3 blocks with block size (128k, 256k, 512k)
+
+                            // Inner system group, fixedNoAllocatorSimGroup SystemUpdateCount = 2 was updated, SystemGroupAllocator allocator0, after allocating 512k,
+                            // there are 4 blocks with block size (128k, 256k, 512k, 1024k).
+                            
+                    4, 4,   // SystemGroupAllocator, allocator0, starts from 4 blocks with block size (128k, 256k, 512k, 1024k).
+                            // Outer system group, allocatorBlocksSystem SystemUpdateCount = 2 update, SystemGroupAllocator allocator0, after allocateing 512k (512k fits into the 4th block),
+                            // there are 4 blocks with block size (128k, 256k, 512k, 1024k).
                 });
 
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            Assert.Throws<ObjectDisposedException>(() =>
+            // After outer system group, fixedSimGroup gets update, outer SystemGroupAllocator is switched to allocator1, rewinds allocator1.
+            // Allocation from SystemGroupAllocator allocator0 is still valid.
+            for (int i = 0; i < 10; i++)
             {
-                allocNativeArraySystem.GroupAllocatorArray[0] = 0xEF;
-            });
-#endif
+                Assert.AreEqual(allocNativeArraySystem.GroupAllocatorArray[i], i);
+            }
         }
 
         [Test]
@@ -633,11 +695,12 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystem.Blocks,
                 new[]
                 {
-                    1, 2, // allocator0 before 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    2, 3, // allocator0, no rewind, before 2 blocks (allocNativeArraySystem allocated some memory), allocate 512k, after 3 blocks with block size (128k, 256k, 512k)
+                    1, 2,   // SystemUpdateCount = 1, WorldUpdateAllocator allocator0, starts from 1 block, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+
+                    2, 3,   // SystemUpdateCount = 2, WorldUpdateAllocator allocator0, starts from 2 blocks, after allocating 512k, there are 3 blocks with block size (128k, 256k, 512k)
                 });
 
-            // Allocated with world update allocator
+            // Allocation from WorldUpdateAllocator allocator0 is still valid
             for (int i = 0; i < 10; i++)
             {
                 Assert.AreEqual(allocNativeArraySystem.GroupAllocatorArray[i], i);
@@ -692,14 +755,18 @@ namespace Unity.Entities.Tests
                     new TimeData(0.0f, 1.0f),
                     new TimeData(1.0f, 1.0f),
                     new TimeData(2.0f, 1.0f),
-                });
+                });            
 
             CollectionAssert.AreEqual(allocatorBlocksSystemOuter.Blocks,
                 new[]
                 {
-                    1, 2, // SystemUpdateCount = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    1, 2, // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
-                    2, 3, // SystemUpdateCount = 3, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
+                    1, 2,   // SystemUpdateCount = 1, Outer SystemGroupAllocator allocator0 starts from 1 block, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+
+                    2, 3,   // SystemUpdateCount = 2, Outer SystemGroupAllocator allocator is not switched, still allocator0, after allocating 512k, there are 3 blocks with block size (128k, 256k, 512k)
+                            // After SystemUpdateCount = 2 is done, Outer SystemGroupAllocator is switched to allocator1, rewinds allocator1
+
+                    1, 2,   // SystemUpdateCount = 3, Outer SystemGroupAllocator, allocator1 starts from 1 block, after allocating 1024k, there are 2 blocks with block size (128k, 1024k)
+                            // After SystemUpdateCount = 3 is done, Outer SystemGroupAllocator is switched to allocator0, rewinds allocator0
                 });
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -720,9 +787,14 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystemInner.Blocks,
                 new[]
                 {
-                    1, 2, // SystemUpdateCount = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    1, 2, // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
-                    2, 3, // SystemUpdateCount = 3, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
+                    1, 2,   // SystemUpdateCount = 1, Inner SystemGroupAllocator allocator0 starts from 1 block, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+                            // After SystemUpdateCount = 1 is done, Inner SystemGroupAllocator is switched to allocator1, rewinds allocator1
+
+                    1, 2,   // SystemUpdateCount = 2, Inner SystemGroupAllocator allocator1 starts from 1 block, after allocating 512k, there are 2 blocks with block size (128k, 512k)
+                            // After SystemUpdateCount = 2 is done, Inner SystemGroupAllocator is switched to allocator0, rewinds allocator0
+
+                    2, 3,   // SystemUpdateCount = 3, Inner SystemGroupAllocator, allocator0 starts from 2 blocks, after allocating 1024k, there are 3 blocks with block size (128k, 256k, 1024k)
+                            // After SystemUpdateCount = 3 is done, Inner SystemGroupAllocator is switched to allocator1, rewinds allocator1
                 });
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -783,9 +855,15 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystemB.Blocks,
                 new[]
                 {
-                    1, 2, // SystemUpdateCount = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    1, 2, // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
-                    2, 3, // SystemUpdateCount = 3, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
+                    1, 2,   // SystemUpdateCount = 1, fixedSimGroupB SystemGroupAllocator allocator0 starts from 1 block, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+
+                    2, 3,   // SystemUpdateCount = 2, fixedSimGroupB SystemGroupAllocator allocator0 has 2 blocks, after allocating 512k, there are 3 blocks with block size (128k, 256k, 512k)
+
+                            // After SystemUpdateCount = 2 is done, fixedSimGroupB SystemGroupAllocator is switched to allocator1, rewinds allocator1
+                            
+                    1, 2,   // SystemUpdateCount = 3, fixedSimGroupB SystemGroupAllocator allocator1 starts from 1 block , after allocating 1024k, after 2 blocks with block size (128k, 1024k)
+
+                            // After SystemUpdateCount = 3 is done, fixedSimGroupB SystemGroupAllocator is switched to allocator0, rewinds allocator0
                 });
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -806,9 +884,17 @@ namespace Unity.Entities.Tests
             CollectionAssert.AreEqual(allocatorBlocksSystemA.Blocks,
                 new[]
                 {
-                    1, 2, // SystemUpdateCount = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
-                    1, 2, // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
-                    2, 3, // SystemUpdateCount = 3, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
+                    1, 2,   // SystemUpdateCount = 1, fixedSimGroupA SystemGroupAllocator allocator0 starts from 1 block, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+
+                            // After SystemUpdateCount = 1 is done, fixedSimGroupA SystemGroupAllocator is switched to allocator1, rewinds allocator1
+
+                    1, 2,   // SystemUpdateCount = 2, fixedSimGroupA SystemGroupAllocator allocator1, starts from 1 block, after allocating 512k, there are 2 blocks with block size (128k, 512k)
+
+                            // After SystemUpdateCount = 2 is done, fixedSimGroupA SystemGroupAllocator is switched to allocator0, rewinds allocator0
+
+                    2, 3,   // SystemUpdateCount = 3, fixedSimGroupA SystemGroupAllocator allocator0 starts from 2 blocks, after allocating 1024k, there are 3 blocks with block size (128k, 256k, 1024k)
+
+                            // After SystemUpdateCount = 3 is done, fixedSimGroupA SystemGroupAllocator is switched to allocator1, rewinds allocator1
                 });
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -946,21 +1032,23 @@ namespace Unity.Entities.Tests
             // SystemUpdateCount = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
             var blocksList = World.EntityManager.GetComponentData<NativeListComponent<int>>(allocatorBlocksISystem);
 
+            // SystemUpdateCount = 1, SystemGroupAllocator allocator0 starts from 1 block with block size (128k)
             Assert.AreEqual(blocksList.data.ElementAt(0), 1);
+            // SystemUpdateCount = 1, SystemGroupAllocator allocator0, after allocating 256k, there are 2 blocks with block size (128k, 256k)
             Assert.AreEqual(blocksList.data.ElementAt(1), 2);
-            // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
-            Assert.AreEqual(blocksList.data.ElementAt(2), 1);
-            Assert.AreEqual(blocksList.data.ElementAt(3), 2);
+            // SystemUpdateCount = 2, SystemGroupAllocator allocator is not switched, still allocator0, there are 2 blocks with block size (128k, 256k)
+            Assert.AreEqual(blocksList.data.ElementAt(2), 2);
+            // SystemUpdateCount = 2, SystemGroupAllocator allocator is not switched, still allocator0, after allocating 512k, there are 3 blocks with block size (128k, 256k, 512k)
+            // After SystemUpdateCount = 2 is done, SystemGroupAllocator is switched to allocator1, rewinds allocator1
+            Assert.AreEqual(blocksList.data.ElementAt(3), 3);
 
             var allocArrays = World.EntityManager.GetComponentData<AllocateNativeArrayComponent>(allocNativeArrayISystem);
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
             var groupAllocatorArray = allocArrays.GroupAllocatorArray;
-            Assert.Throws<ObjectDisposedException>(() =>
+            // Allocation from SystemGroupAllocator allocator0 is still valid.
+            for (int i = 0; i < 10; i++)
             {
-                groupAllocatorArray[0] = 0xEF;
-            });
-#endif
+                Assert.AreEqual(groupAllocatorArray[i], i);
+            }
         }
 
         [Test]
@@ -994,26 +1082,20 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(updatesList.data.ElementAt(1), new TimeData(1 * dt, dt));
             updatesList.data.Clear();
 
-            // SystemUpdateCount = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
             var blocksList = World.EntityManager.GetComponentData<NativeListComponent<int>>(allocatorBlocksISystem);
-
+            // SystemUpdateCount = 1, SystemGroupAllocator allocator0 starts from 1 block with block size (128k)
             Assert.AreEqual(blocksList.data.ElementAt(0), 1);
+            // SystemUpdateCount = 1, SystemGroupAllocator allocator0, after allocating 256k, there are 2 blocks with block size (128k, 256k)
             Assert.AreEqual(blocksList.data.ElementAt(1), 2);
-            // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
-            Assert.AreEqual(blocksList.data.ElementAt(2), 1);
-            Assert.AreEqual(blocksList.data.ElementAt(3), 2);
+            // SystemUpdateCount = 2, SystemGroupAllocator allocator is not switched, still allocator0, there are 2 blocks with block size (128k, 256k)
+            Assert.AreEqual(blocksList.data.ElementAt(2), 2);
+            // SystemUpdateCount = 2, SystemGroupAllocator allocator is not switched, still allocator0, after allocating 512k, there are 3 blocks with block size (128k, 256k, 512k)
+            // After SystemUpdateCount = 2 is done, SystemGroupAllocator is switched to allocator1, rewinds allocator1
+            Assert.AreEqual(blocksList.data.ElementAt(3), 3);
             blocksList.data.Clear();
 
             // Allocated with RateSystemGroupDoubleAllocators
             var allocArrays = World.EntityManager.GetComponentData<AllocateNativeArrayComponent>(allocNativeArrayISystem);
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            var groupAllocatorArray = allocArrays.GroupAllocatorArray;
-            Assert.Throws<ObjectDisposedException>(() =>
-            {
-                groupAllocatorArray[0] = 0xEF;
-            });
-#endif
 
             // Second group of updates ------------------
             fixedSimGroup.RemoveSystemFromUpdateList(allocNativeArrayISystem);
@@ -1025,12 +1107,21 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(updatesList.data.ElementAt(0), new TimeData(2 * dt, dt));
             updatesList.data.Clear();
 
-            // SystemUpdateCount = 3, From world update allocator, allocator0, after rewind 2 blocks, allocate 1024k, after 3 blocks with block size (128, 256k, 640k)
             blocksList = World.EntityManager.GetComponentData<NativeListComponent<int>>(allocatorBlocksISystem);
-
-            Assert.AreEqual(blocksList.data.ElementAt(0), 2);
-            Assert.AreEqual(blocksList.data.ElementAt(1), 3);
+            // SystemUpdateCount = 3, SystemGroupAllocator allocator1, start from 1 block with block size (128k)
+            Assert.AreEqual(blocksList.data.ElementAt(0), 1);
+            // SystemUpdateCount = 3, SystemGroupAllocator allocator1, after allocating 1024k, there are 2 blocks with block size (128, 1024k)
+            // After SystemUpdateCount = 3 is done, SystemGroupAllocator is switched to allocator0, rewinds allocator0
+            Assert.AreEqual(blocksList.data.ElementAt(1), 2);
             blocksList.data.Clear();
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var groupAllocatorArray = allocArrays.GroupAllocatorArray;
+            Assert.Throws<ObjectDisposedException>(() =>
+            {
+                groupAllocatorArray[0] = 0xEF;
+            });
+#endif
 
             // Third group of updates ------------------
             fixedSimGroup.RemoveSystemFromUpdateList(allocatorBlocksISystem);
@@ -1044,7 +1135,7 @@ namespace Unity.Entities.Tests
 
             var simGroup = World.CreateSystemManaged<SimulationSystemGroup>();
             simGroup.AddSystemToUpdateList(allocatorBlocksISystem);
-            //simGroup.AddSystemToUpdateList(allocNativeArrayISystem);
+            simGroup.AddSystemToUpdateList(allocNativeArrayISystem);
             simGroup.SortSystems();
 
             AllocatorBlocksISystem.Reset(3);
@@ -1052,16 +1143,19 @@ namespace Unity.Entities.Tests
             simGroup.Update();
             simGroup.Update();
 
-            // SystemUpdateCount = 4, allocator0 before 1 block, allocate 128k, after 2 blocks with block size (128k, 256k)
             blocksList = World.EntityManager.GetComponentData<NativeListComponent<int>>(allocatorBlocksISystem);
 
+            // SystemUpdateCount = 4, WorldUpdateAllocator allocator0, starts from 1 block with block size (128k)
             Assert.AreEqual(blocksList.data.ElementAt(0), 1);
+            // SystemUpdateCount = 4, WorldUpdateAllocator allocator0, after allocating 128k, there is 1 block with block size (128k)
             Assert.AreEqual(blocksList.data.ElementAt(1), 2);
-            // SystemUpdateCount = 5, allocator0, before 2 block, allocate 256k, after 3 blocks with block size (128k, 256k, 512k)
+            // SystemUpdateCount = 5, WorldUpdateAllocator allocator0, starts from 2 blocks (allocNativeArraySystem allocated some memory)
             Assert.AreEqual(blocksList.data.ElementAt(2), 2);
+            // SystemUpdateCount = 5, WorldUpdateAllocator allocator0, after allocating 256k, there are 3 blocks with block size (128k, 256k, 512k)
             Assert.AreEqual(blocksList.data.ElementAt(3), 3);
-            // SystemUpdateCount = 6, allocator0, after 3 blocks, allocate 512k, after 4 blocks with block size (128k, 256k, 512k, 1024k)
+            // SystemUpdateCount = 6, WorldUpdateAllocator allocator0, starts from 3 blocks with block size (128k, 256k, 512k)
             Assert.AreEqual(blocksList.data.ElementAt(4), 3);
+            // SystemUpdateCount = 6, WorldUpdateAllocator allocator0, after allocating 512k, there are 4 blocks with block size (128k, 256k, 512k, 1024k)
             Assert.AreEqual(blocksList.data.ElementAt(5), 4);
         }
 
@@ -1083,11 +1177,15 @@ namespace Unity.Entities.Tests
 
             var blocksList = World.EntityManager.GetComponentData<NativeListComponent<int>>(allocatorBlocksISystem);
 
-            // SystemUpdateCount = 1, allocator0 after rewind 1 block, allocate 256k, after 2 blocks with block size (128k, 256k)
+            // SystemUpdateCount = 1, SystemGroupAllocator allocator0, starts from 1 block with block size (128k)
             Assert.AreEqual(blocksList.data.ElementAt(0), 1);
+            // SystemUpdateCount = 1, SystemGroupAllocator allocator0, after allocating 256k, there are 2 blocks with block size (128k, 256k)
+            // After SystemUpdateCount = 1 is done, SystemGroupAllocator is switched to allocator1, rewinds allocator1
             Assert.AreEqual(blocksList.data.ElementAt(1), 2);
-            // SystemUpdateCount = 2, allocator1, after rewind 1 block, allocate 512k, after 2 blocks with block size (128k, 384k)
+            // SystemUpdateCount = 2, SystemGroupAllocator allocator1, starts from 1 block with block size (128k)
             Assert.AreEqual(blocksList.data.ElementAt(2), 1);
+            // SystemUpdateCount = 2, SystemGroupAllocator allocator1, after allocating 512k, there are 2 blocks with block size (128k, 512k)
+            // After SystemUpdateCount = 2 is done, SystemGroupAllocator is switched to allocator0, rewinds allocator0
             Assert.AreEqual(blocksList.data.ElementAt(3), 2);
 
             var allocArrays = World.EntityManager.GetComponentData<AllocateNativeArrayComponent>(allocNativeArrayISystem);

@@ -53,10 +53,7 @@ namespace Unity.Mathematics
         /// </summary>
         /// <param name="point">The point to check for whether it's contained by the AABB</param>
         /// <returns>True if the point is contained, and false if the point is not contained by the AABB.</returns>
-        public bool Contains(float3 point)
-        {
-            return !any(point < Min | Max < point);
-        }
+        public bool Contains(float3 point) => all(point >= Min & point <= Max);
 
         /// <summary>
         /// Returns whether the AABB contains another AABB completely. Because math is done
@@ -64,14 +61,11 @@ namespace Unity.Mathematics
         /// </summary>
         /// <param name="b">The AABB to check for whether it's contained by this AABB</param>
         /// <returns>True if the AABB is contained, and false if it is not.</returns>
-        public bool Contains(AABB b)
-        {
-            return !any(b.Max < Min | Max < b.Min);
-        }
+        public bool Contains(AABB b) => all((Min <= b.Min) & (Max >= b.Max));
 
         static float3 RotateExtents(float3 extents, float3 m0, float3 m1, float3 m2)
         {
-            return math.abs(m0 * extents.x) + math.abs(m1 * extents.y) + math.abs(m2 * extents.z);
+            return abs(m0 * extents.x) + abs(m1 * extents.y) + abs(m2 * extents.z);
         }
 
         /// <summary>

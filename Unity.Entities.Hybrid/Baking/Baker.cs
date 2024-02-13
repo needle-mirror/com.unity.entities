@@ -1532,6 +1532,16 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Adds a component of type T to a set of Entities
+        /// </summary>
+        /// <param name="entities">The Entities to add the component to</param>
+        /// <typeparam name="T">The type of component to add</typeparam>
+        internal void AddComponent<T>(NativeArray<Entity> entities)
+        {
+            AddComponent(entities, ComponentType.ReadWrite<T>());
+        }
+
+        /// <summary>
         /// Adds a component of type T to the Entity
         /// </summary>
         /// <param name="entity">The Entity to add the component to</param>
@@ -1549,6 +1559,20 @@ namespace Unity.Entities
                 CheckValidAdditionalEntity(entity);
 
             _State.Ecb.AddComponent(entity, component);
+        }
+
+        /// <summary>
+        /// Adds a component of type T to a set of Entities
+        /// </summary>
+        /// <param name="entities">The Entities to add the component to</param>
+        /// <param name="component">The component to add</param>
+        /// <typeparam name="T">The type of component to add</typeparam>
+        internal void AddComponent<T>(NativeArray<Entity> entities, in T component) where T : unmanaged, IComponentData
+        {
+            // Currently doesn't work for the primary entity
+            foreach (var entity in entities)
+                CheckValidAdditionalEntity(entity);
+            _State.Ecb.AddComponent(entities, component);
         }
 
         /// <summary>
@@ -1580,6 +1604,20 @@ namespace Unity.Entities
                 CheckValidAdditionalEntity(entity);
 
             _State.Ecb.AddComponent(entity, componentType);
+        }
+
+        /// <summary>
+        /// Adds a component of type ComponentType to a set of Entities
+        /// </summary>
+        /// <param name="entities">The Entities to add the component to</param>
+        /// <param name="componentType">The type of component to add</param>
+        internal void AddComponent(NativeArray<Entity> entities, ComponentType componentType)
+        {
+            // Currently doesn't work for the primary entity
+            foreach (var entity in entities)
+                CheckValidAdditionalEntity(entity);
+
+            _State.Ecb.AddComponent(entities, componentType);
         }
 
         /// <summary>
@@ -1635,6 +1673,19 @@ namespace Unity.Entities
                 CheckValidAdditionalEntity(entity);
 
             _State.Ecb.AddComponent(entity, componentTypeSet);
+        }
+
+        /// <summary>
+        /// Add multiple components of types ComponentType to a set of Entities
+        /// </summary>
+        /// <param name="entities">The Entities to add the components to</param>
+        /// <param name="componentTypeSet">The types of components to add</param>
+        internal void AddComponent(NativeArray<Entity> entities, in ComponentTypeSet componentTypeSet)
+        {
+            // Currently doesn't work for the primary entity
+            foreach (var entity in entities)
+                CheckValidAdditionalEntity(entity);
+            _State.Ecb.AddComponent(entities, in componentTypeSet);
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -1879,6 +1930,25 @@ namespace Unity.Entities
                 CheckComponentHasBeenAddedByThisBaker(entity, TypeManager.GetTypeIndex<T>());
 
             _State.Ecb.SetSharedComponent(entity, component);
+        }
+
+        /// <summary>
+        /// Replaces the value of the shared component on a set of Entities
+        /// </summary>
+        /// <remarks>
+        /// This method can only be invoked if the same baker instance previously added this specific component.
+        /// This is not a very common operation in bakers, but sometimes you have utility methods that add the relevant components and initialize them to a reasonable default state for that utility method,
+        /// but then your baker needs to override the value of one of those added components to something specific in your particular baker.
+        /// </remarks>
+        /// <param name="entities">The Entities to set the component to</param>
+        /// <param name="component">The component to set</param>
+        /// <typeparam name="T">The type of component to set</typeparam>
+        internal void SetSharedComponent<T>(NativeArray<Entity> entities, in T component) where T : unmanaged, ISharedComponentData
+        {
+            // Doesn't work for the primary entity
+            foreach (var entity in entities)
+                CheckValidAdditionalEntity(entity);
+            _State.Ecb.SetSharedComponent(entities, component);
         }
 
         /// <summary>

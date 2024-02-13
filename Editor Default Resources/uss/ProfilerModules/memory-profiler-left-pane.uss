@@ -71,6 +71,10 @@
     -unity-text-align: middle-left;
 }
 
+#tree-view-container
+{
+    flex-grow: 1;
+}
 .memory-profiler-left-pane__tree-view
 {
     flex-grow: 1;

@@ -471,7 +471,7 @@ namespace Unity.Entities.Baking
             return _BakeInstructionsCache;
         }
 
-        public unsafe IncrementalBakeInstructions BuildAdditionalInstructions(NativeArray<int> additionalObjects, ref TransformAuthoringBaking transformAuthoringBaking)
+        public unsafe IncrementalBakeInstructions BuildAdditionalInstructions(NativeArray<int> additionalObjects, NativeArray<int> destroyedPrefabs, ref TransformAuthoringBaking transformAuthoringBaking)
         {
             using var marker = _AdditionalObjectsInstructionsMarker.Auto();
 
@@ -484,6 +484,20 @@ namespace Unity.Entities.Baking
                 IncrementalHierarchyFunctions.AddRecurse(_Hierarchy, go, allGameObjects);
             }
 
+            // Make sure all Prefabs are reverted and destroyed
+            foreach (var gameObjectID in destroyedPrefabs)
+            {
+                // Debug.Log($"BuildIncrementalInstructions: Destroy GameObject: {gameObjectID}" );
+                foreach (var component in _Components.GetComponents(gameObjectID))
+                {
+                    _BakeInstructionsCache.RevertComponents.Add(component.InstanceID);
+                    IncrementalBakingLog.RecordComponentDestroyed(component.InstanceID);
+                }
+
+                _BakeInstructionsCache.DestroyedGameObjects.Add(gameObjectID);
+                IncrementalBakingLog.RecordGameObjectDestroyed(gameObjectID);
+
+            }
             _BakeInstructionsCache.BakeGameObjects.UnionWith(allGameObjects);
 
             foreach (var changedGameObject in allGameObjects)

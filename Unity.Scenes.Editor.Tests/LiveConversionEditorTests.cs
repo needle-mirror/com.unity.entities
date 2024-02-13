@@ -4608,6 +4608,72 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
+        [UnityTest]
+        public IEnumerator IncrementalBaking_Prefabs_DeleteAndUndoGameObject_DoesntThrow()
+        {
+            using var overrideBake = new BakerDataUtility.OverrideBakers(true, typeof(MockDataAuthoringBaker), typeof(BakerWithPrefabReferenceTestComponent));
+
+            var subScene = CreateEmptySubScene("TestSubScene", true);
+            var prefabOnePath = LiveConversionTest.Assets.GetNextPath("TestOne.prefab");
+            var prefabTwoPath = LiveConversionTest.Assets.GetNextPath("TestTwo.prefab");
+
+            // Create the Prefab
+            var refGO = new GameObject("PrefabReferenced");
+            refGO.AddComponent<MockDataAuthoring>();
+            var refPrefabObject = PrefabUtility.SaveAsPrefabAsset(refGO, prefabOnePath);
+
+            // Create the Prefab
+            var root = new GameObject("PrefabRoot");
+            var rootAuthoring = root.AddComponent<PrefabAuthoring>();
+            rootAuthoring.Prefab = refPrefabObject;
+
+            var child = new GameObject("PrefabChild");
+            child.AddComponent<MockDataAuthoring>();
+            child.transform.SetParent(root.transform);
+            var prefabObject = PrefabUtility.SaveAsPrefabAsset(root, prefabTwoPath);
+
+            // Make GO and add the Prefab in the Baker
+            var sceneObject = new GameObject("GO");
+            var aAuthoring = sceneObject.AddComponent<PrefabAuthoring>();
+            aAuthoring.Prefab = prefabObject;
+
+            SceneManager.MoveGameObjectToScene(sceneObject, subScene.EditingScene);
+
+            yield return GetEnterPlayMode(TestWithEditorLiveConversion.Mode.Edit);
+            {
+                var w = GetLiveConversionWorld(TestWithEditorLiveConversion.Mode.Edit);
+
+                yield return UpdateEditorAndWorld(w);
+                var prefabQuery = w.EntityManager.CreateEntityQuery(new EntityQueryDesc{
+                        All = new ComponentType[]{typeof(MockData)},
+                        Options = EntityQueryOptions.IncludePrefab});
+                Assert.AreEqual(4, prefabQuery.CalculateEntityCount(), "Expected four game objects to be converted");
+
+                // Remove GO which removes prefab Entities
+                Undo.DestroyObjectImmediate(sceneObject);
+                Undo.FlushUndoRecordObjects();
+                yield return UpdateEditorAndWorld(w);
+                Assert.AreEqual(0, prefabQuery.CalculateEntityCount(), "All prefab Entities destroyed");
+
+                Undo.PerformUndo();
+                yield return UpdateEditorAndWorld(w);
+                Assert.AreEqual(4, prefabQuery.CalculateEntityCount(), "Expected four game objects to be converted");
+
+                Undo.PerformRedo();
+                yield return UpdateEditorAndWorld(w);
+                Assert.AreEqual(0, prefabQuery.CalculateEntityCount(), "All prefab Entities destroyed");
+
+                Undo.PerformUndo();
+                yield return UpdateEditorAndWorld(w);
+                Assert.AreEqual(4, prefabQuery.CalculateEntityCount(), "Expected four game objects to be converted");
+
+                yield return UpdateEditorAndWorld(w);
+                Undo.PerformRedo();
+                yield return UpdateEditorAndWorld(w);
+                Assert.AreEqual(0, prefabQuery.CalculateEntityCount(), "All prefab Entities destroyed");
+            }
+        }
+
         public class BakerWithMultipleCallsToGetEntity : Baker<Authoring_WithGameObjectField>
         {
             public override void Bake(Authoring_WithGameObjectField authoring)
@@ -8301,14 +8367,14 @@ namespace Unity.Scenes.Editor.Tests
                 var testBlobAssetQuery = w.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<BlobAssetReference>());
                 Assert.AreEqual(2, testBlobAssetQuery.CalculateEntityCount(), "The Blob Asset Reference Component was not added correctly");
 
-                var entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
-
                 {
+                    var entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
                     var componentArray = new NativeArray<BlobAssetReference>(entityArray.Length, Allocator.Temp)
                     {
                         [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
                         [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
                     };
+                    entityArray.Dispose();
 
                     Assert.AreEqual(componentArray[0].blobHash, componentArray[1].blobHash, "The references do not point to the same Blob Asset");
                     Assert.AreEqual(componentArray[0].blobValue, componentArray[1].blobValue, "The references do not point to the same Blob Asset");
@@ -8339,12 +8405,13 @@ namespace Unity.Scenes.Editor.Tests
                     Assert.AreEqual(2, blobAssetStore.BlobAssetCount);
                     Assert.AreEqual(2, testBlobAssetQuery.CalculateEntityCount(), "The Blob Asset Reference Component was not added correctly");
 
-                    entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
+                    var entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
                     var componentArray = new NativeArray<BlobAssetReference>(entityArray.Length, Allocator.Temp)
                     {
                         [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
                         [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
                     };
+                    entityArray.Dispose();
 
                     Assert.IsTrue(blobAssetStore.Contains<int>(componentArray[0].blobHash));
                     Assert.IsTrue(blobAssetStore.Contains<int>(componentArray[1].blobHash));
@@ -8373,12 +8440,13 @@ namespace Unity.Scenes.Editor.Tests
 
                     Assert.AreEqual(2, testBlobAssetQuery.CalculateEntityCount(), "The Blob Asset Reference Component was not added correctly");
 
-                    entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
+                    var entityArray = testBlobAssetQuery.ToEntityArray(Allocator.Persistent);
                     var componentArray = new NativeArray<BlobAssetReference>(entityArray.Length, Allocator.Temp)
                     {
                         [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
                         [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
                     };
+                    entityArray.Dispose();
 
                     Assert.IsTrue(blobAssetStore.Contains<int>(componentArray[0].blobHash));
 
@@ -8387,6 +8455,8 @@ namespace Unity.Scenes.Editor.Tests
                     Assert.AreEqual(componentArray[0].blobReference, componentArray[1].blobReference, "The references do not point to the same Blob Asset");
                     Assert.DoesNotThrow(() => _ = componentArray[0].blobReference.Value, "The Blob Asset Reference is invalid");
                 }
+
+                testBlobAssetQuery.Dispose();
             }
         }
 
@@ -8434,6 +8504,7 @@ namespace Unity.Scenes.Editor.Tests
                     [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
                     [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
                 };
+                entityArray.Dispose();
 
                 Assert.AreEqual(componentArray[0].blobHash, componentArray[1].blobHash, "The references do not point to the same Blob Asset");
                 Assert.AreEqual(componentArray[0].blobValue, componentArray[1].blobValue, "The references do not point to the same Blob Asset");
@@ -8499,6 +8570,7 @@ namespace Unity.Scenes.Editor.Tests
                     [0] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[0]),
                     [1] = w.EntityManager.GetComponentData<BlobAssetReference>(entityArray[1])
                 };
+                entityArray.Dispose();
 
                 Assert.AreEqual(componentArray[0].blobHash, componentArray[1].blobHash, "The references do not point to the same Blob Asset");
                 Assert.AreEqual(componentArray[0].blobValue, componentArray[1].blobValue, "The references do not point to the same Blob Asset");
@@ -8511,6 +8583,8 @@ namespace Unity.Scenes.Editor.Tests
                 blobAssetStore.GarbageCollection(w.EntityManager);
                 Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
                 Assert.IsTrue(blobAssetStore.Contains<int>(hash1));
+
+                testBlobAssetQuery.Dispose();
             }
         }
 
@@ -8567,6 +8641,12 @@ namespace Unity.Scenes.Editor.Tests
                 blobAssetStore.GarbageCollection(w.EntityManager);
                 Assert.AreEqual(1, blobAssetStore.BlobAssetCount);
                 Assert.IsTrue(blobAssetStore.Contains<int>(componentArrayAdd.blobHash));
+
+                entityArrayAdd.Dispose();
+                entityArrayGet.Dispose();
+
+                testBlobAssetQueryAdd.Dispose();
+                testBlobAssetQueryGet.Dispose();
             }
         }
 

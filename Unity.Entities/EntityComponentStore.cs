@@ -2725,10 +2725,12 @@ namespace Unity.Entities
                 while (types[--i].IsBuffer);
             }
 
+            ulong bloomFilterMask = 0;
             for (var i = 0; i < count; ++i)
             {
                 var typeIndex = types[i].TypeIndex;
                 ref readonly var typeInfo = ref GetTypeInfo(typeIndex);
+                bloomFilterMask |= typeInfo.BloomFilterMask;
                 if (typeIndex == m_DisabledType)
                     dstArchetype->Flags |= ArchetypeFlags.Disabled;
                 if (typeIndex == m_SystemInstanceType)
@@ -2748,6 +2750,7 @@ namespace Unity.Entities
                 if (typeInfo.HasUnityObjectRefs)
                     dstArchetype->Flags |= ArchetypeFlags.HasUnityObjectRefs;
             }
+            dstArchetype->BloomFilterMask = bloomFilterMask;
 
             if (dstArchetype->NumManagedComponents > 0)
                 dstArchetype->Flags |= ArchetypeFlags.HasManagedComponents;

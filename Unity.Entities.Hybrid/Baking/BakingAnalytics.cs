@@ -147,7 +147,10 @@ namespace Unity.Entities
                 if (BakerDataUtility._BakersByAssembly.TryGetValue(assembly, out var assemblyData))
                     isUnityAssembly = assemblyData.IsUnityAssembly;
                 else
-                    isUnityAssembly = assembly.GetName().Name.StartsWith("Unity.") || assembly.GetName().Name.StartsWith("UnityEngine.");
+                {
+                    var assemblyName = assembly.GetName().Name;
+                    isUnityAssembly = assemblyName.StartsWith("Unity.") || assemblyName.StartsWith("UnityEngine.");
+                }
 
                 // Log the Component/Bakers according to Assembly
                 if (isUnityAssembly)
