@@ -628,7 +628,11 @@ namespace Unity.Entities.Editor
             var assetPath = PrefabUtility.GetPrefabAssetPathOfNearestInstanceRoot(prefabInstance);
             var defaultPrefabMode = PreferencesProviderBridge.GetDefaultPrefabModeForHierarchy();
             var alternativePrefabMode = (defaultPrefabMode == PrefabStage.Mode.InContext) ? PrefabStage.Mode.InIsolation : PrefabStage.Mode.InContext;
-            var mode = (evt as MouseUpEvent).modifiers.HasFlag(EventModifiers.Alt) ? alternativePrefabMode : defaultPrefabMode;
+#if UNITY_2023_2_OR_NEWER
+            var mode = ((IPointerEvent)evt).modifiers.HasFlag(EventModifiers.Alt) ? alternativePrefabMode : defaultPrefabMode;
+#else
+            var mode = ((IMouseEvent)evt).modifiers.HasFlag(EventModifiers.Alt) ? alternativePrefabMode : defaultPrefabMode;
+#endif
             PrefabStageUtility.OpenPrefab(assetPath, prefabInstance, mode);
         }
 

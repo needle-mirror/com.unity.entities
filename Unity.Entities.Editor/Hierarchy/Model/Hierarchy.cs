@@ -703,6 +703,9 @@ namespace Unity.Entities.Editor
                 {
                     var entity = handle.ToEntity();
 
+                    if (m_World is not {IsCreated: true})
+                        return 0;
+
                     if (!m_World.EntityManager.Exists(entity))
                         return 0;
 

@@ -953,7 +953,7 @@ namespace Unity.Entities
                 StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.AddComponent, in m_WorldUnmanaged);
 #endif
 
-            if (entities.Length > FASTER_TO_BATCH_THRESHOLD &&
+            if (componentTypeSet.ChunkComponentCount == 0 && entities.Length > FASTER_TO_BATCH_THRESHOLD &&
                 EntityComponentStore->CreateEntityBatchList(entities, componentTypeSet.m_masks.SharedComponents,
                     Allocator.Temp, out var entityBatchList))
             {

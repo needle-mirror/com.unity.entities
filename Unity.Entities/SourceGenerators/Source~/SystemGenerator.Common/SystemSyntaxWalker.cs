@@ -26,6 +26,7 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
         private SyntaxToken _memberIdentifierToken;
         private bool _currentMemberRequiresSourceGen;
         private readonly HashSet<StatementSyntax> _statementsRequiringLineDirectives;
+        private readonly HashSet<StatementSyntax> _statementsRequiringHiddenDirectives;
 
         public SystemSyntaxWalker(SystemDescription systemDescription)
             : base(SyntaxWalkerDepth.Trivia)
@@ -33,7 +34,8 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
             _currentInnerWriter = new StringWriter();
             _currentMethodAndPropertyWriter = new IndentedTextWriter(_currentInnerWriter);
             _systemDescription = systemDescription;
-            _statementsRequiringLineDirectives = _systemDescription.GetStatementsRequiringLineDirectives();
+            (_statementsRequiringLineDirectives, _statementsRequiringHiddenDirectives) =
+                _systemDescription.GetStatementsRequiringLineDirectivesAndHiddenDirectives();
         }
 
         public (bool MethodRequiresSourceGen, string SourceGeneratedMethod)
@@ -105,6 +107,11 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
                 _currentMethodAndPropertyWriter.WriteLine($"{GetLineDirective(_systemDescription.OriginalFilePath)}");
             }
             base.Visit(node);
+
+            // Write a `#line hidden` directive after the last statement in the method/property
+            // to ensure that no further generated source receives additions sequence points.
+            if (_statementsRequiringHiddenDirectives.Contains(node))
+                _currentMethodAndPropertyWriter.WriteLine("#line hidden");
 
             string GetLineDirective(string originalFilePath)
                 => string.IsNullOrEmpty(originalFilePath) ? "" : $"#line {node.GetLineNumber() + 1} \"{originalFilePath}\"";

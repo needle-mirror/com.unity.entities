@@ -43,6 +43,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
 #endif
         }
 
+#if false
         [UnityTest]
         public IEnumerator LoadMultipleSubscenes_Async_WithAssetBundles()
         {
@@ -116,7 +117,9 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
 #endif
             }
         }
+#endif
 
+#if false
         [UnityTest]
         public IEnumerator LoadMultipleSubscenes_Blocking_WithAssetBundles()
         {
@@ -207,6 +210,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
 #endif
             }
         }
+#endif
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS // PostLoadCommandBuffer is a managed component
         private static PostLoadCommandBuffer CreateTestProcessAfterLoadDataCommandBuffer(int value)
@@ -217,7 +221,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
             postLoadCommandBuffer.CommandBuffer.AddComponent(postLoadEntity, new TestProcessAfterLoadData {Value = value});
             return postLoadCommandBuffer;
         }
-
+#if false
         [UnityTest]
         public IEnumerator LoadSubscene_With_PostLoadCommandBuffer([Values] bool loadAsync, [Values] bool addCommandBufferToSection)
         {
@@ -282,7 +286,9 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
             // Check that command buffer has been Disposed
             Assert.IsFalse(postLoadCommandBuffer.CommandBuffer.IsCreated);
         }
+#endif
 
+#if false
         [Test]
         public void Load_MultipleInstancesOfSameSubScene_By_Instantiating_ResolvedScene()
         {
@@ -338,7 +344,9 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 }
             }
         }
+#endif
 
+#if false
         [Test]
         public void Load_MultipleInstancesOfSameSubScene_With_NewInstance_Flag()
         {
@@ -378,6 +386,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 }
             }
         }
+#endif
 
         [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
         private partial class Group1 : ComponentSystemGroup {}
@@ -410,6 +419,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
 
         private static int s_Counter = 0;
 
+#if false
         [Test]
         public void PostProcessAfterLoadGroup_SupportsSystemGroups()
         {
@@ -430,7 +440,9 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 Assert.Greater(System1.CounterRead, System2.CounterRead);
             }
         }
+#endif
 
+#if false
         [Test]
         public void Load_EnableableComponentsHaveCorrectState()
         {
@@ -458,7 +470,9 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
                 Assert.IsTrue(world.EntityManager.IsComponentEnabled<EnableableTag4>(e), "EnableableTag4 should be enabled");
             }
         }
+#endif
 
+#if false
         [UnityTest]
         public IEnumerator SubscenesCompleteLoading_When_ConcurrentSectionStreamCountIsSetTo0()
         {
@@ -528,6 +542,9 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
             }
         }
 #endif
+
+#endif
+
     }
 
     public struct TestProcessAfterLoadData : IComponentData

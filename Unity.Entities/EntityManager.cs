@@ -12,6 +12,7 @@ using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Profiling;
 using UnityEngine.Scripting;
+using UnityEngine.TestTools;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid")]
 
@@ -3533,7 +3534,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Clones a set of entities, different from Instantiate because it does not remove the prefab tag component.
+        /// Clones a set of entities, different from Instantiate because it does not remove the <see cref="Prefab"/> tag component.
         /// </summary>
         /// <remarks>
         /// The new entity has the same archetype and component values as the original, however cleanup components are removed from the clone.
@@ -3550,7 +3551,13 @@ namespace Unity.Entities
         /// <param name="srcEntities">The set of entities to clone</param>
         /// <param name="outputEntities">the set of entities that were cloned. outputEntities.Length must match srcEntities.Length</param>
         [StructuralChangeMethod]
+        [ExcludeFromCoverage]
+        [Obsolete("This method is not safe to use in some contexts, and will be removed from the public API in a future Entities release. To create copies of a prefab Entity, use EntityManager.Instantiate().")]
         public void CopyEntities(NativeArray<Entity> srcEntities, NativeArray<Entity> outputEntities)
+        {
+            CopyEntitiesInternal(srcEntities, outputEntities);
+        }
+        internal void CopyEntitiesInternal(NativeArray<Entity> srcEntities, NativeArray<Entity> outputEntities)
         {
             var access = GetCheckedEntityDataAccess();
             access->PrepareForCopyAdditiveStructuralChanges(srcEntities);
@@ -3705,7 +3712,7 @@ namespace Unity.Entities
 
             using (var srcManagerInstances = new NativeArray<Entity>(srcEntities.Length, Allocator.Temp))
             {
-                srcEntityManager.CopyEntities(srcEntities, srcManagerInstances);
+                srcEntityManager.CopyEntitiesInternal(srcEntities, srcManagerInstances);
                 srcEntityManager.AddComponent(srcManagerInstances, ComponentType.ReadWrite<IsolateCopiedEntities>());
 
                 var instantiated = new EntityQueryBuilder(Allocator.Temp)

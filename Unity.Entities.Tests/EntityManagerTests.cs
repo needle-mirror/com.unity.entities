@@ -1262,7 +1262,7 @@ namespace Unity.Entities.Tests
 
             var dstEntities = new NativeArray<Entity>(entityCount, Allocator.Temp);
 
-            m_Manager.CopyEntities(srcEntities, dstEntities);
+            m_Manager.CopyEntitiesInternal(srcEntities, dstEntities);
 
             for (int i = 0; i < srcEntities.Length; ++i)
             {
@@ -1642,7 +1642,7 @@ namespace Unity.Entities.Tests
             {
 
                 //underlying function calls into EntityComponentStore.CopyName
-                m_Manager.CopyEntities(srcEntities,dstEntities);
+                m_Manager.CopyEntitiesInternal(srcEntities,dstEntities);
 
                 //make sure entities of interest are actually cloned in the manager
                 var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));

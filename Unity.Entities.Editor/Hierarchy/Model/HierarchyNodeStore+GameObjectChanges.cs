@@ -128,7 +128,7 @@ namespace Unity.Entities.Editor
 
                     var sceneNode = HierarchyNodeHandle.FromScene(scene);
                     if (m_Hierarchy.Exists(sceneNode))
-                        m_Hierarchy.RemoveNode(sceneNode);
+                        m_Hierarchy.RemoveNode(sceneNode, removeChildrenRecursively: true);
                 }
             }
 

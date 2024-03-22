@@ -31,6 +31,15 @@ namespace Unity.Scenes
             if(headerData->ManagedHeaderData.IsAllocated)
                 headerData->ManagedHeaderData.Free();
 #endif
+
+            // If HeaderLoadResult is successfully loaded then the SectionPaths has been allocated in DeserializeHeaderJob
+            // and the HeaderBlobOwner has been allocated and Retained at least once. So dispose and release them both.
+            if (headerData->HeaderLoadResult.Success)
+            {
+                headerData->HeaderLoadResult.SectionPaths.Dispose();
+                headerData->HeaderLoadResult.HeaderBlobOwner.Release();
+            }
+
             Memory.Unmanaged.Free(headerData->Data, Allocator.Persistent);
             Memory.Unmanaged.Free(headerData, Allocator.Persistent);
         }
@@ -117,7 +126,7 @@ namespace Unity.Scenes
             }
         }
 
-        internal unsafe struct HeaderLoadResult : IDisposable
+        internal unsafe struct HeaderLoadResult
         {
             public HeaderLoadStatus Status;
             public UnsafeList<ResolvedSectionPath> SectionPaths;
@@ -125,14 +134,6 @@ namespace Unity.Scenes
             public BlobAssetOwner HeaderBlobOwner;
 
             public bool Success => Status==HeaderLoadStatus.Success;
-
-            public void Dispose()
-            {
-                if (!Success)
-                    return;
-                SectionPaths.Dispose();
-                HeaderBlobOwner.Release();
-            }
         }
 
         internal static unsafe HeaderLoadResult FinishHeaderLoad(RequestSceneHeader requestHeader, Hash128 sceneGUID, string sceneLoadDir)

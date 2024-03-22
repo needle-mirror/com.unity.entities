@@ -17,8 +17,9 @@ EntityManager.DestroyEntity(e);
 // The entity still exists so this demonstrates that you can still use the entity normally.
 EntityManager.AddComponent<Translation>(e);
 
-// Removes all the components from the entity. This destroys the entity.
-EntityManager.DestroyEntity(e, new ComponentTypes(typeof(ExampleCleanup), typeof(Translation)));
+// Removes all the remaining components from the entity.
+// Removing the final cleanup component (ExampleCleanup) automatically destroys the entity.
+EntityManager.RemoveComponent(e, new ComponentTypeSet(typeof(ExampleCleanup), typeof(Translation)));
 
 // Demonstrates that the entity no longer exists. entityExists is false. 
 bool entityExists = EntityManager.Exists(e);

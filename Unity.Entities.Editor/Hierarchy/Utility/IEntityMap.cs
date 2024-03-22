@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 
 namespace Unity.Entities.Editor
 {
@@ -12,17 +12,17 @@ namespace Unity.Entities.Editor
         /// Returns the upper bound for the array.
         /// </summary>
         int Capacity { get; }
-        
+
         /// <summary>
         /// Returns the number of entries in the storage.
         /// </summary>
         int Count { get; }
-        
+
         /// <summary>
-        /// Gets or sets the data for the specified <see cref="Entity"/>.
+        /// Gets the data for the specified <see cref="Entity"/>.
         /// </summary>
-        /// <param name="entity">The entity to get or set data for.</param>
-        T this[Entity entity] { get; set; }
+        /// <param name="entity">The entity to get data for.</param>
+        T this[Entity entity] { get; }
 
         /// <summary>
         /// Clears the storage for re-use.

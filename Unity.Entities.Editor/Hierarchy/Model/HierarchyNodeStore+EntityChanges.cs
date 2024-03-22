@@ -228,14 +228,30 @@ namespace Unity.Entities.Editor
                 var addedParentComponents = Batch.AddedParentComponents;
                 var addedParentSceneTagForNullParentComponents = Batch.AddedParentSceneTagForNullParentComponents;
 
+                // When a scene is removed we recursively remove all children nodes.
+                // This means some nodes for entities might not exist anymore, that's why
+                // we now check for Hierarchy.Exists when parenting / removing nodes.
+
                 for (var i = 0; i < removedSceneTagWithoutParentEntities.Length; i++)
-                    Hierarchy.SetParent(HierarchyNodeHandle.FromEntity(removedSceneTagWithoutParentEntities[i]), HierarchyNodeHandle.Root);
+                {
+                    var entity = HierarchyNodeHandle.FromEntity(removedSceneTagWithoutParentEntities[i]);
+                    if (Hierarchy.Exists(entity))
+                        Hierarchy.SetParent(entity, HierarchyNodeHandle.Root);
+                }
 
                 for (var i = 0; i < removedParentEntities.Length; i++)
-                    Hierarchy.SetParent(HierarchyNodeHandle.FromEntity(removedParentEntities[i]), HierarchyNodeHandle.Root);
+                {
+                    var entity = HierarchyNodeHandle.FromEntity(removedParentEntities[i]);
+                    if (Hierarchy.Exists(entity))
+                        Hierarchy.SetParent(entity, HierarchyNodeHandle.Root);
+                }
 
                 for (var i = 0; i < destroyedEntities.Length; i++)
-                    Hierarchy.RemoveNode(HierarchyNodeHandle.FromEntity(destroyedEntities[i]));
+                {
+                    var entity = HierarchyNodeHandle.FromEntity(destroyedEntities[i]);
+                    if (Hierarchy.Exists(entity))
+                        Hierarchy.RemoveNode(entity);
+                }
 
                 for (var i = 0; i < createdEntities.Length; i++)
                     Hierarchy.m_Nodes.ValueByEntity.SetValueDefaultUnchecked(createdEntities[i]);

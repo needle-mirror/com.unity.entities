@@ -187,12 +187,12 @@ namespace Unity.Entities.Editor
             if (handle == parent)
                 throw new InvalidOperationException($"Trying to set the parent for {handle} as itself.");
 
-            m_Nodes[handle] = new HierarchyNodeData
+            m_Nodes.Add(handle, new HierarchyNodeData
             {
                 ChangeVersion = ChangeVersion,
                 Parent = parent,
                 SortIndex = int.MaxValue
-            };
+            });
 
             // Special case; Root entities are not included in the 'm_Children' set and instead handled separately for performance reasons.
             if (!(parent == HierarchyNodeHandle.Root && handle.Kind == NodeKind.Entity))
@@ -206,7 +206,7 @@ namespace Unity.Entities.Editor
         /// Removes the specified node from the hierarchy.
         /// </summary>
         /// <param name="handle">The node to remove.</param>
-        public void RemoveNode(HierarchyNodeHandle handle)
+        public void RemoveNode(HierarchyNodeHandle handle, bool removeChildrenRecursively = false)
         {
             if (handle.Kind == NodeKind.Root)
                 throw new InvalidOperationException($"Trying to remove {nameof(HierarchyNodeHandle)} with {nameof(NodeKind)}.{nameof(NodeKind.Root)}. This is not allowed.");
@@ -216,13 +216,60 @@ namespace Unity.Entities.Editor
 
             var node = m_Nodes[handle];
 
+            if (m_Children.CountValuesForKey(handle) > 0)
+            {
+                if (removeChildrenRecursively)
+                    RemoveChildrenRecursive(handle);
+                else
+                    ParentChildrenUnderRoot(handle);
+            }
+
+            // Update children for the removed node.
+            m_Children.Remove(node.Parent, handle);
+            m_Children.Remove(handle);
+
+            UpdateChangeVersion(node.Parent);
+            m_Nodes.Remove(handle);
+        }
+
+        void RemoveChildrenRecursive(HierarchyNodeHandle parent)
+        {
+            using var allChildren = new NativeList<HierarchyNodeHandle>(Allocator.Temp);
+            using var queue = new NativeQueue<HierarchyNodeHandle>(Allocator.Temp);
+            queue.Enqueue(parent);
+
+            while (!queue.IsEmpty())
+            {
+                var handle = queue.Dequeue();
+                if (m_Children.TryGetFirstValue(handle, out var childHandle, out var iterator))
+                {
+                    do
+                    {
+                        allChildren.Add(childHandle);
+                        queue.Enqueue(childHandle);
+                    } while (m_Children.TryGetNextValue(out childHandle, ref iterator));
+                }
+            }
+
+            // Remove all children without updating the change version.
+            // The update of change version will happen after the parent node is removed.
+            for (var i = 0; i < allChildren.Length; i++)
+            {
+                var child = allChildren[i];
+                m_Children.Remove(child);
+                m_Nodes.Remove(child);
+            }
+        }
+
+        void ParentChildrenUnderRoot(HierarchyNodeHandle handle)
+        {
             if (m_Children.TryGetFirstValue(handle, out var childHandle, out var iterator))
             {
                 do
                 {
                     if (childHandle.Kind == NodeKind.Entity && m_Children.CountValuesForKey(childHandle) == 0)
                     {
-                        m_Nodes[childHandle] = k_SharedDefaultEntity;
+                        m_Nodes.Update(childHandle, k_SharedDefaultEntity);
                     }
                     else
                     {
@@ -230,7 +277,7 @@ namespace Unity.Entities.Editor
                         var child = m_Nodes[childHandle];
                         child.Parent = HierarchyNodeHandle.Root;
                         child.ChangeVersion = ChangeVersion;
-                        m_Nodes[childHandle] = child;
+                        m_Nodes.Update(childHandle, child);
 
                         if (childHandle.Kind != NodeKind.Entity)
                         {
@@ -240,13 +287,6 @@ namespace Unity.Entities.Editor
                     }
                 } while (m_Children.TryGetNextValue(out childHandle, ref iterator));
             }
-
-            // Update children for the removed node.
-            m_Children.Remove(node.Parent, handle);
-            m_Children.Remove(handle);
-
-            UpdateChangeVersion(node.Parent);
-            m_Nodes.Remove(handle);
         }
 
         /// <summary>
@@ -370,7 +410,7 @@ namespace Unity.Entities.Editor
 
             var node = m_Nodes[handle];
             node.SortIndex = index;
-            m_Nodes[handle] = node;
+            m_Nodes.Update(handle, node);
 
             // Give a hint to the packing system to enable sorting.
             SetFlag(node.Parent, HierarchyNodeFlags.ChildrenRequireSorting);
@@ -427,18 +467,18 @@ namespace Unity.Entities.Editor
                 {
                     // This node is transitioning to a root entity with no children. We use a very special path for this.
                     // Since this node has absolutely no hierarchical information associated with it we only need to store it's existence.
-                    m_Nodes[handle] = k_SharedDefaultEntity;
+                    m_Nodes.Update(handle, k_SharedDefaultEntity);
                 }
                 else
                 {
                     // Otherwise we need to store this node as normal.
-                    m_Nodes[handle] = node;
+                    m_Nodes.Update(handle, node);
                 }
             }
             else
             {
                 m_Children.Add(parent, handle);
-                m_Nodes[handle] = node;
+                m_Nodes.Update(handle, node);
             }
 
             // Propagate changes up the hierarchy.
@@ -471,12 +511,13 @@ namespace Unity.Entities.Editor
                     return;
 
                 var node = m_Nodes[handle];
-
                 if (node.ChangeVersion == ChangeVersion)
                     return;
 
                 node.ChangeVersion = ChangeVersion;
-                m_Nodes[handle] = node;
+                // It is possible that when a node is being removed, its parent is already gone.
+                // Use TryUpdate here to avoid throwing error.
+                m_Nodes.TryUpdate(handle, node);
                 handle = node.Parent;
             }
         }
@@ -485,19 +526,19 @@ namespace Unity.Entities.Editor
         {
             var node = m_Nodes[handle];
             node.Flags |= flag;
-            m_Nodes[handle] = node;
+            m_Nodes.Update(handle, node);
         }
 
         void UnsetFlag(HierarchyNodeHandle handle, HierarchyNodeFlags flag)
         {
             var node = m_Nodes[handle];
             node.Flags &= ~flag;
-            m_Nodes[handle] = node;
+            m_Nodes.Update(handle, node);
         }
 
         public HierarchyNodeFlags GetFlags(HierarchyNodeHandle handle)
         {
-            return m_Nodes[handle].Flags;
+            return !m_Nodes.Exists(handle) ? default : m_Nodes[handle].Flags;
         }
     }
 }

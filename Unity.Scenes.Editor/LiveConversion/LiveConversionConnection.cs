@@ -195,7 +195,12 @@ namespace Unity.Scenes.Editor
                         break;
                     }
                     default:
+#if UNITY_2023_3_OR_NEWER
+                        // Adding a new enum to the next editor. Temporarily disable this throw for now until it lands.
+                        break;
+#else
                         throw new ArgumentOutOfRangeException();
+#endif
                 }
             }
             EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();

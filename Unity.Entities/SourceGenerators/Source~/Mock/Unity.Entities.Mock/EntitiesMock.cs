@@ -488,6 +488,8 @@ namespace Unity.Entities
         public static T GetComponent<T>(Entity entity) where T : struct, IComponentData => default;
         public static void SetComponent<T>(Entity entity, T component) where T : struct, IComponentData {}
         public static bool HasComponent<T>(Entity entity) where T : struct, IComponentData => default;
+        public static RefRO<T> GetComponentRO<T>(Entity entity) where T : unmanaged, IComponentData => default;
+        public static RefRW<T> GetComponentRW<T>(Entity entity) where T : unmanaged, IComponentData => default;
 
         // Buffer
         public static BufferLookup<T> GetBufferLookup<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData => default;

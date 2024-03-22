@@ -250,7 +250,7 @@ namespace Unity.Entities.Tests
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
             {
-                m_Manager.CopyEntities(TmpNA(toCopy, toCopy), TmpNA(2));
+                m_Manager.CopyEntitiesInternal(TmpNA(toCopy, toCopy), TmpNA(2));
             }
 
             Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
@@ -288,7 +288,7 @@ namespace Unity.Entities.Tests
             var typeHandle = new EcsTestDataAspect.TypeHandle(ref EmptySystem.CheckedStateRef);
             var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>());
 
-            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CopyEntities(TmpNA(toCopy, toCopy), TmpNA(2)));
+            ScheduleJobAndAssertCodeThrows(query, typeHandle, () => m_Manager.CopyEntitiesInternal(TmpNA(toCopy, toCopy), TmpNA(2)));
 
             Assert.AreEqual(OriginalEntitiesCount, EcsTestDataEntitiesCount);
         }
@@ -398,7 +398,7 @@ namespace Unity.Entities.Tests
             var query = EmptySystem.GetEntityQuery(GetRequiredComponents<EcsTestDataAspect>());
 
             foreach (var aspect in EcsTestDataAspect.Query(query, typeHandle))
-                m_Manager.CopyEntities(TmpNA(prefabs), TmpNA(2));
+                m_Manager.CopyEntitiesInternal(TmpNA(prefabs), TmpNA(2));
         }
 
         [Test]

@@ -157,7 +157,7 @@ namespace Unity.Entities.Editor
                 if (handles.Contains(handle))
                     continue;
 
-                nodeStore.RemoveNode(handle);
+                nodeStore.RemoveNode(handle, removeChildrenRecursively: true);
                 nameStore.RemoveName(handle);
             }
         }

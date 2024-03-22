@@ -911,8 +911,6 @@ namespace Unity.Entities.Content
 #endif
             if (!ActiveObjects.TryGetValue(objectId, out var activeObject))
             {
-                SharedStaticObjectValueCache.Data.SetObjectStatus(objectId, ObjectLoadingStatus.Loading, default);
-                SharedStaticLoadingObjects.Data.Add(objectId);
                 ContentFileId fileId = default;
                 long localFileId = default;
                 if (!Catalog.TryGetObjectLocation(objectId, out fileId, out localFileId))
@@ -934,6 +932,10 @@ namespace Unity.Entities.Content
                     return false;
 #endif
                 }
+
+                SharedStaticObjectValueCache.Data.SetObjectStatus(objectId, ObjectLoadingStatus.Loading, default);
+                SharedStaticLoadingObjects.Data.Add(objectId);
+
                 if (fileId.IsValid)
                     LoadFile(fileId);
 

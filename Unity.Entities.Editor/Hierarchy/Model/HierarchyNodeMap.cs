@@ -25,7 +25,7 @@ namespace Unity.Entities.Editor
         {
             public int ValueByHandleCount;
         }
-        
+
         /// <summary>
         /// The allocator used to construct this instance.
         /// </summary>
@@ -50,7 +50,7 @@ namespace Unity.Entities.Editor
         /// Returns the internal entity data storage.
         /// </summary>
         internal EntityMapDense<T> ValueByEntity => m_ValueByEntity;
-        
+
         /// <summary>
         /// Returns the internal entity data storage.
         /// </summary>
@@ -62,9 +62,9 @@ namespace Unity.Entities.Editor
         internal int ValueByHandleCount => m_HierarchyNodeMapData->ValueByHandleCount;
 
         /// <summary>
-        /// Gets or sets the data for the specified handle.
+        /// Gets the data for the specified handle.
         /// </summary>
-        /// <param name="handle">The handle to get or set data for.</param>
+        /// <param name="handle">The handle to get data for.</param>
         public T this[HierarchyNodeHandle handle]
         {
             get
@@ -77,29 +77,103 @@ namespace Unity.Entities.Editor
                         return m_ValueByHandle[handle];
                 }
             }
-            set
-            {
-                switch (handle.Kind)
-                {
-                    case NodeKind.Entity:
-                    {
-                        m_ValueByEntity[handle.ToEntity()] = value;
-                    }
-                    break;
+            // The setter has been intentionally omitted. Use Add or Update instead.
+        }
 
-                    default:
-                    {
-                        if (UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.TryGetFirstValueAtomic(m_ValueByHandle.m_Buffer, handle, out var item, out var iterator))
-                        {
-                            UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.SetValue(m_ValueByHandle.m_Buffer, ref iterator, ref value);
-                        }
-                        else
-                        {
-                            if (UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.TryAdd(m_ValueByHandle.m_Buffer, handle, value, false, m_Allocator))
-                                m_HierarchyNodeMapData->ValueByHandleCount++;
-                        }
-                    }
-                    break;
+        /// <summary>
+        /// Adds the data for the specified handle.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"></exception>
+        public void Add(HierarchyNodeHandle handle, T value)
+        {
+            switch (handle.Kind)
+            {
+                case NodeKind.Entity:
+                {
+                    m_ValueByEntity.Add(handle.ToEntity(), value);
+                }
+                break;
+
+                default:
+                {
+                    if (!UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.TryAdd(m_ValueByHandle.m_Buffer, handle, value, false, m_Allocator))
+                        throw new InvalidOperationException("The key already exists in the map.");
+
+                    m_HierarchyNodeMapData->ValueByHandleCount++;
+                }
+                break;
+            }
+        }
+
+        /// <summary>
+        /// Adds the data for the specified handle if it does not exist.
+        /// </summary>
+        /// <returns><see langword="true"/> if the handle value pair was added, <see langword="false"/> otherwise.</returns>
+        public bool TryAdd(HierarchyNodeHandle handle, T value)
+        {
+            switch (handle.Kind)
+            {
+                case NodeKind.Entity:
+                {
+                    return m_ValueByEntity.TryAdd(handle.ToEntity(), value);
+                }
+
+                default:
+                {
+                    if (!UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.TryAdd(m_ValueByHandle.m_Buffer, handle, value, false, m_Allocator))
+                        return false;
+
+                    m_HierarchyNodeMapData->ValueByHandleCount++;
+                    return true;
+                }
+            }
+        }
+
+        /// <summary>
+        /// Updates the data for the specified handle.
+        /// </summary>
+        /// <exception cref="InvalidOperationException"></exception>
+        public void Update(HierarchyNodeHandle handle, T value)
+        {
+            switch (handle.Kind)
+            {
+                case NodeKind.Entity:
+                {
+                    m_ValueByEntity.Update(handle.ToEntity(), value);
+                }
+                break;
+
+                default:
+                {
+                    if (!UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.TryGetFirstValueAtomic(m_ValueByHandle.m_Buffer, handle, out _, out var iterator))
+                        throw new InvalidOperationException("The key does not exist in the map.");
+
+                    UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.SetValue(m_ValueByHandle.m_Buffer, ref iterator, ref value);
+                }
+                break;
+            }
+        }
+
+        /// <summary>
+        /// Updates the data for the specified handle if it exists.
+        /// </summary>
+        /// <returns><see langword="true"/> if the handle value pair was updated, <see langword="false"/> otherwise.</returns>
+        public bool TryUpdate(HierarchyNodeHandle handle, T value)
+        {
+            switch (handle.Kind)
+            {
+                case NodeKind.Entity:
+                {
+                    return m_ValueByEntity.TryUpdate(handle.ToEntity(), value);
+                }
+
+                default:
+                {
+                    if (!UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.TryGetFirstValueAtomic(m_ValueByHandle.m_Buffer, handle, out _, out var iterator))
+                        return false;
+
+                    UnsafeParallelHashMapBase<HierarchyNodeHandle, T>.SetValue(m_ValueByHandle.m_Buffer, ref iterator, ref value);
+                    return true;
                 }
             }
         }
@@ -181,17 +255,17 @@ namespace Unity.Entities.Editor
                 {
                     m_ValueByEntity.Remove(handle.ToEntity());
                 }
-                    break;
+                break;
 
                 default:
                 {
                     if (m_ValueByHandle.Remove(handle))
                         m_HierarchyNodeMapData->ValueByHandleCount--;
                 }
-                    break;
+                break;
             }
         }
-        
+
         /// <summary>
         /// Resizes to sparse entity data set to the given capacity.
         /// </summary>

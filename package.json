@@ -1,13 +1,13 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.2.0-pre.12",
+  "version": "1.2.0",
   "unity": "2022.3",
   "unityRelease": "11f1",
   "dependencies": {
     "com.unity.burst": "1.8.12",
     "com.unity.serialization": "3.1.1",
-    "com.unity.collections": "2.4.0-pre.5",
+    "com.unity.collections": "2.4.0",
     "com.unity.mathematics": "1.3.1",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
@@ -15,7 +15,7 @@
     "com.unity.modules.unitywebrequest": "1.0.0",
     "com.unity.test-framework.performance": "3.0.3",
     "com.unity.nuget.mono-cecil": "1.11.4",
-    "com.unity.scriptablebuildpipeline": "1.20.2",
+    "com.unity.scriptablebuildpipeline": "1.21.21",
     "com.unity.profiling.core": "1.0.2"
   },
   "description": "The Entities package provides a modern Entity Component System (ECS) implementation with a basic set of systems and components made for Unity.",
@@ -25,15 +25,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Added\n\n* A file with the code for both snippets in the custom transforms documentation was added to the \"DocCodeSamples.Tests\" folder.\n* The Create Menu now offers ScriptTemplates for the IComponentData, ISystem, IJobEntity and Baker types under Assets/Create/Entities\n\n### Changed\n\n* Fixed infinite loop that could occur due to concurrent use of non-concurrent Dictionary in Aspect Generator.\n* Reduce the set/restore frequency of the fixed rate system group allocator.\n* Various performance improvements in baking. Baking mesh-heavy scenes now takes 70% of what it did before.\n* Significant performance improvements when creating archetypes and entity queries in Worlds with a large number of existing archetypes/queries.\n* Updated Burst dependency to version 1.8.12\n\n### Fixed\n\n* EntityQuery singleton methods now correctly handle cases where the query contains enableable components. Note that `GetSingletonEntity()` and `TryGetSingletonEntity()` still can not be used on queries with enableable components, and that the singleton component itself can not be enableable. Both constraints may be lifted in a future release.\n* A broken link to a code snippet in the documentation for custom transforms was fixed.\n* Archetype window and Entity Memory Profiler module UI initialization.\n* Making a player build with define `UNITY_DOTS_DEBUG`, while using an IJobEntity using RefRO/RefRW no longer compile errors!\n* Clarified documentation for cleanup components\n* Fixed minor memory leak in content delivery system.\n* AABB.Contains.\n* The entities hierarchy view would sometimes throw exceptions when entities were destroyed.\n* remove use of UNITY_64 define, as is can not be reliably used to determine 64 bit nature of platforms. Fixes crashes related to pointer truncation."
+    "changelog": "### Added\n\n* Document counterintuitive behavior when an `EntityQueryMask` is created from an `EntityQuery` that includes a `WithNone<T>()` constraint, where `T` is an `IEnableableComponent`.\n\n### Changed\n\n* Performance improvements in `LocalToWorldSystem` when processing entities with non-dirty hierarchies and no children.\n\n### Deprecated\n\n* `EntityManager.CopyEntities()` is now deprecated, and will be removed from the public API in a future package release. We're not aware of any use cases for this function outside of the Entities package itself; `EntityManager.Instantiate()` is the correct way for higher-level code to instantiate copies of existing entities.\n\n### Fixed\n\n* BakingAnalytics no longer initializes TypeManager [InitializeOnLoad]\n* Fixed issue where breakpoints in jobs defined after systems with SystemAPI usage are not hit.\n* Fixed an error where the Entities Hierarchy window was accessing a destroyed world during UI bindings.\n* Using SystemAPI.GetComponentRO/RW with \"using static SystemAPI\" within an Entities.ForEach used to confuse the code generator and failed to compile.\n* Replace `HierarchyNodeMap`'s indexer setter with explicit add/update logic.\n* an issue with hybrid entity baking regarding scales with different signs\n* Entities Hierarchy now removes all nodes of a scene and subscenes when the scene is unloaded.\n* Exception thrown when entering a prefab from the Entities Hierarchy\n* Fixed: Memory leak in certain circumstances in Entity Scene Streaming\n* Improved error message for when `SystemAPI.QueryBuilder` users forget to call `.Build()`.\n* An assert when using AddMultipleComponentsDuringStructuralChange with more than 10 entities in some cases\n* Add filter button was not showing filters in Archetypes and Journaling windows.\n* An invalid range check caused the removal of entities from the hierarchy view to sometimes fail in perfectly valid cases."
   },
   "upmCi": {
-    "footprint": "82d2dcb5e3d21ca28f27a5df571468121a8c0417"
+    "footprint": "368679bdcbf5a11f0d306f33ef2acf1a0d12170f"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "1ae43e0525b8a09c7fe52ab40c762938a4937244"
+    "revision": "ea4236421d61011e37e71d22108c5e4e70cf71d7"
   }
 }

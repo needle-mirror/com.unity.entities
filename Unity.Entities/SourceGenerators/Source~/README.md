@@ -12,6 +12,11 @@ Source Generators are used in DOTS to enable a number of features inside of DOTS
 
 Generators do this by adding new types, methods and partial types.  In specific cases, existing code is also patched with the Cloner IL post-processor (also in the Entities package).
 
+## Don't forget DOTSLab!
+
+When trying to repro a source generation issue, DOTSLab is a great tool that saves a lot of time.
+http://dotslab.cds.internal.unity3d.com
+
 ## Building Source Generators
 
 Source generator DLLs need to be compiled manually outside of the Unity compilation pipeline using the .NET SDK 6.0 or higher:
@@ -22,19 +27,25 @@ That can be done with dotnet from within the `Packages\com.unity.entities\Unity.
 
 Additionally, they can be built/debugged with the SourceGenerator solution in the same folder.
  
-### Debugging
+### Debugging with Rider
 
 - Rebuild the generators as debug: `dotnet publish -c Debug`.
-- Open SourceGenerators.sln with Rider.
-- Go to the configurations drop-down, "Edit Configurations", create a new configuration:
-  - Open the editor log for the Unity project, look for "Starting external compile of XXX.dll" where XXX matches the assembly you want to debug.
-  - Copy the path to csc.exe and put is at the "exe path" in the new configuration, BUT replace the ".exe" by ".dll" at the end.
-  - Copy the "@Temp/UnityTempFile-<hash>" filename and paste it as "program arguments" (it also often makes sense to copy this response file somewhere so Unity doesn't delete it).
-  - Set the working directory to the root of the Unity project.
-  - Turn off the option to build the solution before running.
+- Open `Packages/com.unity.entities/Unity.Entities/SourceGenerators/Source~/SourceGenerators.sln` with Rider.
+- Go to the configurations drop-down, select "Edit Configurations...", create a new ".NET Executable" configuration:
+  - Open the editor log for the Unity project, look for `##### CommandLine`.
+  - Immediately after that should be a line that looks like this:
+  - `"<dotnet path>" exec "<csc.dll path>" /nostdlib /noconfig /shared "<rsp path>" "rsp2 path"`
+  - Copy the path to csc.dll and put it as the "exe path" in the new configuration.
+  - Copy the `<rsp path>` and paste it as "program arguments" (ignore the rsp2).
+  - Set the working directory to the root of the Unity project. 
+
+The config should look something like this:
+![](codegen_debug_config.png)
+You should now be able to run from Rider and set breakpoints.
 
 ### CodeGen Output
 
+- Add `DOTS_OUTPUT_SOURCEGEN_FILES` to the "Scripting Define Symbols" of the Unity project.
 - The generators will output _copies_ of the source files it generates, along with a log into the `\<UnityProject\>/Temp/GeneratedCode` directory.
 
 ### Testing
@@ -51,6 +62,8 @@ Similarly, it is possible to validate some origin source against a pre-recorded 
 If the test fails it will show a diff of the pre-recorded file with the newly generated one. You can set `CSharpSourceGeneratorVerifier<>.k_OverrideSourceOfTruthOnTestThrow` to true to auto-verify every failing test (and update the saved verifications).
 
 All these tests can be run from inside of Rider or with `dotnet test`.
+
+If you want to check what the resulting code looks like when running a unit test, put a breakpoint in `SourceOutputHelpers.OutputSourceToFile` and then call the `sourceTextProvider` function from debugger's immediate window and inspect the return value.
 
 ### Tips and Tricks
 

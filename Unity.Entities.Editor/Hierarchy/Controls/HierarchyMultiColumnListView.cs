@@ -183,6 +183,9 @@ namespace Unity.Entities.Editor
 
         void BindCell(VisualElement element, int index)
         {
+            if (m_Model.World is {IsCreated: false})
+                return;
+
             if (element is not HierarchyListViewItem item)
                 return;
 

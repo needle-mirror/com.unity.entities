@@ -72,19 +72,28 @@ public readonly struct SystemDescription : ISourceGeneratorDiagnosable
 
     public string OriginalFilePath => SyntaxTreeInfo.Tree.FilePath.Replace('\\', '/');
 
-    public HashSet<StatementSyntax> GetStatementsRequiringLineDirectives()
+    public (HashSet<StatementSyntax>, HashSet<StatementSyntax>) GetStatementsRequiringLineDirectivesAndHiddenDirectives()
     {
-        var statements = new HashSet<StatementSyntax>();
+        var lineDirectiveStatements = new HashSet<StatementSyntax>();
+        var hiddenDirectiveStatements = new HashSet<StatementSyntax>();
 
         foreach (var node in CandidateNodes.Keys)
         {
             var containingMember = node.AncestorOfKind<MemberDeclarationSyntax>();
             if (containingMember is MethodDeclarationSyntax { Body: not null } methodDeclarationSyntax)
-                foreach (var statement in methodDeclarationSyntax.Body.DescendantNodes().OfType<StatementSyntax>())
-                    statements.Add(statement);
+            {
+                var methodStatements = methodDeclarationSyntax.Body.DescendantNodes().OfType<StatementSyntax>();
+                foreach (var statement in methodStatements)
+                {
+                    lineDirectiveStatements.Add(statement);
+                    if (statement == methodStatements.Last())
+                        hiddenDirectiveStatements.Add(statement);
+
+                }
+            }
         }
 
-        return statements;
+        return (lineDirectiveStatements, hiddenDirectiveStatements);
     }
 
     public Dictionary<MemberDeclarationSyntax, Dictionary<SyntaxNode, CandidateSyntax>> CandidateNodesGroupedByMethodOrProperty

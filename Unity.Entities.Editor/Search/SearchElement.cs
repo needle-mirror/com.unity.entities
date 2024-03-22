@@ -655,9 +655,6 @@ namespace Unity.Entities.Editor
 
         void InitAttributes()
         {
-            m_SearchEngine.Clear();
-            m_FilterPopupElementItems.Clear();
-
             foreach (var searchData in SearchData.Split(' '))
             {
                 if (string.IsNullOrEmpty(searchData))

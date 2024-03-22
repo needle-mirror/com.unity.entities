@@ -88,9 +88,11 @@ namespace Unity.Transforms
                                           || LocalTransformLookupRO.DidChange(childEntity, LastSystemVersion);
 
                 float4x4 localToWorld;
+                bool hasChildBuffer = ChildLookupRO.TryGetBuffer(childEntity, out DynamicBuffer<Child> children);
 
                 if (updateChildrenTransform && LocalToWorldWriteGroupMask.MatchesIgnoreFilter(childEntity))
                 {
+                    // this entity (or its ancestors) has a dirty transform, AND this system is responsible for updating it LocalToWorld.
                     var localTransform = LocalTransformLookupRO[childEntity];
                     localToWorld = math.mul(parentLocalToWorld, localTransform.ToMatrix());
                     if (PostTransformMatrixLookupRO.HasComponent(childEntity))
@@ -98,18 +100,26 @@ namespace Unity.Transforms
                         localToWorld = math.mul(localToWorld, PostTransformMatrixLookupRO[childEntity].Value);
                     }
                     LocalToWorldLookupRW[childEntity] = new LocalToWorld{Value = localToWorld};
+                    if (hasChildBuffer)
+                    {
+                        for (int i = 0, childCount = children.Length; i < childCount; i++)
+                        {
+                            ChildLocalToWorldFromTransformMatrix(localToWorld, children[i].Value, updateChildrenTransform);
+                        }
+                    }
                 }
                 else
                 {
-                    localToWorld = LocalToWorldLookupRW[childEntity].Value;
-                    updateChildrenTransform = LocalToWorldLookupRW.DidChange(childEntity, LastSystemVersion);
-                }
-
-                if (ChildLookupRO.TryGetBuffer(childEntity, out DynamicBuffer<Child> children))
-                {
-                    for (int i = 0, childCount = children.Length; i < childCount; i++)
+                    // either ancestors are not dirty, or we didn't match the write group. We still need to recurse
+                    // to any children (if any), which may themselves have dirty local transforms.
+                    if (hasChildBuffer)
                     {
-                        ChildLocalToWorldFromTransformMatrix(localToWorld, children[i].Value, updateChildrenTransform);
+                        localToWorld = LocalToWorldLookupRW[childEntity].Value;
+                        updateChildrenTransform = LocalToWorldLookupRW.DidChange(childEntity, LastSystemVersion);
+                        for (int i = 0, childCount = children.Length; i < childCount; i++)
+                        {
+                            ChildLocalToWorldFromTransformMatrix(localToWorld, children[i].Value, updateChildrenTransform);
+                        }
                     }
                 }
             }

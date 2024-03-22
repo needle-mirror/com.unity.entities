@@ -323,8 +323,17 @@ namespace Unity.Entities
     /// </example>
     ///
     /// You can create up to 1024 unique EntityQueryMasks in an application.
-    /// Note that EntityQueryMask only filters by Archetype. It doesn't support EntityQuery shared component,
-    /// change filtering, or enableable components.
+    ///
+    /// Note that EntityQueryMask only filters by Archetype. It ignores any filtering on the EntityQuery (by
+    /// shared component, change version, or order version), or the state of any enableable components.
+    ///
+    /// One specific instance to be aware of is that if a query uses <see cref="EntityQueryBuilder.WithNone{T}()"/> with
+    /// an enableable type T, an EntityQueryMask created from the query will effectively ignore this constraint. This
+    /// is because for enableable types, WithNone matches both archetypes that don't contain T (as expected) but also those that
+    /// do; entities in the latter archetypes could still match the query if their T component is disabled. Since
+    /// EntityQueryMask ignores enableable component state, this means it considers an archetype to match whether or not
+    /// it has T, meaning the WithNone(T) constraint has no effect. Consider using <see cref="EntityQueryBuilder.WithAbsent{T}()"/>
+    /// in this case, if the intent is for the query mask to only match entities which don't have T at all.
     /// </remarks>
     /// <seealso cref="EntityManager.GetEntityQueryMask"/>
     public unsafe struct EntityQueryMask
@@ -3138,9 +3147,10 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// <returns>Returns true if the query has a filter, returns false if the query does not have a filter.</returns>
         public bool HasFilter() => _GetImpl()->HasFilter();
         /// <summary>
-        /// Returns an EntityQueryMask, which can be used to quickly determine if an entity matches the query.
+        /// Returns an <see cref="EntityQueryMask"/>, which can be used to quickly determine if an entity matches the query.
         /// </summary>
-        /// <remarks>A maximum of 1024 EntityQueryMasks can be allocated per World.</remarks>
+        /// <remarks>A maximum of 1024 <see cref="EntityQueryMask"/> instances can be allocated per World. Attempting to create
+        /// additional masks will throw an exception.</remarks>
         /// <returns>The query mask associated with this query.</returns>
         public EntityQueryMask GetEntityQueryMask() => _GetImpl()->GetEntityQueryMask();
         /// <summary>

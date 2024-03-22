@@ -703,6 +703,6 @@ namespace Unity.Entities
         /// <exception cref="ThrowNotBuildException"></exception>
         public EntityQuery Build() => throw InternalCompilerInterface.ThrowCodeGenException();
 
-        static InvalidOperationException ThrowNotBuildException() => throw new InvalidOperationException("Source-generation will not run unless `.Build()` is invoked.");
+        static InvalidOperationException ThrowNotBuildException() => throw new InvalidOperationException("QueryBuilder method chains must end with a Build() invocation to generate an EntityQuery. Please use e.g. QueryBuilder().WithAll<T>().Build() to generate a fully-formed EntityQuery.");
     }
 }

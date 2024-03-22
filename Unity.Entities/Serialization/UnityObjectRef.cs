@@ -150,6 +150,17 @@ namespace Unity.Entities
             return obj is UnityObjectRef<T> other && Equals(other);
         }
 
+
+        /// <summary>
+        /// Overload of the 'bool' operator to check for the validity of the instance ID.
+        /// </summary>
+        /// <param name="obj">The object to check for validity.</param>
+        /// <returns>True, if the instance ID is valid.</returns>
+        public static implicit operator bool(UnityObjectRef<T> obj)
+        {
+            return obj.IsValid();
+        }
+
         /// <summary>
         /// Computes a hash code for this object.
         /// </summary>

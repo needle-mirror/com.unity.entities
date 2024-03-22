@@ -99,7 +99,9 @@ internal partial struct TransformBakingSystem : ISystem
         {
             return math.abs(scale.x - scale.y) <= k_Tolerance &&
                    math.abs(scale.x - scale.z) <= k_Tolerance &&
-                   math.abs(scale.y - scale.z) <= k_Tolerance;
+                   math.abs(scale.y - scale.z) <= k_Tolerance &&
+                   math.sign(scale.x) == math.sign(scale.y) &&
+                   math.sign(scale.x) == math.sign(scale.z);
         }
 
         static float3 CalculateLossyScale(float4x4 matrix, quaternion rotation)

@@ -7,7 +7,7 @@
 >
     <engine:VisualElement name="clear-cache">
             <engine:VisualElement class = "clear-cache_field">
-                <engine:Label name="clear-cache_label" text="Are you sure you want to clear the entity scene cache of your project?\n" />
+                <engine:Label name="clear-cache_label" text="Are you sure you want to clear the entity scene cache of your project?" />
                 <engine:Label name="clear-cache_desc" text="All of your entity scenes (SubScenes) will be re-imported the next time they are accessed." />
             </engine:VisualElement>
 

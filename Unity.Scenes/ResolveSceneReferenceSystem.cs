@@ -225,24 +225,20 @@ namespace Unity.Scenes
                             requestHeader.Complete();
                         }
 
-                        using (var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader,
-                                   scene.SceneGUID,
-                                   SceneSystem.SceneLoadDir))
+                        var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader, scene.SceneGUID, SceneSystem.SceneLoadDir);
+                        LogResolving($"Finished header load: {scene.SceneGUID}");
+                        if (!headerLoadResult.Success)
                         {
-                            LogResolving($"Finished header load: {scene.SceneGUID}");
-                            if (!headerLoadResult.Success)
-                            {
-                                requestHeader.Dispose();
-                                EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
-                                EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
-                                return;
-                            }
-
-                            ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, requestSceneLoaded, ref headerLoadResult.SceneMetaData.Value,
-                                m_ResolveSceneSectionArchetypes, headerLoadResult.SectionPaths, headerLoadResult.HeaderBlobOwner);
                             requestHeader.Dispose();
+                            EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
                             EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
+                            return;
                         }
+
+                        ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, requestSceneLoaded, ref headerLoadResult.SceneMetaData.Value,
+                            m_ResolveSceneSectionArchetypes, headerLoadResult.SectionPaths, headerLoadResult.HeaderBlobOwner);
+                        requestHeader.Dispose();
+                        EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
 #if UNITY_EDITOR
                         if (EntityManager.HasComponent<SubScene>(sceneEntity))
                         {
@@ -364,19 +360,18 @@ namespace Unity.Scenes
                         requestHeader.Complete();
                     }
 
-                    using(var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader, scene.SceneGUID, SceneSystem.SceneLoadDir))
+                    var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader, scene.SceneGUID, SceneSystem.SceneLoadDir);
+                    if (!headerLoadResult.Success)
                     {
-                        if (!headerLoadResult.Success)
-                        {
-                            requestHeader.Dispose();
-                            EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
-                            EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
-                            return;
-                        }
-
-                        ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, requestSceneLoaded, ref headerLoadResult.SceneMetaData.Value,
-                            m_ResolveSceneSectionArchetypes, headerLoadResult.SectionPaths, headerLoadResult.HeaderBlobOwner);
+                        requestHeader.Dispose();
+                        EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
+                        EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
+                        return;
                     }
+
+                    ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, requestSceneLoaded, ref headerLoadResult.SceneMetaData.Value,
+                        m_ResolveSceneSectionArchetypes, headerLoadResult.SectionPaths, headerLoadResult.HeaderBlobOwner);
+
                     requestHeader.Dispose();
                     EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
                 }).Run();

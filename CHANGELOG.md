@@ -2,6 +2,39 @@
 uid: changelog
 ---
 
+# Changelog
+
+## [1.2.0] - 2024-03-22
+
+### Added
+
+* Document counterintuitive behavior when an `EntityQueryMask` is created from an `EntityQuery` that includes a `WithNone<T>()` constraint, where `T` is an `IEnableableComponent`.
+
+### Changed
+
+* Performance improvements in `LocalToWorldSystem` when processing entities with non-dirty hierarchies and no children.
+
+### Deprecated
+
+* `EntityManager.CopyEntities()` is now deprecated, and will be removed from the public API in a future package release. We're not aware of any use cases for this function outside of the Entities package itself; `EntityManager.Instantiate()` is the correct way for higher-level code to instantiate copies of existing entities.
+
+### Fixed
+
+* BakingAnalytics no longer initializes TypeManager [InitializeOnLoad]
+* Fixed issue where breakpoints in jobs defined after systems with SystemAPI usage are not hit.
+* Fixed an error where the Entities Hierarchy window was accessing a destroyed world during UI bindings.
+* Using SystemAPI.GetComponentRO/RW with "using static SystemAPI" within an Entities.ForEach used to confuse the code generator and failed to compile.
+* Replace `HierarchyNodeMap`'s indexer setter with explicit add/update logic.
+* an issue with hybrid entity baking regarding scales with different signs
+* Entities Hierarchy now removes all nodes of a scene and subscenes when the scene is unloaded.
+* Exception thrown when entering a prefab from the Entities Hierarchy
+* Fixed: Memory leak in certain circumstances in Entity Scene Streaming
+* Improved error message for when `SystemAPI.QueryBuilder` users forget to call `.Build()`.
+* An assert when using AddMultipleComponentsDuringStructuralChange with more than 10 entities in some cases
+* Add filter button was not showing filters in Archetypes and Journaling windows.
+* An invalid range check caused the removal of entities from the hierarchy view to sometimes fail in perfectly valid cases.
+
+
 ## [1.2.0-pre.12] - 2024-02-13
 
 ### Added

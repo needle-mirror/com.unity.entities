@@ -534,7 +534,7 @@ namespace Unity.Entities
         public Entity m_Entity;
         public int m_BufferWithFixupsCount;
         public UnsafeAtomicCounter32 m_BufferWithFixups;
-        private static readonly int ALIGN_64_BIT = 8;
+        internal static readonly int ALIGN_64_BIT = 8;
         public int m_CommandBufferID;
 
         internal void InitForParallelWriter()
@@ -614,7 +614,8 @@ namespace Unity.Entities
             else
             {
                 ResetEntityCommandBatching(chain);
-                var cmd = (CreateCommand*)Reserve(chain, sortKey, sizeof(CreateCommand));
+                var sizeNeeded = Align(sizeof(CreateCommand), ALIGN_64_BIT);
+                var cmd = (CreateCommand*)Reserve(chain, sortKey, sizeNeeded);
 
                 cmd->Header.CommandType = op;
                 cmd->Header.TotalSize = sizeof(CreateCommand);
@@ -884,6 +885,10 @@ namespace Unity.Entities
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
             ref readonly var type = ref TypeManager.GetTypeInfo<T>();
+
+            // We use type.SizeInChunk here instead of sizeof(T), because what we're serializing in the command buffer
+            // is a full BufferHeader + internal buffer of Ts, not just a single T. SizeInChunk for buffer types
+            // implicitly takes this into account.
             var sizeNeeded = Align(sizeof(EntityBufferCommand) + type.SizeInChunk, ALIGN_64_BIT);
 
             ResetCommandBatching(chain);
@@ -6526,7 +6531,7 @@ namespace Unity.Entities
                 throw new InvalidOperationException("Invalid Entity.Null passed.");
 #endif
             var typeIndex = TypeManager.GetTypeIndex<T>();
-            var sizeNeeded = EntityCommandBufferData.Align(sizeof(EntityManagedComponentCommand), 8);
+            var sizeNeeded = EntityCommandBufferData.Align(sizeof(EntityManagedComponentCommand), EntityCommandBufferData.ALIGN_64_BIT);
 
             var chain = &ecbd->m_MainThreadChain;
             ecbd->ResetCommandBatching(chain);
@@ -6560,7 +6565,7 @@ namespace Unity.Entities
                 throw new InvalidOperationException("Invalid Entity.Null passed.");
 #endif
             var typeIndex = TypeManager.GetTypeIndex<T>();
-            var sizeNeeded = EntityCommandBufferData.Align(sizeof(EntityMoveManagedComponentCommand), 8);
+            var sizeNeeded = EntityCommandBufferData.Align(sizeof(EntityMoveManagedComponentCommand), EntityCommandBufferData.ALIGN_64_BIT);
 
             var chain = &ecbd->m_MainThreadChain;
             ecbd->ResetCommandBatching(chain);

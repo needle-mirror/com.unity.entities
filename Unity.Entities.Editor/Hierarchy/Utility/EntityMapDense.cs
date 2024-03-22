@@ -75,13 +75,51 @@ namespace Unity.Entities.Editor
         }
 
         /// <summary>
-        /// Gets or sets the data for the specified <see cref="Entity"/>.
+        /// Gets the data for the specified <see cref="Entity"/>.
         /// </summary>
         /// <param name="entity">The entity to get or set data for.</param>
         public T this[Entity entity]
         {
             get => m_EntityMapDenseData->GetValue(entity);
-            set => m_EntityMapDenseData->SetValue(entity, value);
+            // The setter has been intentionally omitted. Use Add or Update instead.
+        }
+
+        /// <inheritdoc cref="IEntityMap{T}.Add"/>
+        public void Add(Entity entity, T value)
+        {
+            if (m_EntityMapDenseData->Exists(entity))
+                throw new InvalidOperationException("The key already exists in the map.");
+
+            m_EntityMapDenseData->SetValue(entity, value);
+        }
+
+        /// <inheritdoc cref="IEntityMap{T}.TryAdd"/>
+        public bool TryAdd(Entity entity, T value)
+        {
+            if (m_EntityMapDenseData->Exists(entity))
+                return false;
+
+            m_EntityMapDenseData->SetValue(entity, value);
+            return true;
+        }
+
+        /// <inheritdoc cref="IEntityMap{T}.Update"/>
+        public void Update(Entity entity, T value)
+        {
+            if (!m_EntityMapDenseData->Exists(entity))
+                throw new InvalidOperationException("The key does not exist in the map.");
+
+            m_EntityMapDenseData->SetValue(entity, value);
+        }
+
+        /// <inheritdoc cref="IEntityMap{T}.TryUpdate"/>
+        public bool TryUpdate(Entity entity, T value)
+        {
+            if (!m_EntityMapDenseData->Exists(entity))
+                return false;
+
+            m_EntityMapDenseData->SetValue(entity, value);
+            return true;
         }
 
         /// <summary>
@@ -353,8 +391,10 @@ namespace Unity.Entities.Editor
         /// <param name="entity">The entity to remove data for.</param>
         public void Remove(Entity entity)
         {
+#if ENTITY_STORE_V1
             if (m_IndexByEntity.Capacity <= entity.Index)
                 return;
+#endif
 
             if (m_IndexByEntity[entity] != 0)
                 m_FreeIndex.Add(m_IndexByEntity[entity]);

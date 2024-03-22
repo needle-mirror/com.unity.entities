@@ -137,7 +137,7 @@ namespace Unity.Entities.Tests
             using (var inputs = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(new[] { a, b }, ref World.UpdateAllocator))
             using (var outputs = CollectionHelper.CreateNativeArray<Entity, RewindableAllocator>(2, ref World.UpdateAllocator))
             {
-                m_Manager.CopyEntities(inputs, outputs);
+                m_Manager.CopyEntitiesInternal(inputs, outputs);
                 Assert.IsTrue(m_Manager.HasComponent<Prefab>(outputs[1]));
 
                 Assert.AreEqual(outputs[1], m_Manager.GetComponentData<EcsTestDataEntity>(outputs[0]).value1);
@@ -177,7 +177,7 @@ namespace Unity.Entities.Tests
             var srcEntities = new NativeArray<Entity>(1, Allocator.Temp);
             var dstEntities = new NativeArray<Entity>(1, Allocator.Temp);
             srcEntities[0] = prefab;
-            m_Manager.CopyEntities(srcEntities, dstEntities);
+            m_Manager.CopyEntitiesInternal(srcEntities, dstEntities);
             var copyInstance = dstEntities[0];
             srcEntities.Dispose();
             dstEntities.Dispose();
