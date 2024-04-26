@@ -47,7 +47,7 @@ namespace Unity.Entities
             m_Entities = new NativeList<Entity>(64, Allocator.Persistent);
             m_EntitiesMap = new NativeHashMap<Entity, IndexAndInstance>(64, Allocator.Persistent);
             m_CreatedQuery = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<CompanionLink>()
+                .WithAll<CompanionLink,CompanionLinkTransform,LocalToWorld>()
                 .WithNone<CompanionGameObjectUpdateTransformCleanup>()
                 .Build(ref state);
             m_DestroyedQuery = new EntityQueryBuilder(Allocator.Temp)

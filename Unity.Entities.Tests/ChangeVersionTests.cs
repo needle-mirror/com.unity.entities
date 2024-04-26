@@ -375,5 +375,51 @@ namespace Unity.Entities.Tests
             system.Update();
             Assert.AreNotEqual(0, system.LastSystemVersion);
         }
+
+        [Test]
+        public void AddComponent_BumpsChangeVersion()
+        {
+            m_Manager.Debug.SetGlobalSystemVersion(17);
+            var e1 = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.Debug.SetGlobalSystemVersion(23);
+            var e2 = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestData2));
+            uint srcVersion = 23;
+            var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestData2>(true);
+            m_Manager.Debug.SetGlobalSystemVersion(37);
+            Assert.IsFalse(m_Manager.GetChunk(e1).DidChange(ref typeHandle, srcVersion));
+            Assert.IsFalse(m_Manager.GetChunk(e2).DidChange(ref typeHandle, srcVersion));
+            m_Manager.AddComponent<EcsTestData2>(e1);
+            Assert.IsTrue(m_Manager.GetChunk(e1).DidChange(ref typeHandle, srcVersion));
+            Assert.IsTrue(m_Manager.GetChunk(e2).DidChange(ref typeHandle, srcVersion));
+        }
+
+        [Test]
+        public void EnableComponent_BumpsChangeVersion()
+        {
+            m_Manager.Debug.SetGlobalSystemVersion(17);
+            var e = m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
+            uint srcVersion = 17;
+            var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(true);
+            m_Manager.Debug.SetGlobalSystemVersion(23);
+            Assert.IsFalse(m_Manager.GetChunk(e).DidChange(ref typeHandle, srcVersion));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e, false);
+            Assert.IsTrue(m_Manager.GetChunk(e).DidChange(ref typeHandle, srcVersion));
+        }
+
+        [Test]
+        public void EnableComponent_Query_BumpsChangeVersion()
+        {
+            m_Manager.Debug.SetGlobalSystemVersion(17);
+            var e = m_Manager.CreateEntity(typeof(EcsTestDataEnableable));
+            uint srcVersion = 17;
+            var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(true);
+            m_Manager.Debug.SetGlobalSystemVersion(23);
+            Assert.IsFalse(m_Manager.GetChunk(e).DidChange(ref typeHandle, srcVersion));
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithPresent<EcsTestDataEnableable>()
+                .Build(m_Manager);
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(query, false);
+            Assert.IsTrue(m_Manager.GetChunk(e).DidChange(ref typeHandle, srcVersion));
+        }
     }
 }

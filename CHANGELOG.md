@@ -4,6 +4,31 @@ uid: changelog
 
 # Changelog
 
+## [1.2.1] - 2024-04-26
+
+
+### Changed
+
+* Updated Burst dependency to version 1.8.13
+* Updated entities packages dependencies
+
+### Fixed
+
+* The entities hierarchy view would sometimes throw exceptions when entities were destroyed.
+* remove use of UNITY_64 define, as is can not be reliably used to determine 64 bit nature of platforms. Fixes crashes related to pointer truncation.
+* The inspector no longer shows stale content when exiting play mode while locked in Authoring mode on a GameObject outside of a subscene.
+* Systems now correctly track the implicit read dependency on enableable components in their queries' `Any` lists. These components are optional, but evaluating a query with optional enableable components requires reading these components' enabled state, which requires a read dependency even if nothing else in the system directly manipulates these types.
+* `EntityManager.SetComponentEnabled<T>(EntityQuery,bool)` now sets the change version for the target type `T` on all affected chunks.
+* `CompanionGameObjectUpdateTransformSystem` expected entities to have the `LocalToWorld` and `CompanionLinkTransform` components, but did not explicitly require them in its query.
+
+### Security
+
+
+### Known Issues
+
+
+
+
 ## [1.2.0] - 2024-03-22
 
 ### Added
@@ -35,6 +60,7 @@ uid: changelog
 * An invalid range check caused the removal of entities from the hierarchy view to sometimes fail in perfectly valid cases.
 
 
+
 ## [1.2.0-pre.12] - 2024-02-13
 
 ### Added
@@ -61,7 +87,6 @@ uid: changelog
 * AABB.Contains.
 * The entities hierarchy view would sometimes throw exceptions when entities were destroyed.
 * remove use of UNITY_64 define, as is can not be reliably used to determine 64 bit nature of platforms. Fixes crashes related to pointer truncation.
-
 
 ## [1.2.0-pre.6] - 2023-12-13
 

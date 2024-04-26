@@ -749,6 +749,7 @@ namespace Unity.Entities
                 }
 
                 var allEnableableTypeIndices = new NativeList<TypeIndex>(totalComponentCount, Allocator.Temp);
+                var enableableTypesInAny = new NativeList<ComponentType>(totalComponentCount, Allocator.Temp);
                 for (int iAQ = 0; iAQ < archetypeQueryCount; ++iAQ)
                 {
                     ref ArchetypeQuery aq = ref archetypeQueries[iAQ];
@@ -765,7 +766,15 @@ namespace Unity.Entities
                     for (int i = 0; i < aq.AnyCount; ++i)
                     {
                         if (aq.Any[i].IsEnableable)
+                        {
                             allEnableableTypeIndices.Add(aq.Any[i]);
+                            // We need a list of enableable types in all the query's Any lists below.
+                            // Enableable types in the Any list are not in requiredComponents (by definition
+                            // they are not required to be present), but evaluating the query implicitly
+                            // requires reading their enabled bits if they are present. So, the query must
+                            // have a read dependency on these types to avoid safety errors.
+                            enableableTypesInAny.Add(ComponentType.ReadOnly(aq.Any[i]));
+                        }
                     }
                     for (int i = 0; i < aq.DisabledCount; ++i)
                     {
@@ -799,6 +808,17 @@ namespace Unity.Entities
                         throw new ArgumentException(
                             $"EntityQuery objects may not reference more than {MAX_ENABLEABLE_COMPONENTS_PER_QUERY} enableable components");
                 }
+                if (enableableTypesInAny.Length > 0)
+                {
+                    enableableTypesInAny.Sort();
+                    int lastUniqueIndex = 0;
+                    for (int i = 1; i < enableableTypesInAny.Length; ++i) {
+                        if (enableableTypesInAny[i] != enableableTypesInAny[lastUniqueIndex]) {
+                            enableableTypesInAny[++lastUniqueIndex] = enableableTypesInAny[i];
+                        }
+                    }
+                    enableableTypesInAny.Length = lastUniqueIndex + 1;
+                }
                 // Allocate and populate query data
                 queryData = (EntityQueryData*)ChunkAllocate<EntityQueryData>();
                 queryData->RequiredComponentsCount = requiredComponentCount;
@@ -807,7 +827,8 @@ namespace Unity.Entities
                 queryData->EnableableComponentTypeIndices = (TypeIndex*)ChunkAllocate<TypeIndex>(allEnableableTypeIndices.Length, allEnableableTypeIndices.GetUnsafeReadOnlyPtr());
                 queryData->HasEnableableComponents = (allEnableableTypeIndices.Length > 0 && !queryIgnoresEnabledBits) ? (byte)1 : (byte)0;
 
-                InitializeReaderWriter(queryData, requiredComponents, requiredComponentCount);
+                InitializeReaderWriter(queryData, requiredComponents, requiredComponentCount,
+                    enableableTypesInAny.GetUnsafeReadOnlyPtr<ComponentType>(), enableableTypesInAny.Length);
                 queryData->ArchetypeQueryCount = archetypeQueryCount;
                 queryData->ArchetypeQueries = (ArchetypeQuery*)ChunkAllocate<ArchetypeQuery>(archetypeQueryCount, archetypeQueries);
                 for (var i = 0; i < archetypeQueryCount; ++i)
@@ -847,7 +868,8 @@ namespace Unity.Entities
             return EntityQuery.Construct(queryData, access);
         }
 
-        void InitializeReaderWriter(EntityQueryData* queryData, ComponentType* requiredTypes, int requiredCount)
+        void InitializeReaderWriter(EntityQueryData* queryData, ComponentType* requiredTypes, int requiredCount,
+            ComponentType* implicitReadTypes, int implicitReadCount)
         {
             Assert.IsTrue(requiredCount > 0);
             Assert.IsTrue(requiredTypes[0] == ComponentType.ReadWrite<Entity>());
@@ -871,6 +893,7 @@ namespace Unity.Entities
                         break;
                 }
             }
+            queryData->ReaderTypesCount += implicitReadCount;
 
             queryData->ReaderTypes = (TypeIndex*)m_EntityQueryDataChunkAllocator.Allocate(sizeof(TypeIndex) * queryData->ReaderTypesCount, 4);
             queryData->WriterTypes = (TypeIndex*)m_EntityQueryDataChunkAllocator.Allocate(sizeof(TypeIndex) * queryData->WriterTypesCount, 4);
@@ -892,6 +915,10 @@ namespace Unity.Entities
                         queryData->WriterTypes[curWriter++] = requiredTypes[i].TypeIndex;
                         break;
                 }
+            }
+            for (var i = 0; i < implicitReadCount; i++)
+            {
+                queryData->ReaderTypes[curReader++] = implicitReadTypes[i].TypeIndex;
             }
         }
 

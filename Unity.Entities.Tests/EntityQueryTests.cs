@@ -2801,7 +2801,7 @@ namespace Unity.Entities.Tests
                 }
             }
         }
-        public partial struct ImplicitReadEnableableSystem : ISystem
+        public partial struct WithNoneEnableableSystem : ISystem
         {
             private EntityQuery _query;
 
@@ -2830,17 +2830,49 @@ namespace Unity.Entities.Tests
         public void WithNone_EnableableType_HasCorrectJobDependencies()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable));
-            using var query1 = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<EcsTestData,EcsTestDataEnableable>().Build(m_Manager);
-            using var query2 = new EntityQueryBuilder(Allocator.Temp)
-                .WithAll<EcsTestData>().WithNone<EcsTestDataEnableable>().Build(m_Manager);
             using var entities = m_Manager.CreateEntity(archetype, 1000, World.UpdateAllocator.ToAllocator);
             for (int i = 0; i < entities.Length; ++i)
                 m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
-            // A job run on query2 (which implicitly reads the enabled bits of EcsTestDataEnableable, but does not directly manipulate the type)
-            // must wait on an earlier job running on query1 (which has write access to EcsTestDataEnableable, and may toggle its enabled bits).
+            // A system with a query including WithNone<EnableableT>() (which implicitly reads the enabled bits
+            // of EnableableT, but does not directly manipulate the type)
+            // must wait on jobs that write to EnableableT (which may toggle its enabled bits).
             var sys1 = World.CreateSystem<WriteEnableableSystem>();
-            var sys2 = World.CreateSystem<ImplicitReadEnableableSystem>();
+            var sys2 = World.CreateSystem<WithNoneEnableableSystem>();
+            sys1.Update(World.Unmanaged);
+            sys2.Update(World.Unmanaged);
+        }
+
+        public partial struct WithAnyEnableableSystem : ISystem {
+            private EntityQuery _query;
+
+            public void OnCreate(ref SystemState state) {
+                _query = SystemAPI.QueryBuilder()
+                    .WithAll<EcsTestData>()
+                    .WithAny<EcsTestDataEnableable,EcsTestData2>()
+                    .Build();
+            }
+
+            public void OnUpdate(ref SystemState state) {
+                state.Dependency = new TestJob().ScheduleParallel(_query, state.Dependency);
+            }
+
+            private partial struct TestJob : IJobEntity {
+                private void Execute(in EcsTestData test) {
+                }
+            }
+        }
+        [Test]
+        [TestRequiresCollectionChecks("Requires Job Safety System")]
+        public void WithAny_EnableableType_HasCorrectJobDependencies() {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            using var entities = m_Manager.CreateEntity(archetype, 1000, World.UpdateAllocator.ToAllocator);
+            for (int i = 0; i < entities.Length; ++i)
+                m_Manager.SetComponentEnabled<EcsTestDataEnableable>(entities[i], false);
+            // A system with a query including WithAny<EnableableT,...>() (which implicitly reads the enabled bits
+            // of EnableableT, but does not directly manipulate the type)
+            // must wait on jobs that write to EnableableT (which may toggle its enabled bits).
+            var sys1 = World.CreateSystem<WriteEnableableSystem>();
+            var sys2 = World.CreateSystem<WithAnyEnableableSystem>();
             sys1.Update(World.Unmanaged);
             sys2.Update(World.Unmanaged);
         }

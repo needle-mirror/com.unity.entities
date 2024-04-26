@@ -1577,7 +1577,7 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
 #endif
             _Access->DependencyManager->CompleteReadAndWriteDependency(typeIndex);
 
-            ChunkIterationUtility.SetEnabledBitsOnAllChunks(ref this, typeIndex, value);
+            ChunkIterationUtility.SetEnabledBitsOnAllChunks(ref this, typeIndex, value, _Access->EntityComponentStore->GlobalSystemVersion);
         }
 
         public bool CompareQuery(in EntityQueryBuilder queryDesc)

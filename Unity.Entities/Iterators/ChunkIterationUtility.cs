@@ -1318,7 +1318,8 @@ namespace Unity.Entities
 
 
         [BurstCompile]
-        public static void SetEnabledBitsOnAllChunks(ref EntityQueryImpl queryImpl, TypeIndex typeIndex, bool value)
+        public static void SetEnabledBitsOnAllChunks(ref EntityQueryImpl queryImpl, TypeIndex typeIndex, bool value,
+            uint globalSystemVersion)
         {
             var chunkList = queryImpl.GetMatchingChunkCache();
             var chunkCount = chunkList.Length;
@@ -1334,6 +1335,7 @@ namespace Unity.Entities
             int* chunkDisabledCountForType = null;
             int chunkEnabledBitsIncrement = 0;
             int* chunkEntityCountsPtr = null;
+            uint* chunkChangeVersionsForType = null;
             for (int chunkIndexInCache = 0; chunkIndexInCache < chunkCount; ++chunkIndexInCache)
             {
                 var chunk = chunkIndices[chunkIndexInCache];
@@ -1350,6 +1352,7 @@ namespace Unity.Entities
                     chunkDisabledCountForType =
                         currentArchetype->Chunks.GetPointerToChunkDisabledCountForType(memoryOrderIndexInArchetype, 0);
                     chunkEnabledBitsIncrement = currentArchetype->Chunks.GetComponentEnabledBitsSizePerChunk() / sizeof(v128);
+                    chunkChangeVersionsForType = currentArchetype->Chunks.GetChangeVersionArrayForType(typeIndexInArchetype);
                 }
 
                 if (requiresFilter && !chunk.MatchesFilter(currentMatchingArchetype, ref queryImpl._Filter))
@@ -1357,6 +1360,7 @@ namespace Unity.Entities
 
                 int chunkIndexInArchetype = chunkIndexInArchetypePtr[chunkIndexInCache];
                 int chunkEntityCount = chunkEntityCountsPtr[chunkIndexInArchetype];
+                chunkChangeVersionsForType[chunkIndexInArchetype] = globalSystemVersion;
                 if (value)
                 {
                     if (chunkEntityCount < 64)

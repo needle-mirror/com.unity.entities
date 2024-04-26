@@ -142,7 +142,9 @@ namespace Unity.Entities.Editor
                 var selectionHash = GetSelectionHash(filteredTargetsPool.List);
                 var contextHash = context is null or EntitySelectionProxy { Exists: false } ? 0 : context.GetHashCode();
 
-                if (filteredTargetsPool.List.Count == s_LastSelectionCount && selectionHash == s_LastSelectionHash &&
+                // If last editor is unsupported game object editor, we want to reevaluate inspector content
+                // even if selection and data mode stay the same.
+                if (s_LastSelectedEditorType != typeof(UnsupportedGameObjectEditor) && filteredTargetsPool.List.Count == s_LastSelectionCount && selectionHash == s_LastSelectionHash &&
                     contextHash == s_LastActiveContext && inspectorDataMode == s_LastInspectorDataMode)
                 {
                     return s_LastSelectedEditorType;
