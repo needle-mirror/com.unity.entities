@@ -3,14 +3,14 @@
 If you need to manage chunks in a way that isn't appropriate for the simplified model of iterating over all the chunks in an [`EntityQuery`](systems-entityquery.md), you can manually request all the [archetype chunks](concepts-archetypes.md#archetype-chunks) explicitly in a [native array](https://docs.unity3d.com/ScriptReference/Unity.Collections.NativeArray_1.html) and process them with a job such as `IJobParallelFor`. The following is an example of this:
 
 ```c#
-public class RotationSpeedSystem : SystemBase
+public partial class RotationSpeedSystem : SystemBase
 {
    [BurstCompile]
    struct RotationSpeedJob : IJobParallelFor
    {
        [DeallocateOnJobCompletion] public NativeArray<ArchetypeChunk> Chunks;
-       public ArchetypeChunkComponentType<RotationQuaternion> RotationType;
-       [ReadOnly] public ArchetypeChunkComponentType<RotationSpeed> RotationSpeedType;
+       public ComponentTypeHandle<RotationQuaternion> RotationType;
+       [ReadOnly] public ComponentTypeHandle<RotationSpeed> RotationSpeedType;
        public float DeltaTime;
 
        public void Execute(int chunkIndex)
@@ -34,18 +34,16 @@ public class RotationSpeedSystem : SystemBase
 
    protected override void OnCreate()
    {
-       var queryDesc = new EntityQueryDesc
-       {
-           All = new ComponentType[]{ typeof(RotationQuaternion), ComponentType.ReadOnly<RotationSpeed>() }
-       };
-
-       m_Query = GetEntityQuery(queryDesc);
+       m_Query = new EntityQueryDescBuilder(Allocator.Temp)
+       .WithAllRW<RotationQuaternion>()
+       .WithAll<RotationSpeed>()
+       .Build();
    }
 
    protected override void OnUpdate()
    {
-       var rotationType = GetArchetypeChunkComponentType<RotationQuaternion>();
-       var rotationSpeedType = GetArchetypeChunkComponentType<RotationSpeed>(true);
+       var rotationType = GetComponentTypeHandle<RotationQuaternion>();
+       var rotationSpeedType = GetComponentTypeHandle<RotationSpeed>(true);
        var chunks = m_Query.ToArchetypeChunkArray(Allocator.TempJob);
        
        var rotationsSpeedJob = new RotationSpeedJob
@@ -55,14 +53,14 @@ public class RotationSpeedSystem : SystemBase
            RotationSpeedType = rotationSpeedType,
            DeltaTime = Time.deltaTime
        };
-       this.Dependency rotationsSpeedJob.Schedule(chunks.Length,32, this.Dependency);
+       this.Dependency = rotationsSpeedJob.Schedule(chunks.Length,32, this.Dependency);
    }
 }
 ```
 
 ## How to manually iterate over data
 
-You can use the `EntityManager` class to manually iterate through entities or archetype chunks, but this isn't efficient. You should only use these iteration methods to test or debug your code, or in an isolated world where you have a controlled set of entities.
+You can use the `EntityManager` class to manually iterate through entities or archetype chunks, but this is usually inefficient. You should generally only use these iteration methods to test or debug your code, or in an isolated world where you have a controlled set of entities.
 
 For example, the following snippet iterates through all the entities in the active world:
 

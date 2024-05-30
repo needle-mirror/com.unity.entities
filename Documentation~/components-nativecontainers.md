@@ -1,26 +1,10 @@
 # Native container component support
 
-The [Collections package](https://docs.unity3d.com/Packages/com.unity.collections@latest) provides [native container](xref:JobSystemNativeContainer) types such as `NativeList` and `NativeHashMap`, plus unsafe containers such as `UnsafeList`. You can use these container types in components.
+When writing game and engine code, we often find that we need to maintain and update a single long-lived datastructure, which may potentially be used by multiple systems. We've found it convenient
+in engine code to put such containers on [Singleton](components-singleton.md) components.
 
-Both native and unsafe containers are value types rather than reference types. The key differences between `Unsafe` containers and `Native` containers are:
+When a Native container is on a component, we enforce some restrictions on that component to ensure safety. In particular, we do not allow scheduling jobs against those components with [IJobChunk](iterating-data-ijobchunk.md) or [IJobEntity](iterating-data-ijobentity.md). This is because those jobs already access those components via containers, and the job safety system doesn't scan for nested containers, because that would make jobs take too long to schedule.
 
-* You can only use the Jobs Debugger with native containers. 
-* Native containers copy a reference to its underlying data.
-
-A `NativeContainer` is safer and consistently meets expectations than an `UnsafeContainer`. 
-
-## Component limitations
-
-If you put container types in a component, they have the following limitations:
-
-|**Functionality**|**Native containers**|**Unsafe containers**|
-|--|--|--|
-|Compatible with Jobs Debugger|Yes|No|
-|Can be used in job worker threads|Yes|Yes|
-|Can be used on main thread|Yes|Yes|
-|Usable with [ComponentLookup](xref:Unity.Entities.ComponentLookup`1) on main thread|Yes|Yes|
-|Usable with [ComponentLookup](xref:Unity.Entities.ComponentLookup`1) in job worker threads|No|Yes|
-|Can contain other `NativeContainers`|No|Yes<br/><br/>This is technically supported but impacts performance.|
-|Can contain other `UnsafeContainers`|Yes|Yes|
-
-These restrictions don't apply to usage of native containers outside of components. For example, `NativeContainers` can nest other `NativeContainers` on the main thread (though it isn't possible to do this in job structs).
+However, we do allow scheduling jobs against the containers themselves, so we get the component on the main thread, extract the container, and schedule the job against the container itself. The Singleton functions
+are specifically designed for this case and avoid completing unnecessary dependencies for this reason, so that you can chain jobs across multiple systems against the same container in a singleton component without
+creating a sync point. 

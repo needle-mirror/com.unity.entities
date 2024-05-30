@@ -6,7 +6,7 @@ uid: systems-write-groups
 
 Write groups provide a mechanism for one system to override another, even when you can't change the other system. 
 
-A common ECS pattern is for a system to read one set of **input** components and write to another component as its **output**. However, you might want to override the output of a system, and use a different system based on a different set of inputs to update the output component. 
+A common ECS pattern is for a system to read one set of **input** components and write to another component as its **output**. However, you might want to override the output of a system, and use a different system based on a different set of inputs to update the output components. 
 
 The write group of a target component type consists of all other component types that ECS applies the [`WriteGroup` attribute](xref:Unity.Entities.WriteGroupAttribute) to, with that target component type as the argument. As a system creator, you can use write groups so that your system's users can exclude entities that your system would otherwise select and process. This filtering mechanism lets system users update components for the excluded entities based on their own logic, while letting your system operate as usual on the rest.
 
@@ -14,7 +14,7 @@ The write group of a target component type consists of all other component types
 
 To use write groups, you must use the [write group filter option](xref:Unity.Entities.EntityQueryOptions) on the queries in your system. This excludes all entities from the query that have a component from a write group of any of the components that are writable in the query.
 
-To override a system that uses write groups, mark your own component types as part of the write group of the output component of that system. The original system ignores any entities that have your components and you can update the data of those entities with your own systems. 
+To override a system that uses write groups, mark your own component types as part of the write group of the output components of that system. The original system ignores any entities that have your components and you can update the data of those entities with your own systems. 
 
 ## Write groups example
 

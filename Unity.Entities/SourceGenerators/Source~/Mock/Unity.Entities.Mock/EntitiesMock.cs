@@ -34,6 +34,7 @@ namespace Unity.Entities
         public EntityQueryBuilder WithAny<T>() => this;
         public EntityQueryBuilder WithNone<T>() => this;
         public EntityQueryBuilder WithDisabled<T>() => this;
+        public EntityQueryBuilder WithDisabledRW<T>() => this;
         public EntityQueryBuilder WithAbsent<T>() => this;
         public EntityQueryBuilder WithAspect<T>() => this;
         public EntityQueryBuilder WithOptions(EntityQueryOptions options) => this;

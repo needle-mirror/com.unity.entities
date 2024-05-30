@@ -279,6 +279,8 @@ namespace Unity.Scenes.Editor
             var subSectionList = new List<SceneSection>();
             GetSceneSections(entityManager, sceneGUID, ref subSectionList);
 
+            var weakAssetRefs = new NativeParallelHashSet<UntypedWeakReferenceId>(16, Allocator.Persistent);
+
             NativeArray<Entity> entitiesInMainSection;
 
             var sectionQuery = entityManager.CreateEntityQuery(
@@ -297,7 +299,12 @@ namespace Unity.Scenes.Editor
                 }
             );
 
-            var weakAssetRefs = new NativeParallelHashSet<UntypedWeakReferenceId>(16, Allocator.Persistent);
+            // filter the queries to match only the main section
+            {
+                var mainSection = new SceneSection { SceneGUID = sceneGUID, Section = 0 };
+                sectionQuery.SetSharedComponentFilterManaged(mainSection);
+                sectionBoundsQuery.SetSharedComponentFilterManaged(mainSection);
+            }
 
             // It is important to remove the bounds entities before generating the remap for the external references.
             // With entity store V2, since the bounds will be removed before the entities are moved,
@@ -307,14 +314,7 @@ namespace Unity.Scenes.Editor
             // external entities to be stored in the public references dynamic buffer (as nulls).
             var mainSectionBounds = GetBoundsAndRemove(entityManager, sectionBoundsQuery);
 
-            {
-                var section = new SceneSection { SceneGUID = sceneGUID, Section = 0 };
-
-                sectionQuery.SetSharedComponentFilterManaged(section);
-                sectionBoundsQuery.SetSharedComponentFilterManaged(section);
-
-                entitiesInMainSection = sectionQuery.ToEntityArray(Allocator.TempJob);
-            }
+            entitiesInMainSection = sectionQuery.ToEntityArray(Allocator.TempJob);
 
             // These are placeholders for section 0 that will be replaced after the other sections have been saved.
             sceneSectionDataList.Add(default);

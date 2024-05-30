@@ -202,8 +202,22 @@ namespace Unity.Entities.Content
             }
 #endif
             SceneManager.sceneUnloaded += ReleaseSceneResources;
+            
+            /*
+             * In Editor: RuntimeContentManager cleanup should happen on EditorApplication.quitting 
+             * and on DomainUnload only if EditorApplication.quitting has not been called.
+             * In Players: RuntimeContentManager cleanup should happen on DefaultWorldInitialization.DefaultWorldDestroyed
+             * This should guarantee that cleanup happens after every user system OnDestroy and Monobehaviour
+             * OnDisable/OnDestroy, but not before scripting is half shutdown already.
+             * TODO: We need to verifyso ba that DefaultWorldInitializationProxy's OnDisable is called last of all 
+             * Monobehaviours (due to its script execution order being set to maximum) because this doesn't happen in the editor.
+             */
+#if UNITY_EDITOR
             AppDomain.CurrentDomain.DomainUnload += OnShutdown;
-            AppDomain.CurrentDomain.ProcessExit += OnShutdown;
+            UnityEditor.EditorApplication.quitting += () => { Cleanup(out _); };
+#else
+            DefaultWorldInitialization.DefaultWorldDestroyed += () => { RuntimeContentManager.Cleanup(out _); };
+#endif
         }
 
         static void ReleaseSceneResources(Scene scene)

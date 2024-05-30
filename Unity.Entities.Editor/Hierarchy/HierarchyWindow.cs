@@ -310,8 +310,10 @@ namespace Unity.Entities.Editor
 
         void SetSelection(UnityEngine.Object obj)
         {
-            if (obj is EntitySelectionProxy selectedProxy && selectedProxy.World == m_Hierarchy.World)
+            if (obj is EntitySelectionProxy selectedProxy)
             {
+                if (selectedProxy.World != m_Hierarchy.World)
+                    SelectedWorld = selectedProxy.World;
                 m_HierarchyElement.SetSelection(HierarchyNodeHandle.FromEntity(selectedProxy.Entity));
             }
             else if (obj is GameObject gameObject)

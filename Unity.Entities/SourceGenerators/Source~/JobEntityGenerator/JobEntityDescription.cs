@@ -87,7 +87,7 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
     }
 
     JobEntityParam CreateJobEntityParam(IParameterSymbol parameterSymbol, bool performSafetyChecks,
-        ICollection<Query> queryAllTypes, ICollection<Query> queryChangeFilterTypes)
+        List<Query> queryAllTypes, ICollection<Query> queryChangeFilterTypes)
     {
         var typeSymbol = parameterSymbol.Type;
 
@@ -162,10 +162,12 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                             {
                                 if (typeArgSymbol.InheritsFromInterface("Unity.Entities.IComponentData"))
                                 {
-                                    var isReadOnly = fullName == "global::Unity.Entities.RefRO<T>" ||
-                                                     fullName == "global::Unity.Entities.EnabledRefRO<T>";
-                                    var typeHandle = _queriesAndHandles.GetOrCreateTypeHandleField(typeArgSymbol, isReadOnly);
-                                    var (success, jobEntityParameter) =
+                                    var isReadOnly = fullName is "global::Unity.Entities.RefRO<T>"
+                                        or "global::Unity.Entities.EnabledRefRO<T>";
+                                    var typeHandle =
+                                        _queriesAndHandles.GetOrCreateTypeHandleField(typeArgSymbol, isReadOnly);
+
+                                    var (success, currentJobEntityParameter) =
                                         JobEntityParam.TryParseComponentTypeSymbol(
                                             typeArgSymbol,
                                             parameterSymbol,
@@ -183,33 +185,77 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                                                 this,
                                                 parameterSymbol.Locations[0],
                                                 typeArgSymbol.ToFullName(),
-                                                Enum.GetName(typeof(Accessibility), typeArgSymbol.DeclaredAccessibility),
+                                                Enum.GetName(typeof(Accessibility),
+                                                    typeArgSymbol.DeclaredAccessibility),
                                                 m_JobEntityTypeSymbol.ToFullName(),
-                                                Enum.GetName(typeof(Accessibility), m_JobEntityTypeSymbol.DeclaredAccessibility));
+                                                Enum.GetName(typeof(Accessibility),
+                                                    m_JobEntityTypeSymbol.DeclaredAccessibility));
                                             Invalid = true;
                                             return null;
                                         }
-                                        queryAllTypes.Add(new Query
+
+                                        var index = queryAllTypes.FindIndex(q =>
+                                            SymbolEqualityComparer.Default.Equals(q.TypeSymbol, typeArgSymbol));
+
+                                        // If the same type was added previously
+                                        if (index != -1)
                                         {
-                                            IsReadOnly = jobEntityParameter.IsReadOnly,
-                                            Type = QueryType.All,
-                                            TypeSymbol = jobEntityParameter.TypeSymbol
-                                        });
-                                        m_ComponentTypesInExecuteMethod.Add(new ParameterTypeInJobEntityExecuteMethod
+                                            var sameParameterTypePreviouslyAdded = queryAllTypes[index];
+
+                                            // If the previously added `Query` instance is read-only, but we actually require read-write access,
+                                            // e.g. if users use `EnabledRefRO<T>` and `RefRW<T>` in the same `IJobEntity.Execute()` method
+                                            if (sameParameterTypePreviouslyAdded.IsReadOnly &&
+                                                !currentJobEntityParameter.IsReadOnly)
+                                            {
+                                                // Delete the previously added `Query` instance, since we will be replacing it with a new `Query`
+                                                // instance of the same type with read-write access instead
+                                                queryAllTypes.RemoveAtSwapBack(index);
+
+                                                queryAllTypes.Add(new Query
+                                                {
+                                                    IsReadOnly = false,
+                                                    Type = QueryType.All,
+                                                    TypeSymbol = currentJobEntityParameter.TypeSymbol
+                                                });
+
+                                                m_ComponentTypesInExecuteMethod.RemoveAtSwapBack(index);
+
+                                                m_ComponentTypesInExecuteMethod.Add(
+                                                    new ParameterTypeInJobEntityExecuteMethod
+                                                    {
+                                                        IsReadOnly = false,
+                                                        TypeSymbol = currentJobEntityParameter.TypeSymbol
+                                                    });
+                                            }
+                                        }
+                                        // If the same type was not added previously
+                                        else
                                         {
-                                            IsReadOnly = jobEntityParameter.IsReadOnly,
-                                            TypeSymbol = jobEntityParameter.TypeSymbol,
-                                        });
+                                            queryAllTypes.Add(new Query
+                                            {
+                                                IsReadOnly = currentJobEntityParameter.IsReadOnly,
+                                                Type = QueryType.All,
+                                                TypeSymbol = currentJobEntityParameter.TypeSymbol
+                                            });
+                                            m_ComponentTypesInExecuteMethod.Add(
+                                                new ParameterTypeInJobEntityExecuteMethod
+                                                {
+                                                    IsReadOnly = currentJobEntityParameter.IsReadOnly,
+                                                    TypeSymbol = currentJobEntityParameter.TypeSymbol,
+                                                });
+                                        }
+
                                         if (hasChangeFilter)
                                         {
                                             queryChangeFilterTypes.Add(new Query
                                             {
-                                                IsReadOnly = jobEntityParameter.IsReadOnly,
+                                                IsReadOnly = currentJobEntityParameter.IsReadOnly,
                                                 Type = QueryType.ChangeFilter,
-                                                TypeSymbol = jobEntityParameter.TypeSymbol
+                                                TypeSymbol = currentJobEntityParameter.TypeSymbol
                                             });
                                         }
-                                        return jobEntityParameter;
+
+                                        return currentJobEntityParameter;
                                     }
 
                                     Invalid = true;
@@ -305,7 +351,6 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                                         Invalid = true;
                                         return null;
                                     }
-
                                     queryAllTypes.Add(new Query
                                     {
                                         IsReadOnly = jobEntityParameter.IsReadOnly,
@@ -479,63 +524,53 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
             };
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        static ITypeSymbol AddFromTypeOfKeepAll(List<Query> list, TypeOfExpressionSyntax typeOfSyntax, QueryType type, SemanticModel semanticModel)
+        ITypeSymbol AddQueryInstance(List<Query> list, TypeOfExpressionSyntax typeOfSyntax, QueryType type, SemanticModel semanticModel, bool removeFromQueryAllIfFound)
         {
             var typeSymbol = semanticModel.GetTypeInfo(typeOfSyntax.Type).Type;
-            list.Add(new Query
+            var index = QueryAllTypes.FindIndex(q => SymbolEqualityComparer.Default.Equals(q.TypeSymbol, typeSymbol));
+
+            if (index != -1)
             {
-                TypeSymbol = typeSymbol,
-                Type = type,
-                IsReadOnly = true,
-            });
+                var queryAllType = QueryAllTypes[index];
+                list.Add(new Query
+                {
+                    TypeSymbol = typeSymbol,
+                    Type = type,
+                    IsReadOnly = queryAllType.IsReadOnly
+                });
+
+                if (removeFromQueryAllIfFound)
+                    QueryAllTypes.RemoveAtSwapBack(index);
+            }
+            else
+            {
+                list.Add(new Query
+                {
+                    TypeSymbol = typeSymbol,
+                    Type = type,
+                    IsReadOnly = true,
+                });
+            }
+
             return typeSymbol;
         }
 
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        void AddFromTypeOfRemoveFromAll(List<Query> list, TypeOfExpressionSyntax typeOfSyntax, QueryType type, SemanticModel semanticModel)
-        {
-            var typeSymbol = AddFromTypeOfKeepAll(list, typeOfSyntax, type, semanticModel);
-            var index = QueryAllTypes.FindIndex(q => SymbolEqualityComparer.Default.Equals(q.TypeSymbol, typeSymbol));
-            if (index != -1)
-                QueryAllTypes.RemoveAtSwapBack(index);
-        }
-
-        static void AddToQueryListKeepAll(List<Query> list, AttributeArgumentSyntax argument,  QueryType type, SemanticModel semanticModel)
+        void AddQueryInstanceFromAttribute(List<Query> list, AttributeArgumentSyntax argument, QueryType type, SemanticModel semanticModel, bool removeFromQueryAllIfFound)
         {
             switch (argument.Expression)
             {
                 case ImplicitArrayCreationExpressionSyntax implicitArraySyntax:
                     foreach (var expression in implicitArraySyntax.Initializer.Expressions)
                         if (expression is TypeOfExpressionSyntax typeOfSyntax)
-                            AddFromTypeOfKeepAll(list, typeOfSyntax, type, semanticModel);
+                            AddQueryInstance(list, typeOfSyntax, type, semanticModel, removeFromQueryAllIfFound);
                     break;
                 case ArrayCreationExpressionSyntax arraySyntax:
                     foreach (var expression in arraySyntax.Initializer.Expressions)
                         if (expression is TypeOfExpressionSyntax typeOfSyntax)
-                            AddFromTypeOfKeepAll(list, typeOfSyntax, type, semanticModel);
+                            AddQueryInstance(list, typeOfSyntax, type, semanticModel, removeFromQueryAllIfFound);
                     break;
                 case TypeOfExpressionSyntax typeOfSyntax:
-                    AddFromTypeOfKeepAll(list, typeOfSyntax, type, semanticModel);
-                    break;
-            }
-        }
-
-        void AddToQueryListRemoveFromAll(List<Query> list, AttributeArgumentSyntax argument,  QueryType type, SemanticModel semanticModel)
-        {
-            switch (argument.Expression)
-            {
-                case ImplicitArrayCreationExpressionSyntax implicitArraySyntax:
-                    foreach (var expression in implicitArraySyntax.Initializer.Expressions)
-                        if (expression is TypeOfExpressionSyntax typeOfSyntax)
-                            AddFromTypeOfRemoveFromAll(list, typeOfSyntax, type, semanticModel);
-                    break;
-                case ArrayCreationExpressionSyntax arraySyntax:
-                    foreach (var expression in arraySyntax.Initializer.Expressions)
-                        if (expression is TypeOfExpressionSyntax typeOfSyntax)
-                            AddFromTypeOfRemoveFromAll(list, typeOfSyntax, type, semanticModel);
-                    break;
-                case TypeOfExpressionSyntax typeOfSyntax:
-                    AddFromTypeOfRemoveFromAll(list, typeOfSyntax, type, semanticModel);
+                    AddQueryInstance(list, typeOfSyntax, type, semanticModel, removeFromQueryAllIfFound);
                     break;
             }
         }
@@ -560,37 +595,37 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                         case SimpleNameSyntax { Identifier.ValueText: "WithDisabled" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
-                                    AddToQueryListRemoveFromAll(QueryDisabledTypes, argument, QueryType.Disabled, semanticModel);
+                                    AddQueryInstanceFromAttribute(QueryDisabledTypes, argument, QueryType.Disabled, semanticModel, removeFromQueryAllIfFound: true);
                             break;
                         case SimpleNameSyntax { Identifier.ValueText: "WithPresent" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
-                                    AddToQueryListKeepAll(QueryPresentTypes, argument, QueryType.Present, semanticModel);
+                                    AddQueryInstanceFromAttribute(QueryPresentTypes, argument, QueryType.Present, semanticModel, removeFromQueryAllIfFound: false);
                             break;
                         case SimpleNameSyntax { Identifier.ValueText: "WithAbsent" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
-                                    AddToQueryListKeepAll(QueryAbsentTypes, argument, QueryType.Absent, semanticModel);
+                                    AddQueryInstanceFromAttribute(QueryAbsentTypes, argument, QueryType.Absent, semanticModel, removeFromQueryAllIfFound: false);
                             break;
                         case SimpleNameSyntax { Identifier.ValueText: "WithAll" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
-                                    AddToQueryListKeepAll(QueryAllTypes, argument, QueryType.All, semanticModel);
+                                    AddQueryInstanceFromAttribute(QueryAllTypes, argument, QueryType.All, semanticModel, removeFromQueryAllIfFound: false);
                             break;
                         case SimpleNameSyntax { Identifier.ValueText: "WithNone" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
-                                    AddToQueryListKeepAll(QueryNoneTypes, argument, QueryType.None, semanticModel);
+                                    AddQueryInstanceFromAttribute(QueryNoneTypes, argument, QueryType.None, semanticModel, removeFromQueryAllIfFound: false);
                             break;
                         case SimpleNameSyntax { Identifier.ValueText: "WithAny" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
-                                    AddToQueryListKeepAll(QueryAnyTypes, argument, QueryType.Any, semanticModel);
+                                    AddQueryInstanceFromAttribute(QueryAnyTypes, argument, QueryType.Any, semanticModel, removeFromQueryAllIfFound: false);
                             break;
                         case SimpleNameSyntax { Identifier.ValueText: "WithChangeFilter" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
-                                    AddToQueryListKeepAll(QueryChangeFilterTypes, argument, QueryType.ChangeFilter, semanticModel);
+                                    AddQueryInstanceFromAttribute(QueryChangeFilterTypes, argument, QueryType.ChangeFilter, semanticModel, removeFromQueryAllIfFound: false);
                             break;
                         case SimpleNameSyntax { Identifier.ValueText: "WithOptions" }:
                             if (attribute.ArgumentList != null)

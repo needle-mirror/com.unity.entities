@@ -4,8 +4,21 @@ uid: changelog
 
 # Changelog
 
-## [1.2.1] - 2024-04-26
+## [1.2.3] - 2024-05-30
 
+### Fixed
+
+* Queries are now correctly constructed using `EntityQueryBuilder` when using `[WithDisabled(T)]` on `IJobEntity` with `EnabledRefRW<T>` and/or `RefRW<T>`.
+* Cross-world selection in Entities Hierarchy
+* Entities windows do not throw exceptions anymore when installing or removing packages from package manager.
+* Fixed crash on quit in players due to incorrect RuntimeContentManager cleanup timing.
+* respond to much docs feedback
+* Fixed a regression which caused subscene section bounding volumes to be computed incorrectly.
+* `EntityCommandBuffer.AddComponentForLinkedEntityGroup()` and `EntityCommandBuffer.SetComponentForLinkedEntityGroup()` now correctly process all entities that match the provided `EntityQueryMask`, even if new archetypes matching the query were added earlier during command buffer playback.
+* Creating a cycle with `[UpdateInGroup]` attributes now throws an exception instead of crashing the Editor.
+
+
+## [1.2.1] - 2024-04-26
 
 ### Changed
 
@@ -20,13 +33,6 @@ uid: changelog
 * Systems now correctly track the implicit read dependency on enableable components in their queries' `Any` lists. These components are optional, but evaluating a query with optional enableable components requires reading these components' enabled state, which requires a read dependency even if nothing else in the system directly manipulates these types.
 * `EntityManager.SetComponentEnabled<T>(EntityQuery,bool)` now sets the change version for the target type `T` on all affected chunks.
 * `CompanionGameObjectUpdateTransformSystem` expected entities to have the `LocalToWorld` and `CompanionLinkTransform` components, but did not explicitly require them in its query.
-
-### Security
-
-
-### Known Issues
-
-
 
 
 ## [1.2.0] - 2024-03-22

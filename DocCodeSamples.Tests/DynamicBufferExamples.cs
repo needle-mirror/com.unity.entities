@@ -298,7 +298,6 @@ namespace Doc.CodeSamples.Tests
             {
                 UpdateChunk(chunks[i]);
             }
-            chunks.Dispose();
         }
 
         private void UpdateChunk(ArchetypeChunk chunk)
@@ -402,7 +401,6 @@ namespace Doc.CodeSamples.Tests
 
             this.CompleteDependency();
             Debug.Log("Sum of all buffers: " + finalSum[0]);
-            finalSum.Dispose();
         }
     }
 

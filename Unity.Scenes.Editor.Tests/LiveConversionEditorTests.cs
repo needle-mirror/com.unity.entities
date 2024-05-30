@@ -8629,8 +8629,8 @@ namespace Unity.Scenes.Editor.Tests
 
                 var entityArrayAdd = testBlobAssetQueryAdd.ToEntityArray(Allocator.Persistent);
                 var componentArrayAdd = w.EntityManager.GetComponentData<BlobAssetReference>(entityArrayAdd[0]);
-                var entityArrayGet = testBlobAssetQueryAdd.ToEntityArray(Allocator.Persistent);
-                var componentArrayGet = w.EntityManager.GetComponentData<BlobAssetReference>(entityArrayGet[0]);
+                var entityArrayGet = testBlobAssetQueryGet.ToEntityArray(Allocator.Persistent);
+                var componentArrayGet = w.EntityManager.GetComponentData<BlobAssetGetReference>(entityArrayGet[0]);
 
                 Assert.AreEqual(componentArrayAdd.blobHash, componentArrayGet.blobHash, "The references do not point to the same Blob Asset");
                 Assert.AreEqual(componentArrayAdd.blobValue, componentArrayGet.blobValue, "The references do not point to the same Blob Asset");

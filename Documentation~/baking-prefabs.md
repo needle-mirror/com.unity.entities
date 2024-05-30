@@ -33,9 +33,6 @@ To instantiate a prefab referenced with `EntityPrefabReference`, you must also a
 
 [!code-cs[InstantiateLoadedPrefabs](../DocCodeSamples.Tests/BakingPrefabExamples.cs#InstantiateLoadedPrefabs)]
 
-> [!NOTE]
-> In this example [`RequestEntityPrefabLoaded`](xref:Unity.Scenes.RequestEntityPrefabLoaded) is added in the `OnStartRunning`, but you can also add it in `OnStartRunning`. Refer to the samples for an example of this.
-
 ## Prefabs in queries
 
 By default, Unity excludes prefabs from queries. To include entity prefabs in queries, use the [`IncludePrefab`](xref:Unity.Entities.EntityQueryOptions) field in the query:

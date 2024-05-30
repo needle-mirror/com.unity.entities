@@ -198,6 +198,7 @@ namespace Unity.Entities.Editor
             if (!m_Created)
                 return;
 
+            m_Created = false;
             OnCleanup();
         }
 

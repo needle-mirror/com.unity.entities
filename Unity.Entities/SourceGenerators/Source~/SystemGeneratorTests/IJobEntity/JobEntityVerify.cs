@@ -124,6 +124,7 @@ public class JobEntityVerify
 
         await VerifyCS.VerifySourceGeneratorAsync(source);
     }
+
     [TestMethod]
     public async Task JobEntityDisabledChangeFilter()
     {
@@ -138,4 +139,99 @@ public class JobEntityVerify
 
         await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntityDisabledChangeFilter), "Test0__JobEntity_19875963024.g.cs");
     }
+
+    [TestMethod]
+    public async Task JobEntity_WithDisabled_EnabledRefRW_RefRW_QueryIsCorrect()
+    {
+        const string source = @"
+            using Unity.Entities;
+            using Unity.Entities.Tests;
+
+            [WithDisabled(typeof(EcsTestDataEnableable))]
+            partial struct WithDisabled_EnabledRefRW_RefRWJob : IJobEntity
+            {
+                public void Execute(EnabledRefRW<EcsTestDataEnableable> t1, RefRW<EcsTestDataEnableable> t2)
+                {
+                }
+            }
+        ";
+
+        await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntity_WithDisabled_EnabledRefRW_RefRW_QueryIsCorrect), "Test0__JobEntity_19875963024.g.cs");
+    }
+
+    [TestMethod]
+    public async Task JobEntity_WithDisabled_EnabledRefRW_RefRO_QueryIsCorrect()
+    {
+        const string source = @"
+            using Unity.Entities;
+            using Unity.Entities.Tests;
+
+            [WithDisabled(typeof(EcsTestDataEnableable))]
+            partial struct WithDisabled_EnabledRefRW_RefROJob : IJobEntity
+            {
+                public void Execute(EnabledRefRW<EcsTestDataEnableable> t1, RefRO<EcsTestDataEnableable> t2)
+                {
+                }
+            }
+        ";
+
+        await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntity_WithDisabled_EnabledRefRW_RefRO_QueryIsCorrect), "Test0__JobEntity_19875963024.g.cs");
+    }
+
+    [TestMethod]
+    public async Task JobEntity_WithDisabled_EnabledRefRW_QueryIsCorrect()
+    {
+        const string source = @"
+            using Unity.Entities;
+            using Unity.Entities.Tests;
+
+            [WithDisabled(typeof(EcsTestDataEnableable))]
+            partial struct WithDisabled_EnabledRefRWJob : IJobEntity
+            {
+                public void Execute(EnabledRefRW<EcsTestDataEnableable> t1)
+                {
+                }
+            }
+        ";
+
+        await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntity_WithDisabled_EnabledRefRW_QueryIsCorrect), "Test0__JobEntity_19875963024.g.cs");
+    }
+
+     [TestMethod]
+     public async Task JobEntity_WithDisabled_RefRW_QueryIsCorrect()
+     {
+         const string source = @"
+             using Unity.Entities;
+             using Unity.Entities.Tests;
+
+             [WithDisabled(typeof(EcsTestDataEnableable))]
+             partial struct WithDisabled_RefRWJob : IJobEntity
+             {
+                 public void Execute(RefRW<EcsTestDataEnableable> t1)
+                 {
+                 }
+             }
+         ";
+
+         await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntity_WithDisabled_RefRW_QueryIsCorrect), "Test0__JobEntity_19875963024.g.cs");
+     }
+
+     [TestMethod]
+     public async Task JobEntity_WithDisabled_EnabledRefRO_RefRW_QueryIsCorrect()
+     {
+         const string source = @"
+             using Unity.Entities;
+             using Unity.Entities.Tests;
+
+             [WithDisabled(typeof(EcsTestDataEnableable))]
+             partial struct WithDisabled_EnabledRefRO_RefRWJob : IJobEntity
+             {
+                 public void Execute(EnabledRefRO<EcsTestDataEnableable> t1, RefRW<EcsTestDataEnableable> t2)
+                 {
+                 }
+             }
+         ";
+
+         await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntity_WithDisabled_EnabledRefRO_RefRW_QueryIsCorrect), "Test0__JobEntity_19875963024.g.cs");
+     }
 }

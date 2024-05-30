@@ -462,6 +462,9 @@ namespace Unity.Entities
                     }
                 }
 
+                // Used to detect cycles in the UpdateInGroup tree, so we don't recurse infinitely and crash.
+                var visitedSystemGroupsSet = new HashSet<Type>(32);
+
                 foreach (var systemType in isystemTypes)
                 {
                     if (!systemType.IsValueType)
@@ -477,7 +480,7 @@ namespace Unity.Entities
                     var flags = GetSystemTypeFlags(systemType);
                     if (typeof(ISystem).IsAssignableFrom(systemType) && ((flags & SystemTypeInfo.kIsSystemManagedFlag) != 0))
                         Debug.LogError($"System {systemType} has managed fields, but implements ISystem, which is not allowed. If you need to use managed fields, please inherit from SystemBase.");
-                    var filterFlags = MakeWorldFilterFlags(systemType);
+                    var filterFlags = MakeWorldFilterFlags(systemType, ref visitedSystemGroupsSet);
 
                     AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
                 }
@@ -492,7 +495,7 @@ namespace Unity.Entities
                     var hash = GetHashCode64(systemType);
                     var flags = GetSystemTypeFlags(systemType);
 
-                    var filterFlags = MakeWorldFilterFlags(systemType);
+                    var filterFlags = MakeWorldFilterFlags(systemType, ref visitedSystemGroupsSet);
 
                     AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
                 }
@@ -1311,7 +1314,7 @@ namespace Unity.Entities
 #endif
         }
 
-        static WorldSystemFilterFlags GetParentGroupDefaultFilterFlags(Type type)
+        static WorldSystemFilterFlags GetParentGroupDefaultFilterFlags(Type type, ref HashSet<Type> visitedSystemGroupsSet)
         {
             if (!Attribute.IsDefined(type, typeof(UpdateInGroupAttribute), true))
             {
@@ -1323,6 +1326,14 @@ namespace Unity.Entities
             foreach (var uig in attrs)
             {
                 var groupType = ((UpdateInGroupAttribute)uig).GroupType;
+                if (!visitedSystemGroupsSet.Add(groupType))
+                {
+                    StringBuilder sb = new StringBuilder();
+                    sb.Append("The following systems form a cycle in their UpdateInGroup attributes: ");
+                    foreach (var gt in visitedSystemGroupsSet)
+                        sb.Append($"{gt} ");
+                    throw new InvalidOperationException(sb.ToString());
+                }
                 var groupFlags = WorldSystemFilterFlags.Default;
                 if (Attribute.IsDefined(groupType, typeof(WorldSystemFilterAttribute), true))
                 {
@@ -1331,13 +1342,13 @@ namespace Unity.Entities
                 if ((groupFlags & WorldSystemFilterFlags.Default) != 0)
                 {
                     groupFlags &= ~WorldSystemFilterFlags.Default;
-                    groupFlags |= GetParentGroupDefaultFilterFlags(groupType);
+                    groupFlags |= GetParentGroupDefaultFilterFlags(groupType, ref visitedSystemGroupsSet);
                 }
                 systemFlags |= groupFlags;
             }
             return systemFlags;
         }
-        static WorldSystemFilterFlags MakeWorldFilterFlags(Type type)
+        static WorldSystemFilterFlags MakeWorldFilterFlags(Type type, ref HashSet<Type> visitedSystemGroupsSet)
         {
             // IMPORTANT: keep this logic in sync with SystemTypeGen.cs for DOTS Runtime
             WorldSystemFilterFlags systemFlags = WorldSystemFilterFlags.Default;
@@ -1348,7 +1359,8 @@ namespace Unity.Entities
             if ((systemFlags & WorldSystemFilterFlags.Default) != 0)
             {
                 systemFlags &= ~WorldSystemFilterFlags.Default;
-                systemFlags |= GetParentGroupDefaultFilterFlags(type);
+                visitedSystemGroupsSet.Clear();
+                systemFlags |= GetParentGroupDefaultFilterFlags(type, ref visitedSystemGroupsSet);
             }
 
             if (Attribute.IsDefined(type, typeof(ExecuteInEditMode)))

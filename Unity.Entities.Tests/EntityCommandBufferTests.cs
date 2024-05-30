@@ -4086,6 +4086,48 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void AddComponentForLinkedEntityGroup_AfterNewArchetypesAdded_Works()
+        {
+            var prefabEntity = m_Manager.CreateEntity(typeof(Prefab), typeof(LinkedEntityGroup));
+            var legEntities = new NativeArray<Entity>(10, Allocator.Temp);
+            for (var i = 0; i < 10; i++)
+            {
+                legEntities[i] = m_Manager.CreateEntity(typeof(Prefab));
+                if (i % 2 == 0) // Half the children have EcsTestData
+                    m_Manager.AddComponent<EcsTestData>(legEntities[i]);
+            }
+            var legBuffer = m_Manager.GetBuffer<LinkedEntityGroup>(prefabEntity);
+            legBuffer.Add(prefabEntity);
+            foreach (var e in legEntities)
+                legBuffer.Add(e);
+            var instance = m_Manager.Instantiate(prefabEntity);
+            var firstChild = m_Manager.GetBuffer<LinkedEntityGroup>(instance)[1].Value;
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(firstChild));
+
+            using var childQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestData>()
+                .Build(m_Manager);
+            using var childEntities = childQuery.ToEntityArray(Allocator.Temp);
+            Assert.AreEqual(5, childEntities.Length);
+            var mask = childQuery.GetEntityQueryMask();
+
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            // move one of the children with EcsTestData to a new archetype, not currently present in query's MatchingArchetypes list
+            ecb.AddComponent<EcsTestTag>(firstChild);
+            // This command should still target the instance
+            ecb.AddComponentForLinkedEntityGroup(instance, mask, new EcsTestData2(42));
+            ecb.Playback(m_Manager);
+
+            var resultsQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestData,EcsTestData2>()
+                .Build(m_Manager);
+            using var results = resultsQuery.ToEntityArray(World.UpdateAllocator.ToAllocator);
+            CollectionAssert.AreEqual(childEntities.ToArray(), results.ToArray());
+            foreach(var e in results)
+                Assert.AreEqual(42, m_Manager.GetComponentData<EcsTestData2>(e).value0);
+        }
+
+        [Test]
         public void SetComponentForLinkedEntityGroup_Works()
         {
             var rootEntity = m_Manager.CreateEntity(typeof(Prefab), typeof(LinkedEntityGroup));
@@ -4146,7 +4188,7 @@ namespace Unity.Entities.Tests
             linkedBuffer.Add(rootEntity);
             for (var i = 0; i < 10; i++)
             {
-                linkedBuffer.Add(new LinkedEntityGroup {Value = array[i]});
+                linkedBuffer.Add(new LinkedEntityGroup { Value = array[i] });
             }
 
             var instance = m_Manager.Instantiate(rootEntity);
@@ -4158,7 +4200,7 @@ namespace Unity.Entities.Tests
             {
                 var e2 = cmds.CreateEntity();
                 cmds.AddComponent<EcsTestTag>(e2);
-                cmds.SetComponentForLinkedEntityGroup(instance, mask, new EcsTestDataEntity(42,e2));
+                cmds.SetComponentForLinkedEntityGroup(instance, mask, new EcsTestDataEntity(42, e2));
                 cmds.Playback(m_Manager);
             }
 
@@ -4175,6 +4217,45 @@ namespace Unity.Entities.Tests
 
             array.Dispose();
         }
+
+        [Test]
+        public void SetComponentForLinkedEntityGroup_AfterNewArchetypesAdded_Works()
+        {
+            var prefabEntity = m_Manager.CreateEntity(typeof(Prefab), typeof(LinkedEntityGroup));
+            var legEntities = new NativeArray<Entity>(10, Allocator.Temp);
+            for (var i = 0; i < 10; i++)
+            {
+                legEntities[i] = m_Manager.CreateEntity(typeof(Prefab));
+                if (i % 2 == 0) // Half the children have EcsTestData
+                    m_Manager.AddComponent<EcsTestData>(legEntities[i]);
+            }
+            var legBuffer = m_Manager.GetBuffer<LinkedEntityGroup>(prefabEntity);
+            legBuffer.Add(prefabEntity);
+            foreach (var e in legEntities)
+                legBuffer.Add(e);
+            var instance = m_Manager.Instantiate(prefabEntity);
+            var firstChild = m_Manager.GetBuffer<LinkedEntityGroup>(instance)[1].Value;
+            Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(firstChild));
+
+            using var childQuery = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestData>()
+                .Build(m_Manager);
+            Assert.AreEqual(5, childQuery.CalculateEntityCount());
+            var mask = childQuery.GetEntityQueryMask();
+
+            using var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+            // move one of the children with EcsTestData to a new archetype, not currently present in query's MatchingArchetypes list
+            ecb.AddComponent<EcsTestTag>(firstChild);
+            // This command should still target the instance
+            ecb.SetComponentForLinkedEntityGroup(instance, mask, new EcsTestData(42));
+            ecb.Playback(m_Manager);
+
+            using var results = childQuery.ToEntityArray(World.UpdateAllocator.ToAllocator);
+            Assert.AreEqual(5, results.Length);
+            foreach(var e in results)
+                Assert.AreEqual(42, m_Manager.GetComponentData<EcsTestData>(e).value);
+        }
+
 
         [Test]
         public void ReplaceComponentForLinkedEntityGroup_Works()

@@ -122,6 +122,11 @@ namespace Unity.Entities.Tests
 
             Assert.DoesNotThrow(() => a0.GetUnsafePtr());
             Assert.DoesNotThrow(() => a1.GetUnsafePtr());
+
+            a0.m_data.UnprotectAgainstDisposal();
+            a0.m_data.Dispose();
+            a1.m_data.UnprotectAgainstDisposal();
+            a1.m_data.Dispose();
         }
 
         [Test]

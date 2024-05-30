@@ -6,6 +6,8 @@ uid: iterating-data-ijobentity
 
 You can use [`IJobEntity`](xref:Unity.Entities.IJobEntity) to iterate across `ComponentData` when you have a data transformation that you want to use in multiple systems, with different invocations. It creates an [`IJobChunk`](xref:Unity.Entities.IJobChunk) job, so you only have to consider what data you want to transform.
 
+Note that `IJobEntity` works identically with SystemBase and ISystem. 
+
 ## Create an IJobEntity job
 
 To create an `IJobEntity` job, write a struct that uses the `IJobEntity` interface, and implement your own custom `Execute` method. 
@@ -43,7 +45,7 @@ The following is an example of `EntityIndexInQuery`:
 
 [!code-cs[EntityIndexInQuery](../DocCodeSamples.Tests/JobEntityExamples.cs#EntityIndexInQuery)]
 
-Because `IJobEntity` resembles a job, you can also use all attributes that work on a job:
+Because `IJobEntity` is a job, you can also use all attributes that work on a job:
 
 * `Unity.Burst.BurstCompile`
 * `Unity.Collections.DeallocateOnJobCompletion`
@@ -73,7 +75,7 @@ The following is a list of all the supported `Execute` parameters you can use in
 
 ## Comparison between IJobEntity and Entities.ForEach
 
-`IJobEntity` is similar to [`Entities.ForEach`](iterating-data-entities-foreach.md), however you can reuse `IJobEntity` throughout several systems, so you should use it over `Entities.ForEach` where possible. For example, this is an `Entities.ForEach` example:
+`IJobEntity` is similar to [`Entities.ForEach`](iterating-data-entities-foreach.md), but you can reuse `IJobEntity` throughout several systems, so you should use it over `Entities.ForEach` where possible. For example, this is an `Entities.ForEach` example:
 
 [!code-cs[BoidsForEach](../DocCodeSamples.Tests/JobEntityExamples.cs#BoidsForEach)]
 
@@ -81,7 +83,8 @@ You can rewrite it as the following with `IJobEntity`:
 
 [!code-cs[Boids](../DocCodeSamples.Tests/JobEntityExamples.cs#Boids)]
 
+Also, `IJobEntity` takes much less time to compile than `Entities.ForEach`, so it's also recommended for that reason. 
+
 ## Additional resources
 
-* [Entities.ForEach documentation](iterating-entities-foreach-ecb.md)
 * [`IJobEntity` API documentation](xref:Unity.Entities.IJobEntity)

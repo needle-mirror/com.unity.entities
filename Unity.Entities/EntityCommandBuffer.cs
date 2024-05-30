@@ -3534,11 +3534,7 @@ namespace Unity.Entities
         /// <summary>Records a command that adds a component to an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
         /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
         /// <remarks>At playback, this command throws an error if the entity is destroyed before playback,
-        /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.
-        ///
-        /// New archetypes created by structural changes earlier in this command buffer may not be correctly matched by the
-        /// <paramref name="mask"/>, leading to this command targeting fewer entities than expected. This command should
-        /// therefore be used only with extreme caution.</remarks>
+        /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
         /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
         /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to add the component to.
         /// Note that EntityQueryMask ignores all query filtering (including chunk filtering and enableable components),
@@ -3559,11 +3555,7 @@ namespace Unity.Entities
         /// <summary>Records a command that adds a component to an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
         /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
         /// <remarks>At playback, this command throws an error if the entity is destroyed before playback,
-        /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.
-        ///
-        /// New archetypes created by structural changes earlier in this command buffer may not be correctly matched by the
-        /// <paramref name="mask"/>, leading to this command targeting fewer entities than expected. This command should
-        /// therefore be used only with extreme caution.</remarks>
+        /// if the entity is still deferred, or if any of the matching linked entities cannot add the component.</remarks>
         /// <param name="e">The entity whose LinkedEntityGroup will be referenced.</param>
         /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to add the component to.
         /// Note that EntityQueryMask ignores all query filtering (including chunk filtering and enableable components),
@@ -3581,11 +3573,7 @@ namespace Unity.Entities
         /// <summary>Records a command that sets a component for an entity's <see cref="LinkedEntityGroup"/> based on an <see cref="EntityQueryMask"/>.
         /// Entities in the <see cref="LinkedEntityGroup"/> that don't match the mask will be skipped safely.</summary>
         /// <remarks>At playback, this command throws an error if the entity is destroyed before playback,
-        /// if the entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if any of the matching linked entities do not already have the component.
-        ///
-        /// New archetypes created by structural changes earlier in this command buffer may not be correctly matched by the
-        /// <paramref name="mask"/>, leading to this command targeting fewer entities than expected. This command should
-        /// therefore be used only with extreme caution.</remarks>
+        /// if the entity is still deferred, if the entity has the <see cref="Prefab"/> tag, or if any of the matching linked entities do not already have the component.</remarks>
         /// <param name="e">The entity whose LinkedEntityGroup will be modified by this command.</param>
         /// <param name="mask">The EntityQueryMask that is used to determine which linked entities to set the component for.
         /// Note that EntityQueryMask ignores all query filtering (including chunk filtering and enableable components),
@@ -4646,6 +4634,13 @@ namespace Unity.Entities
                     AssertNoFixupInMultiPlayback(isFirstPlayback != 0);
                     FixupTemporaryEntitiesInComponentValue(srcValue, cmd->Header.ComponentTypeIndex, in playbackState);
                 }
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary). And then immediately begin
+                    // a new batch, to track the changes made by this operation.
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
+                }
                 mgr->AddComponentForLinkedEntityGroup(entity, cmd->Mask, cmd->Header.ComponentTypeIndex, srcValue,
                     cmd->Header.ComponentSize);
             }
@@ -4663,6 +4658,13 @@ namespace Unity.Entities
                 {
                     AssertNoFixupInMultiPlayback(isFirstPlayback != 0);
                     FixupTemporaryEntitiesInComponentValue(srcValue, cmd->Header.ComponentTypeIndex, in playbackState);
+                }
+                if (Hint.Likely(trackStructuralChanges != 0))
+                {
+                    // We need to make sure any outstanding structural changes are applied before evaluating the query, to
+                    // ensure that its matching chunk cache get invalidated (if necessary). And then immediately begin
+                    // a new batch, to track the changes made by this operation.
+                    CommitStructuralChanges(mgr, ref archetypeChanges);
                 }
                 mgr->SetComponentForLinkedEntityGroup(entity, cmd->Mask, cmd->Header.ComponentTypeIndex, srcValue,
                     cmd->Header.ComponentSize);

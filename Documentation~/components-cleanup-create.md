@@ -1,6 +1,6 @@
 # Create a cleanup component
 
-To create a cleanup component, create a struct that inherits from `ICleanupComponentData`. 
+To create a cleanup component, create a struct that inherits from `ICleanupComponentData`. Make sure to add it to entities at runtime, because cleanup components cannot be baked.
 
 The following code sample shows an empty cleanup component:
 

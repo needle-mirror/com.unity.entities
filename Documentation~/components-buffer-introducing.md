@@ -47,6 +47,14 @@ public void DynamicBufferExample(Entity e)
     var y = myBuff[0];
 }
 ```
+## Comparison to native containers in components
+
+Dynamic buffers are often preferable to using [nativecontainers on components](components-nativecontainers.md) because they are free
+of the job scheduling restrictions on the latter, and because they can optionally be stored inline inside a chunk, which helps reduce
+memory bandwidth usage.
+
+In general, when there is more than one entity that needs a collection on it, it probably merits a dynamic buffer. If there's only one,
+it might work well as a singleton with a native container on it. 
 
 ## Additional resources
 

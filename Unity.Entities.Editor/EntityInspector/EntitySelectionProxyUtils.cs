@@ -42,9 +42,22 @@ static class EntitySelectionProxyUtility
 
     static UnityObject GetAuthoringObjectForEntity(int entityIndex)
     {
-        Entity entity = World.DefaultGameObjectInjectionWorld.EntityManager.GetEntityByEntityIndex(entityIndex);
+        Entity entity = Entity.Null;
+        World world = null;
+        foreach (var w in World.All)
+        {
+            entity = w.EntityManager.GetEntityByEntityIndex(entityIndex);
+            if (w.EntityManager.Exists(entity))
+            {
+                world = w;
+                break;
+            }
+        }
 
-        UnityObject authoringObject = World.DefaultGameObjectInjectionWorld.EntityManager.Debug.GetAuthoringObjectForEntity(entity);
+        Debug.Assert(entity != Entity.Null, "Entity is invalid.");
+        Debug.Assert(world != null, "Entity does not belong to any world.");
+
+        UnityObject authoringObject = world.EntityManager.Debug.GetAuthoringObjectForEntity(entity);
 
         // If we did not find the GameObject associated with this entity, try to find it in the current selection.
         // We don't want to create a new EntitySelectionProxy for an Entity that is already selected. Otherwise some features like Ctrl+click to deselect an Entity won't work.
@@ -66,7 +79,7 @@ static class EntitySelectionProxyUtility
         }
 
         if (authoringObject == null)
-            authoringObject = EntitySelectionProxy.CreateInstance(World.DefaultGameObjectInjectionWorld, entity);
+            authoringObject = EntitySelectionProxy.CreateInstance(world, entity);
 
         return authoringObject;
     }
