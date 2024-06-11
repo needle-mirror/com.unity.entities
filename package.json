@@ -1,13 +1,13 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.2.3",
+  "version": "1.3.0-exp.1",
   "unity": "2022.3",
   "unityRelease": "11f1",
   "dependencies": {
     "com.unity.burst": "1.8.13",
     "com.unity.serialization": "3.1.1",
-    "com.unity.collections": "2.4.2",
+    "com.unity.collections": "2.5.0-exp.1",
     "com.unity.mathematics": "1.3.1",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
@@ -15,7 +15,7 @@
     "com.unity.modules.unitywebrequest": "1.0.0",
     "com.unity.test-framework.performance": "3.0.3",
     "com.unity.nuget.mono-cecil": "1.11.4",
-    "com.unity.scriptablebuildpipeline": "1.20.2",
+    "com.unity.scriptablebuildpipeline": "1.21.21",
     "com.unity.profiling.core": "1.0.2"
   },
   "description": "The Entities package provides a modern Entity Component System (ECS) implementation with a basic set of systems and components made for Unity.",
@@ -25,15 +25,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Fixed\n\n* Queries are now correctly constructed using `EntityQueryBuilder` when using `[WithDisabled(T)]` on `IJobEntity` with `EnabledRefRW<T>` and/or `RefRW<T>`.\n* Cross-world selection in Entities Hierarchy\n* Entities windows do not throw exceptions anymore when installing or removing packages from package manager.\n* Fixed crash on quit in players due to incorrect RuntimeContentManager cleanup timing.\n* respond to much docs feedback\n* Fixed a regression which caused subscene section bounding volumes to be computed incorrectly.\n* `EntityCommandBuffer.AddComponentForLinkedEntityGroup()` and `EntityCommandBuffer.SetComponentForLinkedEntityGroup()` now correctly process all entities that match the provided `EntityQueryMask`, even if new archetypes matching the query were added earlier during command buffer playback.\n* Creating a cycle with `[UpdateInGroup]` attributes now throws an exception instead of crashing the Editor."
+    "changelog": "### Added\n\n* `ArchetypeChunk.GetEnabledMask()` now allows creating masks from `BufferTypeHandle` and `DynamicComponentTypeHandle`, in addition to `ComponentTypeHandle`.\n* `EnabledRefRW<T>` and EnabledRefRO<T>` can now be created from `IBufferElementData`, either from an `EnabledMask` or a `BufferLookup`.\n* Added a new variant of `EntityManager.GetComponentOrderVersion()` that targets a runtime `ComponentType` value, instead of a compile-time type parameter.\n* `EntityQuery.GetEntityQueryDescs()` returns the target query's full list of query descriptions.\n* Added new `EntityManager.SetSharedComponent<T>(ArchetypeChunk, T)` and `EntityManager.SetSharedComponentManaged<T>(ArchetypeChunk, T)` methods to efficiently set shared component values for all entities in a chunk. This is generally more efficient that setting the value on each individual entity.\n\n### Changed\n\n* The internal capacity of `Child` buffer components is reduced from 8 to 0, improving the chunk utilization of parent entities.\n* The internal capacity of `LinkedEntityGroup` buffer components is reduced from 1 to 0, improving the chunk utilization of prefabs and prefab instances.\n* `EnabledMask.GetOptionalEnabledRef*()` were renamed to `EnabledMask.GetEnabledRef*Optional()` for consistency.\n* `EntityQuery.GetCombinedComponentOrderVersion()` now takes a `bool` parameter to indicate whether the `Entity` component type should be included. The existing variant of this method is now marked as deprecated.\n* Improved performance of the `LocalToWorldSystem` when processing entity transform hierarchies, by distributing work more evenly across worker threads.\n\n### Deprecated\n\n* `EntityQuery.GetEntityQueryDesc()` should no longer be used; it only returns the target query's first query description element. Use the new `.GetEntityQueryDescs()` method instead to retrieve the full list. If only the first element is needed, use `query.GetEntityQueryDescs()[0]`.\n\n### Removed\n\n* The `EnabledMask` constructor was removed from the public API. Its inclusion was an error, and it is impossible to call safely from user code. The correct way to create these objects is through `ArchetypeChunk.GetEnabledMask()`.\n\n### Fixed\n\n* `EnabledRefRW<T>` now throws when attempting to write through an invalid or uninitialized instance.\n* Creating an `EntityQuery` with multiple `EntityQueryDesc` (or by using `EntityQueryBuilder.AddAdditionalQuery()`) now correctly matches archetypes that match one of the query's descriptions other than the first.\n* Entities windows do not throw exceptions anymore when installing or removing packages from package manager.\n* Debug proxies (used by external debuggers) were sometimes using invalid field offsets when inspecting structs in blob assets. This led to incorrect values being reported in debugger watch windows. In particular, this would be triggered by the use of bool fields in blob asset structs.\n* Entity version numbers could go back to 1 after reallocation in some edge cases.\n* When building a content update, a temporary path was getting created in the drive root instead of the Library folder.  This would also cause content update builds to grow in size every time they were built.  The folder is now created in the Library correctly.\n* IL2CPP compilation errors in patched methods (using codegen features) that also contain local functions.\n* Removed a potential source of non-determinism in the chunk header when serializing entities scenes.\n* the content of the archive_dependencies.bin and archive_dependencies.txt files in builds is now deterministic.\n* SystemAPI.GetSingletonBuffer<T>(readOnly: ...) now correctly passes the argument (aka, you can now correctly get a readonly DynamicBuffer)\n* Error in build when sprites are contained in subscenes has been removed.\n\n### Security\n\n\n### Known Issues"
   },
   "upmCi": {
-    "footprint": "306c46368bceb20615a5b80dac7cefecb285c2c5"
+    "footprint": "779ed19ddc3cb80bed870ab2319d34122baa26ee"
   },
-  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.2/manual/index.html",
+  "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.3/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "0e866f29be5f7742acc14fad89281f547835ef01"
+    "revision": "d5bde5f043ad76defc80bbc6be1f8630d14b108d"
   }
 }

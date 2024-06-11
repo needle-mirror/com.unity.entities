@@ -62,10 +62,11 @@ namespace Unity.Entities.Editor.Tests
             var systemQueriesTab = new SystemQueries(m_World, new SystemProxy(m_SystemInspectorTestSystem, m_WorldProxy));
 
             Assert.That(systemQueriesTab.QueriesFromSystem.Length, Is.EqualTo(2));
-            Assert.That(systemQueriesTab.QueriesFromSystem[0].GetEntityQueryDesc().All, Is.EquivalentTo(new[] { ComponentType.ReadWrite<SystemScheduleTestData1>(), ComponentType.ReadOnly<SystemScheduleTestData2>() }));
-            Assert.That(systemQueriesTab.QueriesFromSystem[1].GetEntityQueryDesc().All, Is.EquivalentTo(new[] { ComponentType.ReadOnly<SystemScheduleTestData1>()}));
+            // TODO(ECSB-387): Queries can have multiple descriptions
+            Assert.That(systemQueriesTab.QueriesFromSystem[0].GetEntityQueryDescs()[0].All, Is.EquivalentTo(new[] { ComponentType.ReadWrite<SystemScheduleTestData1>(), ComponentType.ReadOnly<SystemScheduleTestData2>() }));
+            Assert.That(systemQueriesTab.QueriesFromSystem[1].GetEntityQueryDescs()[0].All, Is.EquivalentTo(new[] { ComponentType.ReadOnly<SystemScheduleTestData1>()}));
             // `None` components are silently given `ReadOnly` access during query creation
-            Assert.That(systemQueriesTab.QueriesFromSystem[1].GetEntityQueryDesc().None, Is.EquivalentTo(new[] { ComponentType.ReadOnly<SystemScheduleTestData2>()}));
+            Assert.That(systemQueriesTab.QueriesFromSystem[1].GetEntityQueryDescs()[0].None, Is.EquivalentTo(new[] { ComponentType.ReadOnly<SystemScheduleTestData2>()}));
         }
 
         [Test]
@@ -76,7 +77,7 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(systemEntities.EntitiesFromQueries[0].SystemProxy.NicifiedDisplayName, Is.EqualTo("System Inspector Tests | System Inspector Test System"));
             Assert.That(systemEntities.EntitiesFromQueries[0].QueryOrder, Is.EqualTo(1));
             Assert.That(systemEntities.EntitiesFromQueries[0].World.Name, Is.EqualTo("SystemInspectorTestWorld"));
-            Assert.That(systemEntities.EntitiesFromQueries[0].Query.GetEntityQueryDesc().All,
+            Assert.That(systemEntities.EntitiesFromQueries[0].Query.GetEntityQueryDescs()[0].All,
                 Is.EquivalentTo(new[]
                 {
                     ComponentType.ReadWrite<SystemScheduleTestData1>(),
@@ -86,12 +87,12 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(systemEntities.EntitiesFromQueries[1].SystemProxy.NicifiedDisplayName, Is.EqualTo("System Inspector Tests | System Inspector Test System"));
             Assert.That(systemEntities.EntitiesFromQueries[1].QueryOrder, Is.EqualTo(2));
             Assert.That(systemEntities.EntitiesFromQueries[1].World.Name, Is.EqualTo("SystemInspectorTestWorld"));
-            Assert.That(systemEntities.EntitiesFromQueries[1].Query.GetEntityQueryDesc().All,
+            Assert.That(systemEntities.EntitiesFromQueries[1].Query.GetEntityQueryDescs()[0].All,
                 Is.EquivalentTo(new[]
                 {
                     ComponentType.ReadOnly<SystemScheduleTestData1>()
                 }));
-            Assert.That(systemEntities.EntitiesFromQueries[1].Query.GetEntityQueryDesc().None,
+            Assert.That(systemEntities.EntitiesFromQueries[1].Query.GetEntityQueryDescs()[0].None,
                 Is.EquivalentTo(new[]
                 {
                     // `None` components are silently given `ReadOnly` access during query creation

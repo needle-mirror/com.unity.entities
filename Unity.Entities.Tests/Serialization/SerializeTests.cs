@@ -863,7 +863,7 @@ namespace Unity.Entities.Tests
             public ComponentTypeHandle<EcsTestData5> EcsTestData5;
             public void Execute(in ArchetypeChunk chunk, int chunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
             {
-                int i = chunkIndex * Chunk.kMaximumEntitiesPerChunk;
+                int i = chunkIndex * TypeManager.MaximumChunkCapacity;
                 var testData = chunk.GetNativeArray(ref EcsTestData);
                 var testData2 = chunk.GetNativeArray(ref EcsTestData2);
                 var testData3 = chunk.GetNativeArray(ref EcsTestData3);

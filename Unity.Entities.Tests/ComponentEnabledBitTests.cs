@@ -1278,34 +1278,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetEnabledMask_UpdatesDisabledCounts([Values(0,1,2,3)] int bit)
-        {
-            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
-            var e0 = m_Manager.CreateEntity(archetype);
-            var e1 = m_Manager.CreateEntity(archetype);
-            var e2 = m_Manager.CreateEntity(archetype);
-            var e3 = m_Manager.CreateEntity(archetype);
-            // components are enabled by default, so turn a few off to start.
-            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e0, false);
-            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e1, false);
-            var chunk = m_Manager.GetChunk(e0);
-            Assert.AreEqual(4, chunk.Count);
-            var typeHandle = m_Manager.GetComponentTypeHandle<EcsTestDataEnableable>(false);
-            var enabledMask = chunk.GetEnabledMask(ref typeHandle);
-            // Test all four transitions. Can't test them all in the same run, or the errors would cancel each other out!
-            if (bit == 0)
-                enabledMask[0] = true; // off -> on;
-            else if (bit == 1)
-                enabledMask[1] = false; // off -> off;
-            else if (bit == 2)
-                enabledMask[2] = false; // on -> off;
-            else if (bit == 3)
-                enabledMask[3] = true; // on -> on;
-            // If the disabled counts are not updated correctly, we'll get an internal consistency
-            // failure when the EntityManager is destroyed during TearDown.
-        }
-
-        [Test]
         public unsafe void GetEnabledMask_NoEnableableTypes_Works()
         {
             var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));

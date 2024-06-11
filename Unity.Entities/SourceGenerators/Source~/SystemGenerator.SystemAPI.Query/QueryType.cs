@@ -11,8 +11,10 @@ enum QueryType
     ValueTypeComponent,
     ManagedComponent,
     UnityEngineComponent,
-    EnabledRefRW,
-    EnabledRefRO,
+    EnabledRefRW_ComponentData,
+    EnabledRefRO_ComponentData,
+    EnabledRefRW_BufferElementData,
+    EnabledRefRO_BufferElementData,
     TagComponent,
     Invalid
 }

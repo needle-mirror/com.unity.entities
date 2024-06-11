@@ -49,18 +49,15 @@ namespace Unity.Entities
 
                 var block = (DataBlock*)m_DataBlocks[blockIndex];
 
-                var emptyA = block == null;
-                var emptyB = m_EntityCount[blockIndex] == 0;
-
-                if (emptyA != emptyB)
+                if(block == null)
                 {
-                    Debug.Log($"block index {blockIndex} pointer {(ulong)block:X16} count {m_EntityCount[blockIndex]}");
-                }
+                    Assert.AreEqual(0, m_EntityCount[blockIndex]);
 
-                Assert.AreEqual(emptyA, emptyB);
+                    if(m_EntityCount[blockIndex] != 0)
+                    {
+                        Debug.Log($"block index {blockIndex} pointer {(ulong)block:X16} count {m_EntityCount[blockIndex]}");
+                    }
 
-                if (block == null)
-                {
                     return;
                 }
 
@@ -85,7 +82,7 @@ namespace Unity.Entities
                 }
             }
 
-            public int EntityCount
+            public int DebugOnlyThreadUnsafeEntityCount
             {
                 get
                 {
@@ -127,13 +124,8 @@ namespace Unity.Entities
                 var block = (DataBlock*)m_DataBlocks[blockIndex];
                 if (block == null) return Entity.Null;
 
-                var bitfield = block->allocated[indexInBlock / 64];
-                var mask = 1UL << (indexInBlock % 64);
-
-                if ((bitfield & mask) == 0) return Entity.Null;
-
                 var version = block->versions[indexInBlock];
-                return new Entity { Index = index, Version = version };
+                return ((uint)version & 1) == 0 ? Entity.Null : new Entity { Index = index, Version = version };
             }
 
             internal bool Exists(Entity entity)
@@ -144,14 +136,7 @@ namespace Unity.Entities
                 var block = (DataBlock*)m_DataBlocks[blockIndex];
                 if (block == null) return false;
 
-                var bitfield = block->allocated[indexInBlock / 64];
-                var mask = 1UL << (indexInBlock % 64);
-
-                if ((bitfield & mask) == 0) return false;
-
-                var version = block->versions[indexInBlock];
-                if (version != entity.Version) return false;
-
+                if (((uint)entity.Version & 1) == 0 || block->versions[indexInBlock] != entity.Version) return false;
                 return true;
             }
 
@@ -234,17 +219,15 @@ namespace Unity.Entities
                         continue;
                     }
 
-                    DataBlock* block;
+                    DataBlock* block = (DataBlock*)m_DataBlocks[i];
 
-                    if (blockCount == 0)
+                    // Be careful that the block might exist even if the count is zero, checking the pointer
+                    // for null is the only valid way to tell if the block exists or not.
+                    if (block == null)
                     {
                         block = (DataBlock*)Memory.Unmanaged.Allocate(k_BlockSize, 8, Allocator.Persistent);
                         UnsafeUtility.MemClear(block, k_BlockSize);
                         m_DataBlocks[i] = (ulong)block;
-                    }
-                    else
-                    {
-                        block = (DataBlock*)m_DataBlocks[i];
                     }
 
                     int remainingCount = math.min(blockAvailable, count);
@@ -432,11 +415,7 @@ namespace Unity.Entities
                         }
                     }
 
-                    if (blockCount == 0)
-                    {
-                        Memory.Unmanaged.Free(block, Allocator.Persistent);
-                        m_DataBlocks[blockIndex] = 0;
-                    }
+                    // Do not deallocate the block even if it's empty. Versions should be preserved.
 
                     {
                         var resultCheck = Interlocked.CompareExchange(ref m_EntityCount[blockIndex], blockCount, k_BlockBusy);

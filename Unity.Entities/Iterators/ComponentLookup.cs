@@ -520,8 +520,8 @@ namespace Unity.Entities
         /// <typeparam name="T2">The component type</typeparam>
         /// <param name="entity">The referenced entity</param>
         /// <returns>Returns a safe reference to the component enabled state. If the component
-        /// doesn't exist, it returns a default ComponentEnabledRefRW.</returns>
-        public EnabledRefRW<T2> GetComponentEnabledRefRWOptional<T2>(Entity entity)
+        /// doesn't exist, it returns a default <see cref="EnabledRefRW{T}"/>.</returns>
+        public EnabledRefRW<T2> GetEnabledRefRWOptional<T2>(Entity entity)
             where T2 : unmanaged, IComponentData, IEnableableComponent
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -537,6 +537,17 @@ namespace Unity.Entities
                 out var indexInBitField, out var ptrChunkDisabledCount);
 
             return new EnabledRefRW<T2>(MakeSafeBitRef(ptr, indexInBitField), ptrChunkDisabledCount);
+        }
+        /// <summary> Obsolete. Use <see cref="GetEnabledRefRWOptional{T}"/> instead.</summary>
+        /// <typeparam name="T2">The component type</typeparam>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns>Returns a safe reference to the component enabled state. If the component
+        /// doesn't exist, it returns a default <see cref="EnabledRefRW{T}"/>.</returns>
+        [Obsolete("This method has been renamed to GetEnabledRefRWOptional<T>. (RemovedAfter Entities 1.0)", false)]
+        public EnabledRefRW<T2> GetComponentEnabledRefRWOptional<T2>(Entity entity)
+            where T2 : unmanaged, IComponentData, IEnableableComponent
+        {
+            return GetEnabledRefRWOptional<T2>(entity);
         }
 
         /// <summary>
@@ -564,8 +575,8 @@ namespace Unity.Entities
         /// <typeparam name="T2">The component type</typeparam>
         /// <param name="entity">The referenced entity</param>
         /// <returns> Returns a safe reference to the component enabled state.
-        /// If the component doesn't exist, returns a default ComponentEnabledRefRO.</returns>
-        public EnabledRefRO<T2> GetComponentEnabledRefROOptional<T2>(Entity entity)
+        /// If the component doesn't exist, returns a default <see cref="EnabledRefRO{T}"/>.</returns>
+        public EnabledRefRO<T2> GetEnabledRefROOptional<T2>(Entity entity)
             where T2 : unmanaged, IComponentData, IEnableableComponent
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -579,6 +590,18 @@ namespace Unity.Entities
             int indexInBitField;
             var ptr = ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out _);
             return new EnabledRefRO<T2>(MakeSafeBitRef(ptr, indexInBitField));
+        }
+
+        /// <summary> Obsolete. Use <see cref="GetEnabledRefROOptional{T}"/> instead.</summary>
+        /// <typeparam name="T2">The component type</typeparam>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns> Returns a safe reference to the component enabled state.
+        /// If the component doesn't exist, returns a default <see cref="EnabledRefRO{T}"/>.</returns>
+        [Obsolete("This method has been renamed to GetEnabledRefROOptional<T>. (RemovedAfter Entities 1.0)", false)]
+        public EnabledRefRO<T2> GetComponentEnabledRefROOptional<T2>(Entity entity)
+            where T2 : unmanaged, IComponentData, IEnableableComponent
+        {
+            return GetEnabledRefROOptional<T2>(entity);
         }
     }
 }

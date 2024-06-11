@@ -934,13 +934,27 @@ namespace Unity.Entities
             }
         }
 
+        // This method is called when either a new Archetype or a new EntityQuery is created. If the archetype
+        // matches any of the query's ArchetypeQuery elements, we add a new MatchingArchetype element to the query
+        // corresponding to this archetype.
         void AddArchetypeIfMatching(Archetype* archetype, EntityQueryData* query)
         {
-            if (!IsMatchingArchetype(archetype, query))
+            // TODO(DOTS-8787): Problems can occur if the archetype matches more than one of the query's ArchetypeQuery array.
+            int firstMatchingArchetypeQueryIndex = -1;
+            for (int i = 0; i != query->ArchetypeQueryCount; i++)
+            {
+                if (IsMatchingArchetype(archetype, query->ArchetypeQueries + i))
+                {
+                    firstMatchingArchetypeQueryIndex = i;
+                    break;
+                }
+            }
+            if (firstMatchingArchetypeQueryIndex == -1)
                 return;
+            ref var archetypeQuery = ref query->ArchetypeQueries[firstMatchingArchetypeQueryIndex];
 
-            var match = MatchingArchetype.Create(ref m_EntityQueryDataChunkAllocator, archetype, query);
-            match->Archetype = archetype;
+            var match = MatchingArchetype.Create(ref m_EntityQueryDataChunkAllocator, archetype,
+                archetypeQuery, query->RequiredComponentsCount);
             var typeIndexInArchetypeArray = match->IndexInArchetype;
 
             match->Archetype->SetMask(query->EntityQueryMask);
@@ -965,12 +979,11 @@ namespace Unity.Entities
                 }
             }
 
-            // TODO(DOTS-5638): this assumes that query only contains one ArchetypeQuery
             var enableableAllCount = 0;
             typeComponentIndex = 0;
-            for (var i = 0; i < query->ArchetypeQueries->AllCount; ++i)
+            for (var i = 0; i < archetypeQuery.AllCount; ++i)
             {
-                var typeIndex = query->ArchetypeQueries->All[i];
+                var typeIndex = archetypeQuery.All[i];
                 if (TypeManager.IsEnableable(typeIndex))
                 {
                     typeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
@@ -981,9 +994,9 @@ namespace Unity.Entities
 
             var enableableNoneCount = 0;
             typeComponentIndex = 0;
-            for (var i = 0; i < query->ArchetypeQueries->NoneCount; ++i)
+            for (var i = 0; i < archetypeQuery.NoneCount; ++i)
             {
-                var typeIndex = query->ArchetypeQueries->None[i];
+                var typeIndex = archetypeQuery.None[i];
                 if (TypeManager.IsEnableable(typeIndex))
                 {
                     var currentTypeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
@@ -997,9 +1010,9 @@ namespace Unity.Entities
 
             var enableableAnyCount = 0;
             typeComponentIndex = 0;
-            for (var i = 0; i < query->ArchetypeQueries->AnyCount; ++i)
+            for (var i = 0; i < archetypeQuery.AnyCount; ++i)
             {
-                var typeIndex = query->ArchetypeQueries->Any[i];
+                var typeIndex = archetypeQuery.Any[i];
                 if (TypeManager.IsEnableable(typeIndex))
                 {
                     var currentTypeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
@@ -1015,9 +1028,9 @@ namespace Unity.Entities
 
             var enableableDisabledCount = 0;
             typeComponentIndex = 0;
-            for (var i = 0; i < query->ArchetypeQueries->DisabledCount; ++i)
+            for (var i = 0; i < archetypeQuery.DisabledCount; ++i)
             {
-                var typeIndex = query->ArchetypeQueries->Disabled[i];
+                var typeIndex = archetypeQuery.Disabled[i];
                 if (TypeManager.IsEnableable(typeIndex))
                 {
                     typeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
@@ -1289,18 +1302,18 @@ namespace Unity.Entities
             return intersectionCount;
         }
 
-        public static MatchingArchetype* Create(ref BlockAllocator allocator, Archetype* archetype, EntityQueryData* query)
+        public static MatchingArchetype* Create(ref BlockAllocator allocator, Archetype* archetype, in ArchetypeQuery archetypeQuery,
+            int queryRequiredComponentCount)
         {
-            // TODO(DOTS-5638): this assumes that query only contains one ArchetypeQuery
-            var enableableAllCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->All, query->ArchetypeQueries->AllCount);
-            var enableableNoneCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->None, query->ArchetypeQueries->NoneCount);
-            var enableableAnyCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->Any, query->ArchetypeQueries->AnyCount);
-            var enableableDisabledCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, query->ArchetypeQueries->Disabled, query->ArchetypeQueries->DisabledCount);
+            var enableableAllCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, archetypeQuery.All, archetypeQuery.AllCount);
+            var enableableNoneCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, archetypeQuery.None, archetypeQuery.NoneCount);
+            var enableableAnyCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, archetypeQuery.Any, archetypeQuery.AnyCount);
+            var enableableDisabledCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, archetypeQuery.Disabled, archetypeQuery.DisabledCount);
             var totalEnableableTypeCount = enableableAllCount + enableableNoneCount + enableableAnyCount + enableableDisabledCount;
-            var match = (MatchingArchetype*)allocator.Allocate(GetAllocationSize(query->RequiredComponentsCount, totalEnableableTypeCount), 8);
+            var match = (MatchingArchetype*)allocator.Allocate(GetAllocationSize(queryRequiredComponentCount, totalEnableableTypeCount), 8);
             match->Archetype = archetype;
 
-            match->RequiredComponentCount = query->RequiredComponentsCount;
+            match->RequiredComponentCount = queryRequiredComponentCount;
             match->EnableableComponentsCount_All = enableableAllCount;
             match->EnableableComponentsCount_None = enableableNoneCount;
             match->EnableableComponentsCount_Any = enableableAnyCount;

@@ -90,6 +90,11 @@ namespace Unity.Entities.CodeGen
         public static bool IsDisplayClassCandidate(this TypeReference tr) =>
             tr.Name.StartsWith("<>c");
 
+
+        // Roslyn tends to generate local functions with names that contain g__ (and they are always static)
+        public static bool IsLocalFunctionCandidate(this MethodDefinition md) =>
+            (md.IsStatic && md.Name.Contains("g__"));
+
         // Safer version of TypeReference.IsValueType property as extension method since the Cecil property is broken
         // (Cecil doesn't have enough information without resolving references so it just guesses)
         public static bool IsValueType(this TypeReference typeReference)

@@ -1747,14 +1747,12 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
                 _QueryData->WriterTypes, _QueryData->WriterTypesCount, job);
         }
 
-        public int GetCombinedComponentOrderVersion()
+        public int GetCombinedComponentOrderVersion(bool includeEntityType)
         {
-            var version = 0;
-
-            for (var i = 0; i < _QueryData->RequiredComponentsCount; ++i)
-                version += _Access->EntityComponentStore->GetComponentTypeOrderVersion(_QueryData->RequiredComponents[i].TypeIndex);
-
-            return version;
+            var versionSum = 0;
+            for (var i = includeEntityType ? 0 : 1; i < _QueryData->RequiredComponentsCount; ++i)
+                versionSum += _Access->EntityComponentStore->GetComponentTypeOrderVersion(_QueryData->RequiredComponents[i].TypeIndex);
+            return versionSum;
         }
 
         internal bool AddReaderWritersToLists(ref UnsafeList<TypeIndex> reading, ref UnsafeList<TypeIndex> writing)
@@ -1919,81 +1917,89 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
             return mask.MatchesIgnoreFilter(e);
         }
 
-        public EntityQueryDesc GetEntityQueryDesc()
+        internal EntityQueryDesc[] GetEntityQueryDescs()
         {
-            // TODO(DOTS-5638): This function incorrectly assumes there's only one ArchetypeQuery per EntityQuery
-            var archetypeQuery = _QueryData->ArchetypeQueries;
-
-            var allComponentTypes = new ComponentType[archetypeQuery->AllCount];
-            for (var i = 0; i < archetypeQuery->AllCount; ++i)
+            var outQueryDescs = new EntityQueryDesc[_QueryData->ArchetypeQueryCount];
+            for (int iAQ = 0, archetypeQueryCount = _QueryData->ArchetypeQueryCount; iAQ < archetypeQueryCount; ++iAQ)
             {
-                allComponentTypes[i] = new ComponentType
+                ref var archetypeQuery = ref _QueryData->ArchetypeQueries[iAQ];
+                var allComponentTypes = new ComponentType[archetypeQuery.AllCount];
+                for (var i = 0; i < archetypeQuery.AllCount; ++i)
                 {
-                    TypeIndex = archetypeQuery->All[i],
-                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->AllAccessMode[i]
+                    allComponentTypes[i] = new ComponentType
+                    {
+                        TypeIndex = archetypeQuery.All[i],
+                        AccessModeType = (ComponentType.AccessMode)archetypeQuery.AllAccessMode[i]
+                    };
+                }
+
+                var anyComponentTypes = new ComponentType[archetypeQuery.AnyCount];
+                for (var i = 0; i < archetypeQuery.AnyCount; ++i)
+                {
+                    anyComponentTypes[i] = new ComponentType
+                    {
+                        TypeIndex = archetypeQuery.Any[i],
+                        AccessModeType = (ComponentType.AccessMode)archetypeQuery.AnyAccessMode[i]
+                    };
+                }
+
+                var noneComponentTypes = new ComponentType[archetypeQuery.NoneCount];
+                for (var i = 0; i < archetypeQuery.NoneCount; ++i)
+                {
+                    noneComponentTypes[i] = new ComponentType
+                    {
+                        TypeIndex = archetypeQuery.None[i],
+                        AccessModeType = (ComponentType.AccessMode)archetypeQuery.NoneAccessMode[i]
+                    };
+                }
+
+                var disabledComponentTypes = new ComponentType[archetypeQuery.DisabledCount];
+                for (var i = 0; i < archetypeQuery.DisabledCount; ++i)
+                {
+                    disabledComponentTypes[i] = new ComponentType
+                    {
+                        TypeIndex = archetypeQuery.Disabled[i],
+                        AccessModeType = (ComponentType.AccessMode)archetypeQuery.DisabledAccessMode[i]
+                    };
+                }
+
+                var absentComponentTypes = new ComponentType[archetypeQuery.AbsentCount];
+                for (var i = 0; i < archetypeQuery.AbsentCount; ++i)
+                {
+                    absentComponentTypes[i] = new ComponentType
+                    {
+                        TypeIndex = archetypeQuery.Absent[i],
+                        AccessModeType = (ComponentType.AccessMode)archetypeQuery.AbsentAccessMode[i]
+                    };
+                }
+
+                var presentComponentTypes = new ComponentType[archetypeQuery.PresentCount];
+                for (var i = 0; i < archetypeQuery.PresentCount; ++i)
+                {
+                    presentComponentTypes[i] = new ComponentType
+                    {
+                        TypeIndex = archetypeQuery.Present[i],
+                        AccessModeType = (ComponentType.AccessMode)archetypeQuery.PresentAccessMode[i]
+                    };
+                }
+
+                outQueryDescs[iAQ] = new EntityQueryDesc
+                {
+                    All = allComponentTypes,
+                    Any = anyComponentTypes,
+                    None = noneComponentTypes,
+                    Disabled = disabledComponentTypes,
+                    Absent = absentComponentTypes,
+                    Present = presentComponentTypes,
+                    Options = archetypeQuery.Options,
                 };
             }
+            return outQueryDescs;
+        }
 
-            var anyComponentTypes = new ComponentType[archetypeQuery->AnyCount];
-            for (var i = 0; i < archetypeQuery->AnyCount; ++i)
-            {
-                anyComponentTypes[i] = new ComponentType
-                {
-                    TypeIndex = archetypeQuery->Any[i],
-                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->AnyAccessMode[i]
-                };
-            }
-
-            var noneComponentTypes = new ComponentType[archetypeQuery->NoneCount];
-            for (var i = 0; i < archetypeQuery->NoneCount; ++i)
-            {
-                noneComponentTypes[i] = new ComponentType
-                {
-                    TypeIndex = archetypeQuery->None[i],
-                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->NoneAccessMode[i]
-                };
-            }
-
-            var disabledComponentTypes = new ComponentType[archetypeQuery->DisabledCount];
-            for (var i = 0; i < archetypeQuery->DisabledCount; ++i)
-            {
-                disabledComponentTypes[i] = new ComponentType
-                {
-                    TypeIndex = archetypeQuery->Disabled[i],
-                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->DisabledAccessMode[i]
-                };
-            }
-
-            var absentComponentTypes = new ComponentType[archetypeQuery->AbsentCount];
-            for (var i = 0; i < archetypeQuery->AbsentCount; ++i)
-            {
-                absentComponentTypes[i] = new ComponentType
-                {
-                    TypeIndex = archetypeQuery->Absent[i],
-                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->AbsentAccessMode[i]
-                };
-            }
-
-            var presentComponentTypes = new ComponentType[archetypeQuery->PresentCount];
-            for (var i = 0; i < archetypeQuery->PresentCount; ++i)
-            {
-                presentComponentTypes[i] = new ComponentType
-                {
-                    TypeIndex = archetypeQuery->Present[i],
-                    AccessModeType = (ComponentType.AccessMode)archetypeQuery->PresentAccessMode[i]
-                };
-            }
-
-            return new EntityQueryDesc
-            {
-                All = allComponentTypes,
-                Any = anyComponentTypes,
-                None = noneComponentTypes,
-                Disabled = disabledComponentTypes,
-                Absent = absentComponentTypes,
-                Present = presentComponentTypes,
-                Options = archetypeQuery->Options
-            };
+        internal EntityQueryDesc GetEntityQueryDesc()
+        {
+            return GetEntityQueryDescs()[0];
         }
 
         internal UnsafeCachedChunkList GetMatchingChunkCache()
@@ -3136,10 +3142,20 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// <returns>The new combined job handle for the query's dependencies.</returns>
         public JobHandle AddDependency(JobHandle job) => _GetImpl()->AddDependency(job);
         /// <summary>
-        /// Gets the version for the combined components in this EntityQuery.
+        /// This method is obsolete. Use <see cref="EntityManager.GetComponentOrderVersion{T}()"/> instead.
         /// </summary>
-        /// <returns>Returns the version.</returns>
-        public int GetCombinedComponentOrderVersion() => _GetImpl()->GetCombinedComponentOrderVersion();
+        /// <returns>Returns the sum of the order versions of all components required by this query, including the
+        /// <see cref="Entity"/> component type implicitly required by all queries.</returns>
+        [Obsolete("This function is deprecated, and will be removed in a future release. Use the new variant instead, with includeEntityType set to true.")]
+        public int GetCombinedComponentOrderVersion() => _GetImpl()->GetCombinedComponentOrderVersion(true);
+        /// <summary>
+        /// This method computes the sum of the order versions for all components required by this query.
+        /// </summary>
+        /// <param name="includeEntityType">If true, the implicit <see cref="Entity"/> component implicitly required by all
+        /// queries is included for the purposes of this calculation. This is not generally desirable, as adding or removing
+        /// entities to any archetype would affect the combined order versions of all queries.</param>
+        /// <returns>Returns the sum of the order versions of all components required by this query.</returns>
+        public int GetCombinedComponentOrderVersion(bool includeEntityType) => _GetImpl()->GetCombinedComponentOrderVersion(includeEntityType);
         internal bool AddReaderWritersToLists(ref UnsafeList<TypeIndex> reading, ref UnsafeList<TypeIndex> writing) => _GetImpl()->AddReaderWritersToLists(ref reading, ref writing);
         /// <summary>
         /// Reports whether this entity query has a filter applied to it.
@@ -3185,10 +3201,20 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         public bool MatchesNoFilter(Entity e) => _GetImpl()->MatchesIgnoreFilter(e);
 
         /// <summary>
-        /// Returns an EntityQueryDesc, which can be used to re-create the EntityQuery.
+        /// Reconstructs the query descriptions used to create this <see cref="EntityQuery"/>.
+        ///
+        /// The query matches an archetype if it meets the criteria of at least one of these query descriptions.
+        /// This method is mainly intended for reflection.
         /// </summary>
-        /// <returns>A description of this query</returns>
+        /// <returns>An array of query descriptions for this query.</returns>
+        [ExcludeFromBurstCompatTesting("Returns managed array of classes")]
+        public EntityQueryDesc[] GetEntityQueryDescs() => _GetImpl()->GetEntityQueryDescs();
+        /// <summary>
+        /// Obsolete. Use <see cref="GetEntityQueryDescs"/> instead.
+        /// </summary>
+        /// <returns>The first element of the query's list of descriptions.</returns>
         [ExcludeFromBurstCompatTesting("Returns class")]
+        [Obsolete("A query can have multiple descriptions; this method only returns the first one. Use GetEntityQueryDescs() to return them all. (RemovedAfter Entities 2.0)", false)]
         public EntityQueryDesc GetEntityQueryDesc() => _GetImpl()->GetEntityQueryDesc();
 
         // These methods are intended for chunk-cache self-test code.
@@ -3281,7 +3307,6 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// <seealso cref="SetSingleton{T}(EntityQuery, T)"/>
         /// <seealso cref="GetSingleton{T}(EntityQuery)"/>
         /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
-        [SkipLocalsInit] // for large stackalloc
         public static T GetSingleton<T>(this EntityQuery query) where T : class
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
@@ -3316,7 +3341,6 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// <seealso cref="GetSingletonRW{T}(EntityQuery)"/>
         /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
         /// <seealso cref="ComponentSystemBase.GetSingletonRW{T}"/>
-        [SkipLocalsInit] // for large stackalloc
         public static bool TryGetSingleton<T>(this EntityQuery query, out T value) where T : class
         {
             var hasSingleton = query.HasSingleton<T>();
@@ -3336,7 +3360,6 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// <seealso cref="GetSingletonRW{T}(EntityQuery)"/>
         /// <seealso cref="ComponentSystemBase.GetSingleton{T}"/>
         /// <seealso cref="ComponentSystemBase.GetSingletonRW{T}"/>
-        [SkipLocalsInit] // for large stackalloc
         public static T GetSingletonRW<T>(this EntityQuery query) where T : class
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();
@@ -3420,7 +3443,6 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// exists in the world or the component type appears in more than one archetype.</exception>
         /// <seealso cref="GetSingleton{T}"/>
         /// <seealso cref="EntityQuery.GetSingletonEntity"/>
-        [SkipLocalsInit] // for large stackalloc
         public static void SetSingleton<T>(this EntityQuery query, T value) where T : class
         {
             var typeIndex = TypeManager.GetTypeIndex<T>();

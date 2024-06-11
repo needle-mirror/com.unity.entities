@@ -389,7 +389,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SetUnmanagedSharedComponentData()
+        public void SetSharedComponent_Entity_Works()
         {
             var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
             Entity e1 = m_Manager.CreateEntity(archetype);
@@ -407,6 +407,28 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, m_Manager.GetSharedComponentManaged<SharedData1>(e3).value);
             m_Manager.SetSharedComponentManaged(e3, new SharedData1(19));
             Assert.AreEqual(19, m_Manager.GetSharedComponentManaged<SharedData1>(e3).value);
+        }
+
+        [Test]
+        public void SetSharedComponent_Chunk_Works()
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(SharedData1), typeof(EcsTestData));
+            Entity e1 = m_Manager.CreateEntity(archetype);
+            Entity e2 = m_Manager.CreateEntity(archetype);
+            Entity e3 = m_Manager.CreateEntity(archetype);
+
+            var chunk = m_Manager.GetChunk(e1);
+            Assert.AreEqual(3, chunk.Count);
+            m_Manager.SetSharedComponent(chunk, new SharedData1(17));
+
+            Assert.AreEqual(17, m_Manager.GetSharedComponent<SharedData1>(e1).value);
+            Assert.AreEqual(17, m_Manager.GetSharedComponent<SharedData1>(e2).value);
+            Assert.AreEqual(17, m_Manager.GetSharedComponent<SharedData1>(e3).value);
+
+            m_Manager.SetSharedComponentManaged(chunk, new SharedData1(23));
+            Assert.AreEqual(23, m_Manager.GetSharedComponent<SharedData1>(e1).value);
+            Assert.AreEqual(23, m_Manager.GetSharedComponent<SharedData1>(e2).value);
+            Assert.AreEqual(23, m_Manager.GetSharedComponent<SharedData1>(e3).value);
         }
 
         [Test]

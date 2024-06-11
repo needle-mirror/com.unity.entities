@@ -140,9 +140,7 @@ namespace Doc.CodeSamples.Tests
         protected override void OnCreate()
         {
             m_Query = new EntityQueryBuilder(Allocator.Temp)
-                .WithAllRW<Rotation>()
-                .AddAdditionalQuery()
-                .WithAllRW<RotationSpeed>()
+                .WithAllRW<Rotation,RotationSpeed>()
                 .Build(this);
         }
 

@@ -136,6 +136,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
         [Test]
         public void GetSingletonBufferWithSystemEntity([Values] SystemAPIAccess access) => GetTestSystemUnsafe().TestGetSingletonBufferWithSystemEntity(ref GetSystemStateRef(), access);
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks]
+        public void GetSingletonBufferHasWorkingParam() => GetTestSystemUnsafe().TestGetSingletonBufferHasWorkingParam(ref GetSystemStateRef());
+        [Test]
         public void TryGetSingletonBuffer([Values] SystemAPIAccess access, [Values] TypeArgumentExplicit typeArgumentExplicit) => GetTestSystemUnsafe().TestTryGetSingletonBuffer(ref GetSystemStateRef(), access, typeArgumentExplicit);
         [Test]
         public void HasSingleton([Values] SystemAPIAccess access, [Values] SingletonVersion singletonVersion) => GetTestSystemUnsafe().TestHasSingleton(ref GetSystemStateRef(), access, singletonVersion);
@@ -184,6 +187,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         [Test]
         public void ExplicitInterfaceImplementation() => World.CreateSystem<TestISystemSystem.ExplicitInterfaceImplementationSystem>().Update(World.Unmanaged);
+
+        [Test]
+        public void SystemAPIUsageAndLocalFunction() => World.CreateSystem<TestISystemSystem.SystemAPIUsageAndLocalFunction>().Update(World.Unmanaged);
         #endregion
     }
 
@@ -1190,6 +1196,26 @@ namespace Unity.Entities.Tests.TestSystemAPI
             }
         }
 
+        public void TestGetSingletonBufferHasWorkingParam(ref SystemState state)
+        {
+            var e = state.EntityManager.CreateEntity();
+            var buffer1 = state.EntityManager.AddBuffer<EcsIntElement>(e);
+            buffer1.Add(5);
+            var singletonRO = GetSingletonBuffer<EcsIntElement>(true);
+            try
+            {
+                singletonRO[0] = 10;
+            }
+            catch (InvalidOperationException exception)
+            {
+                Assert.AreEqual("The BufferTypeHandle<Unity.Entities.Tests.EcsIntElement> has been declared as [ReadOnly], but you are writing to it.",
+                    exception.Message);
+            }
+
+            // Make sure the value didn't update
+            Assert.AreEqual(5,singletonRO[0].Value);
+        }
+
         [BurstCompile]
         public void TestTryGetSingletonBuffer(ref SystemState state, SystemAPIAccess access, TypeArgumentExplicit typeArgumentExplicit)
         {
@@ -1386,6 +1412,22 @@ namespace Unity.Entities.Tests.TestSystemAPI
             {
                 state.EntityManager.AddComponentData(state.SystemHandle, new EcsTestData(5));
                 Assert.AreEqual(GetSingleton<EcsTestData>().value, 5);
+            }
+        }
+
+        // Check that UUM-65598, UUM-68450 and DOTS-8177 are fixed 
+        // (IL2CPP issues due to bad IL generated from local functions in original method that are not deleted)
+        public partial struct SystemAPIUsageAndLocalFunction : ISystem
+        {
+            [BurstCompile]
+            void ISystem.OnUpdate(ref SystemState state)
+            {
+                SystemAPI.HasSingleton<EcsTestData>();
+                var val = 0;
+                void AddStub(bool isStart) {
+                    Debug.Log($"{val}");
+                }
+                AddStub(true);
             }
         }
 

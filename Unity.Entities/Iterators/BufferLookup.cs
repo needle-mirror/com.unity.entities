@@ -327,5 +327,124 @@ namespace Unity.Entities
             m_ArrayInvalidationSafety = safetyHandles->GetBufferHandleForBufferLookup(m_TypeIndex);
 #endif
         }
+
+        SafeBitRef MakeSafeBitRef(ulong* ptr, int offsetInBits)
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            => new SafeBitRef(ptr, offsetInBits, m_Safety0);
+#else
+            => new SafeBitRef(ptr, offsetInBits);
+#endif
+        /// <summary>
+        /// Gets a safe reference to the buffer component enabled state.
+        /// </summary>
+        /// <typeparam name="T2">The component type</typeparam>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns>Returns a safe reference to the component enabled state.
+        /// Throws an exception if the component doesn't exist.</returns>
+        public EnabledRefRW<T2> GetEnabledRefRW<T2>(Entity entity) where T2 : unmanaged, IEnableableComponent, IBufferElementData
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
+#endif
+            var ecs = m_Access->EntityComponentStore;
+            ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
+
+            int indexInBitField;
+            int* ptrChunkDisabledCount;
+            var ptr = ecs->GetEnabledRawRW(entity, m_TypeIndex, ref m_Cache, m_GlobalSystemVersion,
+                out indexInBitField, out ptrChunkDisabledCount);
+
+            return new EnabledRefRW<T2>(MakeSafeBitRef(ptr, indexInBitField), ptrChunkDisabledCount);
+        }
+
+        /// <summary>
+        /// Gets a safe reference to the component enabled state.
+        /// </summary>
+        /// <typeparam name="T2">The component type</typeparam>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns>Returns a safe reference to the component enabled state. If the component
+        /// doesn't exist, it returns a default <see cref="EnabledRefRW{T}"/>.</returns>
+        public EnabledRefRW<T2> GetEnabledRefRWOptional<T2>(Entity entity)
+            where T2 : unmanaged, IBufferElementData, IEnableableComponent
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety0);
+#endif
+            if (!HasBuffer(entity))
+                return new EnabledRefRW<T2>(default, default);
+
+            var ecs = m_Access->EntityComponentStore;
+            ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
+
+            var ptr = ecs->GetEnabledRawRW(entity, m_TypeIndex, ref m_Cache, m_GlobalSystemVersion,
+                out var indexInBitField, out var ptrChunkDisabledCount);
+
+            return new EnabledRefRW<T2>(MakeSafeBitRef(ptr, indexInBitField), ptrChunkDisabledCount);
+        }
+        /// <summary> Obsolete. Use <see cref="GetEnabledRefRWOptional{T}"/> instead.</summary>
+        /// <typeparam name="T2">The component type</typeparam>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns>Returns a safe reference to the component enabled state. If the component
+        /// doesn't exist, it returns a default <see cref="EnabledRefRW{T}"/>.</returns>
+        [Obsolete("This method has been renamed to GetEnabledRefRWOptional<T>. (RemovedAfter Entities 1.0)", false)]
+        public EnabledRefRW<T2> GetComponentEnabledRefRWOptional<T2>(Entity entity)
+            where T2 : unmanaged, IBufferElementData, IEnableableComponent
+        {
+            return GetEnabledRefRWOptional<T2>(entity);
+        }
+
+        /// <summary>
+        /// Gets a safe reference to the component enabled state.
+        /// </summary>
+        /// <typeparam name="T2">The component type</typeparam>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns>Returns a safe reference to the component enabled state.
+        /// Throws an exception if the component doesn't exist.</returns>
+        public EnabledRefRO<T2> GetEnabledRefRO<T2>(Entity entity) where T2 : unmanaged, IEnableableComponent, IBufferElementData
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
+#endif
+            var ecs = m_Access->EntityComponentStore;
+            ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
+            int indexInBitField;
+            var ptr = ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out _);
+            return new EnabledRefRO<T2>(MakeSafeBitRef(ptr, indexInBitField));
+        }
+
+        /// <summary>
+        /// Gets a safe reference to the component enabled state.
+        /// </summary>
+        /// <typeparam name="T2">The component type</typeparam>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns> Returns a safe reference to the component enabled state.
+        /// If the component doesn't exist, returns a default <see cref="EnabledRefRO{T}"/>.</returns>
+        public EnabledRefRO<T2> GetEnabledRefROOptional<T2>(Entity entity)
+            where T2 : unmanaged, IBufferElementData, IEnableableComponent
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
+#endif
+            if (!HasBuffer(entity))
+                return new EnabledRefRO<T2>(default);
+
+            var ecs = m_Access->EntityComponentStore;
+            ecs->AssertEntityHasComponent(entity, m_TypeIndex, ref m_Cache);
+            int indexInBitField;
+            var ptr = ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out _);
+            return new EnabledRefRO<T2>(MakeSafeBitRef(ptr, indexInBitField));
+        }
+
+        /// <summary> Obsolete. Use <see cref="GetEnabledRefROOptional{T}"/> instead.</summary>
+        /// <typeparam name="T2">The component type</typeparam>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns> Returns a safe reference to the component enabled state.
+        /// If the component doesn't exist, returns a default <see cref="EnabledRefRO{T}"/>.</returns>
+        [Obsolete("This method has been renamed to GetEnabledRefROOptional<T>. (RemovedAfter Entities 1.0)", false)]
+        public EnabledRefRO<T2> GetComponentEnabledRefROOptional<T2>(Entity entity)
+            where T2 : unmanaged, IBufferElementData, IEnableableComponent
+        {
+            return GetEnabledRefROOptional<T2>(entity);
+        }
     }
 }

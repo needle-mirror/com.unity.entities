@@ -201,11 +201,15 @@ namespace Unity.Entities.PerformanceTests
         }
 
         [Test, Performance]
-        public void SetSharedComponent_ToEntityArray_Perf()
+        public void SetSharedComponent_Bulk_Perf()
         {
             var archetype = m_Manager.CreateArchetype(typeof(TestData1), typeof(TestShared1), typeof(TestSharedManaged));
 
             using var entities = m_Manager.CreateEntity(archetype, 1024, World.UpdateAllocator.ToAllocator);
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<TestData1, TestShared1, TestSharedManaged>()
+                .Build(m_Manager);
+            NativeArray<ArchetypeChunk> chunks = default;
 
             Measure.Method(() =>
                 {
@@ -238,6 +242,39 @@ namespace Unity.Entities.PerformanceTests
 
             Measure.Method(() =>
                 {
+                    for(int i=0; i<chunks.Length; ++i)
+                        m_Manager.SetSharedComponent(chunks[i], new TestShared1 { value = 17 });
+                })
+                .SetUp(() =>
+                {
+                    chunks = query.ToArchetypeChunkArray(Allocator.Persistent);
+                })
+                .CleanUp(() =>
+                {
+                    for(int i=0; i<chunks.Length; ++i)
+                        m_Manager.SetSharedComponent(chunks[i], default(TestShared1));
+                    chunks.Dispose();
+                })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup(new SampleGroup($"Unmanaged_Chunks_{query.CalculateChunkCount()}x", SampleUnit.Microsecond))
+                .Run();
+
+            Measure.Method(() =>
+                {
+                    m_Manager.SetSharedComponent(query, new TestShared1 { value = 17 });
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.SetSharedComponent(query, default(TestShared1));
+                })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup(new SampleGroup($"Unmanaged_Query", SampleUnit.Microsecond))
+                .Run();
+
+            Measure.Method(() =>
+                {
                     for (int i = 0; i < entities.Length; ++i)
                     {
                         m_Manager.SetSharedComponentManaged(entities[i], new TestSharedManaged{value=17,name="Bob"});
@@ -264,6 +301,40 @@ namespace Unity.Entities.PerformanceTests
                 .MeasurementCount(100)
                 .SampleGroup(new SampleGroup($"Managed_Array_{entities.Length}x", SampleUnit.Microsecond))
                 .Run();
+
+            Measure.Method(() =>
+                {
+                    for(int i=0; i<chunks.Length; ++i)
+                        m_Manager.SetSharedComponentManaged(chunks[i], new TestSharedManaged { value = 17, name="Bob" });
+                })
+                .SetUp(() =>
+                {
+                    chunks = query.ToArchetypeChunkArray(Allocator.Persistent);
+                })
+                .CleanUp(() =>
+                {
+                    for(int i=0; i<chunks.Length; ++i)
+                        m_Manager.SetSharedComponentManaged(chunks[i], default(TestSharedManaged));
+                    chunks.Dispose();
+                })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup(new SampleGroup($"Managed_Chunks_{query.CalculateChunkCount()}x", SampleUnit.Microsecond))
+                .Run();
+
+            Measure.Method(() =>
+                {
+                    m_Manager.SetSharedComponentManaged(query, new TestSharedManaged { value = 17, name="Bob" });
+                })
+                .CleanUp(() =>
+                {
+                    m_Manager.SetSharedComponentManaged(query, default(TestSharedManaged));
+                })
+                .WarmupCount(1)
+                .MeasurementCount(100)
+                .SampleGroup(new SampleGroup($"Managed_Query", SampleUnit.Microsecond))
+                .Run();
+
         }
     }
 }

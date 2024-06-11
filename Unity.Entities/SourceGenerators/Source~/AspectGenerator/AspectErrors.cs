@@ -44,7 +44,7 @@ namespace Unity.Entities.SourceGen.Aspect
             Service<IDiagnosticLogger>.Instance?.LogError(
                 "SGA0007",
                 "Aspect Data Field",
-                "Aspects cannot contain instance fields of type other than RefRW<IComponentData>, RefRO<IComponentData>, EnabledRefRW<IComponentData>, EnabledRefRO<IComponentData>, DynamicBuffer<T>, or Entity.",
+                "Aspects cannot contain instance fields of type other than RefRW<IComponentData>, RefRO<IComponentData>, EnabledRefRW<IEnableableComponent>, EnabledRefRO<IEnableableComponent>, DynamicBuffer<T>, or Entity.",
                 location);
         }
         public static void SGA0009(Location location)

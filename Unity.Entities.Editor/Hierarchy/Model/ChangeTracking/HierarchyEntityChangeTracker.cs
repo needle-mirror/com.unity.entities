@@ -182,9 +182,10 @@ namespace Unity.Entities.Editor
             }
         }
 
+        // TODO(ECSB-387): This method does not support queries with >1 query descriptions, each of which should be represented individually.
         void RebuildQueryCache(EntityQueryDesc value)
         {
-            var desc = null == value ? m_World.EntityManager.UniversalQueryWithSystems.GetEntityQueryDesc() : value;
+            var desc = null == value ? m_World.EntityManager.UniversalQueryWithSystems.GetEntityQueryDescs()[0] : value;
 
             switch (m_OperationModeType)
             {
@@ -549,12 +550,14 @@ namespace Unity.Entities.Editor
                 {
                     fixed (ComponentType* types = queriesDesc[q].All)
                             builder.WithAll(types, queriesDesc[q].All.Length);
-
                     fixed (ComponentType* types = queriesDesc[q].Any)
                         builder.WithAny(types, queriesDesc[q].Any.Length);
-
                     fixed (ComponentType* types = queriesDesc[q].None)
                         builder.WithNone(types, queriesDesc[q].None.Length);
+                    fixed (ComponentType* types = queriesDesc[q].Disabled)
+                        builder.WithDisabled(types, queriesDesc[q].Disabled.Length);
+                    fixed (ComponentType* types = queriesDesc[q].Absent)
+                        builder.WithAbsent(types, queriesDesc[q].Absent.Length);
                 }
 
                 builder.WithOptions(queriesDesc[0].Options);
@@ -569,7 +572,11 @@ namespace Unity.Entities.Editor
 
             // ReSharper disable once LoopCanBeConvertedToQuery
             foreach (var entityQueryDesc in queriesDesc)
-                count += entityQueryDesc.None.Length + entityQueryDesc.All.Length + entityQueryDesc.Any.Length;
+                count += entityQueryDesc.None.Length +
+                         entityQueryDesc.All.Length +
+                         entityQueryDesc.Any.Length +
+                         entityQueryDesc.Disabled.Length +
+                         entityQueryDesc.Absent.Length;
 
             var componentTypeIds = new NativeArray<TypeIndex>(count, Allocator.Temp);
 
@@ -580,6 +587,8 @@ namespace Unity.Entities.Editor
                 ValidateComponentTypes(entityQueryDesc.None, ref componentTypeIds, ref componentIndex);
                 ValidateComponentTypes(entityQueryDesc.All, ref componentTypeIds, ref componentIndex);
                 ValidateComponentTypes(entityQueryDesc.Any, ref componentTypeIds, ref componentIndex);
+                ValidateComponentTypes(entityQueryDesc.Disabled, ref componentTypeIds, ref componentIndex);
+                ValidateComponentTypes(entityQueryDesc.Absent, ref componentTypeIds, ref componentIndex);
             }
 
             // Check for duplicate, only if necessary

@@ -261,28 +261,6 @@ namespace Doc.CodeSamples.Tests
 
                 #endregion
             }
-            {
-                #region combine-query
-                EntityQuery query = new EntityQueryBuilder(Allocator.Temp)
-                    .WithAllRW<ObjectRotation>()
-                    // Start a new query description
-                    .AddAdditionalQuery()
-                    .WithAllRW<ObjectRotationSpeed>()
-                    .Build(this);
-                #endregion
-            }
-
-            {
-                #region combine-query-builder
-
-                EntityQuery query = new EntityQueryBuilder(Allocator.Temp)
-                    .WithAll<Parent>().WithNone<Child>()
-                    .AddAdditionalQuery()
-                    .WithAll<Child>().WithNone<Parent>()
-                    .Build(this);
-
-                #endregion
-            }
         }
     }
     #region query-writegroup

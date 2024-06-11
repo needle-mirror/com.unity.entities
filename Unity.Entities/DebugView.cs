@@ -479,14 +479,14 @@ namespace Unity.Entities
     {
         private EntityQuery m_EntityQuery;
 
-        public EntityQueryDesc Desc
+        public EntityQueryDesc[] Desc
         {
             get
             {
                 unsafe
                 {
                     var impl = m_EntityQuery._Debugger_GetImpl();
-                    return impl == null ? default : impl->GetEntityQueryDesc();
+                    return impl == null ? default : impl->GetEntityQueryDescs();
                 }
             }
         }

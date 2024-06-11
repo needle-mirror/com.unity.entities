@@ -1868,6 +1868,44 @@ namespace Unity.Entities
 #endif
         }
 
+        [ExcludeFromBurstCompatTesting("Potentially accesses managed component store")]
+        public void SetSharedComponentData_Managed<T>(
+            ArchetypeChunk chunk,
+            T componentData,
+            in SystemHandle originSystem = default)
+            where T : struct, ISharedComponentData
+        {
+            Assert.IsTrue(TypeManager.IsManagedSharedComponent(TypeManager.GetTypeIndex<T>()));
+
+            var typeIndex = TypeManager.GetTypeIndex<T>();
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            var archetype = chunk.Archetype.Archetype;
+            UnityEngine.Assertions.Assert.IsTrue(ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex) >= 0,
+                $"Component shared component type {typeIndex} not found on target chunk");
+#endif
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            var newSharedComponentDataIndex = InsertSharedComponent(componentData);
+            EntityComponentStore->SetSharedComponentDataIndexForChunk(chunk.m_Chunk, chunk.Archetype.Archetype, componentType, newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.End();
+#endif
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_SetSharedComponentManaged(in originSystem, &chunk, 1, typeIndex);
+#endif
+        }
+
+
+
         /// <summary>
         /// This function must be wrapped in BeginStructuralChanges() and EndStructuralChanges(ref EntityComponentStore.ArchetypeChanges changes).
         /// </summary>
@@ -2371,6 +2409,41 @@ namespace Unity.Entities
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
                 JournalAddRecord_SetSharedComponent(in originSystem, in entities, componentType.TypeIndex, componentData, TypeManager.GetTypeInfo(componentType.TypeIndex).TypeSize);
+#endif
+        }
+
+        [GenerateTestsForBurstCompatibility]
+        public void SetSharedComponentData_Unmanaged(
+            ArchetypeChunk chunk,
+            TypeIndex typeIndex,
+            void* componentData,
+            void* componentDataDefaultValue,
+            in SystemHandle originSystem = default)
+        {
+            var componentType = ComponentType.FromTypeIndex(typeIndex);
+            UnityEngine.Assertions.Assert.IsFalse(TypeManager.IsManagedSharedComponent(typeIndex));
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            var archetype = chunk.Archetype.Archetype;
+            UnityEngine.Assertions.Assert.IsTrue(ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex) >= 0,
+                $"Component shared component type {typeIndex} not found on target chunk");
+#endif
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.Begin(StructuralChangesProfiler.StructuralChangeType.SetSharedComponent, in m_WorldUnmanaged);
+#endif
+
+            var newSharedComponentDataIndex = InsertSharedComponent_Unmanaged(typeIndex, 0, componentData, componentDataDefaultValue);
+            EntityComponentStore->SetSharedComponentDataIndexForChunk(chunk.m_Chunk, chunk.Archetype.Archetype, componentType, newSharedComponentDataIndex);
+
+#if ENABLE_PROFILER
+            if (StructuralChangesProfiler.Enabled)
+                StructuralChangesRecorder.End();
+#endif
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Burst.CompilerServices.Hint.Unlikely(EntityComponentStore->m_RecordToJournal != 0))
+                JournalAddRecord_SetSharedComponent(in originSystem, &chunk, 1, componentType.TypeIndex, componentData, TypeManager.GetTypeInfo(componentType.TypeIndex).TypeSize);
 #endif
         }
 

@@ -53,7 +53,7 @@ namespace Unity.Transforms
     /// <see cref="Parent"/> components from each child entity.
     /// </remarks>
     [Serializable]
-    [InternalBufferCapacity(8)]
+    [InternalBufferCapacity(0)]
     public struct Child : ICleanupBufferElementData
     {
         /// <summary>

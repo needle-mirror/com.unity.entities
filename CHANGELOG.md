@@ -4,6 +4,52 @@ uid: changelog
 
 # Changelog
 
+## [1.3.0-exp.1] - 2024-06-11
+
+### Added
+
+* `ArchetypeChunk.GetEnabledMask()` now allows creating masks from `BufferTypeHandle` and `DynamicComponentTypeHandle`, in addition to `ComponentTypeHandle`.
+* `EnabledRefRW<T>` and EnabledRefRO<T>` can now be created from `IBufferElementData`, either from an `EnabledMask` or a `BufferLookup`.
+* Added a new variant of `EntityManager.GetComponentOrderVersion()` that targets a runtime `ComponentType` value, instead of a compile-time type parameter.
+* `EntityQuery.GetEntityQueryDescs()` returns the target query's full list of query descriptions.
+* Added new `EntityManager.SetSharedComponent<T>(ArchetypeChunk, T)` and `EntityManager.SetSharedComponentManaged<T>(ArchetypeChunk, T)` methods to efficiently set shared component values for all entities in a chunk. This is generally more efficient that setting the value on each individual entity.
+
+### Changed
+
+* The internal capacity of `Child` buffer components is reduced from 8 to 0, improving the chunk utilization of parent entities.
+* The internal capacity of `LinkedEntityGroup` buffer components is reduced from 1 to 0, improving the chunk utilization of prefabs and prefab instances.
+* `EnabledMask.GetOptionalEnabledRef*()` were renamed to `EnabledMask.GetEnabledRef*Optional()` for consistency.
+* `EntityQuery.GetCombinedComponentOrderVersion()` now takes a `bool` parameter to indicate whether the `Entity` component type should be included. The existing variant of this method is now marked as deprecated.
+* Improved performance of the `LocalToWorldSystem` when processing entity transform hierarchies, by distributing work more evenly across worker threads.
+
+### Deprecated
+
+* `EntityQuery.GetEntityQueryDesc()` should no longer be used; it only returns the target query's first query description element. Use the new `.GetEntityQueryDescs()` method instead to retrieve the full list. If only the first element is needed, use `query.GetEntityQueryDescs()[0]`.
+
+### Removed
+
+* The `EnabledMask` constructor was removed from the public API. Its inclusion was an error, and it is impossible to call safely from user code. The correct way to create these objects is through `ArchetypeChunk.GetEnabledMask()`.
+
+### Fixed
+
+* `EnabledRefRW<T>` now throws when attempting to write through an invalid or uninitialized instance.
+* Creating an `EntityQuery` with multiple `EntityQueryDesc` (or by using `EntityQueryBuilder.AddAdditionalQuery()`) now correctly matches archetypes that match one of the query's descriptions other than the first.
+* Entities windows do not throw exceptions anymore when installing or removing packages from package manager.
+* Debug proxies (used by external debuggers) were sometimes using invalid field offsets when inspecting structs in blob assets. This led to incorrect values being reported in debugger watch windows. In particular, this would be triggered by the use of bool fields in blob asset structs.
+* Entity version numbers could go back to 1 after reallocation in some edge cases.
+* When building a content update, a temporary path was getting created in the drive root instead of the Library folder.  This would also cause content update builds to grow in size every time they were built.  The folder is now created in the Library correctly.
+* IL2CPP compilation errors in patched methods (using codegen features) that also contain local functions.
+* Removed a potential source of non-determinism in the chunk header when serializing entities scenes.
+* the content of the archive_dependencies.bin and archive_dependencies.txt files in builds is now deterministic.
+* SystemAPI.GetSingletonBuffer<T>(readOnly: ...) now correctly passes the argument (aka, you can now correctly get a readonly DynamicBuffer)
+* Error in build when sprites are contained in subscenes has been removed.
+
+### Security
+
+
+### Known Issues
+
+
 ## [1.2.3] - 2024-05-30
 
 ### Fixed
@@ -12,7 +58,7 @@ uid: changelog
 * Cross-world selection in Entities Hierarchy
 * Entities windows do not throw exceptions anymore when installing or removing packages from package manager.
 * Fixed crash on quit in players due to incorrect RuntimeContentManager cleanup timing.
-* respond to much docs feedback
+* Responded to much docs feedback
 * Fixed a regression which caused subscene section bounding volumes to be computed incorrectly.
 * `EntityCommandBuffer.AddComponentForLinkedEntityGroup()` and `EntityCommandBuffer.SetComponentForLinkedEntityGroup()` now correctly process all entities that match the provided `EntityQueryMask`, even if new archetypes matching the query were added earlier during command buffer playback.
 * Creating a cycle with `[UpdateInGroup]` attributes now throws an exception instead of crashing the Editor.
@@ -66,7 +112,6 @@ uid: changelog
 * An invalid range check caused the removal of entities from the hierarchy view to sometimes fail in perfectly valid cases.
 
 
-
 ## [1.2.0-pre.12] - 2024-02-13
 
 ### Added
@@ -93,6 +138,7 @@ uid: changelog
 * AABB.Contains.
 * The entities hierarchy view would sometimes throw exceptions when entities were destroyed.
 * remove use of UNITY_64 define, as is can not be reliably used to determine 64 bit nature of platforms. Fixes crashes related to pointer truncation.
+
 
 ## [1.2.0-pre.6] - 2023-12-13
 

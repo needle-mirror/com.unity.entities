@@ -9,6 +9,7 @@ using Unity.Entities.Serialization;
 
 namespace Unity.Entities.Tests
 {
+    public struct EcsTestBufferElementEnableable : IBufferElementData, IEnableableComponent {}
     public struct EcsTestDataEnableable : IComponentData, IEnableableComponent {}
     public struct EcsTestDataEnableable1 : IComponentData, IEnableableComponent {}
     public struct EcsTestDataEnableable2 : IComponentData, IEnableableComponent {}

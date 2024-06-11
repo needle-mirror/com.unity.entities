@@ -187,9 +187,8 @@ namespace Unity.Entities
 
         ChunkIndex GetChunkWithEmptySlotsWithAddedComponent(ChunkIndex srcChunk, ComponentType componentType, int sharedComponentIndex = 0)
         {
-            var archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponent(srcChunk, componentType, sharedComponentIndex);
-            if (archetypeChunkFilter.Archetype == null)
-                return ChunkIndex.Null;
+            if (!GetArchetypeChunkFilterWithAddedComponent(srcChunk, componentType, sharedComponentIndex, out var archetypeChunkFilter))
+                return ChunkIndex.Null; // chunk already has the requested component
 
             return GetChunkWithEmptySlots(ref archetypeChunkFilter);
         }
@@ -204,8 +203,7 @@ namespace Unity.Entities
 
         ChunkIndex GetChunkWithEmptySlotsWithRemovedComponent(ChunkIndex srcChunk, ComponentType componentType)
         {
-            var archetypeChunkFilter = GetArchetypeChunkFilterWithRemovedComponent(srcChunk, componentType);
-            if (archetypeChunkFilter.Archetype == null)
+            if (!GetArchetypeChunkFilterWithRemovedComponent(srcChunk, componentType, out var archetypeChunkFilter))
                 return ChunkIndex.Null;
 
             return GetChunkWithEmptySlots(ref archetypeChunkFilter);
@@ -234,7 +232,17 @@ namespace Unity.Entities
             return archetypeChunkFilter;
         }
 
-        ArchetypeChunkFilter GetArchetypeChunkFilterWithChangedSharedComponent(ChunkIndex srcChunk, ComponentType componentType, int dstSharedComponentIndex)
+        /// <summary>
+        /// Construct an ArchetypeChunkFilter based on the provided chunk, after changing the value of a shared component.
+        /// </summary>
+        /// <param name="srcChunk">The source chunk</param>
+        /// <param name="componentType">The shared component type to modify</param>
+        /// <param name="dstSharedComponentIndex">The desired new value index for <paramref name="componentType"/>.</param>
+        /// <param name="outFilter">If successful, the filter will be stored here.</param>
+        /// <returns></returns>
+        /// <returns>False if srcChunk already has the provided shared component value, in which case no change is necessary and the output filter will be default-initialized.</returns>
+        bool GetArchetypeChunkFilterWithChangedSharedComponent(ChunkIndex srcChunk, ComponentType componentType, int dstSharedComponentIndex,
+            out ArchetypeChunkFilter outFilter)
         {
             var typeIndex = componentType.TypeIndex;
             var srcArchetype = GetArchetype(srcChunk);
@@ -245,14 +253,17 @@ namespace Unity.Entities
             var srcSharedComponentIndex = srcSharedComponentValueArray[sharedComponentOffset];
 
             if (dstSharedComponentIndex == srcSharedComponentIndex)
-                return default;
+            {
+                outFilter = default;
+                return false;
+            }
 
-            var archetypeChunkFilter = new ArchetypeChunkFilter();
-            archetypeChunkFilter.Archetype = srcArchetype;
-            srcSharedComponentValueArray.CopyTo(archetypeChunkFilter.SharedComponentValues, 0, srcArchetype->NumSharedComponents);
-            archetypeChunkFilter.SharedComponentValues[sharedComponentOffset] = dstSharedComponentIndex;
-
-            return archetypeChunkFilter;
+            outFilter = new ArchetypeChunkFilter();
+            outFilter.Archetype = srcArchetype;
+            for (int i = 0; i < srcArchetype->NumSharedComponents; ++i)
+                outFilter.SharedComponentValues[i] = srcSharedComponentValueArray[i];
+            outFilter.SharedComponentValues[sharedComponentOffset] = dstSharedComponentIndex;
+            return true;
         }
 
         ArchetypeChunkFilter GetArchetypeChunkFilterWithAddedComponent(Archetype* srcArchetype, int srcChunkListIndex, Archetype* dstArchetype, int indexInTypeArray, ComponentType componentType, int sharedComponentIndex)
@@ -274,7 +285,15 @@ namespace Unity.Entities
             return archetypeChunkFilter;
         }
 
-        ArchetypeChunkFilter GetArchetypeChunkFilterWithAddedComponent(ChunkIndex srcChunk, ComponentType componentType, int sharedComponentIndex)
+        /// <summary>
+        /// Construct an ArchetypeChunkFilter based on the provided chunk, after adding a new component.
+        /// </summary>
+        /// <param name="srcChunk">The source chunk</param>
+        /// <param name="componentType">The component type to add</param>
+        /// <param name="sharedComponentIndex">Value index for <paramref name="componentType"/>, if it's a shared component. Otherwise, this parameter will be ignored.</param>
+        /// <param name="outFilter"></param>
+        /// <returns>False if srcChunk already has the specified component/value, in which case no change is necessary and the output filter will be default-initialized.</returns>
+        bool GetArchetypeChunkFilterWithAddedComponent(ChunkIndex srcChunk, ComponentType componentType, int sharedComponentIndex, out ArchetypeChunkFilter outFilter)
         {
             var srcArchetype = GetArchetype(srcChunk);
             int indexInTypeArray = 0;
@@ -282,12 +301,14 @@ namespace Unity.Entities
             if (dstArchetype == null)
             {
                 Assert.IsTrue(sharedComponentIndex == 0);
-                return default;
+                outFilter = default;
+                return false;
             }
 
             Assert.IsTrue(dstArchetype->NumSharedComponents <= kMaxSharedComponentCount);
 
-            return GetArchetypeChunkFilterWithAddedComponent(srcArchetype, srcChunk.ListIndex, dstArchetype, indexInTypeArray, componentType, sharedComponentIndex);
+            outFilter = GetArchetypeChunkFilterWithAddedComponent(srcArchetype, srcChunk.ListIndex, dstArchetype, indexInTypeArray, componentType, sharedComponentIndex);
+            return true;
         }
 
         ArchetypeChunkFilter GetArchetypeChunkFilterWithAddedComponents(ChunkIndex srcChunk, Archetype* dstArchetype)
@@ -377,15 +398,26 @@ namespace Unity.Entities
             return archetypeChunkFilter;
         }
 
-        ArchetypeChunkFilter GetArchetypeChunkFilterWithRemovedComponent(ChunkIndex srcChunk, ComponentType componentType)
+        /// <summary>
+        /// Construct an ArchetypeChunkFilter based on the provided chunk, after removing a component.
+        /// </summary>
+        /// <param name="srcChunk">The source chunk</param>
+        /// <param name="componentType">The component type to remove</param>
+        /// <param name="outFilter">If successful, the filter will be stored here.</param>
+        /// <returns>False if removing the component does not require an archetype change. In this case, the output filter will be default-initialized.</returns>
+        bool GetArchetypeChunkFilterWithRemovedComponent(ChunkIndex srcChunk, ComponentType componentType, out ArchetypeChunkFilter outFilter)
         {
             var srcArchetype = GetArchetype(srcChunk);
             int indexInTypeArray = 0;
             var dstArchetype = GetArchetypeWithRemovedComponent(srcArchetype, componentType, &indexInTypeArray);
             if (dstArchetype == srcArchetype)
-                return default;
+            {
+                outFilter = default;
+                return false;
+            }
 
-            return GetArchetypeChunkFilterWithRemovedComponent(srcChunk, dstArchetype, indexInTypeArray, componentType);
+            outFilter = GetArchetypeChunkFilterWithRemovedComponent(srcChunk, dstArchetype, indexInTypeArray, componentType);
+            return true;
         }
 
         ArchetypeChunkFilter GetArchetypeChunkFilterWithRemovedComponents(ChunkIndex srcChunk, Archetype* dstArchetype)

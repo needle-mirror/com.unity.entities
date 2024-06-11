@@ -39,9 +39,13 @@ struct IfeStructWriter : IMemberWriter
                     $"state.EntityManager.CompleteDependencyBeforeRW<{element.TypeArgumentFullName}>();",
                 QueryType.ValueTypeComponent =>
                     $"state.EntityManager.CompleteDependencyBeforeRO<{element.TypeSymbolFullName}>();",
-                QueryType.EnabledRefRW =>
+                QueryType.EnabledRefRW_ComponentData =>
                     $"state.EntityManager.CompleteDependencyBeforeRW<{element.TypeArgumentFullName}>();",
-                QueryType.EnabledRefRO =>
+                QueryType.EnabledRefRO_ComponentData =>
+                    $"state.EntityManager.CompleteDependencyBeforeRO<{element.TypeArgumentFullName}>();",
+                QueryType.EnabledRefRW_BufferElementData =>
+                    $"state.EntityManager.CompleteDependencyBeforeRW<{element.TypeArgumentFullName}>();",
+                QueryType.EnabledRefRO_BufferElementData =>
                     $"state.EntityManager.CompleteDependencyBeforeRO<{element.TypeArgumentFullName}>();",
                 QueryType.TagComponent => "",
                 _ => throw new ArgumentOutOfRangeException()

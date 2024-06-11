@@ -56,17 +56,6 @@ namespace Unity.Entities.Tests
         T GetSharedComponent<T>(Entity entity) where T : struct, ISharedComponentData => m_Manager.GetSharedComponentManaged<T>(entity);
         DynamicBuffer<T> GetDynamicBuffer<T>(Entity entity) where T : unmanaged, IBufferElementData => m_Manager.GetBuffer<T>(entity);
 
-        bool TryGetComponent<T>(Entity entity, out T componentData) where T : unmanaged, IComponentData
-        {
-            if (m_Manager.HasComponent<T>(entity))
-            {
-                componentData = m_Manager.GetComponentData<T>(entity);
-                return true;
-            }
-            componentData = default;
-            return false;
-        }
-
         public struct Multiplier : ISharedComponentData
         {
             public int Value { get; set; }
@@ -178,46 +167,56 @@ namespace Unity.Entities.Tests
 
                 // The next line tests that we generate the correct backing entity query -- we should only iterate through EcsTestDataEnableable values that are disabled
                 foreach (var ecsTestDataEnableable in Query<EcsTestDataEnableable>().WithDisabled<EcsTestDataEnableable>().WithChangeFilter<EcsTestDataEnableable>())
-                    sumDisabledChangeFilter.sum += ecsTestDataEnableable.value;
+                    sumDisabledChangeFilter.NumDisabledComponents += ecsTestDataEnableable.value;
             }
         }
-        partial struct IterateThroughEnableableComponentsWithVariousExtensionsSystem : ISystem
+        partial struct IterateThroughEnableableTypesWithVariousExtensionsSystem : ISystem
         {
             public void OnCreate(ref SystemState state)
             {
                 state.EntityManager.AddComponent<SumData>(state.SystemHandle);
                 state.EntityManager.AddComponent<SystemQueryData>(state.SystemHandle);
 
-                var archetype = state.EntityManager.CreateArchetype(typeof(EcsTestDataEnableable));
+                var archetype = state.EntityManager.CreateArchetype(typeof(EcsTestDataEnableable), typeof(EcsTestEnableableBuffer1));
                 const int entityCount = 1000;
                 var allEntities = state.EntityManager.CreateEntity(archetype, entityCount, Allocator.Temp);
 
-                for (int i = 0; i < entityCount; ++i)
+                for (int i = 0; i < entityCount / 2; ++i)
+                    state.EntityManager.SetComponentEnabled<EcsTestEnableableBuffer1>(allEntities[i], i % 5 != 0);
+                for (int i = entityCount / 2; i < entityCount; ++i)
                     state.EntityManager.SetComponentEnabled<EcsTestDataEnableable>(allEntities[i], i % 5 != 0);
             }
 
             public void OnUpdate(ref SystemState state)
             {
                 var queryExtensionToTest = state.EntityManager.GetComponentData<SystemQueryData>(state.SystemHandle).extensionToTest;
-                ref var numDisabledComponents = ref state.EntityManager.GetComponentDataRW<SumData>(state.SystemHandle).ValueRW;
+                ref var sums = ref state.EntityManager.GetComponentDataRW<SumData>(state.SystemHandle).ValueRW;
 
                 switch (queryExtensionToTest)
                 {
                     case QueryExtension.Disabled:
                         foreach (var _ in Query<EnabledRefRO<EcsTestDataEnableable>>().WithDisabled<EcsTestDataEnableable>())
-                            numDisabledComponents.sum++;
+                            sums.NumDisabledComponents++;
+                        foreach (var _ in Query<EnabledRefRO<EcsTestEnableableBuffer1>>().WithDisabled<EcsTestEnableableBuffer1>())
+                            sums.NumDisabledBufferElements++;
                         break;
                     case QueryExtension.None:
                         foreach (var _ in Query<EnabledRefRO<EcsTestDataEnableable>>().WithNone<EcsTestDataEnableable>())
-                            numDisabledComponents.sum++;
+                            sums.NumDisabledComponents++;
+                        foreach (var _ in Query<EnabledRefRO<EcsTestEnableableBuffer1>>().WithNone<EcsTestEnableableBuffer1>())
+                            sums.NumDisabledBufferElements++;
                         break;
                     case QueryExtension.Any:
                         foreach (var _ in Query<EnabledRefRO<EcsTestDataEnableable>>().WithAny<EcsTestDataEnableable>())
-                            numDisabledComponents.sum++;
+                            sums.NumDisabledComponents++;
+                        foreach (var _ in Query<EnabledRefRO<EcsTestEnableableBuffer1>>().WithAny<EcsTestEnableableBuffer1>())
+                            sums.NumDisabledBufferElements++;
                         break;
                     case QueryExtension.All:
                         foreach (var _ in Query<EnabledRefRO<EcsTestDataEnableable>>().WithAll<EcsTestDataEnableable>())
-                            numDisabledComponents.sum++;
+                            sums.NumDisabledComponents++;
+                        foreach (var _ in Query<EnabledRefRO<EcsTestEnableableBuffer1>>().WithAll<EcsTestEnableableBuffer1>())
+                            sums.NumDisabledBufferElements++;
                         break;
                 }
             }
@@ -225,7 +224,8 @@ namespace Unity.Entities.Tests
 
         public struct SumData : IComponentData
         {
-            public int sum;
+            public int NumDisabledComponents;
+            public int NumDisabledBufferElements;
         }
 
         public struct SharedComponentFilterData : IComponentData
@@ -302,7 +302,7 @@ namespace Unity.Entities.Tests
             {
                 ref var sumData = ref state.EntityManager.GetComponentDataRW<SumData>(state.SystemHandle).ValueRW;
                 foreach (var ecsTestData in Query<EcsTestData>())
-                    sumData.sum += ecsTestData.value;
+                    sumData.NumDisabledComponents += ecsTestData.value;
             }
         }
 
@@ -381,10 +381,10 @@ namespace Unity.Entities.Tests
 
                 if (sharedComponentFilterData.IsManaged)
                     foreach (var result in Query<RefRO<EcsTestData>>().WithSharedComponentFilterManaged(new ManagedSharedData1(val: 1)))
-                        sumData.sum += result.ValueRO.value;
+                        sumData.NumDisabledComponents += result.ValueRO.value;
                 else
                     foreach (var result in Query<RefRO<EcsTestData>>().WithSharedComponentFilter(new SharedData1(1)))
-                        sumData.sum += result.ValueRO.value;
+                        sumData.NumDisabledComponents += result.ValueRO.value;
 
             }
         }
@@ -1176,13 +1176,13 @@ namespace Unity.Entities.Tests
             var system = World.GetOrCreateSystem<DisabledChangeFilterSystem>();
             system.Update(World.Unmanaged);
 
-            Assert.AreEqual(expected: 1000, actual: World.EntityManager.GetComponentData<SumData>(system).sum);
+            Assert.AreEqual(expected: 1000, actual: World.EntityManager.GetComponentData<SumData>(system).NumDisabledComponents);
         }
         [Test]
-        public void ForEachIteration_IterateThroughEnableableComponents(
+        public void ForEachIteration_IterateThroughEnableableTypes(
             [Values(QueryExtension.None, QueryExtension.Disabled, QueryExtension.Any, QueryExtension.All)] QueryExtension queryExtension)
         {
-            var system = World.GetOrCreateSystem<IterateThroughEnableableComponentsWithVariousExtensionsSystem>();
+            var system = World.GetOrCreateSystem<IterateThroughEnableableTypesWithVariousExtensionsSystem>();
             ref var queryData = ref World.EntityManager.GetComponentDataRW<SystemQueryData>(system).ValueRW;
             queryData.extensionToTest = queryExtension;
 
@@ -1192,11 +1192,13 @@ namespace Unity.Entities.Tests
             {
                 case QueryExtension.Any:
                 case QueryExtension.All:
-                    Assert.AreEqual(expected: 800, actual: World.EntityManager.GetComponentData<SumData>(system).sum);
+                    Assert.AreEqual(expected: 900, actual: World.EntityManager.GetComponentData<SumData>(system).NumDisabledComponents);
+                    Assert.AreEqual(expected: 900, actual: World.EntityManager.GetComponentData<SumData>(system).NumDisabledBufferElements);
                     break;
                 case QueryExtension.None:
                 case QueryExtension.Disabled:
-                    Assert.AreEqual(expected: 200, actual: World.EntityManager.GetComponentData<SumData>(system).sum);
+                    Assert.AreEqual(expected: 100, actual: World.EntityManager.GetComponentData<SumData>(system).NumDisabledComponents);
+                    Assert.AreEqual(expected: 100, actual: World.EntityManager.GetComponentData<SumData>(system).NumDisabledBufferElements);
                     break;
             }
         }
@@ -1221,7 +1223,7 @@ namespace Unity.Entities.Tests
             var system = World.GetOrCreateSystem<IterateThroughComponent_WithoutRefRO>();
             system.Update(World.Unmanaged);
 
-            Assert.AreEqual(55, World.EntityManager.GetComponentData<SumData>(system).sum);
+            Assert.AreEqual(55, World.EntityManager.GetComponentData<SumData>(system).NumDisabledComponents);
         }
 
         [Test]
@@ -1258,7 +1260,7 @@ namespace Unity.Entities.Tests
 
             system.Update(World.Unmanaged);
 
-            Assert.AreEqual(11, World.EntityManager.GetComponentData<SumData>(system).sum);
+            Assert.AreEqual(11, World.EntityManager.GetComponentData<SumData>(system).NumDisabledComponents);
 
             World.EntityManager.DestroyEntity(entity0);
             World.EntityManager.DestroyEntity(entity1);

@@ -1599,7 +1599,7 @@ namespace Unity.Entities
 #if !ENTITY_STORE_V1
             var srcEntities = (Entity*)chunk.Buffer;
             var entityCount = chunk.Count;
-            var dstEntities = stackalloc Entity[128];
+            var dstEntities = stackalloc Entity[TypeManager.MaximumChunkCapacity];
 
             s_entityStore.Data.AllocateEntities(dstEntities, entityCount, ChunkIndex.Null, 0);
 
@@ -2784,7 +2784,7 @@ namespace Unity.Entities
 
             dstArchetype->ChunkCapacity = math.min(maxCapacity, CalculateChunkCapacity(chunkDataSize, dstArchetype->SizeOfs, dstArchetype->NonZeroSizedTypesCount));
             Assert.IsTrue(dstArchetype->ChunkCapacity > 0);
-            Assert.IsTrue(Chunk.kMaximumEntitiesPerChunk >= dstArchetype->ChunkCapacity);
+            Assert.IsTrue(TypeManager.MaximumChunkCapacity >= dstArchetype->ChunkCapacity);
             dstArchetype->Chunks = new ArchetypeChunkData(count, numSharedComponents);
 
             dstArchetype->InstanceSize = 0;

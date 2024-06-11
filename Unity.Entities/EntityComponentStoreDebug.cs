@@ -866,9 +866,10 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         internal static void AssertComponentSizeMatches(TypeIndex typeIndex, int size)
         {
-            if (Hint.Unlikely(TypeManager.GetTypeInfo(typeIndex).SizeInChunk != size))
+            int sizeInChunk = TypeManager.GetTypeInfo(typeIndex).SizeInChunk;
+            if (Hint.Unlikely(sizeInChunk != size))
                 throw new System.ArgumentException(
-                    $"SetComponentData can not be called with a zero sized component ({typeIndex}) and must have same size as sizeof(T).");
+                    $"Provided data size={size} for type {typeIndex} does not match expected SizeInChunk={sizeInChunk}. (This should never happen; please use \"Help -> Report A Bug\" to inform the DOTS team)");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]

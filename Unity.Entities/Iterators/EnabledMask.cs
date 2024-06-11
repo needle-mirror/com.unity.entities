@@ -48,32 +48,29 @@ namespace Unity.Entities
         }
 #endif
 
+
+        /// <summary>
+        /// An invalid pointer.
+        /// </summary>
+        public static unsafe SafeBitRef Null =>
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-
-        /// <summary>
-        /// An invalid pointer.
-        /// </summary>
-        public static unsafe SafeBitRef Null => new SafeBitRef(null, 0, default);
-
-        /// <summary>
-        /// Create a new pointer at a bit offset from this bit pointer
-        /// </summary>
-        /// <param name="offsetInBits">offset in bit for the new pointer to return</param>
-        /// <returns>A new SafeBitRef pointing at the offset in bits</returns>
-        public unsafe SafeBitRef Offset(int offsetInBits) => new SafeBitRef(m_Ptr, m_OffsetInBits + offsetInBits, m_Safety);
+            new SafeBitRef(null, 0, default);
 #else
-        /// <summary>
-        /// An invalid pointer.
-        /// </summary>
-        public static unsafe SafeBitRef Null => new SafeBitRef(null, 0);
+            new SafeBitRef(null, 0);
+#endif
 
         /// <summary>
         /// Create a new pointer at a bit offset from this bit pointer
         /// </summary>
         /// <param name="offsetInBits">offset in bit for the new pointer to return</param>
         /// <returns>A new SafeBitRef pointing at the offset in bits</returns>
-        public unsafe SafeBitRef Offset(int offsetInBits) => new SafeBitRef(m_Ptr, m_OffsetInBits + offsetInBits);
+        public unsafe SafeBitRef Offset(int offsetInBits) =>
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            new SafeBitRef(m_Ptr, m_OffsetInBits + offsetInBits, m_Safety);
+#else
+            new SafeBitRef(m_Ptr, m_OffsetInBits + offsetInBits);
 #endif
+
         /// <summary>
         /// Test if this pointer is valid (not null).
         /// </summary>
@@ -113,10 +110,12 @@ namespace Unity.Entities
     /// <remarks>Do not store outside of stack</remarks>
     public struct EnabledMask
     {
-        // pointer to the bit
+        // pointer to the bit.
+        // If this field's IsValid property is false, the EnabledMask is invalid and should not be used.
         readonly SafeBitRef m_EnableBitRef;
 
-        // pointer to chunk disabled count
+        // pointer to chunk disabled count.
+        // This field will be null if the EnabledMask is invalid, or if it was created from a read-only type handle.
         readonly unsafe int* m_PtrChunkDisabledCount;
 
         /// <summary>
@@ -124,7 +123,7 @@ namespace Unity.Entities
         /// </summary>
         /// <param name="enableBitRef">First bit to the buffer</param>
         /// <param name="ptrChunkDisabledCount">pointer to the disabled count int associated with the chunk the enabled-bit is part of</param>
-        public unsafe EnabledMask(SafeBitRef enableBitRef, int* ptrChunkDisabledCount)
+        internal unsafe EnabledMask(SafeBitRef enableBitRef, int* ptrChunkDisabledCount)
         {
             m_EnableBitRef = enableBitRef;
             m_PtrChunkDisabledCount = ptrChunkDisabledCount;
@@ -149,7 +148,7 @@ namespace Unity.Entities
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 if (Hint.Unlikely(m_PtrChunkDisabledCount == null))
                     throw new InvalidOperationException(
-                    "ComponentEnabledMask requires a non-null ChunkDisabledCount pointer to be able to write to it");
+                    "This EnabledMask was created from a read-only type handle or is uninitialized, and can not be used to set bit values.");
 #endif
                 bool wasSet = m_EnableBitRef.Offset(index).GetBit();
                 m_EnableBitRef.Offset(index).SetBit(value);
@@ -177,7 +176,7 @@ namespace Unity.Entities
         /// <param name="index">The index to the enabled bit in the chunk.</param>
         /// <returns>A reference to the enabled bit for the component at the specified index.</returns>
         public unsafe EnabledRefRW<T> GetEnabledRefRW<T>(int index)
-            where T : unmanaged, IComponentData, IEnableableComponent
+            where T : unmanaged, IEnableableComponent
         {
             return new EnabledRefRW<T>(m_EnableBitRef.Offset(index), m_PtrChunkDisabledCount);
         }
@@ -190,7 +189,7 @@ namespace Unity.Entities
         /// <param name="index">The index to the enabled bit in the chunk.</param>
         /// <returns>A reference to the enabled bit for the component at the specified index.</returns>
         public EnabledRefRO<T> GetEnabledRefRO<T>(int index)
-            where T : unmanaged, IComponentData, IEnableableComponent
+            where T : unmanaged, IEnableableComponent
         {
             return new EnabledRefRO<T>(m_EnableBitRef.Offset(index));
         }
@@ -205,7 +204,7 @@ namespace Unity.Entities
         /// <returns>A reference to the enabled bit for the component at the specified index or <see cref="EnabledRefRW{T}.Null"/> if this <see cref="EnabledMask"/> is not valid.</returns>
         /// <exception cref="InvalidOperationException">Thrown if the EnabledMask is missing a pointer to the ChunkDisabledCount</exception>
         public unsafe EnabledRefRW<T> GetOptionalEnabledRefRW<T>(int index)
-            where T : unmanaged, IComponentData, IEnableableComponent
+            where T : unmanaged, IEnableableComponent
         {
             if (m_EnableBitRef.IsValid)
             {
@@ -223,7 +222,7 @@ namespace Unity.Entities
         /// <returns>null if the buffer is not valid.</returns>
         /// <returns>A read-only reference to the enabled bit for the component at the specified index or <see cref="EnabledRefRO{T}.Null"/> if this <see cref="EnabledMask"/> is not valid.</returns>
         public EnabledRefRO<T> GetOptionalEnabledRefRO<T>(int index)
-            where T : unmanaged, IComponentData, IEnableableComponent
+            where T : unmanaged, IEnableableComponent
         {
             if (m_EnableBitRef.IsValid)
                 return new EnabledRefRO<T>(m_EnableBitRef.Offset(index));

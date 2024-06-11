@@ -43,12 +43,6 @@ This is more efficient than the `None` field because you don't need to change th
 
 You can use write groups to extend existing systems. For example, if you've defined `CharacterComponent` and `LuigiComponent` in another system as part of a library you don't control, you can put `MarioComponent` in the same write group as `LuigiComponent` to change how `CharacterComponent` is updated. Then, for any entities you add to the `MarioComponent`, the system updates `CharacterComponent`, but the original system doesn't update it. For entities that don't have `MarioComponent`, the original system updates `CharacterComponent` as before. For more information, see the documentation on [Write groups](systems-write-groups.md).
 
-## Combine queries
-
-To effectively combine multiple queries into one, you can create a query that contains multiple query descriptions. The resulting query matches archetypes that match any of the provided query descriptions. Essentially, the combined query matches the union of the query descriptions. The following example selects any archetypes that contain a `ObjectRotation` component or a `ObjectRotationSpeed` component (or both):
-
-[!code-cs[combine-query](../DocCodeSamples.Tests/EntityQueryExamples.cs#combine-query)]
-
 ## Execute the query
 
 Typically, you execute an entity query when you schedule a job that uses it. You can also call one of the `EntityQuery` methods that returns arrays of entities, components, or archetype chunks:

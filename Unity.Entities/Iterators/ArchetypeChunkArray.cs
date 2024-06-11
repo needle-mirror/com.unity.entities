@@ -771,7 +771,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Provides a ComponentEnabledMask to the component enabled bits in this chunk.
+        /// Provides a <see cref="EnabledMask"/> to the component enabled bits in this chunk.
         /// </summary>
         /// <typeparam name="T">The component type</typeparam>
         /// <param name="typeHandle">Type handle for the component type <typeparamref name="T"/>.</param>
@@ -798,13 +798,99 @@ namespace Unity.Entities
                 return new EnabledMask(SafeBitRef.Null, null);
 #endif
             }
-            int* ptrChunkDisabledCount = default;
+            int* ptrChunkDisabledCount = null;
             var ptr = (typeHandle.IsReadOnly)
                 ? ChunkDataUtility.GetEnabledRefRO(m_Chunk, Archetype.Archetype, typeHandle.m_LookupCache.IndexInArchetype).Ptr
                 : ChunkDataUtility.GetEnabledRefRW(m_Chunk, Archetype.Archetype, typeHandle.m_LookupCache.IndexInArchetype,
                     typeHandle.GlobalSystemVersion, out ptrChunkDisabledCount).Ptr;
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             var result = new EnabledMask(new SafeBitRef(ptr, 0, typeHandle.m_Safety), ptrChunkDisabledCount);
+#else
+            var result = new EnabledMask(new SafeBitRef(ptr, 0), ptrChunkDisabledCount);
+#endif
+            return result;
+        }
+
+        /// <summary>
+        /// Provides a <see cref="EnabledMask"/> to the component enabled bits in this chunk.
+        /// </summary>
+        /// <typeparam name="T">The component type</typeparam>
+        /// <param name="typeHandle">Type handle for the component type <typeparamref name="T"/>.</param>
+        /// <returns>An <see cref="EnabledMask"/> instance for component <typeparamref name="T"/> in this chunk.</returns>
+        public readonly EnabledMask GetEnabledMask<T>(ref BufferTypeHandle<T> typeHandle)
+            where T : unmanaged, IBufferElementData, IEnableableComponent
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(typeHandle.m_Safety0);
+#endif
+            var archetype = m_EntityComponentStore->GetArchetype(m_Chunk);
+            if (Hint.Unlikely(typeHandle.m_LookupCache.Archetype != archetype))
+            {
+                typeHandle.m_LookupCache.Update(archetype, typeHandle.m_TypeIndex);
+            }
+            // In case the chunk does not contains the component type (or the internal TypeIndex lookup fails to find a
+            // match), the LookupCache.Update will invalidate the IndexInArchetype.
+            // In such a case, we return an empty EnabledMask.
+            if (Hint.Unlikely(typeHandle.m_LookupCache.IndexInArchetype == -1))
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                return new EnabledMask(new SafeBitRef(null, 0, typeHandle.m_Safety0), null);
+#else
+                return new EnabledMask(SafeBitRef.Null, null);
+#endif
+            }
+            int* ptrChunkDisabledCount = default;
+            var ptr = (typeHandle.IsReadOnly)
+                ? ChunkDataUtility.GetEnabledRefRO(m_Chunk, Archetype.Archetype, typeHandle.m_LookupCache.IndexInArchetype).Ptr
+                : ChunkDataUtility.GetEnabledRefRW(m_Chunk, Archetype.Archetype, typeHandle.m_LookupCache.IndexInArchetype,
+                    typeHandle.GlobalSystemVersion, out ptrChunkDisabledCount).Ptr;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var result = new EnabledMask(new SafeBitRef(ptr, 0, typeHandle.m_Safety0), ptrChunkDisabledCount);
+#else
+            var result = new EnabledMask(new SafeBitRef(ptr, 0), ptrChunkDisabledCount);
+#endif
+            return result;
+        }
+
+        /// <summary>
+        /// Provides a <see cref="EnabledMask"/> to the component enabled bits in this chunk.
+        /// </summary>
+        /// <typeparam name="T">The component type</typeparam>
+        /// <param name="typeHandle">Type handle for the component type <typeparamref name="T"/>.</param>
+        /// <returns>An <see cref="EnabledMask"/> instance for component <typeparamref name="T"/> in this chunk.</returns>
+        public readonly EnabledMask GetEnabledMask(ref DynamicComponentTypeHandle typeHandle)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(typeHandle.m_Safety0);
+#endif
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(!TypeManager.IsEnableableType(typeHandle.m_TypeIndex)))
+            {
+                var typeName = typeHandle.m_TypeIndex.ToFixedString();
+                throw new ArgumentException($"Component type {typeName} must implement {nameof(IEnableableComponent)}");
+            }
+#endif
+            var archetype = m_EntityComponentStore->GetArchetype(m_Chunk);
+            ChunkDataUtility.GetIndexInTypeArray(archetype, typeHandle.m_TypeIndex, ref typeHandle.m_TypeLookupCache);
+            var typeIndexInArchetype = typeHandle.m_TypeLookupCache;
+            // In case the chunk does not contains the component type (or the internal TypeIndex lookup fails to find a
+            // match), the LookupCache.Update will invalidate the IndexInArchetype.
+            // In such a case, we return an empty EnabledMask.
+            if (Hint.Unlikely(typeIndexInArchetype == -1))
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                return new EnabledMask(new SafeBitRef(null, 0, typeHandle.m_Safety0), null);
+#else
+                return new EnabledMask(SafeBitRef.Null, null);
+#endif
+            }
+            int* ptrChunkDisabledCount = default;
+            var ptr = (typeHandle.IsReadOnly)
+                ? ChunkDataUtility.GetEnabledRefRO(m_Chunk, Archetype.Archetype, typeIndexInArchetype).Ptr
+                : ChunkDataUtility.GetEnabledRefRW(m_Chunk, Archetype.Archetype, typeIndexInArchetype,
+                    typeHandle.GlobalSystemVersion, out ptrChunkDisabledCount).Ptr;
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            var result = new EnabledMask(new SafeBitRef(ptr, 0, typeHandle.m_Safety0), ptrChunkDisabledCount);
 #else
             var result = new EnabledMask(new SafeBitRef(ptr, 0), ptrChunkDisabledCount);
 #endif

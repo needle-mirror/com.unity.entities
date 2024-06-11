@@ -311,21 +311,20 @@ namespace Unity.Entities
         // This is part of a larger refactor, and this field will eventually be removed from this struct.
         [FieldOffset(0)]
         public int ArchetypeIndexForSerialization;
-        // 4-byte padding to keep the file format compatible until further changes to the header.
+
+        // The following field is only used during serialization and won't contain valid data at runtime.
+        // This is part of a larger refactor, and this field will eventually be removed from this struct.
+        [FieldOffset(4)]
+        public int CountForSerialization;
 
         [FieldOffset(8)]
         public Entity metaChunkEntity;
 
-        // The following field is only used during serialization and won't contain valid data at runtime.
-        // This is part of a larger refactor, and this field will eventually be removed from this struct.
         [FieldOffset(16)]
-        public int CountForSerialization;
-
-        [FieldOffset(28)]
         public int ListWithEmptySlotsIndex;
 
         // Special chunk behaviors
-        [FieldOffset(32)]
+        [FieldOffset(20)]
         public uint Flags;
 
         // SequenceNumber is a unique number for each chunk, across all worlds. (Chunk* is not guranteed unique, in particular because chunk allocations are pooled)
@@ -334,7 +333,7 @@ namespace Unity.Entities
 
         // NOTE: SequenceNumber is not part of the serialized header.
         //       It is cleared on write to disk, it is a global in memory sequence ID used for comparing chunks.
-        public const int kSerializedHeaderSize = 40;
+        public const int kSerializedHeaderSize = 24;
 
         // Chunk header END
 
@@ -347,7 +346,7 @@ namespace Unity.Entities
 
         public const int kChunkSize = 16 * 1024;
         public const int kBufferSize = kChunkSize - kBufferOffset;
-        public const int kMaximumEntitiesPerChunk = kBufferSize / 8;
+        public const int kMaximumEntitiesPerChunk = TypeManager.MaximumChunkCapacity;
 
         public const int kChunkBufferSize = kChunkSize - kBufferOffset;
     }

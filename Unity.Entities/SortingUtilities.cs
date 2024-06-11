@@ -11,28 +11,6 @@ namespace Unity.Entities
 {
     internal struct SortingUtilities
     {
-        public static unsafe void InsertSorted(int* data, int length, int newValue)
-        {
-            while (length > 0 && newValue < data[length - 1])
-            {
-                data[length] = data[length - 1];
-                --length;
-            }
-
-            data[length] = newValue;
-        }
-
-        public static unsafe void InsertSorted(byte* data, int length, byte newValue)
-        {
-            while (length > 0 && newValue < data[length - 1])
-            {
-                data[length] = data[length - 1];
-                --length;
-            }
-
-            data[length] = newValue;
-        }
-
         public static unsafe void InsertSorted(ComponentType* data, int length, ComponentType newValue)
         {
             while (length > 0 && newValue < data[length - 1])
@@ -67,110 +45,6 @@ namespace Unity.Entities
         public int CompareTo(IndexedValue<T> other) => Value.CompareTo(other.Value);
     }
 
-    [BurstCompile]
-    struct CopyIndexedValues<T> : IJobParallelFor
-        where T : struct, IComparable<T>
-    {
-        [ReadOnly] public NativeArray<T> Src;
-        public NativeArray<IndexedValue<T>> Dst;
-
-        public void Execute(int index)
-        {
-            Dst[index] = new IndexedValue<T>
-            {
-                Value = Src[index],
-                Index = index
-            };
-        }
-    }
-
-    [BurstCompile]
-    struct SegmentSort<T> : IJobParallelFor
-        where T : unmanaged, IComparable<T>
-    {
-        [NativeDisableParallelForRestriction] public NativeArray<IndexedValue<T>> Data;
-        public int SegmentWidth;
-
-        public void Execute(int index)
-        {
-            var startIndex = index * SegmentWidth;
-            var segmentLength = ((Data.Length - startIndex) < SegmentWidth) ? (Data.Length - startIndex) : SegmentWidth;
-            var slice = new NativeSlice<IndexedValue<T>>(Data, startIndex, segmentLength);
-            NativeSortExtension.Sort(slice);
-        }
-    }
-
-    [BurstCompile]
-    unsafe struct SegmentSortMerge<T> : IJob
-        where T : unmanaged, IComparable<T>
-    {
-        [ReadOnly]
-        public NativeArray<IndexedValue<T>> IndexedSourceBuffer;
-
-        public NativeArray<int> SourceIndexBySortedSourceIndex;
-        public NativeList<int> SortedSourceIndexBySharedIndex;
-        public NativeList<int> SharedIndexCountsBySharedIndex;
-        public NativeArray<int> SharedIndicesBySourceIndex;
-        public int SegmentWidth;
-
-        public void Execute()
-        {
-            var length = IndexedSourceBuffer.Length;
-            if (length == 0)
-                return;
-
-            var segmentCount = (length + (SegmentWidth - 1)) / SegmentWidth;
-            var segmentIndex = stackalloc int[segmentCount];
-
-            var lastSharedIndex = -1;
-            var lastSharedValue = default(T);
-
-            for (int sortIndex = 0; sortIndex < length; sortIndex++)
-            {
-                // find next best
-                int bestSegmentIndex = -1;
-                IndexedValue<T> bestValue = default(IndexedValue<T>);
-
-                for (int i = 0; i < segmentCount; i++)
-                {
-                    var startIndex = i * SegmentWidth;
-                    var offset = segmentIndex[i];
-                    var segmentLength = ((length - startIndex) < SegmentWidth) ? (length - startIndex) : SegmentWidth;
-                    if (offset == segmentLength)
-                        continue;
-
-                    var nextValue = IndexedSourceBuffer[startIndex + offset];
-                    if (bestSegmentIndex != -1)
-                    {
-                        if (nextValue.CompareTo(bestValue) > 0)
-                            continue;
-                    }
-
-                    bestValue = nextValue;
-                    bestSegmentIndex = i;
-                }
-
-                segmentIndex[bestSegmentIndex]++;
-                SourceIndexBySortedSourceIndex[sortIndex] = bestValue.Index;
-
-                if ((lastSharedIndex != -1) && (bestValue.Value.CompareTo(lastSharedValue) == 0))
-                {
-                    SharedIndexCountsBySharedIndex[lastSharedIndex]++;
-                }
-                else
-                {
-                    lastSharedIndex++;
-                    lastSharedValue = bestValue.Value;
-
-                    SortedSourceIndexBySharedIndex.Add(sortIndex);
-                    SharedIndexCountsBySharedIndex.Add(1);
-                }
-
-                SharedIndicesBySourceIndex[bestValue.Index] = lastSharedIndex;
-            }
-        }
-    }
-    
     // @macton This version simply fixes the sorting issues in the most expidient way.
     // - Next version will need to reimplement the merge sort with lookaside buffers.
     struct IndexedInt : IComparable<IndexedInt>
@@ -363,11 +237,7 @@ namespace Unity.Entities
             };
             var copyIndexValuesJobHandle = copyIndexedValuesJob.Schedule(length, 1024, inputDeps);
 
-#if UNITY_2022_2_14F1_OR_NEWER
             int maxThreadCount = JobsUtility.ThreadIndexCount;
-#else
-            int maxThreadCount = JobsUtility.MaxJobThreadCount;
-#endif
             var workerSegmentCount = segmentCount / maxThreadCount;
             var segmentSortJob = new SegmentSortInt
             {

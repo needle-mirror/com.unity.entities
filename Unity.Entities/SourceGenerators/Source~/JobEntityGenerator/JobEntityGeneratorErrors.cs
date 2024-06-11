@@ -119,15 +119,6 @@ public static class JobEntityGeneratorErrors
             location);
     }
 
-    public static void SGJE0019(ISourceGeneratorDiagnosable diagnosable, Location location, string typeFullName)
-    {
-        diagnosable.LogError(
-            nameof(SGJE0019),
-            k_ErrorTitle,
-            $"`{typeFullName}` does not implement `IComponentData`, and thus cannot be used with `EnabledRefRW<T>` or `EnabledRefRO<T>`.",
-            location);
-    }
-
     public static void SGJE0020(ISourceGeneratorDiagnosable diagnosable, Location location, string jobName)
     {
         diagnosable.LogError(

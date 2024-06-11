@@ -5,6 +5,7 @@ using Unity.Entities;
 using Unity.Assertions;
 using Unity.Burst.CompilerServices;
 using Unity.Burst.Intrinsics;
+using Unity.Jobs;
 using Unity.Mathematics;
 
 namespace Unity.Transforms
@@ -29,9 +30,8 @@ namespace Unity.Transforms
     [UpdateAfter(typeof(ParentSystem))]
     public partial struct LocalToWorldSystem : ISystem
     {
-        // Compute the LocalToWorld of all root-level entities
         [BurstCompile]
-        unsafe struct ComputeRootLocalToWorldJob : IJobChunk
+        unsafe struct ComputeWorldSpaceLocalToWorldJob : IJobChunk
         {
             [ReadOnly] public ComponentTypeHandle<LocalTransform> LocalTransformTypeHandleRO;
             [ReadOnly] public ComponentTypeHandle<PostTransformMatrix> PostTransformMatrixTypeHandleRO;
@@ -68,14 +68,12 @@ namespace Unity.Transforms
         }
 
         [BurstCompile]
-        unsafe struct ComputeChildLocalToWorldJob : IJobChunk
+        struct ComputeHierarchyLocalToWorldJob : IJobParallelForDefer
         {
+            [ReadOnly] public NativeArray<Entity> RootEntities;
             [ReadOnly] public EntityQueryMask LocalToWorldWriteGroupMask;
 
-            [ReadOnly] public BufferTypeHandle<Child> ChildTypeHandleRO;
             [ReadOnly] public BufferLookup<Child> ChildLookupRO;
-            public ComponentTypeHandle<LocalToWorld> LocalToWorldTypeHandleRW;
-
             [ReadOnly] public ComponentLookup<LocalTransform> LocalTransformLookupRO;
             [ReadOnly] public ComponentLookup<PostTransformMatrix> PostTransformMatrixLookupRO;
             [NativeDisableContainerSafetyRestriction] public ComponentLookup<LocalToWorld> LocalToWorldLookupRW;
@@ -124,38 +122,31 @@ namespace Unity.Transforms
                 }
             }
 
-            public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+            public void Execute(int index)
             {
-                Assert.IsFalse(useEnabledMask);
-
-                bool updateChildrenTransform = chunk.DidChange(ref ChildTypeHandleRO, LastSystemVersion);
-                BufferAccessor<Child> chunkChildBuffers = chunk.GetBufferAccessor(ref ChildTypeHandleRO);
-                updateChildrenTransform = updateChildrenTransform || chunk.DidChange(ref LocalToWorldTypeHandleRW, LastSystemVersion);
-                LocalToWorld* chunkLocalToWorlds = (LocalToWorld*)chunk.GetRequiredComponentDataPtrRO(ref LocalToWorldTypeHandleRW);
-                for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
+                Entity root = RootEntities[index];
+                if (ChildLookupRO.TryGetBuffer(root, out DynamicBuffer<Child> children))
                 {
-                    var localToWorld = chunkLocalToWorlds[i].Value;
-                    var children = chunkChildBuffers[i];
+                    bool updateChildrenTransform = ChildLookupRO.DidChange(root, LastSystemVersion) ||
+                                                   LocalToWorldLookupRW.DidChange(root, LastSystemVersion);
+                    float4x4 localToWorldMatrix = LocalToWorldLookupRW[root].Value;
                     for (int j = 0, childCount = children.Length; j < childCount; j++)
                     {
-                        ChildLocalToWorldFromTransformMatrix(localToWorld, children[j].Value, updateChildrenTransform);
+                        ChildLocalToWorldFromTransformMatrix(localToWorldMatrix, children[j].Value, updateChildrenTransform);
                     }
                 }
             }
         }
 
-        EntityQuery _rootsQuery;
-        EntityQuery _parentsQuery;
+        EntityQuery _worldSpaceQuery;
+        EntityQuery _hierarchyRootsQuery;
         EntityQueryMask _localToWorldWriteGroupMask;
 
         ComponentTypeHandle<LocalTransform> _localTransformTypeHandleRO;
         ComponentTypeHandle<PostTransformMatrix> _postTransformMatrixTypeHandleRO;
-        ComponentTypeHandle<LocalTransform> _localTransformTypeHandleRW;
         ComponentTypeHandle<LocalToWorld> _localToWorldTypeHandleRW;
 
-        BufferTypeHandle<Child> _childTypeHandleRO;
         BufferLookup<Child> _childLookupRO;
-
         ComponentLookup<LocalTransform> _localTransformLookupRO;
         ComponentLookup<PostTransformMatrix> _postTransformMatrixLookupRO;
         ComponentLookup<LocalToWorld> _localToWorldLookupRW;
@@ -169,13 +160,15 @@ namespace Unity.Transforms
                 .WithAllRW<LocalToWorld>()
                 .WithNone<Parent>()
                 .WithOptions(EntityQueryOptions.FilterWriteGroup);
-            _rootsQuery = state.GetEntityQuery(builder);
+            _worldSpaceQuery = state.GetEntityQuery(builder);
+            // Ideally we'd use a change-version filter on worldSpaceQuery, but we need to process chunks with PostTransformMatrix,
+            // which isn't required by the query. Instead, we use chunk.DidChange() inside the job as an early-out.
 
             builder = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<LocalTransform, Child>()
                 .WithAllRW<LocalToWorld>()
                 .WithNone<Parent>();
-            _parentsQuery = state.GetEntityQuery(builder);
+            _hierarchyRootsQuery = state.GetEntityQuery(builder);
 
             builder = new EntityQueryBuilder(Allocator.Temp)
                 .WithAll<LocalTransform, Parent>()
@@ -185,57 +178,60 @@ namespace Unity.Transforms
 
             _localTransformTypeHandleRO = state.GetComponentTypeHandle<LocalTransform>(true);
             _postTransformMatrixTypeHandleRO = state.GetComponentTypeHandle<PostTransformMatrix>(true);
-            _localTransformTypeHandleRW = state.GetComponentTypeHandle<LocalTransform>(false);
             _localToWorldTypeHandleRW = state.GetComponentTypeHandle<LocalToWorld>(false);
 
-            _childTypeHandleRO = state.GetBufferTypeHandle<Child>(true);
             _childLookupRO = state.GetBufferLookup<Child>(true);
-
             _localTransformLookupRO = state.GetComponentLookup<LocalTransform>(true);
             _postTransformMatrixLookupRO = state.GetComponentLookup<PostTransformMatrix>(true);
             _localToWorldLookupRW = state.GetComponentLookup<LocalToWorld>(false);
         }
 
-        /// <inheritdoc cref="ISystem.OnDestroy"/>
         /// <inheritdoc cref="ISystem.OnUpdate"/>
         [BurstCompile]
         public void OnUpdate(ref SystemState state)
         {
             _localTransformTypeHandleRO.Update(ref state);
             _postTransformMatrixTypeHandleRO.Update(ref state);
-            _localTransformTypeHandleRW.Update(ref state);
             _localToWorldTypeHandleRW.Update(ref state);
-
-            _childTypeHandleRO.Update(ref state);
             _childLookupRO.Update(ref state);
-
             _localTransformLookupRO.Update(ref state);
             _postTransformMatrixLookupRO.Update(ref state);
             _localToWorldLookupRW.Update(ref state);
 
-            // Compute LocalToWorld for all root-level entities
-            var rootJob = new ComputeRootLocalToWorldJob
+            // Compute LocalToWorld for all world-space entities
+            var worldSpaceJob = new ComputeWorldSpaceLocalToWorldJob
             {
                 LocalTransformTypeHandleRO = _localTransformTypeHandleRO,
                 PostTransformMatrixTypeHandleRO = _postTransformMatrixTypeHandleRO,
                 LocalToWorldTypeHandleRW = _localToWorldTypeHandleRW,
                 LastSystemVersion = state.LastSystemVersion,
             };
-            state.Dependency = rootJob.ScheduleParallelByRef(_rootsQuery, state.Dependency);
-
-            // Compute LocalToWorld for all child entities
-            var childJob = new ComputeChildLocalToWorldJob
+            var worldSpaceJobHandle = worldSpaceJob.ScheduleParallelByRef(_worldSpaceQuery, state.Dependency);
+            if (_hierarchyRootsQuery.IsEmptyIgnoreFilter)
             {
-                LocalToWorldWriteGroupMask = _localToWorldWriteGroupMask,
-                ChildTypeHandleRO = _childTypeHandleRO,
-                ChildLookupRO = _childLookupRO,
-                LocalToWorldTypeHandleRW = _localToWorldTypeHandleRW,
-                LocalTransformLookupRO = _localTransformLookupRO,
-                PostTransformMatrixLookupRO = _postTransformMatrixLookupRO,
-                LocalToWorldLookupRW = _localToWorldLookupRW,
-                LastSystemVersion = state.LastSystemVersion,
-            };
-            state.Dependency = childJob.ScheduleParallelByRef(_parentsQuery, state.Dependency);
+                state.Dependency = worldSpaceJobHandle;
+            }
+            else
+            {
+                // Gather all hierarchy root entities into a list
+                var rootEntityList =
+                    _hierarchyRootsQuery.ToEntityListAsync(state.WorldUpdateAllocator, state.Dependency,
+                        out JobHandle gatherJobHandle);
+                // Compute LocalToWorld for all hierarchies.
+                // The root LTWs are already up-to-date from the previous job, and are not recomputed.
+                var hierarchyJob = new ComputeHierarchyLocalToWorldJob
+                {
+                    RootEntities = rootEntityList.AsDeferredJobArray(),
+                    LocalToWorldWriteGroupMask = _localToWorldWriteGroupMask,
+                    ChildLookupRO = _childLookupRO,
+                    LocalTransformLookupRO = _localTransformLookupRO,
+                    PostTransformMatrixLookupRO = _postTransformMatrixLookupRO,
+                    LocalToWorldLookupRW = _localToWorldLookupRW,
+                    LastSystemVersion = state.LastSystemVersion,
+                };
+                state.Dependency = hierarchyJob.ScheduleByRef(rootEntityList, 1,
+                    JobHandle.CombineDependencies(worldSpaceJobHandle, gatherJobHandle));
+            }
         }
     }
 }

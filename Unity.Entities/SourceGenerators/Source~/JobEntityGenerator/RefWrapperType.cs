@@ -1,6 +1,6 @@
 ﻿namespace Unity.Entities.SourceGen.JobEntityGenerator;
 
-public enum ComponentRefWrapperType
+public enum RefWrapperType
 {
     NotApplicable,
     None,

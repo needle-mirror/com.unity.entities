@@ -160,110 +160,93 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                             case "global::Unity.Entities.EnabledRefRW<T>":
                             case "global::Unity.Entities.EnabledRefRO<T>":
                             {
-                                if (typeArgSymbol.InheritsFromInterface("Unity.Entities.IComponentData"))
+                                var isReadOnly = fullName is "global::Unity.Entities.RefRO<T>" or "global::Unity.Entities.EnabledRefRO<T>";
+                                var typeHandle = _queriesAndHandles.GetOrCreateTypeHandleField(typeArgSymbol, isReadOnly);
+
+                                var (success, currentJobEntityParameter) =
+                                    JobEntityParam.TryParseTypeSymbol(
+                                        typeArgSymbol,
+                                        parameterSymbol,
+                                        isReadOnly,
+                                        performSafetyChecks,
+                                        diagnosable: this,
+                                        typeHandle,
+                                        constructedFrom: fullName);
+
+                                if (success)
                                 {
-                                    var isReadOnly = fullName is "global::Unity.Entities.RefRO<T>"
-                                        or "global::Unity.Entities.EnabledRefRO<T>";
-                                    var typeHandle =
-                                        _queriesAndHandles.GetOrCreateTypeHandleField(typeArgSymbol, isReadOnly);
-
-                                    var (success, currentJobEntityParameter) =
-                                        JobEntityParam.TryParseComponentTypeSymbol(
-                                            typeArgSymbol,
-                                            parameterSymbol,
-                                            isReadOnly,
-                                            performSafetyChecks,
-                                            diagnosable: this,
-                                            typeHandle,
-                                            constructedFrom: fullName);
-
-                                    if (success)
+                                    if (IsLessAccessibleThan(typeArgSymbol, m_JobEntityTypeSymbol))
                                     {
-                                        if (IsLessAccessibleThan(typeArgSymbol, m_JobEntityTypeSymbol))
+                                        JobEntityGeneratorErrors.SGJE0023(
+                                            this,
+                                            parameterSymbol.Locations[0],
+                                            typeArgSymbol.ToFullName(),
+                                            Enum.GetName(typeof(Accessibility), typeArgSymbol.DeclaredAccessibility),
+                                            m_JobEntityTypeSymbol.ToFullName(),
+                                            Enum.GetName(typeof(Accessibility), m_JobEntityTypeSymbol.DeclaredAccessibility));
+                                        Invalid = true;
+                                        return null;
+                                    }
+
+                                    var index = queryAllTypes.FindIndex(q => SymbolEqualityComparer.Default.Equals(q.TypeSymbol, typeArgSymbol));
+
+                                    // If the same type was added previously
+                                    if (index != -1)
+                                    {
+                                        var sameParameterTypePreviouslyAdded = queryAllTypes[index];
+
+                                        // If the previously added `Query` instance is read-only, but we actually require read-write access,
+                                        // e.g. if users use `EnabledRefRO<T>` and `RefRW<T>` in the same `IJobEntity.Execute()` method
+                                        if (sameParameterTypePreviouslyAdded.IsReadOnly && !currentJobEntityParameter.IsReadOnly)
                                         {
-                                            JobEntityGeneratorErrors.SGJE0023(
-                                                this,
-                                                parameterSymbol.Locations[0],
-                                                typeArgSymbol.ToFullName(),
-                                                Enum.GetName(typeof(Accessibility),
-                                                    typeArgSymbol.DeclaredAccessibility),
-                                                m_JobEntityTypeSymbol.ToFullName(),
-                                                Enum.GetName(typeof(Accessibility),
-                                                    m_JobEntityTypeSymbol.DeclaredAccessibility));
-                                            Invalid = true;
-                                            return null;
-                                        }
+                                            // Delete the previously added `Query` instance, since we will be replacing it with a new `Query`
+                                            // instance of the same type with read-write access instead
+                                            queryAllTypes.RemoveAtSwapBack(index);
 
-                                        var index = queryAllTypes.FindIndex(q =>
-                                            SymbolEqualityComparer.Default.Equals(q.TypeSymbol, typeArgSymbol));
-
-                                        // If the same type was added previously
-                                        if (index != -1)
-                                        {
-                                            var sameParameterTypePreviouslyAdded = queryAllTypes[index];
-
-                                            // If the previously added `Query` instance is read-only, but we actually require read-write access,
-                                            // e.g. if users use `EnabledRefRO<T>` and `RefRW<T>` in the same `IJobEntity.Execute()` method
-                                            if (sameParameterTypePreviouslyAdded.IsReadOnly &&
-                                                !currentJobEntityParameter.IsReadOnly)
-                                            {
-                                                // Delete the previously added `Query` instance, since we will be replacing it with a new `Query`
-                                                // instance of the same type with read-write access instead
-                                                queryAllTypes.RemoveAtSwapBack(index);
-
-                                                queryAllTypes.Add(new Query
-                                                {
-                                                    IsReadOnly = false,
-                                                    Type = QueryType.All,
-                                                    TypeSymbol = currentJobEntityParameter.TypeSymbol
-                                                });
-
-                                                m_ComponentTypesInExecuteMethod.RemoveAtSwapBack(index);
-
-                                                m_ComponentTypesInExecuteMethod.Add(
-                                                    new ParameterTypeInJobEntityExecuteMethod
-                                                    {
-                                                        IsReadOnly = false,
-                                                        TypeSymbol = currentJobEntityParameter.TypeSymbol
-                                                    });
-                                            }
-                                        }
-                                        // If the same type was not added previously
-                                        else
-                                        {
                                             queryAllTypes.Add(new Query
                                             {
-                                                IsReadOnly = currentJobEntityParameter.IsReadOnly,
+                                                IsReadOnly = false,
                                                 Type = QueryType.All,
                                                 TypeSymbol = currentJobEntityParameter.TypeSymbol
                                             });
-                                            m_ComponentTypesInExecuteMethod.Add(
-                                                new ParameterTypeInJobEntityExecuteMethod
-                                                {
-                                                    IsReadOnly = currentJobEntityParameter.IsReadOnly,
-                                                    TypeSymbol = currentJobEntityParameter.TypeSymbol,
-                                                });
-                                        }
 
-                                        if (hasChangeFilter)
-                                        {
-                                            queryChangeFilterTypes.Add(new Query
+                                            m_ComponentTypesInExecuteMethod.RemoveAtSwapBack(index);
+
+                                            m_ComponentTypesInExecuteMethod.Add(new ParameterTypeInJobEntityExecuteMethod
                                             {
-                                                IsReadOnly = currentJobEntityParameter.IsReadOnly,
-                                                Type = QueryType.ChangeFilter,
+                                                IsReadOnly = false,
                                                 TypeSymbol = currentJobEntityParameter.TypeSymbol
                                             });
                                         }
-
-                                        return currentJobEntityParameter;
                                     }
-
-                                    Invalid = true;
-                                    return null;
+                                    // If the same type was not added previously
+                                    else
+                                    {
+                                        queryAllTypes.Add(new Query
+                                        {
+                                            IsReadOnly = currentJobEntityParameter.IsReadOnly,
+                                            Type = QueryType.All,
+                                            TypeSymbol = currentJobEntityParameter.TypeSymbol
+                                        });
+                                        m_ComponentTypesInExecuteMethod.Add(new ParameterTypeInJobEntityExecuteMethod
+                                        {
+                                            IsReadOnly = currentJobEntityParameter.IsReadOnly,
+                                            TypeSymbol = currentJobEntityParameter.TypeSymbol,
+                                        });
+                                    }
+                                    if (hasChangeFilter)
+                                    {
+                                        queryChangeFilterTypes.Add(new Query
+                                        {
+                                            IsReadOnly = currentJobEntityParameter.IsReadOnly,
+                                            Type = QueryType.ChangeFilter,
+                                            TypeSymbol = currentJobEntityParameter.TypeSymbol
+                                        });
+                                    }
+                                    return currentJobEntityParameter;
                                 }
 
                                 Invalid = true;
-                                JobEntityGeneratorErrors.SGJE0019(this, parameterSymbol.Locations.Single(), typeArgSymbol.ToFullName());
                                 return null;
                             }
                             default:
@@ -329,7 +312,7 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                                 var isReadOnly = parameterSymbol.IsReadOnly();
                                 var typeHandle = _queriesAndHandles.GetOrCreateTypeHandleField(typeSymbol, isReadOnly);
                                 var (success, jobEntityParameter) =
-                                    JobEntityParam.TryParseComponentTypeSymbol(
+                                    JobEntityParam.TryParseTypeSymbol(
                                         typeSymbol,
                                         parameterSymbol,
                                         isReadOnly,
@@ -687,12 +670,12 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
     readonly struct ExecuteMethodParameter : IEqualityComparer<ExecuteMethodParameter>
     {
         readonly ITypeSymbol _typeSymbol;
-        readonly ComponentRefWrapperType _componentRefWrapperType;
+        readonly RefWrapperType _refWrapperType;
 
-        public ExecuteMethodParameter(ITypeSymbol typeSymbol, ComponentRefWrapperType refWrapperType)
+        public ExecuteMethodParameter(ITypeSymbol typeSymbol, RefWrapperType refWrapperType)
         {
             _typeSymbol = typeSymbol;
-            _componentRefWrapperType = refWrapperType;
+            _refWrapperType = refWrapperType;
         }
         public bool Equals(ExecuteMethodParameter x, ExecuteMethodParameter y)
         {
@@ -700,18 +683,18 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
             if (!identicalTypes)
                 return false;
 
-            switch (x._componentRefWrapperType)
+            switch (x._refWrapperType)
             {
-                case ComponentRefWrapperType.NotApplicable:
+                case RefWrapperType.NotApplicable:
                     return true;
-                case ComponentRefWrapperType.None:
-                case ComponentRefWrapperType.RefRO:
-                case ComponentRefWrapperType.RefRW:
-                    return y._componentRefWrapperType is ComponentRefWrapperType.RefRO or ComponentRefWrapperType.RefRW or ComponentRefWrapperType.None;
-                case ComponentRefWrapperType.EnabledRefRO:
-                case ComponentRefWrapperType.EnabledRefRW:
+                case RefWrapperType.None:
+                case RefWrapperType.RefRO:
+                case RefWrapperType.RefRW:
+                    return y._refWrapperType is RefWrapperType.RefRO or RefWrapperType.RefRW or RefWrapperType.None;
+                case RefWrapperType.EnabledRefRO:
+                case RefWrapperType.EnabledRefRW:
                 default:
-                    return y._componentRefWrapperType is ComponentRefWrapperType.EnabledRefRO or ComponentRefWrapperType.EnabledRefRW;
+                    return y._refWrapperType is RefWrapperType.EnabledRefRO or RefWrapperType.EnabledRefRW;
             }
         }
 
@@ -719,14 +702,14 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
         {
             unchecked
             {
-                int refWrapperTypeInt = _componentRefWrapperType switch
+                int refWrapperTypeInt = _refWrapperType switch
                 {
-                    ComponentRefWrapperType.NotApplicable => 0,
-                    ComponentRefWrapperType.None => 1,
-                    ComponentRefWrapperType.RefRO => 1,
-                    ComponentRefWrapperType.RefRW => 1,
-                    ComponentRefWrapperType.EnabledRefRO => 2,
-                    ComponentRefWrapperType.EnabledRefRW => 2,
+                    RefWrapperType.NotApplicable => 0,
+                    RefWrapperType.None => 1,
+                    RefWrapperType.RefRO => 1,
+                    RefWrapperType.RefRW => 1,
+                    RefWrapperType.EnabledRefRO => 2,
+                    RefWrapperType.EnabledRefRW => 2,
                     _ => 2
                 };
                 return ((_typeSymbol != null ? SymbolEqualityComparer.Default.GetHashCode(_typeSymbol) : 0) * 397) ^ refWrapperTypeInt;
@@ -764,7 +747,7 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
 
             if (param is not IAttributeParameter { IsInt: true })
             {
-                var refWrapperType = param is JobEntityParam_ComponentData componentData ? componentData.ComponentRefWrapperType : ComponentRefWrapperType.NotApplicable;
+                var refWrapperType = param is JobEntityParam_ComponentDataOrBufferElementData data ? data.RefWrapperType : RefWrapperType.NotApplicable;
 
                 if (!executeMethodComponentParameters.Add(new ExecuteMethodParameter(param.TypeSymbol, refWrapperType)))
                 {
@@ -812,10 +795,10 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                         Invalid = true;
                     }
                     break;
-                case JobEntityParam_ComponentData componentData:
+                case JobEntityParam_ComponentDataOrBufferElementData componentData:
                 {
                     // E.g. Execute(in RefRW<T1> t1, ref EnabledRefRO<T2> t2)
-                    if (componentData.ComponentRefWrapperType != ComponentRefWrapperType.None
+                    if (componentData.RefWrapperType != RefWrapperType.None
                         && componentData.ParameterSymbol.RefKind != RefKind.None)
                     {
                         JobEntityGeneratorErrors.SGJE0018(this,componentData.ParameterSymbol.Locations.Single());
@@ -823,7 +806,7 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                     }
 
                     // E.g. Execute(ref TagComponent tag)
-                    else if (componentData.ComponentRefWrapperType == ComponentRefWrapperType.None
+                    else if (componentData.RefWrapperType == RefWrapperType.None
                              && componentData.IsZeroSizedComponent
                              && componentData.ParameterSymbol.RefKind == RefKind.Ref)
                     {
@@ -917,18 +900,19 @@ public class JobEntityParam_ManagedComponent : JobEntityParam
     }
 }
 
-public class JobEntityParam_ComponentData : JobEntityParam
+public class JobEntityParam_ComponentDataOrBufferElementData : JobEntityParam
 {
-    internal JobEntityParam_ComponentData(
+    internal JobEntityParam_ComponentDataOrBufferElementData(
         IParameterSymbol parameterSymbol,
         ITypeSymbol componentTypeSymbol,
         bool isReadOnly,
-        ComponentRefWrapperType componentRefWrapperType,
-        bool performSafetyChecks, string typeHandleFieldName) : base(parameterSymbol, typeHandleFieldName)
+        RefWrapperType refWrapperType,
+        bool performSafetyChecks,
+        string typeHandleFieldName) : base(parameterSymbol, typeHandleFieldName)
     {
         TypeSymbol = componentTypeSymbol;
         IsReadOnly = isReadOnly;
-        ComponentRefWrapperType = componentRefWrapperType;
+        RefWrapperType = refWrapperType;
         IsZeroSizedComponent = componentTypeSymbol.IsZeroSizedComponent();
         IsEnableableComponent = componentTypeSymbol.IsEnableableComponent();
 
@@ -947,9 +931,9 @@ public class JobEntityParam_ComponentData : JobEntityParam
             string setUp;
             string value;
 
-            switch (componentRefWrapperType)
+            switch (refWrapperType)
             {
-                case ComponentRefWrapperType.None:
+                case RefWrapperType.None:
                 {
                     requiredVariableName =
                         IsZeroSizedComponent
@@ -976,7 +960,7 @@ public class JobEntityParam_ComponentData : JobEntityParam
                     };
                     return (requiredVariableDeclaration, setUp, value);
                 }
-                case ComponentRefWrapperType.RefRW:
+                case RefWrapperType.RefRW:
                 {
                     requiredVariableName = $"{parameterSymbol.Name}ArrayIntPtr";
                     requiredVariableDeclaration = $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
@@ -988,7 +972,7 @@ public class JobEntityParam_ComponentData : JobEntityParam
                             : $"var {value} = Unity.Entities.Internal.InternalCompilerInterface.GetRefRW<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk);";
                     return (requiredVariableDeclaration, setUp, value);
                 }
-                case ComponentRefWrapperType.RefRO:
+                case RefWrapperType.RefRO:
                 {
                     requiredVariableName = $"{parameterSymbol.Name}ArrayIntPtr";
                     requiredVariableDeclaration = $"var {requiredVariableName} = Unity.Entities.Internal.InternalCompilerInterface.UnsafeGetChunkNativeArrayReadOnlyIntPtr<{fullyQualifiedTypeName}>(chunk, ref __TypeHandle.{TypeHandleFieldName});";
@@ -1000,8 +984,8 @@ public class JobEntityParam_ComponentData : JobEntityParam
                             : $"var {value} = Unity.Entities.Internal.InternalCompilerInterface.GetRefRO<{fullyQualifiedTypeName}>({requiredVariableName}, entityIndexInChunk);";
                     return (requiredVariableDeclaration, setUp, value);
                 }
-                case ComponentRefWrapperType.EnabledRefRO:
-                case ComponentRefWrapperType.EnabledRefRW:
+                case RefWrapperType.EnabledRefRO:
+                case RefWrapperType.EnabledRefRW:
                 {
                     requiredVariableName = $"{parameterSymbol.Name}EnabledMask_{(IsReadOnly ? "RO" : "RW")}";
                     requiredVariableDeclaration = $"var {requiredVariableName} = chunk.GetEnabledMask(ref __TypeHandle.{TypeHandleFieldName});";
@@ -1014,7 +998,7 @@ public class JobEntityParam_ComponentData : JobEntityParam
             }
         }
     }
-    public ComponentRefWrapperType ComponentRefWrapperType { get; }
+    public RefWrapperType RefWrapperType { get; }
     public bool IsZeroSizedComponent { get; }
     public bool IsEnableableComponent { get; }
 }
@@ -1079,8 +1063,8 @@ public abstract class JobEntityParam
     public bool IsReadOnly { get; protected set; }
     public string VariableDeclarationAtStartOfExecuteMethod { get; protected set; }
 
-    internal static (bool Success, JobEntityParam JobEntityParameter) TryParseComponentTypeSymbol(
-        ITypeSymbol componentTypeSymbol,
+    internal static (bool Success, JobEntityParam JobEntityParameter) TryParseTypeSymbol(
+        ITypeSymbol typeSymbol,
         IParameterSymbol parameterSymbol,
         bool isReadOnly,
         bool performSafetyChecks,
@@ -1090,19 +1074,19 @@ public abstract class JobEntityParam
     {
         var refWrapperType = constructedFrom switch
         {
-            "global::Unity.Entities.RefRW<T>" => ComponentRefWrapperType.RefRW,
-            "global::Unity.Entities.RefRO<T>" => ComponentRefWrapperType.RefRO,
-            "global::Unity.Entities.EnabledRefRW<T>" => ComponentRefWrapperType.EnabledRefRW,
-            "global::Unity.Entities.EnabledRefRO<T>" => ComponentRefWrapperType.EnabledRefRO,
-            _ => ComponentRefWrapperType.None
+            "global::Unity.Entities.RefRW<T>" => RefWrapperType.RefRW,
+            "global::Unity.Entities.RefRO<T>" => RefWrapperType.RefRO,
+            "global::Unity.Entities.EnabledRefRW<T>" => RefWrapperType.EnabledRefRW,
+            "global::Unity.Entities.EnabledRefRO<T>" => RefWrapperType.EnabledRefRO,
+            _ => RefWrapperType.None
         };
 
-        if (componentTypeSymbol is INamedTypeSymbol namedTypeSymbol && namedTypeSymbol.Arity != 0)
+        if (typeSymbol is INamedTypeSymbol namedTypeSymbol && namedTypeSymbol.Arity != 0)
         {
             JobEntityGeneratorErrors.SGJE0011(diagnosable, parameterSymbol.Locations.Single(), parameterSymbol.Name);
             return (false, default);
         }
-        return (true, new JobEntityParam_ComponentData(parameterSymbol, componentTypeSymbol, isReadOnly, refWrapperType, performSafetyChecks, typeHandleFieldName));
+        return (true, new JobEntityParam_ComponentDataOrBufferElementData(parameterSymbol, typeSymbol, isReadOnly, refWrapperType, performSafetyChecks, typeHandleFieldName));
     }
 
     internal JobEntityParam(IParameterSymbol parameterSymbol, string typeHandleFieldName)

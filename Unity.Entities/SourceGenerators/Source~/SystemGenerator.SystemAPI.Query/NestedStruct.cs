@@ -109,7 +109,8 @@ static class NestedStruct
                         new ArgumentInReturnedType(elementInReturnedTuple)
                     );
                     break;
-                case QueryType.EnabledRefRW:
+                case QueryType.EnabledRefRW_ComponentData:
+                case QueryType.EnabledRefRW_BufferElementData:
                     fieldName = $"{arg.Name}_EnabledMask";
                     fieldDeclaration = $"public Unity.Entities.EnabledMask {fieldName};";
                     elementInReturnedTuple = $"{fieldName}.GetEnabledRefRW<{arg.TypeArgumentFullName}>(index)";
@@ -147,7 +148,8 @@ static class NestedStruct
                         new ArgumentInReturnedType(elementInReturnedTuple)
                     );
                     break;
-                case QueryType.EnabledRefRO:
+                case QueryType.EnabledRefRO_ComponentData:
+                case QueryType.EnabledRefRO_BufferElementData:
                     fieldName = $"{arg.Name}_EnabledMask";
                     fieldDeclaration = $"public Unity.Entities.EnabledMask {fieldName};";
                     elementInReturnedTuple = $"{fieldName}.GetEnabledRefRO<{arg.TypeArgumentFullName}>(index)";
@@ -297,10 +299,25 @@ static class NestedStruct
                         new ArgumentInReturnedType(resolvedChunkInitializerArgument)
                     );
                     break;
-                case QueryType.EnabledRefRW:
+                case QueryType.EnabledRefRW_ComponentData:
                     fieldName = $"{arg.Name}_ComponentTypeHandle_RW";
                     fieldDeclaration = $"Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                     fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: false);";
+                    resolvedChunkInitializerArgument = $"archetypeChunk.GetEnabledMask(ref {fieldName});";
+
+                    yield return
+                    (
+                        new Field(
+                            fieldDeclaration,
+                            fieldName,
+                            fieldAssignment),
+                        new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                    );
+                    break;
+                case QueryType.EnabledRefRW_BufferElementData:
+                    fieldName = $"{arg.Name}_BufferTypeHandle_RW";
+                    fieldDeclaration = $"Unity.Entities.BufferTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
+                    fieldAssignment = $"{fieldName} = systemState.GetBufferTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: false);";
                     resolvedChunkInitializerArgument = $"archetypeChunk.GetEnabledMask(ref {fieldName});";
 
                     yield return
@@ -338,10 +355,25 @@ static class NestedStruct
                         new ArgumentInReturnedType(resolvedChunkInitializerArgument)
                     );
                     break;
-                case QueryType.EnabledRefRO:
+                case QueryType.EnabledRefRO_ComponentData:
                     fieldName = $"{arg.Name}_ComponentTypeHandle_RO";
                     fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.ComponentTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
                     fieldAssignment = $"{fieldName} = systemState.GetComponentTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: true);";
+                    resolvedChunkInitializerArgument = $"archetypeChunk.GetEnabledMask(ref {fieldName});";
+
+                    yield return
+                    (
+                        new Field(
+                            fieldDeclaration,
+                            fieldName,
+                            fieldAssignment),
+                        new ArgumentInReturnedType(resolvedChunkInitializerArgument)
+                    );
+                    break;
+                case QueryType.EnabledRefRO_BufferElementData:
+                    fieldName = $"{arg.Name}_BufferTypeHandle_RO";
+                    fieldDeclaration = $"[Unity.Collections.ReadOnly] Unity.Entities.BufferTypeHandle<{arg.TypeArgumentFullName}> {fieldName};";
+                    fieldAssignment = $"{fieldName} = systemState.GetBufferTypeHandle<{arg.TypeArgumentFullName}>(isReadOnly: true);";
                     resolvedChunkInitializerArgument = $"archetypeChunk.GetEnabledMask(ref {fieldName});";
 
                     yield return

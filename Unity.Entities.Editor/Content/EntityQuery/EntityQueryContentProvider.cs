@@ -26,8 +26,14 @@ namespace Unity.Entities.Editor
         [CreateProperty, HideInInspector] string[] m_NoneComponentTypes;
         [CreateProperty, HideInInspector] string[] m_AnyComponentTypes;
         [CreateProperty, HideInInspector] string[] m_AllComponentTypes;
+        [CreateProperty, HideInInspector] string[] m_DisabledComponentTypes;
+        [CreateProperty, HideInInspector] string[] m_AbsentComponentTypes;
 
-        bool Any => m_AllComponentTypes != null || m_AnyComponentTypes != null || m_NoneComponentTypes != null;
+        bool Any => m_AllComponentTypes != null ||
+                    m_AnyComponentTypes != null ||
+                    m_NoneComponentTypes != null ||
+                    m_DisabledComponentTypes != null ||
+                    m_AbsentComponentTypes != null;
 
         public override string Name { get; } = L10n.Tr("Query");
 
@@ -49,6 +55,12 @@ namespace Unity.Entities.Editor
 
         [CreateProperty, DontSerialize]
         public string[] NoneTypes => IsValid ? m_NoneComponentTypes : Array.Empty<string>();
+
+        [CreateProperty, DontSerialize]
+        public string[] DisabledTypes => IsValid ? m_DisabledComponentTypes : Array.Empty<string>();
+
+        [CreateProperty, DontSerialize]
+        public string[] AbsentTypes => IsValid ? m_AbsentComponentTypes : Array.Empty<string>();
 
         public World World
         {
@@ -90,7 +102,8 @@ namespace Unity.Entities.Editor
                 if (m_World == null || !m_World.EntityManager.IsQueryValid(value))
                     return;
 
-                var query = value.GetEntityQueryDesc();
+                // TODO(ECSB-387): This method does not support queries with >1 query descriptions, each of which should be represented individually.
+                var query = value.GetEntityQueryDescs()[0];
 
                 var all = query.All;
                 m_AllComponentTypes = new string[all.Length];
@@ -113,6 +126,22 @@ namespace Unity.Entities.Editor
                 for (var i = 0; i < none.Length; ++i)
                 {
                     if (!ComponentTypeAdapter.TrySerialize(none[i], out m_NoneComponentTypes[i]))
+                        return;
+                }
+
+                var disabled = query.Disabled;
+                m_DisabledComponentTypes = new string[disabled.Length];
+                for (var i = 0; i < disabled.Length; ++i)
+                {
+                    if (!ComponentTypeAdapter.TrySerialize(none[i], out m_DisabledComponentTypes[i]))
+                        return;
+                }
+
+                var absent = query.Absent;
+                m_AbsentComponentTypes = new string[absent.Length];
+                for (var i = 0; i < absent.Length; ++i)
+                {
+                    if (!ComponentTypeAdapter.TrySerialize(none[i], out m_AbsentComponentTypes[i]))
                         return;
                 }
 
@@ -171,6 +200,20 @@ namespace Unity.Entities.Editor
                         return ContentStatus.ContentUnavailable;
                 }
 
+                var disabledTypes = new ComponentType[m_DisabledComponentTypes.Length];
+                for (var i = 0; i < m_DisabledComponentTypes.Length; ++i)
+                {
+                    if (!ComponentTypeAdapter.TryDeserialize(m_DisabledComponentTypes[i], out disabledTypes[i]))
+                        return ContentStatus.ContentUnavailable;
+                }
+
+                var absentTypes = new ComponentType[m_AbsentComponentTypes.Length];
+                for (var i = 0; i < m_AbsentComponentTypes.Length; ++i)
+                {
+                    if (!ComponentTypeAdapter.TryDeserialize(m_AbsentComponentTypes[i], out absentTypes[i]))
+                        return ContentStatus.ContentUnavailable;
+                }
+
                 if (!string.IsNullOrEmpty(m_SystemTypeName))
                 {
                     var worldProxyManager = new WorldProxyManager();
@@ -193,7 +236,9 @@ namespace Unity.Entities.Editor
                 {
                     All = allTypes,
                     None = noneTypes,
-                    Any = anyTypes
+                    Any = anyTypes,
+                    Disabled = disabledTypes,
+                    Absent = absentTypes,
                 };
 
                 desc.Options = m_Options;

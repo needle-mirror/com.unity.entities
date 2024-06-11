@@ -4205,6 +4205,55 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public unsafe void EntityQueryBuilder_CreateMultipleArchetypeQueries_WithEnableableComponents_Works()
+        {
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAll<EcsTestData>().WithNone<EcsTestData2>()
+                .AddAdditionalQuery()
+                .WithAll<EcsTestData2>().WithAny<EcsTestData3, EcsTestData4, EcsTestDataEnableable>()
+                .Build(EmptySystem);
+
+            var queryData = query._GetImpl()->_QueryData;
+
+            Assert.AreEqual(2, queryData->ArchetypeQueryCount);
+
+            {
+                // Create an archetype that matches the query's *first* ArchetypeQuery.
+                var archetype = m_Manager.CreateArchetype(typeof(EcsTestData));
+                // Make sure it was successfully identified as a matching archetype
+                var matchingArchetypes = queryData->MatchingArchetypes;
+                Assert.AreEqual(1, matchingArchetypes.Length);
+                var matchingArchetype = matchingArchetypes.Ptr[0];
+                Assert.AreEqual((ulong)archetype.Archetype, (ulong)matchingArchetype->Archetype);
+                // The matching archetype should have no enableable components
+                Assert.AreEqual(0, matchingArchetype->EnableableComponentsCount_All);
+                Assert.AreEqual(0, matchingArchetype->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, matchingArchetype->EnableableComponentsCount_None);
+                Assert.AreEqual(0, matchingArchetype->EnableableComponentsCount_Disabled);
+            }
+            {
+                // Create an archetype that matches the query's *second* ArchetypeQuery.
+                var archetype = m_Manager.CreateArchetype(typeof(EcsTestData2), typeof(EcsTestDataEnableable));
+                // Make sure it was successfully identified as a matching archetype
+                var matchingArchetypes = queryData->MatchingArchetypes;
+                Assert.AreEqual(2, matchingArchetypes.Length);
+                var matchingArchetype = matchingArchetypes.Ptr[1];
+                Assert.AreEqual((ulong)archetype.Archetype, (ulong)matchingArchetype->Archetype);
+                // Make sure the MatchingArchetype captured the enableable component correctly
+                Assert.AreEqual(0, matchingArchetype->EnableableComponentsCount_All);
+                Assert.AreEqual(1, matchingArchetype->EnableableComponentsCount_Any);
+                Assert.AreEqual(0, matchingArchetype->EnableableComponentsCount_None);
+                Assert.AreEqual(0, matchingArchetype->EnableableComponentsCount_Disabled);
+                int enableableTypeIndexInArchetype = ChunkDataUtility.GetIndexInTypeArray(archetype.Archetype,
+                    TypeManager.GetTypeIndex<EcsTestDataEnableable>());
+                int enableableTypeMemoryOrderIndex =
+                    archetype.Archetype->TypeIndexInArchetypeToMemoryOrderIndex[enableableTypeIndexInArchetype];
+                Assert.AreEqual(enableableTypeMemoryOrderIndex,
+                    matchingArchetype->EnableableTypeMemoryOrderInArchetype_Any[0]);
+            }
+        }
+
+        [Test]
         public unsafe void EntityQueryBuilder_CreateMultipleDistinctQueries()
         {
             var builder = new EntityQueryBuilder(Allocator.Temp)
@@ -4459,21 +4508,25 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void GetEntityQueryDesc()
+        public void GetEntityQueryDescs_Works()
         {
             var queryDesc = new EntityQueryDesc
             {
                 All = new[] { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>() },
                 Any = new[] { ComponentType.ReadOnly<EcsTestData3>(), ComponentType.ReadWrite<EcsTestData4>() },
-                None = new[] { ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadWrite<EcsTestFloatData2>() },
+                None = new[] { ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadOnly<EcsTestFloatData2>() },
                 Disabled = new[] { ComponentType.ReadOnly<EcsTestTagEnableable>(), ComponentType.ReadWrite<EcsTestDataEnableable>() },
-                Absent = new[] { ComponentType.ReadOnly<EcsIntElement>(), ComponentType.ReadWrite<EcsIntElement2>() },
+                Absent = new[] { ComponentType.ReadOnly<EcsIntElement>(), ComponentType.ReadOnly<EcsIntElement2>() },
                 Present = new[] { ComponentType.ReadOnly<EcsTestDataEnableable2>(), ComponentType.ReadWrite<EcsTestFloatData3>() },
                 Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
             };
 
             using var query = m_Manager.CreateEntityQuery(queryDesc);
-            var entityQueryDesc = query.GetEntityQueryDesc();
+            var allQueryDescs = query.GetEntityQueryDescs();
+            Assert.That(allQueryDescs.Length, Is.EqualTo(1));
+            Assert.That(allQueryDescs[0], Is.EqualTo(queryDesc));
+
+            var entityQueryDesc = allQueryDescs[0];
             foreach (var all in entityQueryDesc.All)
                 Assert.IsTrue(queryDesc.All.Contains(all));
             foreach (var any in entityQueryDesc.Any)
@@ -4494,6 +4547,36 @@ namespace Unity.Entities.Tests
             // All `Absent` components are silently given `ReadOnly` access mode during query creation
             foreach (var absent in expectedAbsent)
                 Assert.IsTrue(actualAbsent.Contains(absent));
+        }
+
+        [Test]
+        public void GetEntityQueryDescs_MultipleArchetypeQuerys_Works()
+        {
+            var queryDesc1 = new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadWrite<EcsTestData2>() },
+                Any = new[] { ComponentType.ReadOnly<EcsTestData3>(), ComponentType.ReadWrite<EcsTestData4>() },
+                None = new[] { ComponentType.ReadOnly<EcsTestFloatData>(), ComponentType.ReadOnly<EcsTestFloatData2>() },
+                Disabled = new[] { ComponentType.ReadOnly<EcsTestTagEnableable>(), ComponentType.ReadWrite<EcsTestDataEnableable>() },
+                Absent = new[] { ComponentType.ReadOnly<EcsIntElement>(), ComponentType.ReadOnly<EcsIntElement2>() },
+                Options = EntityQueryOptions.IncludePrefab | EntityQueryOptions.IncludeDisabledEntities
+            };
+            var queryDesc2 = new EntityQueryDesc
+            {
+                All = new[] { ComponentType.ReadOnly<EcsTestData5>()},
+                Any = new[] { ComponentType.ReadOnly<EcsTestData6>()},
+                None = new[] { ComponentType.ReadOnly<EcsTestData>(), ComponentType.ReadOnly<EcsTestTag>() },
+                Disabled = new[] { ComponentType.ReadWrite<EcsTestDataEnableable>() },
+                Absent = new[] { ComponentType.ReadOnly<EcsIntElement3>(), ComponentType.ReadOnly<EcsIntElement4>() },
+                Options = EntityQueryOptions.IncludeSystems,
+            };
+            using (var query = m_Manager.CreateEntityQuery(queryDesc1, queryDesc2))
+            {
+                var allQueryDescs = query.GetEntityQueryDescs();
+                Assert.That(allQueryDescs.Length, Is.EqualTo(2));
+                Assert.That(allQueryDescs[0], Is.EqualTo(queryDesc1));
+                Assert.That(allQueryDescs[1], Is.EqualTo(queryDesc2));
+            }
         }
 
         [Test]

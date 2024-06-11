@@ -58,8 +58,17 @@ namespace Unity.Entities.Editor
 
         int GetQueryComponentCount()
         {
-            var queryDesc = Target.Query.GetEntityQueryDesc();
-            return queryDesc.All.Length + queryDesc.Any.Length + queryDesc.None.Length;
+            var queryDescs = Target.Query.GetEntityQueryDescs();
+            int totalCount = 0;
+            for (int i = 0; i < queryDescs.Length; ++i)
+            {
+                totalCount += queryDescs[i].All.Length +
+                              queryDescs[i].Any.Length +
+                              queryDescs[i].None.Length +
+                              queryDescs[i].Disabled.Length +
+                              queryDescs[i].Absent.Length;
+            }
+            return totalCount;
         }
 
         public override VisualElement Build()
@@ -123,7 +132,7 @@ namespace Unity.Entities.Editor
             root.Add(header);
             root.Add(tabView);
 
-            m_LastHash = Target.Query.GetCombinedComponentOrderVersion();
+            m_LastHash = Target.Query.GetCombinedComponentOrderVersion(true);
 
             var entitiesSearchContainer = new VisualElement();
             entitiesSearchContainer.AddToClassList(UssClasses.Content.Query.EntityQuery.SearchContainer);
@@ -257,7 +266,8 @@ namespace Unity.Entities.Editor
             if (Target.World == null || !Target.World.IsCreated || !Target.World.EntityManager.IsQueryValid(Target.Query))
                 return;
 
-            var currentHash = Target.Query.GetCombinedComponentOrderVersion();
+            // TODO(DOTS-10317): Replace this with a proper EntityQuery results hash if & when we have one
+            var currentHash = Target.Query.GetCombinedComponentOrderVersion(true);
             if (currentHash == m_LastHash)
                 return;
 

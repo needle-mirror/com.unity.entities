@@ -41,7 +41,8 @@ namespace Unity.Entities.Editor
                 return false;
 
             var query = Query;
-            var currentVersion = query.GetCombinedComponentOrderVersion();
+            // TODO(DOTS-10317): Replace this with a proper EntityQuery results hash if & when we have one
+            var currentVersion = query.GetCombinedComponentOrderVersion(true);
             if (m_LastVersion == currentVersion)
                 return false;
 

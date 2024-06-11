@@ -18,7 +18,7 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1> WithDisabled<TComponent1>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -29,8 +29,8 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1> WithDisabled<TComponent1, TComponent2>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -42,9 +42,9 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1> WithDisabled<TComponent1, TComponent2, TComponent3>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent3 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
+            where TComponent3 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -478,7 +478,7 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2> WithDisabled<TComponent1>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -489,8 +489,8 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2> WithDisabled<TComponent1, TComponent2>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -502,9 +502,9 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2> WithDisabled<TComponent1, TComponent2, TComponent3>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent3 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
+            where TComponent3 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -946,7 +946,7 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3> WithDisabled<TComponent1>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -957,8 +957,8 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3> WithDisabled<TComponent1, TComponent2>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -970,9 +970,9 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3> WithDisabled<TComponent1, TComponent2, TComponent3>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent3 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
+            where TComponent3 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -1422,7 +1422,7 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4> WithDisabled<TComponent1>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -1433,8 +1433,8 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4> WithDisabled<TComponent1, TComponent2>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -1446,9 +1446,9 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4> WithDisabled<TComponent1, TComponent2, TComponent3>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent3 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
+            where TComponent3 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -1906,7 +1906,7 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4, T5> WithDisabled<TComponent1>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -1917,8 +1917,8 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4, T5> WithDisabled<TComponent1, TComponent2>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -1930,9 +1930,9 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4, T5> WithDisabled<TComponent1, TComponent2, TComponent3>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent3 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
+            where TComponent3 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -2398,7 +2398,7 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4, T5, T6> WithDisabled<TComponent1>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -2409,8 +2409,8 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4, T5, T6> WithDisabled<TComponent1, TComponent2>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -2422,9 +2422,9 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4, T5, T6> WithDisabled<TComponent1, TComponent2, TComponent3>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent3 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
+            where TComponent3 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -2898,7 +2898,7 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4, T5, T6, T7> WithDisabled<TComponent1>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -2909,8 +2909,8 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4, T5, T6, T7> WithDisabled<TComponent1, TComponent2>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>
@@ -2922,9 +2922,9 @@ namespace Unity.Entities
         /// <returns>QueryEnumerable, which allows enumerating over all Aspects, RefRO, RefRW, EnabledRefRO and EnabledRefRW components that match the constructed Query.</returns>
         /// <exception cref="Internal.InternalCompilerInterface.ThrowCodeGenException">Exception indicating that this method invocation should have been rewritten/replaced during source-generation.</exception>
         public QueryEnumerable<T1, T2, T3, T4, T5, T6, T7> WithDisabled<TComponent1, TComponent2, TComponent3>()
-            where TComponent1 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent2 : unmanaged, IEnableableComponent, IComponentData
-            where TComponent3 : unmanaged, IEnableableComponent, IComponentData
+            where TComponent1 : unmanaged, IEnableableComponent
+            where TComponent2 : unmanaged, IEnableableComponent
+            where TComponent3 : unmanaged, IEnableableComponent
             =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
 
         /// <summary>

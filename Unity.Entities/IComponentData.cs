@@ -263,7 +263,7 @@ namespace Unity.Entities
     /// EntityManager.Instantiate uses LinkedEntityGroup to instantiate the whole set of entities automatically.
     /// EntityManager.SetEnabled uses LinkedEntityGroup to enable the whole set of entities.
     /// </remarks>
-    [InternalBufferCapacity(1)]
+    [InternalBufferCapacity(0)]
     public struct LinkedEntityGroup : IBufferElementData
     {
         /// <summary>

@@ -898,7 +898,7 @@ namespace Unity.Entities
             for (int i = 0; i < componentDoesNotExist.Length; i++)
             {
                 var error = componentDoesNotExist[i];
-                Debug.LogWarning($"SetComponent<{error.ComponentType}>({error.Guid}) but entity does not exist.");
+                Debug.LogWarning($"SetComponent<{error.ComponentType}>({error.Guid}) but component does not exist.");
             }
 
             ecb.Playback(entityManager);
@@ -1119,7 +1119,7 @@ namespace Unity.Entities
             for (int i = 0; i < componentDoesNotExist.Length; i++)
             {
                 var error = componentDoesNotExist[i];
-                Debug.LogWarning($"SetComponent<{error.ComponentType}>({error.Guid}) but entity does not exist.");
+                Debug.LogWarning($"SetComponent<{error.ComponentType}>({error.Guid}) but component does not exist.");
             }
 
             var entitiesWithCompanionLinkCount = entitiesWithCompanionLink.Length;

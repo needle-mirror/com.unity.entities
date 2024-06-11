@@ -62,6 +62,11 @@ namespace Unity.Entities
             get => m_Ptr.GetBit();
             set
             {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (Hint.Unlikely(m_PtrChunkDisabledCount == null))
+                    throw new InvalidOperationException(
+                        "This EnabledRefRW was created from a read-only type handle or is uninitialized, and can not be used to set bit values.");
+#endif
                 bool wasSet = m_Ptr.GetBit();
                 m_Ptr.SetBit(value);
                 if (Hint.Likely(wasSet != value))

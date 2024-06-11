@@ -27,7 +27,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
                 ComponentType.ReadWrite<EcsIntElement>(),
                 ComponentType.ReadWrite<EcsTestTag>(),
                 ComponentType.ReadWrite<EcsTestDataEnableable>(),
-                ComponentType.ReadWrite<EcsTestTagEnableable>());
+                ComponentType.ReadWrite<EcsTestTagEnableable>(),
+                ComponentType.ReadWrite<EcsTestEnableableBuffer1>());
 
             TestEntity = m_Manager.CreateEntity(myArch);
             m_Manager.SetComponentData(TestEntity, new EcsTestData { value = 3 });
@@ -40,6 +41,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
             m_Manager.SetComponentEnabled<EcsTestDataEnableable>(TestEntity, false);
             m_Manager.SetComponentEnabled<EcsTestTagEnableable>(TestEntity, false);
+            m_Manager.SetComponentEnabled<EcsTestEnableableBuffer1>(TestEntity, false);
 
             DisabledEntity = m_Manager.CreateEntity(typeof(Disabled), typeof(EcsTestData3));
         }
@@ -65,7 +67,10 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void ToggleEnabled() => GetTestSystemUnsafe().ToggleEnabled(ref GetSystemStateRef());
 
         [Test]
-        public void CheckEnabled() => GetTestSystemUnsafe().CheckEnabled(ref GetSystemStateRef());
+        public void CheckEnabledComponentData() => GetTestSystemUnsafe().CheckEnabledComponentData(ref GetSystemStateRef());
+
+        [Test]
+        public void CheckEnabledBufferElementData() => GetTestSystemUnsafe().CheckEnabledBufferElementData(ref GetSystemStateRef());
 
         [Test]
         public void SimplestCaseWithRefWrappers() => GetTestSystemUnsafe().SimplestCaseWithRefWrappers(ref GetSystemStateRef());
@@ -170,9 +175,19 @@ namespace Unity.Entities.Tests.ForEachCodegen
     }
 
     [WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)]
-    partial struct CheckEnabledJob : IJobEntity
+    partial struct CheckEnabledJob_ComponentData : IJobEntity
     {
         void Execute(EnabledRefRO<EcsTestDataEnableable> enabledRef, ref EcsTestData data)
+        {
+            if (!enabledRef.ValueRO)
+                data.value *= 2;
+        }
+    }
+
+    [WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)]
+    partial struct CheckEnabledJob_BufferElementData : IJobEntity
+    {
+        void Execute(EnabledRefRO<EcsTestEnableableBuffer1> enabledRef, ref EcsTestData data)
         {
             if (!enabledRef.ValueRO)
                 data.value *= 2;
@@ -302,9 +317,17 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.IsTrue(state.EntityManager.IsComponentEnabled<EcsTestTagEnableable>(JobEntityISystemTests.TestEntity));
         }
 
-        public void CheckEnabled(ref SystemState state)
+        public void CheckEnabledComponentData(ref SystemState state)
         {
-            var job = new CheckEnabledJob();
+            var job = new CheckEnabledJob_ComponentData();
+            job.Run();
+
+            Assert.AreEqual(6, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
+        public void CheckEnabledBufferElementData(ref SystemState state)
+        {
+            var job = new CheckEnabledJob_BufferElementData();
             job.Run();
 
             Assert.AreEqual(6, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);

@@ -61,8 +61,7 @@ namespace Unity.Entities
         bool AddComponent(EntityBatchInChunk entityBatchInChunk, ComponentType componentType, int sharedComponentIndex = 0)
         {
             var srcChunk = entityBatchInChunk.Chunk;
-            var archetypeChunkFilter = GetArchetypeChunkFilterWithAddedComponent(srcChunk, componentType, sharedComponentIndex);
-            if (archetypeChunkFilter.Archetype == null)
+            if (!GetArchetypeChunkFilterWithAddedComponent(srcChunk, componentType, sharedComponentIndex, out var archetypeChunkFilter))
                 return false;
 
             Move(entityBatchInChunk, ref archetypeChunkFilter);
@@ -88,8 +87,7 @@ namespace Unity.Entities
         bool RemoveComponent(EntityBatchInChunk entityBatchInChunk, ComponentType componentType)
         {
             var srcChunk = entityBatchInChunk.Chunk;
-            var archetypeChunkFilter = GetArchetypeChunkFilterWithRemovedComponent(srcChunk, componentType);
-            if (archetypeChunkFilter.Archetype == null)
+            if (!GetArchetypeChunkFilterWithRemovedComponent(srcChunk, componentType, out var archetypeChunkFilter))
                 return false;
 
             Move(entityBatchInChunk, ref archetypeChunkFilter);
@@ -228,13 +226,25 @@ namespace Unity.Entities
             }
         }
 
-        // Shared codepath for SetSharedComponent(query) and AddComponent(query)
+        // This variant sets the shared component value for all entities in a chunk. If only a subset of entities should
+        // take the new value, use a different variant.
+        public void SetSharedComponentDataIndexForChunk(ChunkIndex chunk, Archetype* chunkArchetype, ComponentType componentType, int dstSharedComponentDataIndex)
+        {
+            if (!GetArchetypeChunkFilterWithChangedSharedComponent(chunk, componentType, dstSharedComponentDataIndex, out var archetypeChunkFilter))
+                return; // this chunk already has the desired shared component value
+            // All entities in the chunk are enabled; set the value en masse
+            ChunkDataUtility.SetSharedComponentDataIndex(chunk, chunkArchetype,
+                archetypeChunkFilter.SharedComponentValues, componentType.TypeIndex);
+        }
+
+
+        // Shared codepath for SetSharedComponent(query) and AddComponent(query). This variant handles changing the value
+        // for multiple entities in a chunk, according to the provided enabledMask. The caller is responsible for allocating the
+        // chunkBatches array (generally with a stackalloc).
         void SetSharedComponentDataIndexForChunk(ChunkIndex chunk, Archetype* chunkArchetype,
             ComponentType componentType, int sharedComponentIndex, byte useEnabledMask, v128 chunkEnabledMask, EntityBatchInChunk* chunkBatches)
         {
-            var archetypeChunkFilter =
-                GetArchetypeChunkFilterWithChangedSharedComponent(chunk, componentType, sharedComponentIndex);
-            if (archetypeChunkFilter.Archetype == null)
+            if (!GetArchetypeChunkFilterWithChangedSharedComponent(chunk, componentType, sharedComponentIndex, out var archetypeChunkFilter))
                 return; // this chunk already has the desired shared component value
             if (useEnabledMask == 0)
             {
@@ -539,9 +549,8 @@ namespace Unity.Entities
 
         public void SetSharedComponentDataIndex(Entity entity, ComponentType componentType, int dstSharedComponentDataIndex)
         {
-            var archetypeChunkFilter = GetArchetypeChunkFilterWithChangedSharedComponent(GetChunk(entity), componentType, dstSharedComponentDataIndex);
-            if (archetypeChunkFilter.Archetype == null)
-                return;
+            if (!GetArchetypeChunkFilterWithChangedSharedComponent(GetChunk(entity), componentType, dstSharedComponentDataIndex, out var archetypeChunkFilter))
+                return; // The chunk already has the requested shared component value
 
             ChunkDataUtility.SetSharedComponentDataIndex(entity, archetypeChunkFilter.Archetype, archetypeChunkFilter.SharedComponentValues, componentType.TypeIndex);
         }

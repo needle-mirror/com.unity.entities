@@ -11,7 +11,8 @@ namespace Unity.Entities.Editor
 
         public static IEnumerable<ComponentViewData> GetComponentDataFromQuery(this EntityQuery query)
         {
-            var desc = query.GetEntityQueryDesc();
+            // TODO(ECSB-387): This method does not support queries with >1 query descriptions, each of which should be represented individually.
+            var desc = query.GetEntityQueryDescs()[0];
             return desc.All.Concat(desc.Any)
                 .Select(t => new ComponentViewData(t.GetManagedType(), TypeUtility.GetTypeDisplayName(t.GetManagedType()), t.AccessModeType, GetComponentKind(t)))
                 .Concat(desc.None.Select(t => new ComponentViewData(t.GetManagedType(), TypeUtility.GetTypeDisplayName(t.GetManagedType()), ComponentType.AccessMode.Exclude, GetComponentKind(t))))

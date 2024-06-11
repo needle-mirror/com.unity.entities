@@ -1,4 +1,5 @@
 ﻿using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
@@ -66,23 +67,26 @@ namespace Unity.Entities.CodeGen.Cloner
 
             // If we are using a display class in a method but not in the source, we need to remove the display class usage
             // (otherwise Mono will get confused when trying to debug multiple sequence points that point to the same source file location)
-            var displayClassesUsedInOriginal = GetAllDisplayClassUsagesInMethod(originalMethod);
-            var displayClassesUsedInRewritten = GetAllDisplayClassUsagesInMethod(rewrittenMethod);
-
+            // Similarly we need to remove all local functions declared in the original method.
+            var (displayClassesUsedInOriginal, localFunctionsUsedInOriginal) =
+                GetDisplayClassAndLocalFunctionUsages(originalMethod, true);
+            var (displayClassesUsedInRewritten, _) = GetDisplayClassAndLocalFunctionUsages(rewrittenMethod, false);
             foreach (var originalDisplayClass in displayClassesUsedInOriginal)
             {
-                if (!displayClassesUsedInRewritten.Contains(originalDisplayClass) && originalMethod.DeclaringType.NestedTypes.Contains(originalDisplayClass))
+                if (!displayClassesUsedInRewritten.Contains(originalDisplayClass) &&
+                    originalMethod.DeclaringType.NestedTypes.Contains(originalDisplayClass))
                 {
                     originalMethod.DeclaringType.NestedTypes.Remove(originalDisplayClass);
-
-                    var methodsToRemove = new List<MethodDefinition>(typeDef.Methods.Count);
-                    foreach (var displayMethodCandidate in typeDef.Methods)
-                        if (displayMethodCandidate.Parameters.FirstOrDefault()?.ParameterType.GetElementType() == originalDisplayClass)
-                            methodsToRemove.Add(displayMethodCandidate);
-                    foreach (var methodToRemove in methodsToRemove)
-                        typeDef.Methods.Remove(methodToRemove);
+                    for (var i = typeDef.Methods.Count - 1; i >= 0; i--)
+                    {
+                        if (typeDef.Methods[i].Parameters.FirstOrDefault()?.ParameterType.GetElementType() ==
+                            originalDisplayClass)
+                            typeDef.Methods.RemoveAt(i);
+                    }
                 }
             }
+            foreach (var localFunction in localFunctionsUsedInOriginal)
+                typeDef.Methods.Remove(localFunction);
 
             originalMethod.Body = rewrittenMethod.Body;
             typeDef.Methods.Remove(rewrittenMethod);
@@ -106,9 +110,15 @@ namespace Unity.Entities.CodeGen.Cloner
         }
 
         // Check both field and variable usages for display classes
-        static HashSet<TypeDefinition> GetAllDisplayClassUsagesInMethod(MethodDefinition method)
+        // Also scan method IL for display class or local function usages
+        // (need to use heuristic since there is nothing that marks a method as a local function or display class in IL)
+        static (HashSet<TypeDefinition>, HashSet<MethodDefinition>)
+            GetDisplayClassAndLocalFunctionUsages(MethodDefinition method, bool alsoGetLocalFunctions)
         {
             var displayClassesUsedInMethod = new HashSet<TypeDefinition>();
+            HashSet<MethodDefinition> localFunctionUsagesInMethod = null;
+            if (alsoGetLocalFunctions)
+                localFunctionUsagesInMethod = new HashSet<MethodDefinition>();
 
             foreach (var local in method.Body.Variables.Where(local => local.VariableType.IsDisplayClassCandidate()))
                 displayClassesUsedInMethod.Add(local.VariableType.Resolve());
@@ -127,10 +137,22 @@ namespace Unity.Entities.CodeGen.Cloner
                     if (methodOperand.DeclaringType.IsDisplayClassCandidate())
                         displayClassesUsedInMethod.Add(method.DeclaringType.Resolve());
                 }
+                else if (alsoGetLocalFunctions && instruction.OpCode == OpCodes.Call ||
+                         instruction.OpCode == OpCodes.Callvirt)
+                {
+                    var methodOperand = (MethodReference)instruction.Operand;
+                    if (methodOperand.DeclaringType.FullName == method.DeclaringType.FullName)
+                    {
+                        var calledMethod = methodOperand.Resolve();
+                        if (calledMethod != null && calledMethod.IsLocalFunctionCandidate())
+                        {
+                            localFunctionUsagesInMethod.Add(calledMethod);
+                        }
+                    }
+                }
             }
 
-            return displayClassesUsedInMethod;
+            return (displayClassesUsedInMethod, localFunctionUsagesInMethod);
         }
-
     }
 }

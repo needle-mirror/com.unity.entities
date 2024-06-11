@@ -1,5 +1,4 @@
 using System.Collections;
-using System.Runtime.CompilerServices;
 using Unity.Collections;
 using Unity.Burst.Intrinsics;
 using Unity.Collections.LowLevel.Unsafe;
@@ -195,6 +194,12 @@ namespace Unity.Entities
         public unsafe void Update(SystemBase system) {}
     }
 
+    public struct DynamicComponentTypeHandle
+    {
+        public unsafe void Update(ref SystemState state) {}
+        public unsafe void Update(SystemBase system) {}
+    }
+
     public struct SharedComponentTypeHandle<T>
     {
         public unsafe void Update(ref SystemState state) {}
@@ -210,15 +215,19 @@ namespace Unity.Entities
     public struct EnabledMask
     {
         public unsafe EnabledRefRW<T> GetEnabledRefRW<T>(int index)
-            where T : unmanaged, IComponentData, IEnableableComponent => default;
+            where T : unmanaged, IEnableableComponent => default;
         public EnabledRefRO<T> GetEnabledRefRO<T>(int index)
-            where T : unmanaged, IComponentData, IEnableableComponent => default;
+            where T : unmanaged, IEnableableComponent => default;
 
         public unsafe EnabledRefRW<T> GetOptionalEnabledRefRW<T>(int index)
-            where T : unmanaged, IComponentData, IEnableableComponent => default;
+            where T : unmanaged, IEnableableComponent => default;
+        public unsafe EnabledRefRW<T> GetEnabledRefRWOptional<T>(int index)
+            where T : unmanaged, IEnableableComponent => default;
 
         public EnabledRefRO<T> GetOptionalEnabledRefRO<T>(int index)
-            where T : unmanaged, IComponentData, IEnableableComponent => default;
+            where T : unmanaged, IEnableableComponent => default;
+        public EnabledRefRO<T> GetEnabledRefROOptional<T>(int index)
+            where T : unmanaged, IEnableableComponent => default;
     }
     public unsafe struct ArchetypeChunk : IEquatable<ArchetypeChunk>
     {
@@ -233,6 +242,11 @@ namespace Unity.Entities
             where T : unmanaged, IBufferElementData => default;
         public EnabledMask GetEnabledMask<T>(ref ComponentTypeHandle<T> chunkComponentTypeHandle)
             where T : unmanaged, IComponentData, IEnableableComponent
+            => default;
+        public EnabledMask GetEnabledMask<T>(ref BufferTypeHandle<T> chunkBufferTypeHandle)
+            where T : unmanaged, IBufferElementData, IEnableableComponent
+            => default;
+        public EnabledMask GetEnabledMask(ref DynamicComponentTypeHandle chunkComponentTypeHandle)
             => default;
 
         public T GetSharedComponent<T>(SharedComponentTypeHandle<T> aspect2EcsTestSharedCompScAc) => default;
@@ -284,6 +298,15 @@ namespace Unity.Entities
         public void Update(ref SystemState systemState){}
         public DynamicBuffer<T> this[Entity e] => default;
         public bool HasBuffer(Entity entity) => default;
+        public EnabledRefRW<T2> GetEnabledRefRW<T2>(Entity entity)
+            where T2 : unmanaged, IBufferElementData, IEnableableComponent => default;
+        public EnabledRefRW<T2> GetEnabledRefRWOptional<T2>(Entity entity)
+            where T2 : unmanaged, IBufferElementData, IEnableableComponent => default;
+
+        public EnabledRefRO<T2> GetEnabledRefRO<T2>(Entity entity)
+            where T2 : unmanaged, IBufferElementData, IEnableableComponent => default;
+        public EnabledRefRO<T2> GetEnabledRefROOptional<T2>(Entity entity)
+            where T2 : unmanaged, IBufferElementData, IEnableableComponent => default;
     }
 
     public unsafe struct EntityStorageInfoLookup

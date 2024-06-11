@@ -1006,6 +1006,68 @@ namespace Unity.Entities
             return default;
         }
 
+        /// <summary>
+        /// Sets the shared component on a chunk.
+        /// </summary>
+        /// <remarks>
+        /// Changing a shared component value of a chunk results effectively changes the value for all entities in that chunk.
+        /// This is generally more efficient than setting the values individually on each entity.
+        ///
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before setting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
+        /// </remarks>
+        /// <param name="chunk">The target chunk</param>
+        /// <param name="componentData">An unmanaged shared component object containing the values to set.</param>
+        /// <typeparam name="T">The shared component type.</typeparam>
+        [StructuralChangeMethod]
+        [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleSharedComponentData) })]
+        public void SetSharedComponent<T>(ArchetypeChunk chunk, T componentData) where T : unmanaged, ISharedComponentData
+        {
+            var access = GetCheckedEntityDataAccess();
+            var changes = access->BeginStructuralChanges();
+            var ti = TypeManager.GetTypeIndex<T>();
+            Assert.IsFalse(TypeManager.IsManagedSharedComponent(ti));
+            var defaultValue = default(T);
+            access->SetSharedComponentData_Unmanaged(chunk, ti, UnsafeUtility.AddressOf(ref componentData), UnsafeUtility.AddressOf(ref defaultValue));
+            access->EndStructuralChanges(ref changes);
+        }
+
+        /// <summary>
+        /// Sets the shared component on a chunk.
+        /// </summary>
+        /// <remarks>
+        /// Changing a shared component value of a chunk results effectively changes the value for all entities in that chunk.
+        /// This is generally more efficient than setting the values individually on each entity.
+        ///
+        /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
+        /// currently running jobs to complete before setting the component. No additional jobs can start before
+        /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not
+        /// be able to use the processing power of all available cores.
+        /// </remarks>
+        /// <param name="chunk">The target chunk</param>
+        /// <param name="componentData">An unmanaged shared component object containing the values to set.</param>
+        /// <typeparam name="T">The shared component type.</typeparam>
+        [StructuralChangeMethod]
+        [ExcludeFromBurstCompatTesting("Accesses managed component store")]
+        public void SetSharedComponentManaged<T>(ArchetypeChunk chunk, T componentData) where T : struct, ISharedComponentData
+        {
+            var access = GetCheckedEntityDataAccess();
+            var changes = access->BeginStructuralChanges();
+            var ti = TypeManager.GetTypeIndex<T>();
+
+            if (TypeManager.IsManagedSharedComponent(ti))
+            {
+                access->SetSharedComponentData_Managed(chunk, componentData);
+            }
+            else
+            {
+                var defaultValue = default(T);
+                access->SetSharedComponentData_Unmanaged(chunk, ti, UnsafeUtility.AddressOf(ref componentData), UnsafeUtility.AddressOf(ref defaultValue));
+            }
+            access->EndStructuralChanges(ref changes);
+        }
 
         /// <summary>
         /// Gets a shared component from an entity.
@@ -4096,6 +4158,29 @@ namespace Unity.Entities
             var access = GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
             return ecs->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<T>());
+        }
+        /// <summary>
+        /// Gets the version number of the specified component type.
+        /// </summary>
+        /// <remarks>This version number is incremented each time there is a structural change involving the specified
+        /// type of component. Such changes include creating or destroying entities that have this component and adding
+        /// or removing the component type from an entity. Shared components are not covered by this version;
+        /// see <see cref="GetSharedComponentOrderVersion{T}(T)"/>.
+        ///
+        /// Version numbers can overflow. To compare if one version is more recent than another, directly checking if
+        /// VersionB is greater than VersionA is not sufficient. Instead, use the helper function:
+        ///
+        /// <code>
+        /// bool VersionBisNewer = ChangeVersionUtility.DidChange(VersionB, VersionA);
+        /// </code>
+        /// </remarks>
+        /// <param name="componentType">The component type.</param>
+        /// <returns>The current version number.</returns>
+        public int GetComponentOrderVersion(ComponentType componentType)
+        {
+            var access = GetCheckedEntityDataAccess();
+            var ecs = access->EntityComponentStore;
+            return ecs->GetComponentTypeOrderVersion(componentType.TypeIndex);
         }
 
         // @TODO documentation for serialization/deserialization
