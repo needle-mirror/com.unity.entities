@@ -823,7 +823,9 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             ecb.AddComponent<EcsTestData2>(query, EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -862,7 +864,9 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             ecb.AddComponent(query, ComponentType.ReadWrite<EcsTestData2>(), EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -944,7 +948,9 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             ecb.AddComponent(query, componentTypes, EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -987,7 +993,9 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             ecb.AddSharedComponent(query, new EcsTestSharedComp { value = 17 }, EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1118,7 +1126,9 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             ecb.SetSharedComponent(query, new EcsTestSharedComp { value = 17 }, EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1160,7 +1170,9 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             ecb.RemoveComponent(query, ComponentType.ReadWrite<EcsTestData>(), EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1199,7 +1211,9 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             ecb.RemoveComponent<EcsTestData>(query, EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1241,7 +1255,9 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             ecb.RemoveComponent(query, componentTypes, EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;
@@ -1284,7 +1300,9 @@ namespace Unity.Entities.Tests
 
             using var query = m_Manager.CreateEntityQuery(typeof(EcsTestData));
             using var ecb = new EntityCommandBuffer(World.UpdateAllocator.Handle);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             ecb.DestroyEntity(query, EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             var ecbView = new EntityCommandBuffer.EntityCommandBufferDebugView(ecb);
 
             var commands = ecbView.Commands;

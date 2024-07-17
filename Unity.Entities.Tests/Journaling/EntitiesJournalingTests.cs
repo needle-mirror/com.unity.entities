@@ -1793,7 +1793,9 @@ namespace Unity.Entities.Tests
             var ecb2 = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             {
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 ecb2.AddComponent(query, typeof(EcsTestData), EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             }
             // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
             ecb2.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;
@@ -1823,7 +1825,9 @@ namespace Unity.Entities.Tests
             var ecb2 = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
             using (var query = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 ecb2.SetSharedComponent(query, new EcsTestSharedComp { value = 10 }, EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
             }
             // NOTE: ECB playback being bursted does not add to the error message, so we are disabling it for the test
             ecb2.m_Data->m_MainThreadChain.m_CanBurstPlayback = false;

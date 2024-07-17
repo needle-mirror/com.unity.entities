@@ -4,6 +4,24 @@ uid: changelog
 
 # Changelog
 
+## [1.3.0-pre.4] - 2024-07-17
+
+### Changed
+
+* Updated Burst dependency to version 1.8.16
+
+### Deprecated
+
+* The `ENABLE_SIMPLE_SYSTEM_DEPENDENCIES` feature will be removed in a future package release, as it no longer provides significant benefit for expected DOTS workloads.
+* The `EntityQueryCaptureMode.AtRecord` enum value in `EntityCommandBuffer` is now deprecated. All users should migrate to `EntityQueryCaptureMode.AtPlayback`. Capture-at-record mode can be several hundred times slower than capture-at-playback. If capture-at-record semantics are required and performance isn't a concern, the array of entities matching the query can be captured manually and passed to the corresponding `EntityCommandBuffer` command.
+
+### Fixed
+
+* Usage of SystemAPI.GetComponentRW and SystemAPI.GetComponentRO in Entities.ForEach.
+* Regression in compilation time with assemblies with lots of system methods.
+* EntityComponentStore leaked memory during domain reload.
+
+
 ## [1.3.0-exp.1] - 2024-06-11
 
 ### Added

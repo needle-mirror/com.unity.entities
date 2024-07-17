@@ -13,6 +13,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         {
             World.CreateSystem<TestTime>();
             World.CreateSystem<TestGetAspectRW>();
+            World.CreateSystem<TestGetComponentRW>();
             World.CreateSystem<WithStructuralChangeNoCapture>();
         }
 
@@ -24,7 +25,11 @@ namespace Unity.Entities.Tests.TestSystemAPI
         #region Aspect
         [Test]
         public void GetAspectRW() => World.GetExistingSystem<TestGetAspectRW>().Update(World.Unmanaged);
+        #endregion
 
+        #region GetComponentRW
+        [Test]
+        public void GetComponentRW() => World.GetExistingSystem<TestGetComponentRW>().Update(World.Unmanaged);
         #endregion
 
         #region StructuralChange
@@ -56,8 +61,6 @@ namespace Unity.Entities.Tests.TestSystemAPI
     }
 
     partial class TestGetAspectRW : SystemBase {
-        protected override void OnCreate() {}
-        protected override void OnDestroy() {}
         protected override void OnUpdate() {
             var e = EntityManager.CreateEntity(
                 typeof(LocalTransform),
@@ -77,7 +80,30 @@ namespace Unity.Entities.Tests.TestSystemAPI
         }
     }
 
-#endregion
+    #endregion
+
+    #region GetComponentRW
+
+    partial class TestGetComponentRW : SystemBase {
+        protected override void OnUpdate() {
+            var e = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(e, new EcsTestData(1));
+            var containingEntity = EntityManager.CreateEntity();
+            EntityManager.AddComponentData(containingEntity, new EcsTestDataEntity(1, e));
+            
+            Entities.ForEach((in EcsTestDataEntity dataEntity) =>
+            {
+                var data = SystemAPI.GetComponentRW<EcsTestData>(dataEntity.value1);
+                data.ValueRW = new EcsTestData(2);
+            }).Run();
+
+            Entities.ForEach((in EcsTestDataEntity dataEntity) =>
+                Assert.AreEqual(2, SystemAPI.GetComponentRO<EcsTestData>(dataEntity.value1).ValueRO.value)
+            ).Run();
+        }
+    }
+
+    #endregion
 
     #region StructuralChange
     partial class WithStructuralChangeNoCapture : SystemBase {

@@ -101,7 +101,9 @@ namespace Unity.Entities.Tests
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
                 AssertThrowsIfAnyJobNotCompleted(() => cmds.AddComponent(_syncChangeFilterTypesSystem.EntityQuery,
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                     typeof(EcsTestData3), EntityQueryCaptureMode.AtRecord));
+#pragma warning restore
             }
         }
 
@@ -112,7 +114,9 @@ namespace Unity.Entities.Tests
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
                 AssertThrowsIfAnyJobNotCompleted(() => cmds.RemoveComponent(_syncChangeFilterTypesSystem.EntityQuery,
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                     typeof(EcsTestData), EntityQueryCaptureMode.AtRecord));
+#pragma warning restore
             }
         }
 
@@ -122,7 +126,9 @@ namespace Unity.Entities.Tests
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 AssertThrowsIfAnyJobNotCompleted(() => cmds.DestroyEntity(_syncChangeFilterTypesSystem.EntityQuery, EntityQueryCaptureMode.AtRecord));
+#pragma warning restore
             }
         }
 
@@ -132,7 +138,9 @@ namespace Unity.Entities.Tests
         {
             using (EntityCommandBuffer cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator))
             {
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 AssertThrowsIfAnyJobNotCompleted(() => cmds.AddSharedComponent(_syncChangeFilterTypesSystem.EntityQuery, new EcsTestSharedComp(7), EntityQueryCaptureMode.AtRecord));
+#pragma warning restore
             }
         }
 

@@ -22,17 +22,20 @@ namespace Unity.Entities.Build
             rootElement.styleSheets.Add(stylesheet);
             rootElement.AddToClassList("sb-settings-window");
 
-            var title = new Label("Entities");
+            var title = new Label("Build");
             title.AddToClassList("title");
             rootElement.Add(title);
+
+            var subTitle = new Label("Entities");
+            subTitle.AddToClassList("subtitle");
+            rootElement.Add(subTitle);
 
             var element = new VisualElement();
             element.AddToClassList("body");
 
             // Activate providers
-            for (int i = 0; i < instance.Providers.Count; i++)
+            foreach (var extraSetting in instance.Providers)
             {
-                var extraSetting = instance.Providers[i];
                 extraSetting.OnActivate(instance.GetPlayerType(), element);
             }
             rootElement.Add(element);
@@ -43,7 +46,13 @@ namespace Unity.Entities.Build
         [SettingsProvider]
         public static SettingsProvider CreateDotsGlobalSettingsProvider()
         {
-            return new EntitiesBuildSettingsProvider("Project/Entities/Build", SettingsScope.Project);
+            var projectSettingsPath = "Project/Entities/Build";
+            var instance = DotsGlobalSettings.Instance;
+            if (instance.ServerProvider != null)
+            {
+                projectSettingsPath = instance.ServerProvider.ProviderPath;
+            }
+            return new EntitiesBuildSettingsProvider(projectSettingsPath, SettingsScope.Project);
         }
     }
 }

@@ -10,6 +10,14 @@ using Unity.Profiling;
 
 namespace Unity.Entities
 {
+#if ENABLE_SIMPLE_SYSTEM_DEPENDENCIES
+// Defining ENABLE_SIMPLE_SYSTEM_DEPENDENCIES slightly improved performance in cases where the application contains zero inter-system job dependencies
+// (i.e. all jobs are completed in the same system that schedules them).
+// The performance difference is negligible in more recent Entities releases, and the sync points resulting from this "simple" DOTS usage are most often
+// much larger than the savings from using a simpler ComponentDependencyManager implementation. The feature has been marked for deprecation.
+#warning ENABLE_SIMPLE_SYSTEM_DEPENDENCIES has been deprecated; defining it will have no longer have any effect in a future Entities release.
+#endif
+
     /// <summary>
     /// The ComponentDependencyManager maintains JobHandles for each type with any jobs that read or write those component types.
     /// ComponentSafetyHandles which is embedded maintains a safety handle for each component type registered in the TypeManager.

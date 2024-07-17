@@ -135,7 +135,9 @@ namespace Unity.Entities.Tests
             using(var query = m_Manager.CreateEntityQuery(typeof(EcsTestData)))
             using(var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator, PlaybackPolicy.SinglePlayback))
             {
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 cmds.AddComponent<EcsTestTag>(query, EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
                 Assert.IsFalse(CleanupListsAreEmpty(cmds), "ECB has empty cleanup lists prior to playback");
 
                 cmds.Playback(m_Manager);
@@ -157,7 +159,9 @@ namespace Unity.Entities.Tests
             using(var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator, PlaybackPolicy.SinglePlayback))
             {
                 cmds.AddComponent<EcsTestData2>(ent);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 cmds.AddComponent<EcsTestTag>(query, EntityQueryCaptureMode.AtRecord); // entity array is captured here
+#pragma warning restore
                 Assert.IsFalse(CleanupListsAreEmpty(cmds), "ECB has empty cleanup lists prior to playback");
 
                 m_Manager.DestroyEntity(ent); // this will force an ECB playback error before the entity array command is played back
@@ -1867,8 +1871,10 @@ namespace Unity.Entities.Tests
                 using var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator);
                 CollectionAssert.AreEquivalent(new[] { entity1, entity2, entity3 }, entities.ToArray());
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity1), "EcsTestData2 should not have been added");
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
                     m_Manager.HasComponent<EcsTestData2>(entity2)); // this entity was modified between recording and playback
+#pragma warning restore
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity3), "EcsTestData2 should have been added");
             }
         }
@@ -1893,7 +1899,9 @@ namespace Unity.Entities.Tests
                 cmds.AddComponent(entityQuery, new ComponentTypeSet(typeof(EcsTestData2), typeof(EcsTestData3)),
                     queryCaptureMode);
 
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 if (queryCaptureMode == EntityQueryCaptureMode.AtRecord)
+#pragma warning restore
                 {
                     // modifying the entity in between recording and playback should be OK
                     m_Manager.SetSharedComponentManaged(entity2, new EcsTestSharedComp { value = 200 });
@@ -1916,7 +1924,9 @@ namespace Unity.Entities.Tests
                             Assert.IsFalse(m_Manager.HasComponent<EcsTestData3>(e));
                         } else
                         {
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                             Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord ? 200 : 130, shared.value);
+#pragma warning restore
                             Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(e));
                             Assert.IsTrue(m_Manager.HasComponent<EcsTestData3>(e));
                         }
@@ -1975,8 +1985,10 @@ namespace Unity.Entities.Tests
                 using var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator);
                 CollectionAssert.AreEquivalent(new[] { entity1, entity2, entity3 }, entities.ToArray());
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity1), "EcsTestData should not have been remove");
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
                     !m_Manager.HasComponent<EcsTestData>(entity2)); // this entity was modified between recording and playback
+#pragma warning restore
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(entity3), "EcsTestData2 should have been removed");
             }
         }
@@ -2015,10 +2027,12 @@ namespace Unity.Entities.Tests
                 CollectionAssert.AreEquivalent(new[] { entity1, entity2, entity3 }, entities.ToArray());
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData>(entity1), "EcsTestData should not have been removed");
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestData2>(entity1), "EcsTestData2 should not have been removed");
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
                     !m_Manager.HasComponent<EcsTestData>(entity2)); // this entity was modified between recording and playback
                 Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
                     !m_Manager.HasComponent<EcsTestData2>(entity2)); // this entity was modified between recording and playback
+#pragma warning restore
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestData>(entity3), "EcsTestData should have been removed");
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestData2>(entity3), "EcsTestData2 should have been removed");
             }
@@ -2157,7 +2171,9 @@ namespace Unity.Entities.Tests
             using (var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp)))
             {
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 cmds.AddComponent(entityQuery, typeof(EcsTestData2), EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent1);
 
                 // modifying the entity in between recording and playback should be OK
@@ -2203,7 +2219,9 @@ namespace Unity.Entities.Tests
             {
                 var entityQuery = m_Manager.CreateEntityQuery(typeof(EcsTestSharedComp));
                 entityQuery.SetSharedComponentFilterManaged(sharedComponent2);
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 cmds.AddComponent(entityQuery, typeof(EcsTestData2), EntityQueryCaptureMode.AtRecord);
+#pragma warning restore
 
                 // modifying the entity in between recording and playback should be OK
                 m_Manager.AddComponent<EcsTestData3>(entityQuery);
@@ -4939,8 +4957,10 @@ namespace Unity.Entities.Tests
                 using var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator);
                 CollectionAssert.AreEquivalent(new[] { entity1, entity2, entity3 }, entities.ToArray());
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent2>(entity1), "EcsTestManagedComponent2 should not have been added");
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
                     m_Manager.HasComponent<EcsTestManagedComponent2>(entity2)); // this entity was modified between recording and playback
+#pragma warning restore
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent2>(entity3), "EcsTestManagedComponent2 should have been added");
             }
         }
@@ -4978,8 +4998,10 @@ namespace Unity.Entities.Tests
                 using var entities = m_Manager.GetAllEntities(World.UpdateAllocator.ToAllocator);
                 CollectionAssert.AreEquivalent(new[] { entity1, entity2, entity3 }, entities.ToArray());
                 Assert.IsFalse(m_Manager.HasComponent<EcsTestManagedComponent2>(entity1), "EcsTestManagedComponent2 should not have been added");
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
                 Assert.AreEqual(queryCaptureMode == EntityQueryCaptureMode.AtRecord,
                     m_Manager.HasComponent<EcsTestManagedComponent2>(entity2)); // this entity was modified between recording and playback
+#pragma warning restore
                 Assert.IsTrue(m_Manager.HasComponent<EcsTestManagedComponent2>(entity3), "EcsTestManagedComponent2 should have been added");
             }
         }
@@ -5416,7 +5438,9 @@ namespace Unity.Entities.Tests
                 Assert.Throws<InvalidOperationException>(() => cmds.Instantiate(e,outEntities));
             }
             Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(e));
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(query, EntityQueryCaptureMode.AtRecord));
+#pragma warning restore
             Assert.Throws<InvalidOperationException>(() => cmds.DestroyEntity(query, EntityQueryCaptureMode.AtPlayback));
             Assert.Throws<InvalidOperationException>(() => cmds.AddBuffer<EcsIntElement>(e));
             Assert.Throws<InvalidOperationException>(() => cmds.SetBuffer<EcsIntElement>(e));
@@ -5426,11 +5450,15 @@ namespace Unity.Entities.Tests
             Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(e, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>())));
             Assert.Throws<InvalidOperationException>(() => cmds.SetComponent(e, new EcsTestData2(10)));
             Assert.Throws<InvalidOperationException>(() => cmds.SetComponent(e, new EcsTestData2(10)));
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(query, ComponentType.ReadOnly<EcsTestData2>(), EntityQueryCaptureMode.AtRecord));
+#pragma warning restore
             Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(query, ComponentType.ReadOnly<EcsTestData2>(), EntityQueryCaptureMode.AtPlayback));
             Assert.Throws<InvalidOperationException>(() => cmds.AddComponent(e, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData2>())));
             Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent<EcsTestData>(e));
+#pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent(query, ComponentType.ReadOnly<EcsTestData>(), EntityQueryCaptureMode.AtRecord));
+#pragma warning restore
             Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent(query, ComponentType.ReadOnly<EcsTestData>(), EntityQueryCaptureMode.AtPlayback));
             Assert.Throws<InvalidOperationException>(() => cmds.RemoveComponent(e, new ComponentTypeSet(ComponentType.ReadOnly<EcsTestData>())));
 #if !UNITY_DISABLE_MANAGED_COMPONENTS

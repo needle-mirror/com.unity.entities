@@ -71,6 +71,8 @@ namespace Unity.Entities.Build
             get { return 0; }
         }
 
+        public virtual string ProviderPath { get; set; } = "Project/Entities/Build";
+
         /// <summary>
         /// Provides extra scripting defines to add into the player build.
         /// </summary>
