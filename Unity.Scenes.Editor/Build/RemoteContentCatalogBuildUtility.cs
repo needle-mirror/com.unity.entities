@@ -36,7 +36,7 @@ namespace Unity.Entities.Content
             if (!string.IsNullOrEmpty(buildFolder))
             {
                 var buildTarget = EditorUserBuildSettings.activeBuildTarget;
-                var tmpBuildFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), $"/Library/ContentUpdateBuildDir/{PlayerSettings.productName}");
+                var tmpBuildFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), $"Library/ContentUpdateBuildDir/{PlayerSettings.productName}");
 
                 var instance = DotsGlobalSettings.Instance;
                 var playerGuid = instance.GetPlayerType() == DotsGlobalSettings.PlayerType.Client ? instance.GetClientGUID() : instance.GetServerGUID();

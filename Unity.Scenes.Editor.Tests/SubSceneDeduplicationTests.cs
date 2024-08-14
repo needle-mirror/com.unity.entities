@@ -25,7 +25,7 @@ public class SubSceneDeduplicationTests
             new(string, int[])[]
             {
                 ("t1.png", new int[] {}),     //texture with no refs
-                ("a1.asset", new int[] { 0 }),     //asset with ref to t1.png
+                ("a1.txt", new int[] { 0 }),     //asset with ref to t1.png
             },
             new(int, (int, int[]))[]
             {
@@ -41,8 +41,8 @@ public class SubSceneDeduplicationTests
             {
                 ("t1.png", new int[] {}),     //texture with no refs
                 ("t2.png", new int[] {}),     //texture with no refs
-                ("a1.asset", new int[] { 0, 1 }),     //asset with ref to t1.png & t2.png
-                ("a2.asset", new int[] { 0 }),     //asset with ref to t1.png
+                ("a1.txt", new int[] { 0, 1 }),     //asset with ref to t1.png & t2.png
+                ("a2.txt", new int[] { 0 }),     //asset with ref to t1.png
             },
             new(int, (int, int[]))[]
             {
@@ -59,9 +59,9 @@ public class SubSceneDeduplicationTests
                 ("t1.png", new int[] {}),     //texture with no refs
                 ("t2.png", new int[] {}),     //texture with no refs
                 ("t3.png", new int[] {}),     //texture with no refs
-                ("a1.asset", new int[] { 0, 1 }),     //asset with ref to t1.png & t2.png
-                ("a2.asset", new int[] { 0 }),     //asset with ref to t1.png
-                ("a3.asset", new int[] { 1, 2 }),     //asset with ref to t2.png & t3.png
+                ("a1.txt", new int[] { 0, 1 }),     //asset with ref to t1.png & t2.png
+                ("a2.txt", new int[] { 0 }),     //asset with ref to t1.png
+                ("a3.txt", new int[] { 1, 2 }),     //asset with ref to t2.png & t3.png
             },
             new(int, (int, int[]))[]
             {
@@ -80,10 +80,10 @@ public class SubSceneDeduplicationTests
                 ("t2.png", new int[] {}),     //texture with no refs
                 ("t3.png", new int[] {}),     //texture with no refs
                 ("t4.png", new int[] {}),     //texture with no refs
-                ("a1.asset", new int[] { 0 }),     //asset with ref to t1.png
-                ("a2.asset", new int[] { 1 }),     //asset with ref to t2.png
-                ("a3.asset", new int[] { 2 }),     //asset with ref to t3.png
-                ("a4.asset", new int[] { 3 }),     //asset with ref to t4.png
+                ("a1.txt", new int[] { 0 }),     //asset with ref to t1.png
+                ("a2.txt", new int[] { 1 }),     //asset with ref to t2.png
+                ("a3.txt", new int[] { 2 }),     //asset with ref to t3.png
+                ("a4.txt", new int[] { 3 }),     //asset with ref to t4.png
             },
             new(int, (int, int[]))[]
             {
@@ -163,36 +163,33 @@ public class SubSceneDeduplicationTests
     static ObjectIdentifier GetObjectIdentifier(string dir, string path)
     {
         path = Path.Combine(dir, path);
-        if (!File.Exists(path))
-        {
-            var ext = Path.GetExtension(path);
-            switch (ext)
-            {
-                case ".png":
-                    CreateTestTexture(path);
-                    break;
-                case ".asset":
-                    CreateTestAsset(path);
-                    break;
-            }
-        }
+        if (File.Exists(path))
+            File.Delete(path);
+
+		var ext = Path.GetExtension(path);
+		switch (ext)
+		{
+			case ".png":
+				CreateTestTexture(path);
+				break;
+			case ".txt":
+				CreateTestAsset(path);
+				break;
+		}
+
         var ids = ContentBuildInterface.GetPlayerObjectIdentifiersInAsset(new GUID(AssetDatabase.AssetPathToGUID(path)), EditorUserBuildSettings.activeBuildTarget);
         return ids.Length == 0 ? default : ids[0];
     }
-
     private static void CreateTestAsset(string path)
     {
-        Debug.Log($"Creating asset at path {path}");
-        var so = ScriptableObject.CreateInstance<ScriptableObject>();
-        AssetDatabase.CreateAsset(so, path);
+        File.WriteAllText(path, "asdf");
+        AssetDatabase.ImportAsset(path, ImportAssetOptions.Default);
     }
 
     private static void CreateTestTexture(string path)
     {
-        Debug.Log($"Creating texture at path {path}");
         var tex = new Texture2D(8, 8);
         File.WriteAllBytes(path, tex.EncodeToPNG());
-        var text = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
         AssetDatabase.ImportAsset(path, ImportAssetOptions.Default);
     }
 

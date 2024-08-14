@@ -46,22 +46,21 @@ namespace Unity.Entities.Editor.Tests
             var emptyArchetype = m_World.EntityManager.CreateArchetype();
             var entities = m_World.EntityManager.CreateEntity(emptyArchetype, 11, Allocator.Temp);
 
-            // This test relies on entities having specific indices and versions.
+            // This test relies on entities having specific indices.
             // But it also requires those entities to effectively exists.
             // As long as it runs in an empty world, it should be fine.
             // The following loop makes sure of that.
             for (int i = 0; i < entities.Length; i++)
             {
                 Assert.AreEqual(entities[i].Index, i);
-                Assert.AreEqual(entities[i].Version, 1);
             }
 
-            var entityA = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 5, 1), subSceneNode);
-            var entityB = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 6, 1), subSceneNode);
-            var entityC = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 7, 1));
-            var entityD = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 8, 1));
+            var entityA = m_HierarchyNodeStore.AddNode(HierarchyNodeHandle.FromEntity(entities[5]), subSceneNode);
+            var entityB = m_HierarchyNodeStore.AddNode(HierarchyNodeHandle.FromEntity(entities[6]), subSceneNode);
+            var entityC = m_HierarchyNodeStore.AddNode(HierarchyNodeHandle.FromEntity(entities[7]));
+            var entityD = m_HierarchyNodeStore.AddNode(HierarchyNodeHandle.FromEntity(entities[8]));
             dynamicSubSceneNode = m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.SubScene, 9), HierarchyNodeHandle.Root);
-            m_HierarchyNodeStore.AddNode(new HierarchyNodeHandle(NodeKind.Entity, 10, 1), dynamicSubSceneNode);
+            m_HierarchyNodeStore.AddNode(HierarchyNodeHandle.FromEntity(entities[10]), dynamicSubSceneNode);
             m_HierarchyNodeStore.SetSortIndex(entityA, 3);
             m_HierarchyNodeStore.SetSortIndex(entityB, 4);
             m_HierarchyNodeStore.SetSortIndex(entityC, 2);

@@ -83,13 +83,14 @@ public readonly struct SystemDescription : ISourceGeneratorDiagnosable
             if (containingMember is MethodDeclarationSyntax { Body: not null } methodDeclarationSyntax)
             {
                 var methodStatements = methodDeclarationSyntax.Body.DescendantNodes().OfType<StatementSyntax>();
+                StatementSyntax lastStatement = null;
                 foreach (var statement in methodStatements)
                 {
                     lineDirectiveStatements.Add(statement);
-                    if (statement == methodStatements.Last())
-                        hiddenDirectiveStatements.Add(statement);
-
+                    lastStatement = statement;
                 }
+                if (lastStatement != null)
+                    hiddenDirectiveStatements.Add(lastStatement);
             }
         }
 

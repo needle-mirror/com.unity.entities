@@ -91,6 +91,10 @@ namespace Unity.Entities
 
             World.DisposeAllWorlds();
 
+#if!ENTITY_STORE_V1
+            EntityComponentStore.s_entityStore.Data.Dispose();
+#endif
+
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             EntitiesJournaling.Shutdown();
 #endif
@@ -181,7 +185,6 @@ namespace Unity.Entities
             }
             AddSystemToRootLevelSystemGroupsInternal(world, systemTypeIndices);
         }
-        
 
         /// <summary>
         /// Adds the collection of systems to the world by injecting them into the root level system groups
@@ -199,12 +202,11 @@ namespace Unity.Entities
             }
             AddSystemToRootLevelSystemGroupsInternal(world, indices);
         }
-        
 
         /// <summary>
         /// Adds the collection of systems to the world by injecting them into the root level system groups
         /// (InitializationSystemGroup, SimulationSystemGroup and PresentationSystemGroup). This version avoids
-        /// unnecessary reflection. 
+        /// unnecessary reflection.
         /// </summary>
         /// <param name="world">The World in which the root-level system groups should be created.</param>
         /// <param name="systemTypes">The system types to create and add.</param>
@@ -243,7 +245,7 @@ namespace Unity.Entities
                     throw new InvalidOperationException("Bad type");
                 if (stype.IsManaged)
                     managedTypes.Add(stype);
-                else 
+                else
                     unmanagedTypes.Add(stype);
             }
 
@@ -297,7 +299,7 @@ namespace Unity.Entities
         private static ComponentSystemGroup FindGroup(World world, SystemTypeIndex systemType, TypeManager.SystemAttribute attr)
         {
             var groupTypeIndex = attr.TargetSystemTypeIndex;
-            
+
             if (!TypeManager.IsSystemTypeIndex(groupTypeIndex) || !groupTypeIndex.IsGroup)
             {
                 throw new InvalidOperationException($"Invalid [{nameof(UpdateInGroupAttribute)}] attribute for {systemType}: target group must be derived from {nameof(ComponentSystemGroup)}.");
@@ -360,7 +362,7 @@ namespace Unity.Entities
 
         /// <summary>
         /// Calculates a list of all systems filtered with WorldSystemFilterFlags, [DisableAutoCreation] etc. Prefer
-        /// GetAllSystemTypeIndices where possible to avoid extra reflection. 
+        /// GetAllSystemTypeIndices where possible to avoid extra reflection.
         /// </summary>
         /// <param name="filterFlags">The filter flags to search for.</param>
         /// <param name="requireExecuteInEditor">Optionally require that [WorldSystemFilter(WorldSystemFilterFlags.Editor)] is present on the system. This is used when creating edit mode worlds.</param>
@@ -377,7 +379,7 @@ namespace Unity.Entities
 
             return ret;
         }
-        
+
         /// <summary>
         /// Calculates a list of all systems filtered with WorldSystemFilterFlags, [DisableAutoCreation] etc.
         /// Prefer this over GetAllSystems if possible, to avoid extra reflection usage.

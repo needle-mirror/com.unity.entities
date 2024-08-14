@@ -274,7 +274,13 @@ namespace Unity.Scenes.Editor
 #if ENABLE_CONTENT_BUILD_DIAGNOSTICS
                     Debug.Log($"objIdToRTId {guid}, {lfid}, {path} using path override -> {pathOverrides[path]}");
 #endif
-                    return pathOverrides[path];
+                    if (!pathOverrides.TryGetValue(path, out var overrideId))
+                    {
+#if ENABLE_CONTENT_BUILD_DIAGNOSTICS
+                    Debug.Log($"Path override not found for {path}, skipping.");
+#endif
+                    }
+                    return overrideId;
                 }
                 var id = new UntypedWeakReferenceId { GlobalId = new RuntimeGlobalObjectId { AssetGUID = guid, SceneObjectIdentifier0 = lfid }, GenerationType = WeakReferenceGenerationType.UnityObject };
                 if (!weakAssetRefs.Contains(id))

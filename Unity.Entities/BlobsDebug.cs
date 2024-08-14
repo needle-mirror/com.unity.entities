@@ -138,7 +138,7 @@ namespace Unity.Entities.DebugProxies
             m_Members = new BlobMember[fields.Length];
             for (int i = 0; i < m_Members.Length; i++)
             {
-                var offset = (byte*) m_BasePtr + Marshal.OffsetOf<T>(fields[i].Name).ToInt32();
+                var offset = (byte*) m_BasePtr + UnsafeUtility.GetFieldOffset(fields[i]);
                 m_Members[i] = new BlobMember
                 {
                     Key = fields[i].Name,
@@ -195,6 +195,11 @@ namespace Unity.Entities.DebugProxies
 
     static class BlobProxy
     {
+        static unsafe object GetPrimitive<T>(IntPtr basePtr) where T : unmanaged
+        {
+            return *(T*)basePtr.ToPointer();
+        }
+
         static unsafe string UnpackString(void* basePtr)
         {
             // can't get the BlobString itself because that will trigger the Blob asset safety system
@@ -227,7 +232,8 @@ namespace Unity.Entities.DebugProxies
                 return Activator.CreateInstance(structType, new IntPtr(basePtr));
             }
 
-            return Marshal.PtrToStructure(new IntPtr(basePtr), type);
+            var makePrimitive = typeof(BlobProxy).GetMethod("GetPrimitive", BindingFlags.NonPublic | BindingFlags.Static)!.MakeGenericMethod(type);
+            return makePrimitive.Invoke(null, new object[] { new IntPtr(basePtr) });
         }
     }
 }

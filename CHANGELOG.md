@@ -4,6 +4,17 @@ uid: changelog
 
 # Changelog
 
+
+## [1.2.4] - 2024-08-14
+
+* Debug proxies (used by external debuggers) were sometimes using invalid field offsets when inspecting structs in blob assets. This led to incorrect values being reported in debugger watch windows. In particular, this would be triggered by the use of bool fields in blob asset structs.
+* Entity version numbers could go back to 1 after reallocation in some edge cases.
+* When building a content update, a temporary path was getting created in the drive root instead of the Library folder.  This would also cause content update builds to grow in size every time they were built.  The folder is now created in the Library correctly.
+* Error in build when sprites are contained in subscenes has been removed.
+* Regression in compilation time with assemblies with lots of system methods.
+* EntityComponentStore leaked memory during domain reload.
+
+
 ## [1.2.3] - 2024-05-30
 
 ### Fixed
@@ -19,6 +30,7 @@ uid: changelog
 
 
 ## [1.2.1] - 2024-04-26
+
 
 ### Changed
 

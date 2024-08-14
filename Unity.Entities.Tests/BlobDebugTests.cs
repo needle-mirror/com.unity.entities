@@ -12,6 +12,8 @@ using Unity.Collections.LowLevel.Unsafe;
 using Assert = NUnit.Framework.Assert;
 using Unity.Mathematics;
 using System.IO;
+using System.Linq;
+using System.Runtime.InteropServices;
 using Unity.Entities.DebugProxies;
 using Unity.Entities.Serialization;
 using Unity.Entities.LowLevel.Unsafe;
@@ -49,6 +51,13 @@ public class BlobDebugTests
     {
         public int Value;
         public BlobArray<BlobString> ArrayOfStrings;
+    }
+
+    struct BlobStructWithALayoutThatDoesntMatchItsMarshallingLayout
+    {
+        public bool a;
+        public bool b;
+        public int c;
     }
 
     [Test]
@@ -191,5 +200,56 @@ public class BlobDebugTests
         Assert.AreEqual(typeof(BlobArrayDebug<BlobString>), bs.Members[1].Value.GetType());
         var arr = (BlobArrayDebug<BlobString>)bs.Members[1].Value;
         CollectionAssert.AreEqual(new []{"One", "Two", "Three"}, arr.Entries);
+    }
+
+    [Test]
+    public void BlobAssetReferenceDebugProxy_WorksWithTypesHavingADifferentMarshallingLayout()
+    {
+        // The struct contains the following fields:
+        // a : bool
+        // b : bool
+        // c : int
+        // In memory, boolean values might take only one byte, so the layout would be:
+        // a : size 1 offset 0
+        // b : size 1 offset 1
+        // c : size 4 offset 4
+        // The full size of the struct being 8 bytes, with two bytes of padding between b and c.
+
+        // That exact memory layout is not guaranteed as far as I can tell.
+
+        // But the marshalling struct uses 4 bytes for booleans, giving the following layout:
+        // a : size 4 offset 0
+        // b : size 4 offset 4
+        // c : size 4 offset 8
+        // The full size being now 12 bytes, with no padding.
+
+        // This test validates that debugging proxies for blobs using such a struct will display the
+        // right data. We used to mistakenly have a mix of marshalled and non-marshalled field offsets in there.
+
+        unsafe
+        {
+            var actualSize = sizeof(BlobStructWithALayoutThatDoesntMatchItsMarshallingLayout);
+            var marshallSize = Marshal.SizeOf<BlobStructWithALayoutThatDoesntMatchItsMarshallingLayout>();
+
+            // Making sure that we are testing the right stuff, the marshalled struct shouldn't be identical to the raw struct.
+            // If this test fails, I guess a more complicated struct will be required.
+            Assert.AreNotEqual(actualSize, marshallSize);
+        }
+
+        var builder = new BlobBuilder(Allocator.Temp);
+
+        {
+            ref var v = ref builder.ConstructRoot<BlobStructWithALayoutThatDoesntMatchItsMarshallingLayout>();
+            v.a = true;
+            v.b = false;
+            v.c = 123;
+        }
+
+        var bar = builder.CreateBlobAssetReference<BlobStructWithALayoutThatDoesntMatchItsMarshallingLayout>(Allocator.Temp);
+        var proxy = new BlobAssetReferenceProxy<BlobStructWithALayoutThatDoesntMatchItsMarshallingLayout>(bar);
+        var bs = (BlobStruct<BlobStructWithALayoutThatDoesntMatchItsMarshallingLayout>) proxy.Value;
+
+        var array = bs.Members.Select(m => $"{m.Key}:{m.Value}").ToArray();
+        CollectionAssert.AreEquivalent(new []{ $"a:{true}", $"b:{false}", $"c:{123}" }, array);
     }
 }
