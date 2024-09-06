@@ -181,7 +181,7 @@ namespace Unity.Entities
 
         public void InstantiateEntities(Entity srcEntity, Entity* outputEntities, int instanceCount)
         {
-            if (HasComponent(srcEntity, m_LinkedGroupType))
+            if (HasComponent(srcEntity, m_LinkedGroupType, out _))
             {
                 var header = (BufferHeader*)GetComponentDataWithTypeRO(srcEntity, m_LinkedGroupType);
                 var entityPtr = (Entity*)BufferHeader.GetElementPointer(header);

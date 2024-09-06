@@ -1,13 +1,13 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.3.0-pre.4",
+  "version": "1.3.2",
   "unity": "2022.3",
   "unityRelease": "11f1",
   "dependencies": {
-    "com.unity.burst": "1.8.16",
+    "com.unity.burst": "1.8.17",
     "com.unity.serialization": "3.1.1",
-    "com.unity.collections": "2.5.0-pre.2",
+    "com.unity.collections": "2.5.1",
     "com.unity.mathematics": "1.3.1",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
@@ -16,7 +16,9 @@
     "com.unity.test-framework.performance": "3.0.3",
     "com.unity.nuget.mono-cecil": "1.11.4",
     "com.unity.scriptablebuildpipeline": "1.21.21",
-    "com.unity.profiling.core": "1.0.2"
+    "com.unity.profiling.core": "1.0.2",
+    "com.unity.modules.physics": "1.0.0",
+    "com.unity.modules.uielements": "1.0.0"
   },
   "description": "The Entities package provides a modern Entity Component System (ECS) implementation with a basic set of systems and components made for Unity.",
   "keywords": [
@@ -25,15 +27,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Changed\n\n* Updated Burst dependency to version 1.8.16\n\n### Deprecated\n\n* The `ENABLE_SIMPLE_SYSTEM_DEPENDENCIES` feature will be removed in a future package release, as it no longer provides significant benefit for expected DOTS workloads.\n* The `EntityQueryCaptureMode.AtRecord` enum value in `EntityCommandBuffer` is now deprecated. All users should migrate to `EntityQueryCaptureMode.AtPlayback`. Capture-at-record mode can be several hundred times slower than capture-at-playback. If capture-at-record semantics are required and performance isn't a concern, the array of entities matching the query can be captured manually and passed to the corresponding `EntityCommandBuffer` command.\n\n### Fixed\n\n* Usage of SystemAPI.GetComponentRW and SystemAPI.GetComponentRO in Entities.ForEach.\n* Regression in compilation time with assemblies with lots of system methods.\n* EntityComponentStore leaked memory during domain reload."
+    "changelog": "### Added\n\n* Overloads for `ComponentLookup.HasComponent`, `ComponentLookup.TryGetComponent`, `BufferLookup.HasBuffer`, and `BufferLookup.TryGetBuffer` adding parameter `out bool entityExists`, as well as dedicated `ComponentLookup.EntityExists` and `BufferLookup.EntityExists` APIs, to allow user-code to distinguish entity non-existence from component non-existence without additional boilerplate, inside jobs.\n* adding missing dependencies `com.unity.modules.physics`, `com.unity.modules.uielements`.\n\n### Changed\n\n* Updated Burst dependency to version 1.8.17\n* Add API docs discouraging the use of the `ExclusiveEntityTransaction.EntityManager` property. Many EntityManager operations are not safe to use within the context of an ExclusiveEntityTransaction; only the methods directly exposed by `ExclusiveEntityTransaction` are guaranteed to work correctly.\n* Add API docs discouraging the creation of `EntityQuery` objects with multiple query descriptions. This feature works in narrow contexts, but is known to cause errors and incompatibilities with other DOTS features.\n* Add API docs to note that enabling and disabling components inside `IJobEntityChunkBeginEnd.OnChunkBegin()` does not affect the entities iterated in the current chunk, as its `chunkEnabledMask` has already been computed.\n* Zero-size `IBufferElementData` and `ISharedComponentData` structs no longer cause the TypeManager to throw during initialization. Zero-size buffer and shared components are usually a sign of pointless waste (especially buffer components, which have a significant chunk-memory cost even if the actual elements are empty), but they shouldn't cause a fatal error.\n\n### Fixed\n\n* Various SGICE002 errors that happen if you type invalid C# code\n* Various SGICE003 errors that happen if you type invalid C# code\n* NullReferenceException on UnityObjectRef<T> after Asset Garbage Collection (This fix requires editor versions 2022.3.43f1 and 6000.0.16f1 and beyond)"
   },
   "upmCi": {
-    "footprint": "ad441cc1d5a05669016d42fc54556c8672e3000d"
+    "footprint": "5ee7373e0991ffdf47a7a47d2d5ea184ea08d0df"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.3/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "6b0c8d27a0224c9cf76032c48d1b981e9750f10d"
+    "revision": "921920e681054c59b440cc1e2aef10f781dc4124"
   }
 }

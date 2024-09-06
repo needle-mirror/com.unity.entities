@@ -120,6 +120,14 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                         var typeArgSymbol = namedTypeSymbol.TypeArguments.Single();
                         var fullName = namedTypeSymbol.ConstructedFrom.ToFullName();
 
+                        // If user has passed in a type that is not accessible then it likely means they have a compile error in their code
+                        // since the compile error will be shown in the editor, we can safely ignore reporting it ourselves
+                        if (typeArgSymbol.DeclaredAccessibility == Accessibility.NotApplicable)
+                        {
+                            Invalid = true;
+                            return null;
+                        }
+
                         switch (fullName)
                         {
                             // Dynamic Buffer

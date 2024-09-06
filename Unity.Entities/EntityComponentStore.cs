@@ -1303,18 +1303,20 @@ namespace Unity.Entities
             return m_ComponentTypeOrderVersion[typeIndex.Index];
         }
 
-        public bool HasComponent(Entity entity, TypeIndex type)
+        public bool HasComponent(Entity entity, TypeIndex type, out bool entityExists)
         {
-            if (Hint.Unlikely(!Exists(entity)))
+            entityExists = Exists(entity);
+            if (Hint.Unlikely(!entityExists))
                 return false;
 
             var archetype = GetArchetype(entity);
             return ChunkDataUtility.GetIndexInTypeArray(archetype, type) != -1;
         }
 
-        internal bool HasComponent(Entity entity, TypeIndex type, ref LookupCache cache)
+        internal bool HasComponent(Entity entity, TypeIndex type, ref LookupCache cache, out bool entityExists)
         {
-            if (Hint.Unlikely(!Exists(entity)))
+            entityExists = Exists(entity);
+            if (Hint.Unlikely(!entityExists))
                 return false;
 
             var archetype = GetArchetype(entity);
@@ -1323,9 +1325,10 @@ namespace Unity.Entities
             return cache.IndexInArchetype != -1;
         }
 
-        public bool HasComponent(Entity entity, ComponentType type)
+        public bool HasComponent(Entity entity, ComponentType type, out bool entityExists)
         {
-            if (Hint.Unlikely(!Exists(entity)))
+            entityExists = Exists(entity);
+            if (Hint.Unlikely(!entityExists))
                 return false;
 
             var archetype = GetArchetype(entity);

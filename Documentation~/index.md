@@ -10,7 +10,6 @@ See the [DOTS Guide and Samples](https://github.com/Unity-Technologies/EntityCom
 
 * 2022.3 (LTS)
 * 2023.3 (Latest Beta and beyond)
-* Unity 6
 
 ## Package installation
 

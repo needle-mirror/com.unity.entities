@@ -18,14 +18,14 @@ using UnityEngine;
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<BlobAssetReference<float>>))]
 [assembly: RegisterGenericComponentType(typeof(TypeManagerTests.GenericComponent<NativeArray<int>>))]
 
-  
- 
-namespace Unity.Entities.Tests 
+
+
+namespace Unity.Entities.Tests
 {
     partial class TypeManagerTests : ECSTestsFixture
     {
         internal struct TestType1 : IComponentData
-        { 
+        {
             int empty;
         }
         struct TestTypeWithEntity : IComponentData
@@ -559,7 +559,7 @@ namespace Unity.Entities.Tests
                 var sys = allSystemTypes[i];
                 var systemTypeIndex = TypeManager.GetSystemTypeIndex<PresentationSystemGroup>();// A group we know will always exist
 
-                if(sys == systemTypeIndex) 
+                if(sys == systemTypeIndex)
                 {
                     foundTestSystem = true;
                     break;
@@ -708,20 +708,26 @@ namespace Unity.Entities.Tests
             Assert.Less(indexOfB, indexOfC);
         }
 
-        [TypeManager.TypeOverrides(hasNoEntityReferences: false, hasNoBlobReferences: true)]
-        public struct TypeOverridesNoBlobUnmanaged : IComponentData
+        [TypeManager.TypeOverrides(hasNoEntityReferences: false, hasNoBlobReferences: true, hasNoUnityObjectReferences: true)]
+        public struct TypeOverridesNoBlobNoUnityObjectUnmanaged : IComponentData
         {
             public Entity entity;
         }
 
-        [TypeManager.TypeOverrides(hasNoEntityReferences: true, hasNoBlobReferences: false)]
-        public struct TypeOverridesNoEntityUnmanaged : IComponentData
+        [TypeManager.TypeOverrides(hasNoEntityReferences: true, hasNoBlobReferences: false, hasNoUnityObjectReferences: true)]
+        public struct TypeOverridesNoEntityNoUnityObjectUnmanaged : IComponentData
         {
             public BlobAssetReference<int> blob;
         }
 
-        [TypeManager.TypeOverrides(hasNoEntityReferences: false, hasNoBlobReferences: false)]
-        public struct TypeOverridesNoBlobNoEntityUnmanaged : IComponentData
+        [TypeManager.TypeOverrides(hasNoEntityReferences: true, hasNoBlobReferences: true, hasNoUnityObjectReferences: false)]
+        public struct TypeOverridesNoEntityNoBlobUnmanaged : IComponentData
+        {
+            public UnityObjectRef<UnityEngine.Object> obj;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences: false, hasNoBlobReferences: false, hasNoUnityObjectReferences: false)]
+        public struct TypeOverridesNoBlobNoEntityNoUnityObjectUnmanaged : IComponentData
         {
             public float data;
         }
@@ -729,16 +735,25 @@ namespace Unity.Entities.Tests
         [Test]
         public void TypeOverrideWorks_Unmanaged_ValidTypesDoNotThrow()
         {
-            var typeOverridesNoBlobInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlobUnmanaged>();
-            Assert.IsTrue(TypeManager.HasEntityReferences(typeOverridesNoBlobInfo.TypeIndex));
-            Assert.IsFalse(typeOverridesNoBlobInfo.HasBlobAssetRefs);
+            var typeOverridesNoBlobNoUnityObjectInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlobNoUnityObjectUnmanaged>();
+            Assert.IsTrue(TypeManager.HasEntityReferences(typeOverridesNoBlobNoUnityObjectInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesNoBlobNoUnityObjectInfo.HasUnityObjectRefs);
+            Assert.IsFalse(typeOverridesNoBlobNoUnityObjectInfo.HasBlobAssetRefs);
 
-            var typeOverridesNoEntityInfo = TypeManager.GetTypeInfo<TypeOverridesNoEntityUnmanaged>();
-            Assert.IsTrue(typeOverridesNoEntityInfo.HasBlobAssetRefs);
+            var typeOverridesNoEntityNoUnityObjectInfo = TypeManager.GetTypeInfo<TypeOverridesNoEntityNoUnityObjectUnmanaged>();
+            Assert.IsTrue(typeOverridesNoEntityNoUnityObjectInfo.HasBlobAssetRefs);
+            Assert.IsFalse(typeOverridesNoEntityNoUnityObjectInfo.HasUnityObjectRefs);
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoEntityNoUnityObjectInfo.TypeIndex));
 
-            var typeOverridesNoBlobNoEntityInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlobNoEntityUnmanaged>();
-            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoBlobNoEntityInfo.TypeIndex));
-            Assert.IsFalse(typeOverridesNoBlobNoEntityInfo.HasBlobAssetRefs);
+            var typeOverridesNoEntityNoBlobInfo = TypeManager.GetTypeInfo<TypeOverridesNoEntityNoBlobUnmanaged>();
+            Assert.IsTrue(typeOverridesNoEntityNoBlobInfo.HasUnityObjectRefs);
+            Assert.IsFalse(typeOverridesNoEntityNoBlobInfo.HasBlobAssetRefs);
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoEntityNoBlobInfo.TypeIndex));
+
+            var typeOverridesNoBlobNoEntityNoUnityObjectInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlobNoEntityNoUnityObjectUnmanaged>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoBlobNoEntityNoUnityObjectInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesNoBlobNoEntityNoUnityObjectInfo.HasBlobAssetRefs);
+            Assert.IsFalse(typeOverridesNoBlobNoEntityNoUnityObjectInfo.HasUnityObjectRefs);
         }
 
         [DisableAutoTypeRegistration]
@@ -818,9 +833,6 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(Shared), @"\bdisabled\b", TestName = "Implements both ISharedComponentData and IEnableableComponent")]
 
         [TestCase(typeof(float), @"\b(not .*|in)valid\b", TestName = "Not valid component type")]
-
-        [TestCase(typeof(EmptyBufferComponent), @"\b(is .*|in)valid\b", TestName = "IBufferElementData types cannot be empty")]
-        [TestCase(typeof(EmptySharedComponent), @"\b(is .*|in)valid\b", TestName = "ISharedComponentData types cannot be empty")]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
         public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures(Type type, string keywordPattern)
         {
@@ -828,6 +840,16 @@ namespace Unity.Entities.Tests
                 () => TypeManager.BuildComponentType(type, new TypeManager.BuildComponentCache()),
                 Throws.ArgumentException.With.Message.Matches(keywordPattern)
             );
+        }
+
+        [TestCase(typeof(EmptyBufferComponent), TestName = "IBufferElementData types can be empty")]
+        [TestCase(typeof(EmptySharedComponent), TestName = "ISharedComponentData types can be empty")]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
+        public void BuildComponentType_DoesNotThrow(Type type)
+        {
+            // This was briefly a fatal error in TypeManager initialization, but we decided to relax it;
+            // empty components are pointless and wasteful, but not actively harmful.
+            Assert.DoesNotThrow(() => TypeManager.BuildComponentType(type, new TypeManager.BuildComponentCache()));
         }
 
         struct UnmanagedSharedComponent : ISharedComponentData
@@ -1081,7 +1103,7 @@ namespace Unity.Entities.Tests
         {
             Assert.DoesNotThrow(() =>
             {
-                Assert.IsTrue(TypeManager.BuildComponentType(typeof(NestedNativeContainerComponent), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer); 
+                Assert.IsTrue(TypeManager.BuildComponentType(typeof(NestedNativeContainerComponent), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer);
             });
         }
 
@@ -1163,40 +1185,48 @@ namespace Unity.Entities.Tests
         }
 
         [DisableAutoTypeRegistration]
-        [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:true)]
-        public sealed class TypeOverridesBlobEntity: IComponentData
+        [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:true, hasNoUnityObjectReferences:true)]
+        public sealed class TypeOverridesBlobEntityUnityObject: IComponentData
         {
             public Entity entity;
             public BlobAssetReference<int> blob;
+            public UnityObjectRef<UnityEngine.Object> objectRef;
         }
 
         [DisableAutoTypeRegistration]
-        [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:false)]
+        [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:false, hasNoUnityObjectReferences:false)]
         public sealed class TypeOverridesEntity : IComponentData
         {
             public Entity entity;
         }
 
         [DisableAutoTypeRegistration]
-        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:true)]
+        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:true, hasNoUnityObjectReferences:false)]
         public sealed class TypeOverridesBlob: IComponentData
         {
             public BlobAssetReference<int> blob;
         }
 
-        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:true)]
+        [DisableAutoTypeRegistration]
+        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:false, hasNoUnityObjectReferences:true)]
+        public sealed class TypeOverridesUnityObjectRef: IComponentData
+        {
+            public UnityObjectRef<UnityEngine.Object> UnityObjectRef;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:true, hasNoUnityObjectReferences:false)]
         public sealed class TypeOverridesNoBlob: IComponentData
         {
             public Entity entity;
         }
 
-        [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:false)]
+        [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:false, hasNoUnityObjectReferences:false)]
         public sealed class TypeOverridesNoEntity : IComponentData
         {
             public BlobAssetReference<int> blob;
         }
 
-        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:false)]
+        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:false, hasNoUnityObjectReferences:false)]
         public sealed class TypeOverridesNoBlobNoEntity: IComponentData
         {
             public string data;
@@ -1306,7 +1336,7 @@ namespace Unity.Entities.Tests
             TypeManager.BuildComponentCache cache = new TypeManager.BuildComponentCache();
             Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlob), cache); });
             Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesEntity), cache); });
-            Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlobEntity), cache); });
+            Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlobEntityUnityObject), cache); });
         }
 
         [Test]

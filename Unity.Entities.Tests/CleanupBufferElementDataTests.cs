@@ -320,9 +320,32 @@ namespace Unity.Entities.Tests
 
             var intLookup = EmptySystem.GetBufferLookup<EcsIntCleanupElement>();
             Assert.IsTrue(intLookup.HasBuffer(entityInt));
-            Assert.IsFalse(intLookup.HasBuffer(new Entity()));
+            Assert.IsTrue(intLookup.HasBuffer(entityInt, out var entityExists));
+            Assert.IsTrue(entityExists);
+            Assert.IsTrue(intLookup.EntityExists(entityInt));
 
             Assert.AreEqual(2, intLookup[entityInt][1].Value);
+
+            Assert.IsFalse(intLookup.HasBuffer(new Entity()));
+            Assert.IsFalse(intLookup.HasBuffer(new Entity(), out entityExists));
+            Assert.IsFalse(entityExists);
+            Assert.IsFalse(intLookup.EntityExists(new Entity()));
+
+            m_Manager.DestroyEntity(entityInt);
+            intLookup = EmptySystem.GetBufferLookup<EcsIntCleanupElement>();
+
+            Assert.IsTrue(intLookup.HasBuffer(entityInt));
+            Assert.IsTrue(intLookup.HasBuffer(entityInt, out entityExists));
+            Assert.IsTrue(entityExists);
+            Assert.IsTrue(intLookup.EntityExists(entityInt));
+
+            m_Manager.RemoveComponent<EcsIntCleanupElement>(entityInt);
+            intLookup = EmptySystem.GetBufferLookup<EcsIntCleanupElement>();
+
+            Assert.IsFalse(intLookup.HasBuffer(entityInt));
+            Assert.IsFalse(intLookup.HasBuffer(entityInt, out entityExists));
+            Assert.IsFalse(entityExists);
+            Assert.IsFalse(intLookup.EntityExists(entityInt));
         }
 
         [Test]

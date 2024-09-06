@@ -1293,5 +1293,19 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, RefCount1);
             world.Dispose();
         }
+
+        public struct EmptySharedComponent : ISharedComponentData
+        {
+        }
+
+        [Test]
+        public void EmptySharedComponent_Works()
+        {
+            var e = m_Manager.CreateEntity();
+            m_Manager.AddSharedComponent(e, new EmptySharedComponent());
+
+        }
+
+
     }
 }

@@ -29,6 +29,13 @@ namespace Unity.Entities
         /// Called at the beginning of every chunk iteration in the <see cref="IJobEntity"/>.
         /// It also tells whether or not to run `Execute` on the current <see cref="IJobEntity"/>.
         /// </summary>
+        /// <remarks>
+        /// Note that the <paramref name="chunkEnabledMask"/> value passed to this function is also used to determine
+        /// which entities in the current chunk should be processed. Since the mask has already been computed, any components
+        /// which are enabled or disabled in this chunk during OnChunkBegin() will not affect which of the chunk's entities
+        /// are processed. To enable/disable components during a chunk pre-pass, it's necessary to use <see cref="IJobChunk"/>
+        /// to take full control of the chunk iteration logic.
+        /// </remarks>
         /// <param name="chunk">An object providing access to the entities within a chunk.</param>
         /// <param name="unfilteredChunkIndex">The index of the current chunk within the list of all chunks in all
         /// archetypes matched by the <see cref="EntityQuery"/> that the job was run against.</param>

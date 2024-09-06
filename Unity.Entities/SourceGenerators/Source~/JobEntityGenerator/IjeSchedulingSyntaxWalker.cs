@@ -50,14 +50,12 @@ public class IjeSchedulingSyntaxWalker : CSharpSyntaxWalker, IModuleSyntaxWalker
     private string _userDefinedDependency;
     private ObjectCreationExpressionSyntax _jobEntityInstanceCreationSyntax;
 
-    internal IjeSchedulingSyntaxWalker(ref SystemDescription systemDescription, IReadOnlyCollection<JobEntityInstanceInfo> jobEntityInfos)
+    internal IjeSchedulingSyntaxWalker(ref SystemDescription systemDescription, Dictionary<InvocationExpressionSyntax, JobEntityInstanceInfo> jobEntityInfos)
         : base(SyntaxWalkerDepth.Trivia)
     {
         _uniqueId = 0;
         _systemDescription = systemDescription;
-        _schedulingInvocationNodes =
-            jobEntityInfos.GroupBy(info => info.Candidate.Invocation)
-                .ToDictionary(group => group.Key, group => group.Single());
+        _schedulingInvocationNodes = jobEntityInfos;
 
         _schedulingArgsInnerWriter = new StringWriter();
         _schedulingArgsWriter = new IndentedTextWriter(_schedulingArgsInnerWriter);

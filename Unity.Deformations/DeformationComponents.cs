@@ -13,7 +13,7 @@ namespace Unity.Deformations
     public struct BlendShapeWeight : IBufferElementData
     {
         /// <summary>
-        /// The weight value of the blend shape.
+        /// The weight value of the blend shape. The range is from `0.0f` to `100.0f`, where `0.0f` is 0% and `100.0f` is 100%.
         /// </summary>
         public float Value;
     }

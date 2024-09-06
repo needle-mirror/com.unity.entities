@@ -257,7 +257,7 @@ namespace Unity.Entities.Internal
             var sizeOf = UnsafeUtility.SizeOf<T>();
             // MemCmp check is necessary to ensure we only write-back the value if we changed it in the lambda (or a called function)
             if (UnsafeUtility.MemCmp(UnsafeUtility.AddressOf(ref lambdaComponent), UnsafeUtility.AddressOf(ref originalComponent), sizeOf) != 0 &&
-                ecs->HasComponent(entity, typeIndex))
+                ecs->HasComponent(entity, typeIndex, out _))
             {
                 var ptr = ecs->GetComponentDataWithTypeRW(entity, typeIndex, ecs->GlobalSystemVersion);
                 UnsafeUtility.CopyStructureToPtr(ref lambdaComponent, ptr);

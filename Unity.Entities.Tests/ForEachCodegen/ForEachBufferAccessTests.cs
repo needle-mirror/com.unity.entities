@@ -209,17 +209,19 @@ namespace Unity.Entities.Tests.ForEachCodegen
                     var a = 0;
                     if (data.value < 100)
                     {
+
                         if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
                             a++;
                         if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
                             a++;
                         if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
                             a++;
-                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
+                        bool entityExists;
+                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e, out entityExists))
                             a++;
-                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
+                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e, out entityExists))
                             a++;
-                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e))
+                        if (GetBufferLookup<EcsIntElement>().HasBuffer(e, out entityExists))
                             a++;
                     }
                     data.value = a;

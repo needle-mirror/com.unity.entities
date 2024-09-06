@@ -88,11 +88,14 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void SIZ_TagThrowsOnComponentLookup()
+        public void SIZ_TagAllowedOnComponentLookup()
         {
             var entity = m_Manager.CreateEntity(typeof(EcsTestTag));
             var fromEntity = m_Manager.GetComponentLookup<EcsTestTag>();
             Assert.IsTrue(fromEntity.HasComponent(entity));
+            Assert.IsTrue(fromEntity.HasComponent(entity, out var entityExists));
+            Assert.IsTrue(entityExists);
+            Assert.IsTrue(fromEntity.EntityExists(entity));
             var res = fromEntity[entity];
             Assert.AreEqual(res , default(EcsTestTag));
         }

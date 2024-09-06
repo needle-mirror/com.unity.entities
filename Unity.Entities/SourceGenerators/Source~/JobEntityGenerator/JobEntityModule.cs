@@ -59,12 +59,12 @@ public partial class JobEntityModule : ISystemModule
     public bool RegisterChangesInSystem(SystemDescription systemDescription)
     {
         var candidates = _jobEntityInvocationCandidates[systemDescription.SystemTypeSyntax];
-        var validCandidates = new List<JobEntityInstanceInfo>(candidates.Count);
+        var validCandidates = new Dictionary<InvocationExpressionSyntax, JobEntityInstanceInfo>(candidates.Count);
 
         foreach (var candidate in candidates)
             if (JobEntityInstanceInfo.TryCreate(ref systemDescription, candidate, out var knownJobEntityInfo))
             {
-                validCandidates.Add(knownJobEntityInfo);
+                validCandidates[candidate.Invocation] = knownJobEntityInfo;
                 systemDescription.CandidateNodes.Add(
                     key: candidate.Invocation,
                     value: new CandidateSyntax(CandidateType.IJobEntity, CandidateFlags.None, candidate.Invocation));

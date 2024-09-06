@@ -4483,7 +4483,13 @@ namespace Unity.Entities
         /// <summary>
         /// Creates a EntityQuery from an EntityQueryDesc.
         /// </summary>
-        /// <param name="queriesDesc">A queryDesc identifying a set of component types.</param>
+        /// <remarks>
+        /// **Warning:** The ability to construct an <see cref="EntityQuery"/> from multiple query descriptions is not
+        /// a supported workflow. Queries with multiple query descriptions are not guaranteed to function correctly in
+        /// all contexts.  In general, try to create queries with a single description. For more information, refer to
+        /// [Creating entity queries](xref:systems-entityquery-create).
+        /// </remarks>
+        /// <param name="queriesDesc">An array of query descsriptions identifying a sets of component types to match.</param>
         /// <returns>The EntityQuery corresponding to the queryDesc.</returns>
         [ExcludeFromBurstCompatTesting("Takes managed array")]
         public EntityQuery CreateEntityQuery(params EntityQueryDesc[] queriesDesc)
@@ -5915,7 +5921,7 @@ namespace Unity.Entities
         {
             var access = GetCheckedEntityDataAccess();
             var ecs = access->EntityComponentStore;
-            return ecs->HasComponent(entity, typeIndex);
+            return ecs->HasComponent(entity, typeIndex, out _);
         }
 
         #endregion

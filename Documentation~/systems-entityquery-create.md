@@ -8,12 +8,14 @@ The query uses [`EntityQueryBuilder.WithAllRW<T>`](xref:Unity.Entities.EntityQue
 
 ## Specify which archetypes the system selects
 
-Queries only match archetypes that contain the components you specify. You can specify components with three different [`EntityQueryBuilder`](xref:Unity.Entities.EntityQueryBuilder) methods: 
+Queries only match archetypes that contain the components you specify. You can specify components with the following [`EntityQueryBuilder`](xref:Unity.Entities.EntityQueryBuilder) methods: 
 
-* `WithAll<T>()`: To match the query, an archetype must contain all the query's required components.
-* `WithAny<T>()`: To match the query, an archetype must contain at least one of the query's optional components.
-* `WithNone<T>()`: To match the query, an archetype must not contain any of the query's excluded components.
-* `WithAspect<T>()`: To match the query, an archetype must meet the [aspect’s](aspects-intro.md) component requirements. Use last when building a query to avoid component aliasing.
+* `WithAll<T>()`: To match the query, an entity's archetype must contain all the query's required components, and these components must be enabled on that entity.
+* `WithAny<T>()`: To match the query, an entity's archetype must contain at least one of the query's optional components, and these components must be enabled on that entity.
+* `WithNone<T>()`: To match the query, either an entity's archetype must not contain any of the query's excluded components, or the components must be present but disabled on that entity.
+* `WithDisabled<T>()`: To match the query, an entity's archetype must contain this component, and the component must be disabled on that entity.
+* `WithAbsent<T>()`: To match the query, an entity's archetype must not contain the specified components.
+* `WithPresent<T>()`: To match the query, an entity's archetype must contain the specified components (whether or not they are enabled).
 
 For example, the following query includes archetypes that contain the `ObjectRotation` and `ObjectRotationSpeed`components, but excludes any archetypes that contain the `Static` component:
 

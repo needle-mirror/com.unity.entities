@@ -4,6 +4,28 @@ uid: changelog
 
 # Changelog
 
+## [1.3.2] - 2024-09-06
+
+### Added
+
+* Overloads for `ComponentLookup.HasComponent`, `ComponentLookup.TryGetComponent`, `BufferLookup.HasBuffer`, and `BufferLookup.TryGetBuffer` adding parameter `out bool entityExists`, as well as dedicated `ComponentLookup.EntityExists` and `BufferLookup.EntityExists` APIs, to allow user-code to distinguish entity non-existence from component non-existence without additional boilerplate, inside jobs.
+* adding missing dependencies `com.unity.modules.physics`, `com.unity.modules.uielements`.
+
+### Changed
+
+* Updated Burst dependency to version 1.8.17
+* Add API docs discouraging the use of the `ExclusiveEntityTransaction.EntityManager` property. Many EntityManager operations are not safe to use within the context of an ExclusiveEntityTransaction; only the methods directly exposed by `ExclusiveEntityTransaction` are guaranteed to work correctly.
+* Add API docs discouraging the creation of `EntityQuery` objects with multiple query descriptions. This feature works in narrow contexts, but is known to cause errors and incompatibilities with other DOTS features.
+* Add API docs to note that enabling and disabling components inside `IJobEntityChunkBeginEnd.OnChunkBegin()` does not affect the entities iterated in the current chunk, as its `chunkEnabledMask` has already been computed.
+* Zero-size `IBufferElementData` and `ISharedComponentData` structs no longer cause the TypeManager to throw during initialization. Zero-size buffer and shared components are usually a sign of pointless waste (especially buffer components, which have a significant chunk-memory cost even if the actual elements are empty), but they shouldn't cause a fatal error.
+
+### Fixed
+
+* Various SGICE002 errors that happen if you type invalid C# code
+* Various SGICE003 errors that happen if you type invalid C# code
+* NullReferenceException on UnityObjectRef<T> after Asset Garbage Collection (This fix requires editor versions 2022.3.43f1 and 6000.0.16f1 and beyond)
+
+
 ## [1.3.0-pre.4] - 2024-07-17
 
 ### Changed
@@ -20,6 +42,7 @@ uid: changelog
 * Usage of SystemAPI.GetComponentRW and SystemAPI.GetComponentRO in Entities.ForEach.
 * Regression in compilation time with assemblies with lots of system methods.
 * EntityComponentStore leaked memory during domain reload.
+
 
 
 ## [1.3.0-exp.1] - 2024-06-11
@@ -66,6 +89,18 @@ uid: changelog
 
 
 ### Known Issues
+
+
+## [1.2.4] - 2024-08-14
+
+### Fixed
+
+* Debug proxies (used by external debuggers) were sometimes using invalid field offsets when inspecting structs in blob assets. This led to incorrect values being reported in debugger watch windows. In particular, this would be triggered by the use of bool fields in blob asset structs.
+* Entity version numbers could go back to 1 after reallocation in some edge cases.
+* When building a content update, a temporary path was getting created in the drive root instead of the Library folder.  This would also cause content update builds to grow in size every time they were built.  The folder is now created in the Library correctly.
+* Error in build when sprites are contained in subscenes has been removed.
+* Regression in compilation time with assemblies with lots of system methods.
+* EntityComponentStore leaked memory during domain reload.
 
 
 ## [1.2.3] - 2024-05-30

@@ -25,6 +25,27 @@ namespace Unity.Entities.Tests
 {
     class BufferElementDataTests : ECSTestsFixture
     {
+        public struct EmptyBufferElement : IBufferElementData
+        {
+        }
+
+        [Test]
+        public void EmptyBufferElement_Works()
+        {
+            var e = m_Manager.CreateEntity(typeof(EmptyBufferElement));
+            var b = m_Manager.GetBuffer<EmptyBufferElement>(e, isReadOnly: false);
+            // C# treats empty component types as having size=1
+            Assert.AreEqual(128, b.Capacity);
+            b.Add(new EmptyBufferElement());
+            b.Add(new EmptyBufferElement());
+            Assert.AreEqual(2, b.Length);
+            Assert.AreEqual(b[0], b[1]);
+            // Make sure buffers still work if they exceed the internal capacity
+            b.Capacity = 256;
+            Assert.AreEqual(2, b.Length);
+            Assert.AreEqual(b[0], b[1]);
+        }
+
         [InternalBufferCapacity(1024 * 1024)]
         public struct OverSizedCapacity : IBufferElementData
         {
@@ -510,9 +531,24 @@ namespace Unity.Entities.Tests
 
             var intLookup = EmptySystem.GetBufferLookup<EcsIntElement>();
             Assert.IsTrue(intLookup.HasBuffer(entityInt));
-            Assert.IsFalse(intLookup.HasBuffer(new Entity()));
+            Assert.IsTrue(intLookup.HasBuffer(entityInt, out var entityExists));
+            Assert.IsTrue(entityExists);
+            Assert.IsTrue(intLookup.EntityExists(entityInt));
 
             Assert.AreEqual(2, intLookup[entityInt][1].Value);
+
+            Assert.IsFalse(intLookup.HasBuffer(new Entity()));
+            Assert.IsFalse(intLookup.HasBuffer(new Entity(), out entityExists));
+            Assert.IsFalse(entityExists);
+            Assert.IsFalse(intLookup.EntityExists(new Entity()));
+
+            m_Manager.DestroyEntity(entityInt);
+            intLookup = EmptySystem.GetBufferLookup<EcsIntElement>();
+
+            Assert.IsFalse(intLookup.HasBuffer(entityInt));
+            Assert.IsFalse(intLookup.HasBuffer(entityInt, out entityExists));
+            Assert.IsFalse(entityExists);
+            Assert.IsFalse(intLookup.EntityExists(entityInt));
         }
 
         [Test]

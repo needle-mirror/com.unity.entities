@@ -17,6 +17,12 @@ One of the most common issues with safety in Entities is when [structural change
 
 The Entities API stores data in chunks that are typically accessed through the [job system](xref:JobSystem) or the main thread. The job system typically handles all safety of data that's passed in with NativeContainers, and uses notations to mark if the data is read from, written to, or both. However, any API that causes a structural change might make this data move in memory and invalidate any reference held to that data.
 
+#### ExclusiveEntityTransaction
+
+In general, all structural changes must be made on the main thread using the world's `EntityManager`. The `ExclusiveEntityTransaction` feature allows you to temporarily place an `EntityManager` into a mode where a single worker thread (running an `IJob`) can safely perform structural-change operations on that World's entities, leaving the main thread free to perform other work.
+
+The main motivation for this feature is to allow a secondary / streaming World to safely modify its entities and perform structural changes, without blocking the main thread from processing entities in the default World. It is not intended as a fully general-purpose interface to `EntityManager` functionality from worker threads. Certain `EntityManager` operations rely on main-thread-only features in their implementation, and will therefore not function correctly if called from job code. Only the subset of operations directly exposed by `ExclusiveEntityTransaction` are officially supported.
+
 ### RefRW/RefRO
 
 The Entities package contains explicit reference types that you can use to mark the contained type to be accessed as ReadWrite (`RefRW`) or ReadOnly (`RefRO`). These reference types have checks to ensure that the contained type is still valid when running with safety checks enabled. [Structural changes](concepts-structural-changes.md) might cause the contained type to no longer be valid.

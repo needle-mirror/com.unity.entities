@@ -115,19 +115,46 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Reports whether the specified entity exists.
+        /// Does not consider whether this component exists on the given entity.
+        /// </summary>
+        /// <param name="entity">The referenced entity.</param>
+        /// <returns>True if the entity exists, regardless of whether this entity has the given component.</returns>
+        /// <seealso cref="TryGetComponent(Unity.Entities.Entity,out T,out bool)"/>
+        public bool EntityExists(Entity entity)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#endif
+            var ecs = m_Access->EntityComponentStore;
+            return ecs->Exists(entity);
+        }
+
+        /// <summary>
         /// Reports whether the specified <see cref="Entity"/> instance still refers to a valid entity and that it has a
         /// component of type T.
         /// </summary>
         /// <param name="entity">The entity.</param>
         /// <returns>True if the entity has a component of type T, and false if it does not. Also returns false if
         /// the Entity instance refers to an entity that has been destroyed.</returns>
-        public bool HasComponent(Entity entity)
+        public bool HasComponent(Entity entity) => HasComponent(entity, out _);
+
+        /// <summary>
+        /// Reports whether the specified <see cref="Entity"/> instance still refers to a valid entity and that it has a
+        /// component of type T.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="entityExists">Denotes whether the given entity exists. Use to differentiate an invalid entity
+        /// from the entity not having the given buffer.</param>
+        /// <returns>True if the entity has a component of type T, and false if it does not. Also returns false if
+        /// the Entity instance refers to an entity that has been destroyed.</returns>
+        public bool HasComponent(Entity entity, out bool entityExists)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
+            return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache, out entityExists);
         }
 
         /// <summary>
@@ -143,7 +170,7 @@ namespace Unity.Entities
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            return ecs->HasComponent(system.m_Entity, m_TypeIndex, ref m_Cache);
+            return ecs->HasComponent(system.m_Entity, m_TypeIndex, ref m_Cache, out _);
         }
 
         /// <summary>
@@ -151,11 +178,12 @@ namespace Unity.Entities
         /// component of type T.
         /// </summary>
         /// <param name="entity">The entity.</param>
-        /// /// <param name="componentData">The component of type T for the given entity, if it exists.</param>
+        /// <param name="componentData">The component of type T for the given entity, if it exists.</param>
+        /// <param name="entityExists">Denotes whether the given entity exists. Use to differentiate an invalid entity
+        /// from the entity not having the given buffer.</param>
         /// <returns>True if the entity has a component of type T, and false if it does not.</returns>
-        public bool TryGetComponent(Entity entity, out T componentData)
+        public bool TryGetComponent(Entity entity, out T componentData, out bool entityExists)
         {
-
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
@@ -164,10 +192,11 @@ namespace Unity.Entities
             if (m_IsZeroSized != 0)
             {
                 componentData = default;
-                return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
+                return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache, out entityExists);
             }
 
-            if (Hint.Unlikely(!ecs->Exists(entity)))
+            entityExists = ecs->Exists(entity);
+            if (Hint.Unlikely(!entityExists))
             {
                 componentData = default;
                 return false;
@@ -181,6 +210,15 @@ namespace Unity.Entities
             UnsafeUtility.CopyPtrToStructure(ptr, out componentData);
             return true;
         }
+
+        /// <summary>
+        /// Retrieves the component associated with the specified <see cref="Entity"/>, if it exists. Then reports if the instance still refers to a valid entity and that it has a
+        /// component of type T.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="componentData">The component of type T for the given entity, if it exists.</param>
+        /// <returns>True if the entity has a component of type T, and false if it does not.</returns>
+        public bool TryGetComponent(Entity entity, out T componentData) => TryGetComponent(entity, out componentData, out _);
 
         /// <summary>
         /// Reports whether any of IComponentData components of the type T, in the chunk containing the

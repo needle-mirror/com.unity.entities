@@ -1717,6 +1717,10 @@ namespace Unity.Entities
         /// Add an additional query description to a single EntityQuery.
         /// </summary>
         /// <remarks>
+        /// The ability to construct an <see cref="EntityQuery"/> from multiple query descriptions is preserved for backwards
+        /// compatibility, but the use of this feature is strongly discouraged in user projects. Queries with multiple
+        /// query descriptions are not guaranteed to function correctly in all contexts.
+        ///
         /// The resulting EntityQuery will match all entities matched by any individual query description. In terms of
         /// set theory, the query matches the union of its query descriptions, not the intersection.
         /// <example>

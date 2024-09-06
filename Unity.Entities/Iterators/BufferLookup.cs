@@ -103,13 +103,25 @@ namespace Unity.Entities
         /// <param name="entity">The entity.</param>
         /// /// <param name="bufferData">The buffer component of type T for the given entity, if it exists.</param>
         /// <returns>True if the entity has a buffer component of type T, and false if it does not.</returns>
-        public bool TryGetBuffer(Entity entity, out DynamicBuffer<T> bufferData)
+        public bool TryGetBuffer(Entity entity, out DynamicBuffer<T> bufferData) => TryGetBuffer(entity, out bufferData, out _);
+
+        /// <summary>
+        /// Retrieves the buffer components associated with the specified <see cref="Entity"/>, if it exists. Then reports if the instance still refers to a valid entity and that it has a
+        /// buffer component of type T.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="bufferData">The buffer component of type T for the given entity, if it exists.</param>
+        /// <param name="entityExists">Denotes whether the given entity exists. Use to distinguish entity non-existence
+        /// from buffer non-existence.</param>
+        /// <returns>True if the entity has a buffer component of type T, and false if it does not.</returns>
+        public bool TryGetBuffer(Entity entity, out DynamicBuffer<T> bufferData, out bool entityExists)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            if (Hint.Unlikely(!ecs->Exists(entity)))
+            entityExists = ecs->Exists(entity);
+            if (Hint.Unlikely(!entityExists))
             {
                 bufferData = default;
                 return false;
@@ -136,20 +148,48 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Reports whether the specified entity exists.
+        /// Does not consider whether this buffer exists on the given entity.
+        /// </summary>
+        /// <param name="entity">The referenced entity.</param>
+        /// <returns>True if the entity exists, regardless of whether this entity has the given buffer.</returns>
+        /// <seealso cref="TryGetBuffer(Unity.Entities.Entity,out Unity.Entities.DynamicBuffer{T},out bool)"/>
+        public bool EntityExists(Entity entity)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
+#endif
+            var ecs = m_Access->EntityComponentStore;
+            return ecs->Exists(entity);
+        }
+
+        /// <summary>
         /// Reports whether the specified <see cref="Entity"/> instance still refers to a valid entity and that it has a
         /// buffer component of type T.
         /// </summary>
         /// <param name="entity">The entity.</param>
         /// <returns>True if the entity has a buffer component of type T, and false if it does not. Also returns false if
         /// the Entity instance refers to an entity that has been destroyed.</returns>
-        public bool HasBuffer(Entity entity)
+        public bool HasBuffer(Entity entity) => HasBuffer(entity, out _);
+
+        /// <summary>
+        /// Reports whether the specified <see cref="Entity"/> instance still refers to a valid entity and that it has a
+        /// buffer component of type T.
+        /// </summary>
+        /// <param name="entity">The entity.</param>
+        /// <param name="entityExists">Denotes whether the given entity exists. Use to distinguish entity non-existence
+        /// from buffer non-existence.</param>
+        /// <returns>True if the entity has a buffer component of type T, and false if it does not. Also returns false if
+        /// the Entity instance refers to an entity that has been destroyed.</returns>
+        public bool HasBuffer(Entity entity, out bool entityExists)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety0);
 #endif
             var ecs = m_Access->EntityComponentStore;
-            return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache);
+            return ecs->HasComponent(entity, m_TypeIndex, ref m_Cache, out entityExists);
         }
+
         /// <summary> Obsolete. Use <see cref="HasBuffer(Unity.Entities.Entity)"/> instead.</summary>
         /// <param name="entity">The entity.</param>
         /// <returns>True if the entity has a buffer component of type T, and false if it does not. Also returns false if

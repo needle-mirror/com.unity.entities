@@ -5294,8 +5294,8 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         private static void CheckBufferExistsOnEntity(EntityComponentStore* mgr, Entity entity, EntityComponentCommand* cmd)
         {
-            if (!mgr->HasComponent(entity, cmd->ComponentTypeIndex))
-                throw new InvalidOperationException("Buffer does not exist on entity, cannot append element.");
+            if (!mgr->HasComponent(entity, cmd->ComponentTypeIndex, out bool entityExists))
+                throw new InvalidOperationException($"Buffer does not exist on entity {entity} (entityExists:{entityExists}), cannot append element.");
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]

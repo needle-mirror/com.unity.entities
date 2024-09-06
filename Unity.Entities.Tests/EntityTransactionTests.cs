@@ -322,6 +322,7 @@ namespace Unity.Entities.Tests
             var linkedEntityGroup = m_Manager.GetBufferLookup<LinkedEntityGroup>();
             m_Manager.BeginExclusiveEntityTransaction();
             Assert.Throws<ObjectDisposedException>(() => linkedEntityGroup.HasBuffer(c));
+            Assert.Throws<ObjectDisposedException>(() => linkedEntityGroup.HasBuffer(c, out _));
             m_Manager.EndExclusiveEntityTransaction();
         }
 
@@ -342,6 +343,7 @@ namespace Unity.Entities.Tests
             var transaction = m_Manager.BeginExclusiveEntityTransaction();
             var linkedEntityGroup = transaction.EntityManager.GetBufferLookup<LinkedEntityGroup>();
             Assert.DoesNotThrow(() => linkedEntityGroup.HasBuffer(c));
+            Assert.DoesNotThrow(() => linkedEntityGroup.HasBuffer(c, out _));
             m_Manager.EndExclusiveEntityTransaction();
         }
 

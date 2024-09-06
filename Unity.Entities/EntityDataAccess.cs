@@ -1225,7 +1225,7 @@ namespace Unity.Entities
 
         public bool HasComponent(Entity entity, ComponentType type)
         {
-            return EntityComponentStore->HasComponent(entity, type);
+            return EntityComponentStore->HasComponent(entity, type, out _);
         }
 
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] {typeof(BurstCompatibleComponentData)})]
@@ -1452,7 +1452,7 @@ namespace Unity.Entities
             // Filter the linked entities based on the mask
             foreach (var e in linkedEntities)
             {
-                if (EntityComponentStore->HasComponent(e, typeIndex))
+                if (EntityComponentStore->HasComponent(e, typeIndex, out _))
                 {
                     SetComponentDataRaw(e, typeIndex, data, componentSize);
                 }

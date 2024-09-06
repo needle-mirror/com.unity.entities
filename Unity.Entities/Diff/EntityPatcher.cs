@@ -659,7 +659,7 @@ namespace Unity.Entities
 
                 do
                 {
-                    if (!store->HasComponent(entity, component.TypeIndex))
+                    if (!store->HasComponent(entity, component.TypeIndex, out _))
                     {
                         ecb.AddComponent(index, entity, component);
                     }
@@ -804,19 +804,22 @@ namespace Unity.Entities
 
                 do
                 {
-                    if (!store->Exists(entity))
+                    if (!store->HasComponent(entity, component, out var entityExists))
                     {
-                        EntityDoesNotExist.AddNoResize(new SetComponentError
+                        if (entityExists)
                         {
-                            ComponentType = component, Guid = PackedEntityGuids[packedComponent.PackedEntityIndex]
-                        });
-                    }
-                    else if (!store->HasComponent(entity, component))
-                    {
-                        ComponentDoesNotExist.AddNoResize(new SetComponentError
+                            ComponentDoesNotExist.AddNoResize(new SetComponentError
+                            {
+                                ComponentType = component, Guid = PackedEntityGuids[packedComponent.PackedEntityIndex]
+                            });
+                        }
+                        else
                         {
-                            ComponentType = component, Guid = PackedEntityGuids[packedComponent.PackedEntityIndex]
-                        });
+                            EntityDoesNotExist.AddNoResize(new SetComponentError
+                            {
+                                ComponentType = component, Guid = PackedEntityGuids[packedComponent.PackedEntityIndex]
+                            });
+                        }
                     }
                     else
                     {

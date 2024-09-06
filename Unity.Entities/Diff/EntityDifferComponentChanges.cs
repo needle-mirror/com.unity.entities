@@ -22,7 +22,7 @@ namespace Unity.Entities
         static bool TryGetEntityGuidComponent(EntityComponentStore* ecs, Entity entity, TypeIndex entityGuidTypeIndex, out EntityGuid entityGuid)
         {
             entityGuid = default;
-            if (!ecs->HasComponent(entity, entityGuidTypeIndex))
+            if (!ecs->HasComponent(entity, entityGuidTypeIndex, out _))
             {
                 return false;
             }
@@ -2278,7 +2278,7 @@ namespace Unity.Entities
 
                 var entityGuid = default(EntityGuid);
 
-                if (m_EntityComponentStore->HasComponent(value, TypeManager.GetTypeIndex<EntityGuid>()))
+                if (m_EntityComponentStore->HasComponent(value, TypeManager.GetTypeIndex<EntityGuid>(), out _))
                     entityGuid = *(EntityGuid*)m_EntityComponentStore->GetComponentDataWithTypeRO(value, TypeManager.GetTypeIndex<EntityGuid>());
 
                 value = new Entity { Index = m_EntityReferencePatchId, Version = -1 };

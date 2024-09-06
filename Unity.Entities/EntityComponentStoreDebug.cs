@@ -333,10 +333,10 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void AssertEntityHasComponent(Entity entity, ComponentType componentType)
         {
-            if (HasComponent(entity, componentType))
+            if (HasComponent(entity, componentType, out var entityExists))
                 return;
 
-            if (!Exists(entity))
+            if (!entityExists)
                 throw new ArgumentException("The entity does not exist." + AppendDestroyedEntityRecordError(entity));
 
             throw new ArgumentException($"A component with type:{componentType} has not been added to the entity." + AppendRemovedComponentRecordError(entity, componentType));
@@ -348,10 +348,10 @@ namespace Unity.Entities
             for (int i = 0; i < entities.Length; i++)
             {
                 var entity = entities[i];
-                if (HasComponent(entity, componentType))
+                if (HasComponent(entity, componentType, out var entityExists))
                     continue;
 
-                if (!Exists(entity))
+                if (!entityExists)
                     throw new ArgumentException("The entity does not exist."  + AppendDestroyedEntityRecordError(entity));
 
                 throw new ArgumentException($"A component with type:{componentType} has not been added to the entity." + AppendRemovedComponentRecordError(entity, componentType));
@@ -367,10 +367,10 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void AssertEntityHasComponent(Entity entity, TypeIndex componentTypeIndex, ref LookupCache typeLookupCache)
         {
-            if (Hint.Likely(HasComponent(entity, componentTypeIndex, ref typeLookupCache)))
+            if (Hint.Likely(HasComponent(entity, componentTypeIndex, ref typeLookupCache, out var entityExists)))
                 return;
 
-            if (Hint.Unlikely(!Exists(entity)))
+            if (Hint.Unlikely(!entityExists))
                 throw new ArgumentException("The entity does not exist." + AppendDestroyedEntityRecordError(entity));
 
             throw new ArgumentException($"A component with type:{componentTypeIndex} has not been added to the entity." + AppendRemovedComponentRecordError(entity, ComponentType.FromTypeIndex(componentTypeIndex)));
@@ -723,7 +723,7 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void AssertCanInstantiateEntities(Entity srcEntity, Entity* outputEntities, int instanceCount)
         {
-            if (HasComponent(srcEntity, m_LinkedGroupType))
+            if (HasComponent(srcEntity, m_LinkedGroupType, out var entityExists))
             {
                 var header = (BufferHeader*)GetComponentDataWithTypeRO(srcEntity, m_LinkedGroupType);
                 var entityPtr = (Entity*)BufferHeader.GetElementPointer(header);
@@ -746,7 +746,7 @@ namespace Unity.Entities
             }
             else
             {
-                if (!Exists(srcEntity))
+                if (!entityExists)
                     throw new ArgumentException("srcEntity is not a valid entity");
 
                 var srcArchetype = GetArchetype(srcEntity);

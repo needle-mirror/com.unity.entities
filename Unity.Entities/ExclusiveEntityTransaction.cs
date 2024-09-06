@@ -4,14 +4,19 @@ using Unity.Collections;
 namespace Unity.Entities
 {
     /// <summary>
-    /// Provides an interface to safely perform <see cref="EntityManager"/> operations from a single worker thread, by temporarily
+    /// Provides an interface to safely perform a subset of <see cref="EntityManager"/> operations from a single worker thread, by temporarily
     /// giving that thread exclusive access to a <see cref="World"/>'s <see cref="EntityManager"/>.
     /// </summary>
-    /// <remarks>The intended use case for this feature is to let a worker thread stream Entity data into a staging <see cref="World"/>
-    /// and perform any necessary post-processing structural changes, prior to moving the final data into the main simulation world
-    /// using <see cref="EntityManager.MoveEntitiesFrom"/>. This lets the main thread continue to safely process the primary world
-    /// while the new data is loading in, and not require a main-thread sync point until the new Entities are fully loaded
-    /// and ready to be injected.</remarks>
+    /// <remarks>
+    /// The intended use case for this interface is to let a worker thread stream Entity data into a staging <see cref="World"/>
+    /// and perform any necessary post-processing structural changes, prior to moving the final data into the main simulation
+    /// world using <see cref="EntityManager.MoveEntitiesFrom"/>. This lets the main thread continue to safely process
+    /// the primary world while the new data is loading in, and not require a main-thread sync point until the new
+    /// Entities are fully loaded and ready to be injected.
+    ///
+    /// **Warning:** Only the <see cref="EntityManager"/> operations exposed by this struct are supported within the context
+    /// of an exclusive entity transaction. For more information, refer to [Safety in Entities](xref:concepts-safety).
+    /// </remarks>
     /// <seealso cref="EntityManager.BeginExclusiveEntityTransaction"/>
     /// <seealso cref="EntityManager.EndExclusiveEntityTransaction"/>
     public unsafe struct ExclusiveEntityTransaction
@@ -19,8 +24,15 @@ namespace Unity.Entities
         private EntityManager m_Manager;
 
         /// <summary>
-        /// Return the entity manager this transaction operates upon
+        /// Return the entity manager this transaction operates upon.
         /// </summary>
+        /// <remarks>
+        /// Do not use this property to invoke arbitrary methods from an ExclusiveEntityTransaction because it is undefined
+        /// behavior. Some EntityManager methods involve operations that are not
+        /// safe to perform from worker threads, or which might work in certain contexts but fail in others.
+        /// Only the operations exposed by the <see cref="ExclusiveEntityTransaction"/> struct are guaranteed
+        /// to function correctly.
+        /// </remarks>
         public EntityManager EntityManager => m_Manager;
 
         internal ExclusiveEntityTransaction(EntityManager manager)

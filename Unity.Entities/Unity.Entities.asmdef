@@ -33,6 +33,16 @@
             "name": "Unity",
             "expression": "2022.3.11f1",
             "define": "UNITY_2022_3_11F1_OR_NEWER"
+        },
+        {
+            "name": "Unity",
+            "expression": "2022.3.43f1",
+            "define": "UNITY_2022_3_43F1_OR_NEWER"
+        },
+        {
+            "name": "Unity",
+            "expression": "6000.0.16f1",
+            "define": "UNITY_6000_0_16F1_OR_NEWER"
         }
     ],
     "noEngineReferences": false

@@ -2,7 +2,12 @@
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Collections;
+using Unity.Collections.LowLevel.Unsafe;
+using Unity.Profiling;
+using Unity.Properties;
+using UnityEditor;
 using UnityEngine;
+using UnityEngine.Profiling;
 using Object = UnityEngine.Object;
 
 namespace Unity.Entities
@@ -53,6 +58,272 @@ namespace Unity.Entities
         }
     }
 
+#if UNITY_EDITOR
+    [UnityEditor.InitializeOnLoad]
+#endif
+    internal static class UnityObjectRefUtility
+    {
+#if UNITY_EDITOR
+        static UnityObjectRefUtility()
+        {
+            EditorInitializeOnLoadMethod();
+        }
+#endif
+
+        unsafe class ManagedUnityObjectRefCollector:
+            Properties.IPropertyBagVisitor,
+            Properties.IPropertyVisitor,
+            ITypedVisit<UntypedUnityObjectRef>,
+            IDisposable
+        {
+            UnsafeHashSet<int> m_References;
+            UnsafeHashSet<int>* m_InstanceIDRefs;
+
+            public ManagedUnityObjectRefCollector(UnsafeHashSet<int>* instanceIDRefs)
+            {
+                m_InstanceIDRefs = instanceIDRefs;
+                m_References = new UnsafeHashSet<int>(256, Allocator.Temp);
+            }
+
+            IPropertyBag GetPropertyBag(object obj)
+            {
+                var properties = PropertyBag.GetPropertyBag(obj.GetType());
+                return properties;
+            }
+
+            public void CollectReferences(ref object obj)
+            {
+                GetPropertyBag(obj).Accept(this, ref obj);
+            }
+
+            void Properties.IPropertyBagVisitor.Visit<TContainer>(Properties.IPropertyBag<TContainer> properties, ref TContainer container)
+            {
+                foreach (var property in properties.GetProperties(ref container))
+                    ((Properties.IPropertyAccept<TContainer>)property).Accept(this, ref container);
+            }
+
+            void Properties.IPropertyVisitor.Visit<TContainer, TValue>(Properties.Property<TContainer, TValue> property,
+                ref TContainer container)
+            {
+                if (Properties.TypeTraits<TValue>.CanBeNull || !Properties.TypeTraits<TValue>.IsValueType)
+                    return;
+
+                var value = property.GetValue(ref container);
+
+                if (this is ITypedVisit<TValue> typed)
+                {
+                    typed.Visit(property, ref container, ref value);
+                    return;
+                }
+
+                Properties.PropertyContainer.Accept(this, ref value);
+            }
+
+            void ITypedVisit<UntypedUnityObjectRef>.Visit<TContainer>(Properties.Property<TContainer, UntypedUnityObjectRef> property, ref TContainer container, ref UntypedUnityObjectRef value)
+            {
+                m_InstanceIDRefs->Add(value.instanceId);
+            }
+
+            public void Dispose()
+            {
+                m_References.Dispose();
+            }
+        }
+
+        private static unsafe void AddInstanceIDRefsFromComponent(byte* componentData, TypeManager.EntityOffsetInfo* unityObjectRefOffsets, int unityObjectRefCount, UnsafeHashSet<int>* instanceIDRefs)
+        {
+            for (int i = 0; i < unityObjectRefCount; ++i)
+            {
+                var unityObjectRefOffset = unityObjectRefOffsets[i].Offset;
+                var unityObjectRefPtr = (UntypedUnityObjectRef*)(componentData + unityObjectRefOffset);
+                instanceIDRefs->Add(unityObjectRefPtr->instanceId);
+            }
+        }
+
+        static unsafe void AddInstanceIDRefsFromChunk(Archetype* archetype, int entityCount, byte* chunkBuffer, UnsafeHashSet<int>* instanceIDRefs)
+        {
+            var typeCount = archetype->TypesCount;
+
+            for (var unordered_ti = 0; unordered_ti < typeCount; ++unordered_ti)
+            {
+                var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[unordered_ti];
+                var type = archetype->Types[ti];
+                if (type.IsZeroSized || type.IsManagedComponent || type.TypeIndex == ManagedComponentStore.CompanionLinkTypeIndex || type.TypeIndex == ManagedComponentStore.CompanionLinkTransformTypeIndex)
+                    continue;
+
+                ref readonly var ct = ref TypeManager.GetTypeInfo(type.TypeIndex);
+                var unityObjectRefCount = ct.UnityObjectRefOffsetCount;
+
+                if (unityObjectRefCount == 0)
+                    continue;
+
+                var unityObjectRefOffsets = TypeManager.GetUnityObjectRefOffsets(ct);
+                int subArrayOffset = archetype->Offsets[ti];
+                byte* componentArrayStart = chunkBuffer + subArrayOffset;
+
+                if (type.IsBuffer)
+                {
+                    BufferHeader* header = (BufferHeader*)componentArrayStart;
+                    int strideSize = archetype->SizeOfs[ti];
+                    var elementSize = ct.ElementSize;
+
+                    for (int bi = 0; bi < entityCount; ++bi)
+                    {
+                        var bufferStart = BufferHeader.GetElementPointer(header);
+                        var bufferEnd = bufferStart + header->Length * elementSize;
+                        for (var componentData = bufferStart; componentData < bufferEnd; componentData += elementSize)
+                        {
+                            AddInstanceIDRefsFromComponent(componentData, unityObjectRefOffsets,unityObjectRefCount, instanceIDRefs);
+                        }
+
+                        header = (BufferHeader*)((byte*)header + strideSize);
+                    }
+                }
+                else
+                {
+                    int size = archetype->SizeOfs[ti];
+                    byte* end = componentArrayStart + size * entityCount;
+                    for (var componentData = componentArrayStart; componentData < end; componentData += size)
+                    {
+                        AddInstanceIDRefsFromComponent(componentData, unityObjectRefOffsets, unityObjectRefCount, instanceIDRefs);
+                    }
+                }
+            }
+        }
+
+        static unsafe void AddInstanceIDRefsFromAllChunks(Archetype* archetype, UnsafeHashSet<int>* instanceIDRefs)
+        {
+            for (var chunkIndex = 0; chunkIndex < archetype->Chunks.Count; chunkIndex++)
+            {
+                var chunk = archetype->Chunks[chunkIndex];
+                var chunkPtr = chunk.GetPtr();
+                var chunkBuffer = chunkPtr->Buffer;
+
+                AddInstanceIDRefsFromChunk(archetype, chunk.Count, chunkBuffer, instanceIDRefs);
+            }
+        }
+
+        static unsafe void AddInstanceIDRefsFromUnmanagedSharedComponents(EntityDataAccess* access, Archetype* archetype, UnsafeHashSet<int>* instanceIDRefs)
+        {
+            int numSharedComponents = archetype->NumSharedComponents;
+            for (int iType = 0; iType < numSharedComponents; iType++)
+            {
+                var sharedComponents = archetype->Chunks.GetSharedComponentValueArrayForType(iType);
+
+                for (int chunkIndex = 0; chunkIndex < archetype->Chunks.Count; chunkIndex++)
+                {
+                    var sharedComponentIndex = sharedComponents[chunkIndex];
+
+                    if (EntityComponentStore.IsUnmanagedSharedComponentIndex(sharedComponentIndex))
+                    {
+                        var typeIndex = EntityComponentStore.GetComponentTypeFromSharedComponentIndex(sharedComponentIndex);
+                        ref readonly var typeInfo = ref TypeManager.GetTypeInfo(typeIndex);
+
+                        var unityObjectRefCount = typeInfo.UnityObjectRefOffsetCount;
+                        if (unityObjectRefCount == 0)
+                            continue;
+
+                        var unityObjectRefOffsets = TypeManager.GetUnityObjectRefOffsets(typeInfo);
+                        var dataPtr = (byte*)access->EntityComponentStore->GetSharedComponentDataAddr_Unmanaged(sharedComponentIndex, typeIndex);
+                        AddInstanceIDRefsFromComponent(dataPtr, unityObjectRefOffsets, unityObjectRefCount, instanceIDRefs);
+                    }
+                }
+            }
+        }
+
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        static unsafe void AddInstanceIDRefsFromManagedComponents(EntityDataAccess* access, UnsafeHashSet<int>* instanceIDRefs)
+        {
+            using var managedObjectRefWalker = new ManagedUnityObjectRefCollector(instanceIDRefs);
+
+            // Managed components
+            s_AddFromManagedComponents.Begin();
+            for (int i = 0; i < access->ManagedComponentStore.m_ManagedComponentData.Length; i++)
+            {
+                var managedComponent = access->ManagedComponentStore.m_ManagedComponentData[i];
+                if (managedComponent == null)
+                    continue;
+
+                ref readonly var typeInfo = ref TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(managedComponent.GetType()));
+
+                if (!typeInfo.HasUnityObjectRefs || typeInfo.TypeIndex == ManagedComponentStore.CompanionReferenceTypeIndex )
+                    continue;
+
+                managedObjectRefWalker.CollectReferences(ref managedComponent);
+            }
+            s_AddFromManagedComponents.End();
+
+            // Managed shared components
+            s_AddFromManagedSharedComponents.Begin();
+            int sharedComponentCount = access->ManagedComponentStore.GetSharedComponentCount();
+            for (int i = 0; i < sharedComponentCount; i++)
+            {
+                var managedSharedComponent = access->ManagedComponentStore.m_SharedComponentData[i];
+                if (managedSharedComponent == null)
+                    continue;
+
+                ref readonly var typeInfo = ref TypeManager.GetTypeInfo(TypeManager.GetTypeIndex(managedSharedComponent.GetType()));
+
+                if (!typeInfo.HasUnityObjectRefs)
+                    continue;
+
+                managedObjectRefWalker.CollectReferences(ref managedSharedComponent);
+            }
+            s_AddFromManagedSharedComponents.End();
+        }
+#endif
+
+        private static ProfilerMarker s_AddFromChunks = new ProfilerMarker("AddFromChunks");
+        private static ProfilerMarker s_AddFromUnmanagedSharedComponents = new ProfilerMarker("AddFromUnmanagaedSharedComponents");
+        private static ProfilerMarker s_AddFromManagedComponents = new ProfilerMarker("AddFromManagedComponents");
+        private static ProfilerMarker s_AddFromManagedSharedComponents = new ProfilerMarker("AddFromManagedSharedComponents");
+
+        static unsafe void AdditionalRootsHandlerDelegate(IntPtr state)
+        {
+            using var instanceIDRefs = new UnsafeHashSet<int>(256, Allocator.Temp);
+            foreach (var world in World.s_AllWorlds)
+            {
+                var access = world.EntityManager.GetCheckedEntityDataAccessExclusive();
+                access->CompleteAllTrackedJobs();
+                for (var i = 0; i < access->EntityComponentStore->m_Archetypes.Length; ++i)
+                {
+                    var archetype = access->EntityComponentStore->m_Archetypes.Ptr[i];
+
+                    if (!archetype->HasUnityObjectRefs)
+                        continue;
+
+                    s_AddFromChunks.Begin();
+                    AddInstanceIDRefsFromAllChunks(archetype, &instanceIDRefs);
+                    s_AddFromChunks.End();
+                    s_AddFromUnmanagedSharedComponents.Begin();
+                    AddInstanceIDRefsFromUnmanagedSharedComponents(access, archetype, &instanceIDRefs);
+                    s_AddFromUnmanagedSharedComponents.End();
+                    #if !UNITY_DISABLE_MANAGED_COMPONENTS
+                    AddInstanceIDRefsFromManagedComponents(access, &instanceIDRefs);
+                    #endif
+                }
+            }
+
+            if (instanceIDRefs.Count == 0)
+                return;
+
+            using var instanceIDs = instanceIDRefs.ToNativeArray(Allocator.Temp);
+#if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)
+            ResourcesAPIInternal.EntitiesAssetGC.MarkInstanceIDsAsRoot((IntPtr)instanceIDs.GetUnsafePtr(), instanceIDs.Length, state);
+#endif
+        }
+
+#if !UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod]
+#endif
+        static void EditorInitializeOnLoadMethod()
+        {
+            #if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)
+            ResourcesAPIInternal.EntitiesAssetGC.RegisterAdditionalRootsHandler(AdditionalRootsHandlerDelegate);
+            #endif
+        }
+    }
+
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     internal struct UntypedUnityObjectRef : IEquatable<UntypedUnityObjectRef>
@@ -77,10 +348,12 @@ namespace Unity.Entities
     }
 
     /// <summary>
-    /// A utility structure that stores a reference of an <see cref="UnityEngine.Object"/> for the BakingSystem to process in an unmanaged component.
+    /// A utility structure that stores a reference of an <see cref="UnityEngine.Object"/> for Entities. Allows references to be stored on unmanaged component.
     /// </summary>
     /// <typeparam name="T">Type of the Object that is going to be referenced by UnityObjectRef.</typeparam>
-    /// <remarks>Stores the Object's instance ID. This means that the reference is only valid during the baking process.</remarks>
+    /// <remarks>Stores the Object's instance ID. Will also serialize asset references in SubScenes the same way managed components do with direct references to <see cref="UnityEngine.Object"/>. This is the recommended way to store references to Unity assets in Entities as it remains unmanaged.</remarks>
+    /// <remarks>Serialization is supported on <see cref="IComponentData"/> <see cref="ISharedComponentData"/> and <see cref="IBufferElementData"/></remarks>
+    /// <remarks>Unity assets referenced in this way will be prevented from being collect by Asset Garbage Collection (such as calling <see cref="Resources.UnloadUnusedAssets()"/>).</remarks>
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     public struct UnityObjectRef<T> : IEquatable<UnityObjectRef<T>>

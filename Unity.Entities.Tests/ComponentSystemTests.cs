@@ -416,6 +416,7 @@ namespace Unity.Entities.Tests
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
                 //accessing a potentially stale ComponentLookup before Update() will throw an exception
                 Assert.Throws<ArgumentException>(() => _lookup1.HasComponent(_entity));
+                Assert.Throws<ArgumentException>(() => _lookup1.HasComponent(_entity, out _));
 #endif
 
                 var lookup2 = GetComponentLookup<EcsTestData>();
@@ -431,6 +432,9 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(lookup2.m_Safety, _lookup1.m_Safety);
 #endif
                 Assert.IsTrue(_lookup1.HasComponent(_entity));
+                Assert.IsTrue(_lookup1.HasComponent(_entity, out var entityExists));
+                Assert.IsTrue(entityExists);
+                Assert.IsTrue(_lookup1.EntityExists(_entity));
             }
         }
 
@@ -648,6 +652,17 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, componentDataB.value);
             Assert.AreEqual(2, componentDataC.value);
 
+            Assert.IsTrue(array.TryGetComponent(entityA, out componentDataA, out var entityAExists));
+            Assert.IsTrue(array.TryGetComponent(entityB, out componentDataB, out var entityBExists));
+            Assert.IsTrue(array.TryGetComponent(entityC, out componentDataC, out var entityCExists));
+
+            Assert.AreEqual(0, componentDataA.value);
+            Assert.AreEqual(1, componentDataB.value);
+            Assert.AreEqual(2, componentDataC.value);
+
+            Assert.IsTrue(entityAExists);
+            Assert.IsTrue(entityBExists);
+            Assert.IsTrue(entityCExists);
         }
 
         struct ComponentLookupContainerJob : IJob
@@ -702,6 +717,10 @@ namespace Unity.Entities.Tests
             var array = m_Manager.GetComponentLookup<EcsTestTag>();
             Assert.IsTrue(array.TryGetComponent(entity,out var tagComponent));
             Assert.AreEqual(default(EcsTestTag),tagComponent);
+            Assert.IsTrue(array.TryGetComponent(entity,out tagComponent, out var entityExists));
+            Assert.AreEqual(default(EcsTestTag),tagComponent);
+            Assert.IsTrue(entityExists);
+            Assert.IsTrue(array.EntityExists(entity));
         }
 
         [Test]
@@ -765,6 +784,28 @@ namespace Unity.Entities.Tests
             var array = m_Manager.GetComponentLookup<EcsTestData>();
             Assert.IsFalse(array.TryGetComponent(entity, out var componentData));
             Assert.AreEqual(componentData, default(EcsTestData));
+        }
+
+        [Test]
+        public void ComponentLookup_TryGetComponent_InvalidEntity([Values]bool destroy)
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.SetComponentData(entity, new EcsTestData
+            {
+                value = 5
+            });
+
+            if (destroy)
+                m_Manager.DestroyEntity(entity);
+            else entity = Entity.Null;
+
+            var array = m_Manager.GetComponentLookup<EcsTestData>();
+            Assert.IsFalse(array.TryGetComponent(entity, out var componentData));
+            Assert.AreEqual(componentData, default(EcsTestData));
+            Assert.IsFalse(array.TryGetComponent(entity, out componentData, out var entityExists));
+            Assert.AreEqual(componentData, default(EcsTestData));
+            Assert.IsFalse(entityExists);
+            Assert.IsFalse(array.EntityExists(entity));
         }
 
         [Test]
@@ -863,6 +904,9 @@ namespace Unity.Entities.Tests
             var array = m_Manager.GetBufferLookup<EcsIntElement>();
 
             Assert.IsTrue(array.HasBuffer(entity));
+            Assert.IsTrue(array.HasBuffer(entity, out var entityExists));
+            Assert.IsTrue(entityExists);
+            Assert.IsTrue(array.EntityExists(entity));
         }
 
         [Test]
@@ -876,6 +920,10 @@ namespace Unity.Entities.Tests
 
             Assert.IsTrue(array.TryGetBuffer(entity, out var bufferData));
             CollectionAssert.AreEqual(new EcsIntElement[] { 0, 1, 2 }, bufferData.ToNativeArray(Allocator.Temp).ToArray());
+            Assert.IsTrue(array.TryGetBuffer(entity, out bufferData, out bool entityExists));
+            CollectionAssert.AreEqual(new EcsIntElement[] { 0, 1, 2 }, bufferData.ToNativeArray(Allocator.Temp).ToArray());
+            Assert.IsTrue(entityExists);
+            Assert.IsTrue(array.EntityExists(entity));
         }
 
         [Test]
@@ -886,6 +934,39 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(array.TryGetBuffer(entity, out var bufferData));
             //I can't do an equivalence check to default since equals appears to not be implemented
             Assert.IsFalse(bufferData.IsCreated);
+            Assert.IsFalse(array.TryGetBuffer(entity, out bufferData, out bool entityExists));
+            Assert.IsFalse(bufferData.IsCreated);
+            Assert.IsTrue(entityExists);
+            Assert.IsTrue(array.EntityExists(entity));
+
+            m_Manager.DestroyEntity(entity);
+            array = m_Manager.GetBufferLookup<EcsIntElement>();
+
+            Assert.IsFalse(array.TryGetBuffer(entity, out bufferData, out entityExists));
+            Assert.IsFalse(bufferData.IsCreated);
+            Assert.IsFalse(entityExists);
+            Assert.IsFalse(array.EntityExists(entity));
+        }
+
+        [Test]
+        public void BufferLookup_TryGetBuffer_InvalidEntity([Values]bool destroy)
+        {
+            var entity = m_Manager.CreateEntity();
+            m_Manager.AddBuffer<EcsIntElement>(entity);
+            m_Manager.GetBuffer<EcsIntElement>(entity).AddRange(new NativeArray<EcsIntElement>(new EcsIntElement[] { 0, 1, 2 }, Allocator.Temp));
+            var array = m_Manager.GetBufferLookup<EcsIntElement>();
+
+            if(destroy) m_Manager.DestroyEntity(entity);
+            else entity = Entity.Null;
+            array = m_Manager.GetBufferLookup<EcsIntElement>();
+
+            Assert.IsFalse(array.TryGetBuffer(entity, out var bufferData));
+            //I can't do an equivalence check to default since equals appears to not be implemented
+            Assert.IsFalse(bufferData.IsCreated);
+            Assert.IsFalse(array.TryGetBuffer(entity, out bufferData, out bool entityExists));
+            Assert.IsFalse(bufferData.IsCreated);
+            Assert.IsFalse(entityExists);
+            Assert.IsFalse(array.EntityExists(entity));
         }
 
         [Test]

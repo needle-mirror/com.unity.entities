@@ -39,7 +39,7 @@ namespace Unity.Entities
 
         UnsafeParallelMultiHashMap<ulong, int> m_HashLookup = new UnsafeParallelMultiHashMap<ulong, int>(128, Allocator.Persistent);
 
-        List<object> m_SharedComponentData = new List<object>();
+        internal List<object> m_SharedComponentData = new List<object>();
 
         struct SharedComponentInfo
         {
