@@ -99,64 +99,81 @@ namespace Unity.Scenes
                 artifacts[i] = AssetDatabaseExperimental.ProduceArtifact(artifactKeys[i]).value;
         }
 
+        /// <summary>
+        /// Produce artifacts for the given guids.
+        /// </summary>
+        /// <returns>Returns true if the artifacts were successfully created</returns>
         internal static bool ProduceArtifactsRefreshIfNecessary(ArtifactKey[] artifactKeys, Hash128[] artifacts)
         {
             ProduceArtifacts(artifactKeys, artifacts);
-            bool hasFailedArtifacts = false;
+            var wasSuccessful = true;
             foreach (var artifact in artifacts)
             {
-                if (!artifact.isValid)
-                    hasFailedArtifacts = true;
+                if (artifact.isValid)
+                    continue;
+
+                wasSuccessful = false;
+                break;
             }
 
-            if (hasFailedArtifacts)
+            if (!wasSuccessful)
             {
                 // ProduceArtifact can fail if the assets have changed while importing or since last refresh.
                 // Try at least once to get into a correct state.
                 AssetDatabase.Refresh();
 
                 ProduceArtifacts(artifactKeys, artifacts);
-            }
 
-            foreach (var artifact in artifacts)
-            {
-                if (!artifact.isValid)
-                    return false;
+                foreach (var artifact in artifacts)
+                {
+                    if (!artifact.isValid)
+                        return false;
+                }
             }
 
             return true;
         }
 
-
+        /// <summary>
+        /// Produce artifacts for the given guids using the passed in importer.
+        /// </summary>
+        /// <returns>Returns true if the artifacts were successfully created</returns>
         internal static bool ProduceArtifactsRefreshIfNecessary(NativeArray<GUID> guids, Type assetImportType, NativeArray<Hash128> artifacts)
         {
             ProduceArtifacts(guids, assetImportType, artifacts);
 
-            bool hasFailedArtifacts = false;
+            var wasSuccessful = true;
             foreach (var artifact in artifacts)
             {
-                if (!artifact.isValid)
-                    hasFailedArtifacts = true;
+                if (artifact.isValid)
+                    continue;
+
+                wasSuccessful = false;
+                break;
             }
 
-            if (hasFailedArtifacts)
+            if (!wasSuccessful)
             {
                 // ProduceArtifact can fail if the assets have changed while importing or since last refresh.
                 // Try at least once to get into a correct state.
                 AssetDatabase.Refresh();
 
                 ProduceArtifacts(guids, assetImportType, artifacts);
-            }
 
-            foreach (var artifact in artifacts)
-            {
-                if (!artifact.isValid)
-                    return false;
+                foreach (var artifact in artifacts)
+                {
+                    if (!artifact.isValid)
+                        return false;
+                }
             }
 
             return true;
         }
 
+        /// <summary>
+        /// Produce artifacts for the given guids using the passed in importer.
+        /// </summary>
+        /// <returns>Returns true if the artifacts were successfully created</returns>
         internal static bool ProduceArtifactsRefreshIfNecessary(NativeArray<GUID> guids, Type assetImportType, NativeList<Hash128> artifacts)
         {
             artifacts.ResizeUninitialized(guids.Length);

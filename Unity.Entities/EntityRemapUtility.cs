@@ -144,9 +144,11 @@ namespace Unity.Entities
         /// <param name="hasEntityRefs">True if the type has any fields of type <see cref="Entity"/>, otherwise false.</param>
         /// <param name="hasBlobRefs">True if the type has any fields of type <see cref="BlobAssetReferenceData"/>, otherwise false.</param>
         /// <param name="hasWeakAssetRefs">True if the type has fields of type <see cref="UntypedWeakReferenceId"/>, otherwise false.</param>
+        /// <param name="hasUnityObjectRefs">True if the type has fields of type <see cref="UnityObjectRef{T}"/>, otherwise false.</param>
         /// <param name="entityOffsets">The offsets of the fields of type <see cref="Entity"/>.</param>
         /// <param name="blobOffsets">The offsets of the fields of type <see cref="BlobAssetReferenceData"/>.</param>
         /// <param name="weakAssetRefOffsets">The offsets of the fields of type <see cref="UntypedWeakReferenceId"/>.</param>
+        /// <param name="unityObjectRefOffsets">The offsets of the fields of type <see cref="UnityObjectRef{T}"/>.</param>
         /// <param name="cache">Cache to accelerate type inspection codepaths when calling this function multiple times.</param>
         public static void CalculateFieldOffsetsUnmanaged(Type type,
             out bool hasEntityRefs,
@@ -269,6 +271,7 @@ namespace Unity.Entities
             /// </summary>
             /// <param name="hasEntityRef">Specifies if there are any <see cref="Entity"/> references.</param>
             /// <param name="hasBlobRef">Specifies if there are any <see cref="BlobAssetReferenceData"/> references.</param>
+            /// <param name="hasUnityObjectRef">Specifies if there are any <see cref="UnityObjectRef{T}"/> references.</param>
             public EntityBlobRefResult(HasRefResult hasEntityRef, HasRefResult hasBlobRef, HasRefResult hasUnityObjectRef)
             {
                 this.HasEntityRef = hasEntityRef;
@@ -283,6 +286,7 @@ namespace Unity.Entities
         /// <param name="type">The type to inspect.</param>
         /// <param name="hasEntityReferences">Specifies if the type has any <see cref="Entity"/> references.</param>
         /// <param name="hasBlobReferences">Specifies if the type has any <see cref="BlobAssetReferenceData"/> references.</param>
+        /// <param name="hasUnityObjectReferences">Specifies if the type has any <see cref="UnityObjectRef{T}"/> references.</param>
         /// <param name="cache">Map of type to <see cref="EntityBlobRefResult"/> used to accelerate the type recursion.</param>
         /// <param name="maxDepth">The maximum depth for the recursion.</param>
         public static void HasEntityReferencesManaged(Type type, out HasRefResult hasEntityReferences, out HasRefResult hasBlobReferences, out HasRefResult hasUnityObjectReferences, Dictionary<Type,EntityBlobRefResult> cache = null, int maxDepth = 128)

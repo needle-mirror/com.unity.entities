@@ -56,15 +56,20 @@ namespace Unity.Scenes.Editor
             if (!sceneGUID.IsValid)
                 return false;
 
+            var scenePath = AssetDatabaseCompatibility.GuidToPath(sceneGUID);
             var importMode = async ? ImportMode.Asynchronous : ImportMode.Synchronous;
             var hash = AssetDatabaseCompatibility.GetArtifactHash(sceneGUID, GameObjectSceneMetaDataImporterType, importMode);
             if (!hash.isValid)
+            {
+#if ENABLE_BUILD_DIAGNOSTICS
+                UnityEngine.Debug.Log($"Invalid GameObjectSceneMetadata artifact hash for scene: {scenePath} - {sceneGUID}");
+#endif
                 return false;
+            }
 
             if (!GetMetaDataArtifactPath(hash, out var metaPath))
             {
-                var scenePath = AssetDatabaseCompatibility.GuidToPath(sceneGUID);
-                throw new InvalidOperationException($"Failed to get artifact paths for scene {scenePath} - {sceneGUID}");
+                throw new InvalidOperationException($"Failed to get GameObjectSceneMetadata artifact paths for scene {scenePath} - {sceneGUID}");
             }
 
             if (!BlobAssetReference<GameObjectSceneMetaData>.TryRead(metaPath, CurrentFileFormatVersion, out sceneMetaDataRef))
@@ -96,7 +101,13 @@ namespace Unity.Scenes.Editor
             {
                 var metaPath = ctx.GetOutputArtifactFilePath(k_Extension);
                 var subScenes = SubScene.AllSubScenes;
-                var sceneGuids = subScenes.Where(x => x.SceneGUID.IsValid).Select(x => x.SceneGUID)
+                var sceneGuids = subScenes.Where(x => x.SceneGUID.IsValid).Select(x =>
+                    {
+#if ENABLE_BUILD_DIAGNOSTICS
+                        Debug.Log($"Including subscene: {x.SceneGUID} in the GameObjectSceneMetaData blobAssetReference of root scene {ctx.assetPath}.");
+#endif
+                        return x.SceneGUID;
+                    })
                     .Distinct()
                     .ToArray();
 

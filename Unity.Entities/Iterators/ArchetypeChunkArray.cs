@@ -855,9 +855,8 @@ namespace Unity.Entities
         /// <summary>
         /// Provides a <see cref="EnabledMask"/> to the component enabled bits in this chunk.
         /// </summary>
-        /// <typeparam name="T">The component type</typeparam>
-        /// <param name="typeHandle">Type handle for the component type <typeparamref name="T"/>.</param>
-        /// <returns>An <see cref="EnabledMask"/> instance for component <typeparamref name="T"/> in this chunk.</returns>
+        /// <param name="typeHandle">Type handle for the dynamic component/>.</param>
+        /// <returns>An <see cref="EnabledMask"/> instance for component in this chunk.</returns>
         public readonly EnabledMask GetEnabledMask(ref DynamicComponentTypeHandle typeHandle)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS

@@ -23,14 +23,17 @@ namespace Unity.Entities.Editor
         public Recorder Recorder;
         public ComponentSystemBase Managed;
 
-        public ScheduledSystemData(ComponentSystemBase m, int parentIndex) // managed systems
+        public ScheduledSystemData(ComponentSystemBase system, int parentIndex) // managed systems
         {
-            Managed = m;
-            WorldSystemHandle = m.SystemHandle;
+            if (system == null)
+                throw new ArgumentNullException(nameof(system));
 
-            Category = SystemUtils.GetSystemCategory(m);
+            Managed = system;
+            WorldSystemHandle = system.SystemHandle;
 
-            var systemType = m.GetType();
+            Category = SystemUtils.GetSystemCategory(system);
+
+            var systemType = system.GetType();
             NicifiedDisplayName = ContentUtilities.NicifySystemTypeName(systemType);
             TypeName = TypeUtility.GetTypeDisplayName(systemType);
             FullName = systemType.FullName;
@@ -42,17 +45,30 @@ namespace Unity.Entities.Editor
 
             UpdateAfterIndices = Array.Empty<int>();
             UpdateBeforeIndices = Array.Empty<int>();
-            Recorder = Recorder.Get($"{m.World?.Name ?? "none"} {FullName}");
+            Recorder = Recorder.Get($"{system.World?.Name ?? "none"} {FullName}");
         }
 
-        public unsafe ScheduledSystemData(SystemHandle u, World w, int parentIndex) // unmanaged systems
+        public unsafe ScheduledSystemData(SystemHandle system, World world, int parentIndex) // unmanaged systems
         {
+            if (system == SystemHandle.Null)
+                throw new ArgumentNullException(nameof(system));
+            if (world == null || !world.IsCreated)
+                throw new ArgumentNullException(nameof(world));
+
+            var unmanagedWorld = world.Unmanaged;
+            if (!unmanagedWorld.IsCreated)
+                throw new InvalidOperationException("WorldUnmanaged is not created");
+
+            var systemState = unmanagedWorld.ResolveSystemStateChecked(system);
+            if (systemState == null)
+                throw new NullReferenceException("SystemState is null");
+
             Managed = null;
-            WorldSystemHandle = u;
+            WorldSystemHandle = system;
 
             Category = SystemCategory.Unmanaged;
 
-            var systemType = SystemBaseRegistry.GetStructType(w.Unmanaged.ResolveSystemState(u)->UnmanagedMetaIndex);
+            var systemType = SystemBaseRegistry.GetStructType(systemState->UnmanagedMetaIndex);
             NicifiedDisplayName = ContentUtilities.NicifySystemTypeName(systemType);
             TypeName = TypeUtility.GetTypeDisplayName(systemType);
             FullName = systemType.FullName;
@@ -64,7 +80,7 @@ namespace Unity.Entities.Editor
 
             UpdateAfterIndices = Array.Empty<int>();
             UpdateBeforeIndices = Array.Empty<int>();
-            Recorder = Recorder.Get($"{w.Name ?? "none"} {FullName}");
+            Recorder = Recorder.Get($"{world.Name ?? "none"} {FullName}");
         }
     }
 }

@@ -198,7 +198,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             p.Item2.Set();
         }
 
-#if false
+    #if false
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadAndReleaseFromThreads()
         {
@@ -239,7 +239,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             }
             ids.Dispose();
         }
-    #endif
+ #endif
 
         struct LoadObjectJob : IJob
         {
@@ -258,7 +258,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
                 RuntimeContentManager.ReleaseObjectAsync(id);
             }
         }
-#if false
+        #if false
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadAdditive_GOScenes()
         {
@@ -328,7 +328,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             ids.Dispose();
             jobs.Dispose();
         }
-#endif
+    #endif
         IEnumerator AssertCanLoadAndRelease<TObject>(UntypedWeakReferenceId id) where TObject : UnityEngine.Object
         {
             RuntimeContentManager.LoadObjectAsync(id);
@@ -343,8 +343,8 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             RuntimeContentManager.ProcessQueuedCommands();
             Assert.AreEqual(ObjectLoadingStatus.None, RuntimeContentManager.GetObjectLoadingStatus(id));
         }
-
-#if false
+    
+    #if false
         [Test]
         public void LoadingObjectsCountIsCorrectAfterLoadsAndReleases()
         {
@@ -403,7 +403,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             RuntimeContentManager.ReleaseInstancesAsync(handle2);
             RuntimeContentManager.ProcessQueuedCommands();
         }
-#endif
+        #endif
 
         bool InitializeCatalogForTest()
         {
@@ -413,7 +413,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             return RuntimeContentManager.LoadLocalCatalogData(catalogPath, RuntimeContentManager.DefaultContentFileNameFunc, f => $"{TestStreamingAssetsFullPath}/{RuntimeContentManager.DefaultArchivePathFunc(f)}");
         }
 
-#if false
+    #if false
         [UnityTest]
 #if UNITY_EDITOR_LINUX
         [Ignore("DOTS-7790 - Ubuntu editor often crashes when running this test")]
@@ -505,7 +505,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             wr.Id.GenerationType = WeakReferenceGenerationType.UnityObject;
             Assert.IsFalse(wr.IsReferenceValid);
         }
-    #endif
+#endif
     }
 }
 #endif

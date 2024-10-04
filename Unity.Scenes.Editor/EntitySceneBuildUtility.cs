@@ -266,6 +266,9 @@ namespace Unity.Scenes.Editor
                 }
             }
 
+#if ENABLE_BUILD_DIAGNOSTICS
+            UnityEngine.Debug.Log("Total number of scene imported: " + sceneGuidExportedTypePaths.Count);
+#endif
  			WriteExportedTypesDebugLog(sceneGuidExportedTypePaths);
             Func<Hash128, long, string, UntypedWeakReferenceId> objIdToRTId = (Hash128 guid, long lfid, string path) =>
             {

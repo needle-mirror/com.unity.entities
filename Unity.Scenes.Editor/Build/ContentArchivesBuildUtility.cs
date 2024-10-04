@@ -1,3 +1,4 @@
+using System;
 using System.Collections.Generic;
 using System.IO;
 using System.Linq;
@@ -48,12 +49,13 @@ namespace Unity.Entities.Content
                 abb.assetBundleName = "assets";
                 abb.assetNames = new string[count];
                 abb.addressableNames = new string[count];
-                var index = 0;
-                foreach (var a in referencedAssets)
+                var sortedReferencedAssets = referencedAssets.ToArray();
+                Array.Sort(sortedReferencedAssets);
+                for (int i = 0; i < sortedReferencedAssets.Length; i++)
                 {
-                    abb.assetNames[index] = AssetDatabase.GUIDToAssetPath(a);
-                    abb.addressableNames[index] = a;
-                    index++;
+                    var a = sortedReferencedAssets[i];
+                    abb.assetNames[i] = AssetDatabase.GUIDToAssetPath(a);
+                    abb.addressableNames[i] = a;
                 }
                 abbs.Add(abb);
             }

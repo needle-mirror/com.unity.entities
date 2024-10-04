@@ -825,6 +825,9 @@ namespace Unity.Entities
             /// <param name="blobAssetRefOffsetStartIndex">Index into the blob asset reference array where this component's blob asset reference data begins</param>
             /// <param name="weakAssetRefOffsetCount">Number of weak asset references this component contains</param>
             /// <param name="weakAssetRefOffsetStartIndex">Index into the weak asset reference array where this component's weak asset reference data begins</param>
+            /// <param name="hasUnityObjectRefs">Value for if this component has any Unity Object references (in case we force this value true/false)</param>
+            /// <param name="unityObjectRefOffsetCount">Number of Unity Object references the component really contains</param>
+            /// <param name="unityObjectRefOffsetStartIndex">Index into the Unity Object reference array where this component's Unity Object reference data begins</param>
             /// <param name="typeSize">Size of the component type</param>
             /// <param name="bloomFilterMask">The bloom filter mask for this component, used to accelerate "is type T in set of types S" checks. The default value of zero is safe, but ineffective.</param>
             public TypeInfo(int typeIndex, TypeCategory category, int entityOffsetCount, int entityOffsetStartIndex,
@@ -832,7 +835,8 @@ namespace Unity.Entities
                             int alignmentInBytes, int maximumChunkCapacity, int writeGroupCount, int writeGroupStartIndex,
                             bool hasBlobRefs, int blobAssetRefOffsetCount, int blobAssetRefOffsetStartIndex,
                             int weakAssetRefOffsetCount, int weakAssetRefOffsetStartIndex,
-                            bool hasUnityObjectRefs, int unityObjectRefOffsetCount, int unityObjectRefOffsetStartIndex, int typeSize, ulong bloomFilterMask = 0L)
+                            bool hasUnityObjectRefs, int unityObjectRefOffsetCount, int unityObjectRefOffsetStartIndex,
+                            int typeSize, ulong bloomFilterMask = 0L)
             {
                 TypeIndex = new TypeIndex() { Value = typeIndex };
                 Category = category;

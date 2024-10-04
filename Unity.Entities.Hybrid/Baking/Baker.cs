@@ -1051,9 +1051,9 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Checks if the GameObject is active and enabled.
+        /// Checks if the GameObject is active the component active and enabled.
         /// </summary>
-        /// <returns>Returns true if the GameObject is active and enabled.</returns>
+        /// <returns>Returns true if the GameObject is active the component active and enabled.</returns>
         /// <remarks>This takes a dependency on the active and enable state</remarks>
         public bool IsActiveAndEnabled()
         {
@@ -1065,10 +1065,10 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Checks if the GameObject is active and enabled for a given component.
+        /// Checks if the GameObject is active the component active and enabled.
         /// </summary>
         /// <param name="component">The Object to check.</param>
-        /// <returns>Returns true if the GameObject is active and enabled.</returns>
+        /// <returns>Returns true if the GameObject is active the component active and enabled.</returns>
         /// <remarks>This takes a dependency on the active and enable state.</remarks>
         public bool IsActiveAndEnabled(Component component)
         {

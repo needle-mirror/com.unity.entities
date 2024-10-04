@@ -71,7 +71,13 @@ namespace Unity.Entities.Content
 
             var artifactKeys = new Dictionary<Hash128, ArtifactKey>();
             EntitySceneBuildUtility.PrepareEntityBinaryArtifacts(playerGUID, subScenes, artifactKeys);
-            EntitySceneBuildUtility.PrepareAdditionalFiles(playerGUID, artifactKeys.Keys.ToArray(), artifactKeys.Values.ToArray(), target, (s, d) => DoCopy(s, Path.Combine(buildFolder, d)));
+            //sorting ensures that all items are passed in a deterministic order
+            var keys = artifactKeys.Keys.ToArray();
+            Array.Sort(keys);
+            var values = new ArtifactKey[keys.Length];
+            for (int i = 0; i < keys.Length; i++)
+                values[i] = artifactKeys[keys[i]];
+            EntitySceneBuildUtility.PrepareAdditionalFiles(playerGUID, keys, values, target, (s, d) => DoCopy(s, Path.Combine(buildFolder, d)));
         }
 
         static void DoCopy(string src, string dst)
@@ -94,6 +100,8 @@ namespace Unity.Entities.Content
             {
                 Directory.CreateDirectory(targetFolder);
                 var files = Directory.GetFiles(sourceFolder, "*.*", SearchOption.AllDirectories);
+                //sort files to ensure deterministic order
+                Array.Sort(files);
                 var entries = new List<(RemoteContentId, RemoteContentLocation, IEnumerable<string>)>(files.Length);
                 foreach (var f in files)
                 {
@@ -192,14 +200,16 @@ namespace Unity.Entities.Content
                 if (setMap.Count > 0)
                 {
                     var sets = blobBuilder.Allocate(ref catalog.ContentSets, setMap.Count);
-                    int setIndex = 0;
-                    foreach (var set in setMap)
+                    var sortedKeys = setMap.Keys.ToArray();
+                    Array.Sort(sortedKeys);
+                    for (int i = 0; i < sortedKeys.Length; i++)
                     {
-                        sets[setIndex] = new RemoteContentCatalogData.RemoteContentSetData { Name = set.Key };
-                        var ids = blobBuilder.Allocate(ref sets[setIndex].Ids, set.Value.Count);
-                        for (int j = 0; j < set.Value.Count; j++)
-                            ids[j] = set.Value[j];
-                        setIndex++;
+                        var setKey = sortedKeys[i];
+                        var setVal = setMap[setKey];
+                        sets[i] = new RemoteContentCatalogData.RemoteContentSetData { Name = setKey };
+                        var ids = blobBuilder.Allocate(ref sets[i].Ids, setVal.Count);
+                        for (int j = 0; j < setVal.Count; j++)
+                            ids[j] = setVal[j];
                     }
                 }
                 BlobAssetReference<RemoteContentCatalogData>.Write(blobBuilder, path, 1);

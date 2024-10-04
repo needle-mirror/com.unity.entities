@@ -351,9 +351,9 @@ namespace Unity.Entities
     /// A utility structure that stores a reference of an <see cref="UnityEngine.Object"/> for Entities. Allows references to be stored on unmanaged component.
     /// </summary>
     /// <typeparam name="T">Type of the Object that is going to be referenced by UnityObjectRef.</typeparam>
-    /// <remarks>Stores the Object's instance ID. Will also serialize asset references in SubScenes the same way managed components do with direct references to <see cref="UnityEngine.Object"/>. This is the recommended way to store references to Unity assets in Entities as it remains unmanaged.</remarks>
-    /// <remarks>Serialization is supported on <see cref="IComponentData"/> <see cref="ISharedComponentData"/> and <see cref="IBufferElementData"/></remarks>
-    /// <remarks>Unity assets referenced in this way will be prevented from being collect by Asset Garbage Collection (such as calling <see cref="Resources.UnloadUnusedAssets()"/>).</remarks>
+    /// <remarks><para>Stores the Object's instance ID. Will also serialize asset references in SubScenes the same way managed components do with direct references to <see cref="UnityEngine.Object"/>. This is the recommended way to store references to Unity assets in Entities as it remains unmanaged.</para>
+    /// <para>Serialization is supported on <see cref="IComponentData"/> <see cref="ISharedComponentData"/> and <see cref="IBufferElementData"/></para>
+    /// <para>Unity assets referenced in this way will be prevented from being collect by Asset Garbage Collection (such as calling <see cref="Resources.UnloadUnusedAssets()"/>).</para></remarks>
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     public struct UnityObjectRef<T> : IEquatable<UnityObjectRef<T>>

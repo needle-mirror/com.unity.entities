@@ -3777,24 +3777,26 @@ namespace Unity.Entities
                 srcEntityManager.CopyEntitiesInternal(srcEntities, srcManagerInstances);
                 srcEntityManager.AddComponent(srcManagerInstances, ComponentType.ReadWrite<IsolateCopiedEntities>());
 
-                var instantiated = new EntityQueryBuilder(Allocator.Temp)
+                var queryBuilder = new EntityQueryBuilder(Allocator.Temp)
                     .WithAll<IsolateCopiedEntities>()
-                    .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab)
-                    .Build(srcEntityManager);
+                    .WithOptions(EntityQueryOptions.IncludeDisabledEntities | EntityQueryOptions.IncludePrefab);
+
+                var instantiatedInSrcWorld = queryBuilder.Build(srcEntityManager);
+                var instantiatedInDstWorld = queryBuilder.Build(this);
 
                 using (var entityRemapping = srcEntityManager.CreateEntityRemapArray(Allocator.TempJob))
                 {
-                    MoveEntitiesFromInternalQuery(srcEntityManager, instantiated, entityRemapping);
-
-                    EntityRemapUtility.GetTargets(out var output, entityRemapping);
-                    RemoveComponent(output, ComponentType.ReadWrite<IsolateCopiedEntities>());
-                    output.Dispose();
+                    MoveEntitiesFromInternalQuery(srcEntityManager, instantiatedInSrcWorld, entityRemapping);
 
                     if (outputEntities.IsCreated)
                     {
-                        for (int i = 0; i != outputEntities.Length; i++)
-                            outputEntities[i] = entityRemapping[srcManagerInstances[i].Index].Target;
+                        for (int ei = 0, ec = srcManagerInstances.Length; ei != ec; ei++)
+                        {
+                            outputEntities[ei] = entityRemapping[srcManagerInstances[ei].Index].Target;
+                        }
                     }
+
+                    RemoveComponent(instantiatedInDstWorld, ComponentType.ReadWrite<IsolateCopiedEntities>());
                 }
             }
         }
@@ -4159,17 +4161,20 @@ namespace Unity.Entities
             var ecs = access->EntityComponentStore;
             return ecs->GetComponentTypeOrderVersion(TypeManager.GetTypeIndex<T>());
         }
+
         /// <summary>
         /// Gets the version number of the specified component type.
         /// </summary>
-        /// <remarks>This version number is incremented each time there is a structural change involving the specified
+        /// <remarks>
+        /// <para>
+        /// This version number is incremented each time there is a structural change involving the specified
         /// type of component. Such changes include creating or destroying entities that have this component and adding
-        /// or removing the component type from an entity. Shared components are not covered by this version;
-        /// see <see cref="GetSharedComponentOrderVersion{T}(T)"/>.
+        /// or removing the component type from an entity. Shared components are not covered by this version.
+        /// <see cref="GetSharedComponentOrderVersion{T}(T)"/>.
         ///
         /// Version numbers can overflow. To compare if one version is more recent than another, directly checking if
         /// VersionB is greater than VersionA is not sufficient. Instead, use the helper function:
-        ///
+        /// </para>
         /// <code>
         /// bool VersionBisNewer = ChangeVersionUtility.DidChange(VersionB, VersionA);
         /// </code>

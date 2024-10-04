@@ -156,7 +156,7 @@ public class JobEntityVerify
             }
         ";
 
-        await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntity_WithDisabled_EnabledRefRW_RefRW_QueryIsCorrect), "Test0__JobEntity_19875963024.g.cs");
+        await VerifyCS.VerifySourceGeneratorAsync(source, "JobEntity_Disabled_4", "Test0__JobEntity_19875963024.g.cs");
     }
 
     [TestMethod]
@@ -175,7 +175,7 @@ public class JobEntityVerify
             }
         ";
 
-        await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntity_WithDisabled_EnabledRefRW_RefRO_QueryIsCorrect), "Test0__JobEntity_19875963024.g.cs");
+        await VerifyCS.VerifySourceGeneratorAsync(source, "JobEntity_Disabled_3", "Test0__JobEntity_19875963024.g.cs");
     }
 
     [TestMethod]
@@ -194,7 +194,7 @@ public class JobEntityVerify
             }
         ";
 
-        await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntity_WithDisabled_EnabledRefRW_QueryIsCorrect), "Test0__JobEntity_19875963024.g.cs");
+        await VerifyCS.VerifySourceGeneratorAsync(source, "JobEntity_Disabled_2", "Test0__JobEntity_19875963024.g.cs");
     }
 
      [TestMethod]
@@ -213,7 +213,7 @@ public class JobEntityVerify
              }
          ";
 
-         await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntity_WithDisabled_RefRW_QueryIsCorrect), "Test0__JobEntity_19875963024.g.cs");
+         await VerifyCS.VerifySourceGeneratorAsync(source, "JobEntity_Disabled_5", "Test0__JobEntity_19875963024.g.cs");
      }
 
      [TestMethod]
@@ -232,6 +232,6 @@ public class JobEntityVerify
              }
          ";
 
-         await VerifyCS.VerifySourceGeneratorAsync(source, nameof(JobEntity_WithDisabled_EnabledRefRO_RefRW_QueryIsCorrect), "Test0__JobEntity_19875963024.g.cs");
+         await VerifyCS.VerifySourceGeneratorAsync(source, "JobEntity_Disabled_1", "Test0__JobEntity_19875963024.g.cs");
      }
 }

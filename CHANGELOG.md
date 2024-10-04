@@ -4,6 +4,21 @@ uid: changelog
 
 # Changelog
 
+## [1.3.5] - 2024-10-04
+
+### Changed
+
+* Local optimization in EntityManager.CopyEntitiesFrom
+* Updated Mathematics dependency to version 1.3.2
+* Updated Burst dependency to version 1.8.18
+
+### Fixed
+
+* Fixed misleading documentation for Baker.IsActiveAndEnabled
+* Improved build determinism by sorting inputs to build methods.
+* Exception thrown under certain circumstances when a system was destroyed could break various DOTS editor windows.
+
+
 ## [1.3.2] - 2024-09-06
 
 ### Added

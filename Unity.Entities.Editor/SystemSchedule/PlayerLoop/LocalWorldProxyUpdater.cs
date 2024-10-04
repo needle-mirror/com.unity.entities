@@ -101,10 +101,10 @@ namespace Unity.Entities.Editor
                 if (sys == null) // will happen in subset world
                     continue;
 
-                var handle = CreateSystemProxy(m_WorldProxy, sys.World, sys.World == m_LocalWorld);
+                var systemProxy = CreateSystemProxy(m_WorldProxy, sys.World, sys.World == m_LocalWorld);
                 m_WorldProxy.m_SystemData.Add(new ScheduledSystemData(sys, -1));
 
-                workQueue.Enqueue(new GroupSystemInQueue { group = (ComponentSystemGroup) sys, index = handle.SystemIndex });
+                workQueue.Enqueue(new GroupSystemInQueue { group = (ComponentSystemGroup) sys, index = systemProxy.SystemIndex });
             }
 
             // Iterate through groups, making sure that all group children end up in sequential order in resulting list
@@ -113,7 +113,6 @@ namespace Unity.Entities.Editor
                 var work = workQueue.Dequeue();
                 var group = work.group;
                 var groupIndex = work.index;
-
                 var firstChildIndex = m_WorldProxy.m_AllSystems.Count;
 
                 ref var updateSystemList = ref group.m_MasterUpdateList;
@@ -123,38 +122,54 @@ namespace Unity.Entities.Editor
                 {
                     var updateIndex = updateSystemList[i];
 
-                    ComponentSystemBase sys = null;
-                    ScheduledSystemData sd;
+                    ComponentSystemBase system = null;
+                    ScheduledSystemData scheduledSystemData;
                     World creationWorld;
 
                     if (updateIndex.IsManaged)
                     {
-                        sys = group.ManagedSystems[updateIndex.Index];
-                        sd = new ScheduledSystemData(sys, groupIndex);
-                    }
-                    else
-                    {
-                        var unmanagedSystem = group.UnmanagedSystems[updateIndex.Index];
-                        creationWorld = FindCreationWorld(unmanagedSystem.m_WorldSeqNo);
-                        if (creationWorld != m_LocalWorld)
+                        system = group.ManagedSystems[updateIndex.Index];
+                        if (system == null)
                         {
                             removedSystemCount++;
                             continue;
                         }
 
-                        sd = new ScheduledSystemData(unmanagedSystem, creationWorld, groupIndex);
+                        scheduledSystemData = new ScheduledSystemData(system, groupIndex);
+                    }
+                    else
+                    {
+                        var unmanagedSystem = group.UnmanagedSystems[updateIndex.Index];
+                        if (unmanagedSystem == SystemHandle.Null)
+                        {
+                            removedSystemCount++;
+                            continue;
+                        }
+
+                        creationWorld = FindCreationWorld(unmanagedSystem.m_WorldSeqNo);
+                        unsafe
+                        {
+                            if (creationWorld != m_LocalWorld ||
+                                creationWorld.Unmanaged.ResolveSystemState(unmanagedSystem) == null)
+                            {
+                                removedSystemCount++;
+                                continue;
+                            }
+                        }
+
+                        scheduledSystemData = new ScheduledSystemData(unmanagedSystem, creationWorld, groupIndex);
                     }
 
-                    var handle = CreateSystemProxy(m_WorldProxy, updateIndex.IsManaged? sys?.World : m_LocalWorld, !updateIndex.IsManaged || sys?.World == m_LocalWorld);
+                    var systemProxy = CreateSystemProxy(m_WorldProxy, updateIndex.IsManaged? system?.World : m_LocalWorld, !updateIndex.IsManaged || system?.World == m_LocalWorld);
 
-                    if (sd.Recorder != null)
-                        sd.Recorder.enabled = true;
+                    if (scheduledSystemData.Recorder != null)
+                        scheduledSystemData.Recorder.enabled = true;
 
-                    m_WorldProxy.m_SystemData.Add(sd);
+                    m_WorldProxy.m_SystemData.Add(scheduledSystemData);
 
-                    if (sys is ComponentSystemGroup childGroup)
+                    if (system is ComponentSystemGroup childGroup)
                     {
-                        workQueue.Enqueue(new GroupSystemInQueue { group = childGroup, index = handle.SystemIndex });
+                        workQueue.Enqueue(new GroupSystemInQueue { group = childGroup, index = systemProxy.SystemIndex });
                     }
                 }
 
