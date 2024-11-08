@@ -1,3 +1,4 @@
+using System.IO;
 using NUnit.Framework;
 using Unity.Entities.Tests;
 using Unity.Scenes.Editor;
@@ -16,6 +17,31 @@ namespace Unity.Scenes.Tests
             public Material Value;
         }
 
+        Material m_TestMaterial;
+        public static string s_MaterialAssetPath = "Assets/TestMaterial.asset";
+
+        public void CreateBasicMaterial()
+        {
+#if UNITY_EDITOR
+            m_TestMaterial = new Material(Shader.Find("Transparent/Diffuse"));
+            AssetDatabase.CreateAsset(m_TestMaterial, s_MaterialAssetPath);
+#endif
+        }
+
+        [SetUp]
+        public void setup()
+        {
+            CreateBasicMaterial();
+        }
+
+        [TearDown]
+        public void Tearddown()
+        {
+#if UNITY_EDITOR
+            AssetDatabase.DeleteAsset(s_MaterialAssetPath);
+#endif
+        }
+
         [Test]
         public void TestReadAndWriteWithObjectRef()
         {
@@ -24,10 +50,9 @@ namespace Unity.Scenes.Tests
 
             using var dstWorld = new World("");
             var dstEntitymanager = dstWorld.EntityManager;
-            var material = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/Test.mat");
 
             var entity = m_Manager.CreateEntity();
-            m_Manager.AddComponentData(entity, new MaterialRefComponent { Value = material });
+            m_Manager.AddComponentData(entity, new MaterialRefComponent { Value = m_TestMaterial });
             m_Manager.AddComponentData(entity, new EcsTestData() { value = 5});
 
             EditorEntityScenes.Write(m_Manager, binPath, binRefPath);
@@ -35,8 +60,8 @@ namespace Unity.Scenes.Tests
 
             var dstEntity = dstEntitymanager.UniversalQuery.GetSingletonEntity();
 
-            Assert.AreEqual(material, m_Manager.GetComponentData<MaterialRefComponent>(entity).Value);
-            Assert.AreEqual(material, dstEntitymanager.GetComponentData<MaterialRefComponent>(dstEntity).Value);
+            Assert.AreEqual(m_TestMaterial, m_Manager.GetComponentData<MaterialRefComponent>(entity).Value);
+            Assert.AreEqual(m_TestMaterial, dstEntitymanager.GetComponentData<MaterialRefComponent>(dstEntity).Value);
 
             Assert.AreEqual(5, m_Manager.GetComponentData<EcsTestData>(entity).value);
             Assert.AreEqual(5, dstEntitymanager.GetComponentData<EcsTestData>(dstEntity).value);

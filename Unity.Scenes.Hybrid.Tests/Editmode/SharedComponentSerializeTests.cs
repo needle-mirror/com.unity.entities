@@ -74,9 +74,29 @@ public class SharedComponentSerializeTests
         }
     }
 
+    public static string s_MaterialAssetPath = "Assets/TestMaterial.asset";
+    public Material CreateBasicMaterial()
+    {
+#if UNITY_EDITOR
+        Material mat = new Material(Shader.Find("Transparent/Diffuse"));
+        AssetDatabase.CreateAsset(mat, s_MaterialAssetPath);
+        return mat;
+#else
+        return null;
+#endif
+    }
+
+    [TearDown]
+    public void Tearddown()
+    {
+#if UNITY_EDITOR
+        AssetDatabase.DeleteAsset(s_MaterialAssetPath);
+#endif
+    }
+
     TestStruct ConfigureStruct()
     {
-        var material = AssetDatabase.LoadAssetAtPath<Material>("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/Test.mat");
+        var material = CreateBasicMaterial();
         var srcData = new TestStruct();
         srcData.Value = 5;
         srcData.EnumValue = MyEnum.Blah;

@@ -52,13 +52,20 @@ namespace Unity.Scenes.Editor.Tests
         [SerializeField] protected string m_PrefabPath;
         [SerializeField] protected Material m_TestMaterial;
         [SerializeField] protected Texture m_TestTexture;
+        public static string s_MaterialAssetPath = "Assets/TestMaterial.asset";
+
+        public Material CreateBasicMaterial()
+        {
+            Material mat = new Material(Shader.Find("Transparent/Diffuse"));
+            AssetDatabase.CreateAsset(mat, s_MaterialAssetPath);
+            return mat;
+        }
 
         public void OneTimeSetUp()
         {
             if (!LiveConversionTest.OneTimeSetUp())
                 return;
             m_TestTexture = AssetDatabase.LoadAssetAtPath<Texture>(AssetPath("TestTexture.asset"));
-            m_TestMaterial = AssetDatabase.LoadAssetAtPath<Material>(AssetPath("TestMaterial.mat"));
 
             EditorSettings.enterPlayModeOptionsEnabled = true;
             EditorSettings.enterPlayModeOptions = EnterPlayModeOptions.DisableDomainReload;
@@ -76,6 +83,13 @@ namespace Unity.Scenes.Editor.Tests
         public void SetUp()
         {
             LiveConversionTest.SetUp();
+            m_TestMaterial = CreateBasicMaterial();
+        }
+
+        [TearDown]
+        public void TearDown()
+        {
+            AssetDatabase.DeleteAsset(s_MaterialAssetPath);
         }
 
         static string AssetPath(string name) => "Packages/com.unity.entities/Unity.Scenes.Editor.Tests/Assets/" + name;
@@ -1027,7 +1041,7 @@ namespace Unity.Scenes.Editor.Tests
         [UnityTest, EmbeddedPackageOnlyTest]
         public IEnumerator LiveConversion_WithMaterialDependency_ChangeCausesReconversion([Values] Mode mode, [Values]ChangeMode change)
         {
-            m_TestMaterial.SetColor("_BaseColor", Color.white);
+            m_TestMaterial.SetColor("_Color", Color.white);
             AssetDatabase.SaveAssetIfDirty(m_TestMaterial);
             AssetDatabase.Refresh();
 
@@ -1038,7 +1052,7 @@ namespace Unity.Scenes.Editor.Tests
 
             yield return GetEnterPlayMode(mode);
 
-            Assert.AreEqual(Color.white, m_TestMaterial.GetColor("_BaseColor"), "The Material color was supposed to be initialized with white. This is likely a bug in the test or Unity itself, not in the actual code being tested.");
+            Assert.AreEqual(Color.white, m_TestMaterial.GetColor("_Color"), "The Material color was supposed to be initialized with white. This is likely a bug in the test or Unity itself, not in the actual code being tested.");
 
             {
                 var w = GetLiveConversionWorld(mode);
@@ -1053,7 +1067,7 @@ namespace Unity.Scenes.Editor.Tests
                     var materialPath = AssetDatabase.GetAssetPath(m_TestMaterial);
                     var text = File.ReadAllText(materialPath);
 
-                    string replaced = text.Replace("_BaseColor: {r: 1, g: 1, b: 1, a: 1}", "_BaseColor: {r: 0, g: 0, b: 0.5, a: 1}");
+                    string replaced = text.Replace("_Color: {r: 1, g: 1, b: 1, a: 1}", "_Color: {r: 0, g: 0, b: 0.5, a: 1}");
                     Assert.AreNotEqual(replaced, text, "Replacing the contents of the yaml file using string search failed.");
 
                     File.WriteAllText(materialPath, replaced);
@@ -1062,18 +1076,18 @@ namespace Unity.Scenes.Editor.Tests
                 else if (change == ChangeMode.ChangeInMemory)
                 {
                     Undo.RegisterCompleteObjectUndo(m_TestMaterial, "undo");
-                    m_TestMaterial.SetColor("_BaseColor", newColor);
+                    m_TestMaterial.SetColor("_Color", newColor);
                 }
                 else if (change == ChangeMode.ChangeAndWrite)
                 {
-                    m_TestMaterial.SetColor("_BaseColor", newColor);
+                    m_TestMaterial.SetColor("_Color", newColor);
                     AssetDatabase.SaveAssets();
                 }
 
                 yield return UpdateEditorAndWorld(w);
 
                 Assert.AreEqual(1, testQuery.CalculateEntityCount(), "Expected a game object to be converted");
-                Assert.AreEqual(newColor, m_TestMaterial.GetColor("_BaseColor"),
+                Assert.AreEqual(newColor, m_TestMaterial.GetColor("_Color"),
                     "The color of the material hasn't changed to the expected value. This is likely a bug in the test or Unity itself, not in the actual code being tested.");
                 Assert.AreEqual(newColor, testQuery.GetSingleton<ConversionDependencyData>().MaterialColor,
                     "The game object with the asset dependency has not been reconverted");
@@ -3718,7 +3732,7 @@ namespace Unity.Scenes.Editor.Tests
         }
 
         [TearDown]
-        public void TearDown()
+        public void Teardown()
         {
             //base.TearDown();
             LiveConversionSettings.AdditionalConversionSystems.Clear();
@@ -7747,7 +7761,7 @@ namespace Unity.Scenes.Editor.Tests
             Mode mode = Mode.Edit;
 
             using var baking = new BakerDataUtility.OverrideBakers(true, typeof(TestAdditionalEntityComponentAuthoring.Baker), typeof(LinkedEntityGroupAuthoringBaker));
-            var originalColor = m_TestMaterial.GetColor("_BaseColor");
+            var originalColor = m_TestMaterial.GetColor("_Color");
 
             List<GameObject> goList = new List<GameObject>();
             GameObject root = null;
@@ -7777,7 +7791,7 @@ namespace Unity.Scenes.Editor.Tests
 
                 // We force the asset database to change the version, but with an asset that will not trigger any baker
                 // This will check that Preprocess and Postprocess run consistently, even if no baker runs
-                m_TestMaterial.SetColor("_BaseColor", modifiedColor);
+                m_TestMaterial.SetColor("_Color", modifiedColor);
                 AssetDatabase.SaveAssetIfDirty(m_TestMaterial);
                 AssetDatabase.Refresh();
 
@@ -7785,7 +7799,7 @@ namespace Unity.Scenes.Editor.Tests
             }
 
             // Restore original color
-            m_TestMaterial.SetColor("_BaseColor", Color.white);
+            m_TestMaterial.SetColor("_Color", Color.white);
             AssetDatabase.SaveAssetIfDirty(m_TestMaterial);
         }
 

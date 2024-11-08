@@ -33,6 +33,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             TestEntity = m_Manager.CreateEntity(myArch);
             m_Manager.SetComponentData(TestEntity, new EcsTestData { value = 3 });
             m_Manager.SetComponentData(TestEntity, new EcsTestData2 { value0 = 4 });
+            m_Manager.SetComponentData(TestEntity, new EcsTestDataEnableable { value = 17 });
             var buffer = m_Manager.GetBuffer<EcsIntElement>(TestEntity);
             buffer.Add(new EcsIntElement { Value = 18 });
             buffer.Add(new EcsIntElement { Value = 19 });
@@ -97,13 +98,28 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void WithDisabled() => GetTestSystemUnsafe().WithDisabled(ref GetSystemStateRef());
 
         [Test]
-        public void EnableDisabled() => GetTestSystemUnsafe().EnableDisabled(ref GetSystemStateRef());
+        public void WithDisabled_RefRW() => GetTestSystemUnsafe().WithDisabled_RefRW(ref GetSystemStateRef());
+
+        [Test]
+        public void WithDisabled_EnabledRefRW() => GetTestSystemUnsafe().WithDisabled_EnabledRefRW(ref GetSystemStateRef());
+
+        [Test]
+        public void WithDisabled_RefRW_EnabledRefRW() => GetTestSystemUnsafe().WithDisabled_RefRW_EnabledRefRW(ref GetSystemStateRef());
 
         [Test]
         public void WithAbsent() => GetTestSystemUnsafe().WithAbsent(ref GetSystemStateRef());
 
         [Test]
         public void WithPresent() => GetTestSystemUnsafe().WithPresent(ref GetSystemStateRef());
+
+        [Test]
+        public void WithPresent_RefRW() => GetTestSystemUnsafe().WithPresent_RefRW(ref GetSystemStateRef());
+
+        [Test]
+        public void WithPresent_EnabledRefRW() => GetTestSystemUnsafe().WithPresent_EnabledRefRW(ref GetSystemStateRef());
+
+        [Test]
+        public void WithPresent_RefRW_EnabledRefRW() => GetTestSystemUnsafe().WithPresent_RefRW_EnabledRefRW(ref GetSystemStateRef());
 
         [Test]
         public void WithAny_DoesntExecute_OnEntityWithoutThatComponent() => GetTestSystemUnsafe().WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref GetSystemStateRef());
@@ -239,9 +255,29 @@ namespace Unity.Entities.Tests.ForEachCodegen
     }
 
     [WithDisabled(typeof(EcsTestDataEnableable))]
-    partial struct EnableDisabledJob : IJobEntity
+    partial struct WithDisabled_RefRW_Job : IJobEntity
+    {
+        public int disabledValue;
+
+        void Execute(ref EcsTestData e1, RefRW<EcsTestDataEnableable> ref2) => e1.value = disabledValue + ref2.ValueRO.value;
+    }
+
+    [WithDisabled(typeof(EcsTestDataEnableable))]
+    partial struct WithDisabled_EnabledRefRW_Job : IJobEntity
     {
         void Execute(EnabledRefRW<EcsTestDataEnableable> e1) => e1.ValueRW = true;
+    }
+
+    [WithDisabled(typeof(EcsTestDataEnableable))]
+    partial struct WithDisabled_RefRW_EnabledRefRW_Job : IJobEntity
+    {
+        public int disabledValue;
+
+        void Execute(ref EcsTestData e1, EnabledRefRW<EcsTestDataEnableable> e2, RefRW<EcsTestDataEnableable> ref2)
+        {
+            e1.value = disabledValue + ref2.ValueRO.value;
+            e2.ValueRW = true;
+        }
     }
 
     [WithAbsent(typeof(EcsTestData3))]
@@ -258,6 +294,38 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public int presentValue;
 
         void Execute(ref EcsTestData e1) => e1.value = presentValue;
+    }
+
+    [WithPresent(typeof(EcsTestDataEnableable))]
+    partial struct WithPresent_RefRW_Job : IJobEntity
+    {
+        public int presentValue;
+
+        void Execute(ref EcsTestData e1, RefRW<EcsTestDataEnableable> ref2) => e1.value = presentValue + ref2.ValueRO.value;
+    }
+
+    [WithPresent(typeof(EcsTestDataEnableable))]
+    partial struct WithPresent_EnabledRefRW_Job : IJobEntity
+    {
+        public int presentValue;
+
+        void Execute(ref EcsTestData e1, EnabledRefRW<EcsTestDataEnableable> eref2)
+        {
+            e1.value = presentValue;
+            eref2.ValueRW = !eref2.ValueRO;
+        }
+    }
+
+    [WithPresent(typeof(EcsTestDataEnableable))]
+    partial struct WithPresent_RefRW_EnabledRefRW_Job : IJobEntity
+    {
+        public int presentValue;
+
+        void Execute(ref EcsTestData e1, RefRW<EcsTestDataEnableable> ref2, EnabledRefRW<EcsTestDataEnableable> eref2)
+        {
+            e1.value = presentValue + ref2.ValueRO.value;
+            eref2.ValueRW = !eref2.ValueRO;
+        }
     }
 
     [WithAny(typeof(EcsTestData3))]
@@ -395,14 +463,32 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.AreEqual(1, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
         }
 
-        public void EnableDisabled(ref SystemState state)
+        public void WithDisabled_RefRW(ref SystemState state)
+        {
+            new WithDisabled_RefRW_Job{ disabledValue = 1 }.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(1+17, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
+        public void WithDisabled_EnabledRefRW(ref SystemState state)
         {
             Assert.AreEqual(1, SystemAPI.QueryBuilder().WithDisabled<EcsTestDataEnableable>().Build().CalculateEntityCount());
             Assert.AreEqual(0, SystemAPI.QueryBuilder().WithAll<EcsTestDataEnableable>().Build().CalculateEntityCount());
-            new EnableDisabledJob{}.Schedule();
+            new WithDisabled_EnabledRefRW_Job{}.Schedule();
             state.Dependency.Complete();
             Assert.AreEqual(0, SystemAPI.QueryBuilder().WithDisabled<EcsTestDataEnableable>().Build().CalculateEntityCount());
             Assert.AreEqual(1, SystemAPI.QueryBuilder().WithAll<EcsTestDataEnableable>().Build().CalculateEntityCount());
+        }
+
+        public void WithDisabled_RefRW_EnabledRefRW(ref SystemState state)
+        {
+            Assert.AreEqual(1, SystemAPI.QueryBuilder().WithDisabled<EcsTestDataEnableable>().Build().CalculateEntityCount());
+            Assert.AreEqual(0, SystemAPI.QueryBuilder().WithAll<EcsTestDataEnableable>().Build().CalculateEntityCount());
+            new WithDisabled_RefRW_EnabledRefRW_Job{ disabledValue = 1 }.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(0, SystemAPI.QueryBuilder().WithDisabled<EcsTestDataEnableable>().Build().CalculateEntityCount());
+            Assert.AreEqual(1, SystemAPI.QueryBuilder().WithAll<EcsTestDataEnableable>().Build().CalculateEntityCount());
+            Assert.AreEqual(1+17, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
         }
 
         public void WithAbsent(ref SystemState state)
@@ -424,6 +510,50 @@ namespace Unity.Entities.Tests.ForEachCodegen
             new WithPresentJob{ presentValue= 2}.Schedule();
             state.Dependency.Complete();
             Assert.AreEqual(2, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
+        public void WithPresent_RefRW(ref SystemState state)
+        {
+            // Test with the present component disabled
+            state.EntityManager.SetComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity, false);
+            new WithPresent_RefRW_Job{ presentValue= 1}.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(1+17, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+            // test again with the present component enabled
+            state.EntityManager.SetComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity, true);
+            new WithPresent_RefRW_Job{ presentValue= 2}.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(2+17, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+        }
+
+        public void WithPresent_EnabledRefRW(ref SystemState state)
+        {
+            // Test with the present component disabled
+            state.EntityManager.SetComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity, false);
+            new WithPresent_EnabledRefRW_Job{ presentValue= 1}.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(1, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+            Assert.IsTrue(state.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity));
+            // test again with the present component enabled
+            new WithPresent_EnabledRefRW_Job{ presentValue= 2}.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(2, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+            Assert.IsFalse(state.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity));
+        }
+
+        public void WithPresent_RefRW_EnabledRefRW(ref SystemState state)
+        {
+            // Test with the present component disabled
+            state.EntityManager.SetComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity, false);
+            new WithPresent_RefRW_EnabledRefRW_Job{ presentValue= 1}.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(1+17, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+            Assert.IsTrue(state.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity));
+            // test again with the present component enabled
+            new WithPresent_RefRW_EnabledRefRW_Job{ presentValue= 2}.Schedule();
+            state.Dependency.Complete();
+            Assert.AreEqual(2+17, state.EntityManager.GetComponentData<EcsTestData>(JobEntityISystemTests.TestEntity).value);
+            Assert.IsFalse(state.EntityManager.IsComponentEnabled<EcsTestDataEnableable>(JobEntityISystemTests.TestEntity));
         }
 
         public void WithAny_DoesntExecute_OnEntityWithoutThatComponent(ref SystemState state)

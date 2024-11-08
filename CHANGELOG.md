@@ -4,6 +4,18 @@ uid: changelog
 
 # Changelog
 
+## [1.3.8] - 2024-11-08
+
+### Removed
+
+* removing various material assets within entities (Test.mat and TestMaterial.mat).
+
+### Fixed
+
+* Disable "new empty subscene" menu item on default untitled scene.
+* Fix invalid queries generated for `IJobEntity` with `[WithPresent(typeof(T))]` and `EnabledRef<T>` and/or `in T` in the same job.
+	
+
 ## [1.3.5] - 2024-10-04
 
 ### Changed
@@ -17,6 +29,7 @@ uid: changelog
 * Fixed misleading documentation for Baker.IsActiveAndEnabled
 * Improved build determinism by sorting inputs to build methods.
 * Exception thrown under certain circumstances when a system was destroyed could break various DOTS editor windows.
+
 
 
 ## [1.3.2] - 2024-09-06

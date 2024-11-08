@@ -124,7 +124,7 @@ namespace Unity.Scenes.Editor
         {
             menu.AddSeparator("");
             var newEmptySubScene = EditorGUIUtility.TrTextContent("New Empty Sub Scene...");
-            var validTarget = target.isLoaded;
+            var validTarget = target.isLoaded && !string.IsNullOrEmpty(target.path);
             if (!EditorApplication.isPlaying && validTarget)
                 menu.AddItem(newEmptySubScene, false, OnMenuItemForNewSubScene, new NewSubSceneArgs(null, target,  NewSubSceneMode.EmptyScene, k_DefaultFilename));
             else

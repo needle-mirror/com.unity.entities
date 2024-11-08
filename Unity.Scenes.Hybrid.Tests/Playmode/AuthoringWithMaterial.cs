@@ -1,6 +1,6 @@
 using System;
 using Unity.Entities;
-using Unity.Scenes.Hybrid.Tests;
+using Unity.Scenes.Hybrid.Tests.Playmode;
 using UnityEngine;
 
 namespace Unity.Scenes.Hybrid.Tests
@@ -43,7 +43,8 @@ namespace Unity.Scenes.Hybrid.Tests
         {
             // This test shouldn't require transform components
             var entity = GetEntity(TransformUsageFlags.None);
-            AddSharedComponentManaged(entity, new SharedWithMaterial(){material = authoring.material});
+            // The material asset must be created before on the main thread not at import time
+            AddSharedComponentManaged(entity, new SharedWithMaterial(){material = SubSceneTests.GetBasicMaterial()});
 
             AddComponent<SingletonTag1>(entity); // Add a non-enableable tag we can search for as a singleton
             AddComponent<EnableableTag1>(entity);

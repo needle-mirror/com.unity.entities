@@ -1,4 +1,5 @@
 using System;
+using UnityEditor;
 using UnityEngine;
 
 namespace Unity.Entities.Tests
@@ -19,9 +20,27 @@ namespace Unity.Entities.Tests
                 DependsOn(authoring.GameObject);
                 // This test shouldn't require transform components
                 var entity = GetEntity(TransformUsageFlags.None);
+                Color color = default;
+                if (authoring.Material)
+                {
+                    DependsOn(authoring.Material);
+                    color = authoring.Material.color;
+                }
+                else
+                {
+#if UNITY_EDITOR
+                    var material = AssetDatabase.LoadAssetAtPath<Material>("Assets/TestMaterial.asset");
+                    if (material != null)
+                    {
+                        DependsOn(material);
+                        color = material.color;
+                    }
+#endif
+                }
+
                 AddComponent(entity, new ConversionDependencyData
                 {
-                    MaterialColor = DependsOn(authoring.Material) != null ? authoring.Material.color : default,
+                    MaterialColor = color,
                     HasMaterial = DependsOn(authoring.Material) != null,
                     TextureFilterMode = DependsOn(authoring.Texture) != null ? authoring.Texture.filterMode : default,
                     HasTexture = DependsOn(authoring.Texture) != null

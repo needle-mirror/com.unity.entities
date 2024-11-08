@@ -35,6 +35,8 @@ namespace Unity.Entities
         public EntityQueryBuilder WithDisabled<T>() => this;
         public EntityQueryBuilder WithDisabledRW<T>() => this;
         public EntityQueryBuilder WithAbsent<T>() => this;
+        public EntityQueryBuilder WithPresent<T>() => this;
+        public EntityQueryBuilder WithPresentRW<T>() => this;
         public EntityQueryBuilder WithAspect<T>() => this;
         public EntityQueryBuilder WithOptions(EntityQueryOptions options) => this;
         public EntityQueryBuilder AddAdditionalQuery() => this;
@@ -80,6 +82,14 @@ namespace Unity.Entities
     public sealed class WithDisabledAttribute : Attribute
     {
         public WithDisabledAttribute(params Type[] types){}
+    }
+    public sealed class WithAbsentAttribute : Attribute
+    {
+        public WithAbsentAttribute(params Type[] types){}
+    }
+    public sealed class WithPresentAttribute : Attribute
+    {
+        public WithPresentAttribute(params Type[] types){}
     }
     public sealed class WithChangeFilterAttribute : Attribute
     {
@@ -476,6 +486,7 @@ namespace Unity.Entities
         public SystemAPIQueryBuilder WithNone<T1>() => default;
         public SystemAPIQueryBuilder WithDisabled<T1>() => default;
         public SystemAPIQueryBuilder WithAbsent<T1>() => default;
+        public SystemAPIQueryBuilder WithPresent<T1>() => default;
         public SystemAPIQueryBuilder WithOptions(EntityQueryOptions options) => default;
         public EntityQuery Build() => default;
     }

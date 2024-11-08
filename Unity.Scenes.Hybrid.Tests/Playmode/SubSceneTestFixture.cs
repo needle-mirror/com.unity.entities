@@ -2,6 +2,7 @@ using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Unity.Entities;
+using UnityEngine;
 using UnityEngine.TestTools;
 #if UNITY_EDITOR
 using UnityEditor;
@@ -46,7 +47,25 @@ namespace Unity.Scenes.Hybrid.Tests
         GUID m_DotsSettingsGUID;
         List<string> m_SceneWithBuildSettingsPaths = new();
         static string m_TempPath = "Assets/Temp";
+        public static string s_MaterialAssetPath = "Assets/TestMaterial.asset";
 #endif
+
+        static void CreateBasicMaterial()
+        {
+#if UNITY_EDITOR
+            var material = new Material(Shader.Find("Transparent/Diffuse"));
+            AssetDatabase.CreateAsset(material, s_MaterialAssetPath);
+#endif
+        }
+
+        public static Material GetBasicMaterial()
+        {
+#if UNITY_EDITOR
+            return AssetDatabase.LoadAssetAtPath<Material>(s_MaterialAssetPath);
+#else
+            return null;
+#endif
+        }
 
         public static World CreateEntityWorld(string name)
         {
@@ -116,6 +135,8 @@ namespace Unity.Scenes.Hybrid.Tests
             List<EditorBuildSettingsScene> newEditorSceneList = EditorBuildSettings.scenes.ToList();
             newEditorSceneList.Add(settingsScene);
             EditorBuildSettings.scenes =  newEditorSceneList.ToArray();
+
+            CreateBasicMaterial();
         }
 
         //IPostBuildCleanup.Cleanup
@@ -130,6 +151,8 @@ namespace Unity.Scenes.Hybrid.Tests
 
             if (!EditorApplication.isPlaying)
                 EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
+
+            AssetDatabase.DeleteAsset(s_MaterialAssetPath);
         }
 #endif
     }

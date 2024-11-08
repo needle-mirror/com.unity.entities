@@ -591,7 +591,7 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                         case SimpleNameSyntax { Identifier.ValueText: "WithPresent" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
-                                    AddQueryInstanceFromAttribute(QueryPresentTypes, argument, QueryType.Present, semanticModel, removeFromQueryAllIfFound: false);
+                                    AddQueryInstanceFromAttribute(QueryPresentTypes, argument, QueryType.Present, semanticModel, removeFromQueryAllIfFound: true);
                             break;
                         case SimpleNameSyntax { Identifier.ValueText: "WithAbsent" }:
                             if (attribute.ArgumentList != null)
