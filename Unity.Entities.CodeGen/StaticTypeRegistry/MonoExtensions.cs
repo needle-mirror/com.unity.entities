@@ -1,13 +1,12 @@
-#if UNITY_DOTSRUNTIME
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using Mono.Cecil;
 using Unity.Cecil.Awesome;
 
-namespace Unity.Entities.CodeGen
+namespace Unity.Entities.BuildUtils
 {
-    public static class MonoExtensions
+    internal static class MonoExtensions
     {
         public static string FullNameLikeRuntime(this TypeReference tr)
         {
@@ -26,16 +25,24 @@ namespace Unity.Entities.CodeGen
                 || type.MetadataType == MetadataType.IntPtr || type.MetadataType == MetadataType.UIntPtr;
         }
 
-        public static TypeReference DynamicArrayElementType(this TypeReference typeRef)
+        public static Type GetSystemReflectionType(this TypeReference type)
         {
-            var type = typeRef.Resolve();
-
-            if (!type.IsDynamicArray())
-                throw new ArgumentException("Expected DynamicArray type reference.");
-
-            GenericInstanceType genericInstance = (GenericInstanceType)typeRef;
-            return genericInstance.GenericArguments[0];
+            return Type.GetType(type.GetReflectionName(), true);
         }
+
+        public static string GetReflectionName(this TypeReference type)
+        {
+            if (type.IsGenericInstance)
+            {
+                var genericInstance = (GenericInstanceType)type;
+                return string.Format("{0}.{1}[{2}]", genericInstance.Namespace, type.Name,
+                    String.Join(",", genericInstance.GenericArguments.Select(p => p.GetReflectionName()).ToArray()));
+            }
+
+            return type.FullName;
+        }
+
+
 
         public static TypeDefinition FixedSpecialType(this TypeReference typeRef)
         {
@@ -47,138 +54,11 @@ namespace Unity.Entities.CodeGen
             else return null;
         }
 
-        public static bool IsEntityType(this TypeReference typeRef)
+
+        public static ulong CalculateStableTypeHash(this TypeReference typeDef)
         {
-            return typeRef.Name == "Entity" && typeRef.Namespace == "Unity.Entities";
-        }
-
-        public static bool IsBlobAssetReferenceType(this TypeReference typeRef)
-        {
-            return typeRef.Name == "BlobAssetReferenceData" && typeRef.Namespace == "Unity.Entities";
-        }
-
-        public static bool IsManagedType(this TypeReference typeRef, ref bool hasEntityRefs, ref bool hasBlobRefs)
-        {
-            var seenTypes = new HashSet<TypeReference>(new Cecil.Awesome.Comparers.TypeReferenceEqualityComparer());
-            return IsManagedTypeInternal(typeRef, ref hasEntityRefs, ref hasBlobRefs, seenTypes);
-        }
-
-        static bool IsManagedTypeInternal(TypeReference typeRef, ref bool hasEntityRefs, ref bool hasBlobRefs, HashSet<TypeReference> seenTypes)
-        {
-            seenTypes.Add(typeRef);
-            if (typeRef.IsPointer)
-                return false;
-
-            if (typeRef.IsArray)
-            {
-                var elementType = typeRef.GetElementType();
-                if (elementType.IsEntityType())
-                    hasEntityRefs = true;
-                else if (elementType.IsBlobAssetReferenceType())
-                    hasBlobRefs = true;
-
-                return true;
-            }
-
-            if(typeRef.IsGenericParameter)
-            {
-                var gp = (GenericParameter)typeRef;
-                bool _ = false, __ = false;
-                return gp.Constraints.FirstOrDefault(c => c.ConstraintType.IsManagedType(ref _, ref __)) != null;
-            }
-
-            var type = typeRef.Resolve();
-
-            if (type.IsDynamicArray())
-                return true;
-
-            TypeDefinition fixedSpecialType = type.FixedSpecialType();
-            if (fixedSpecialType != null)
-            {
-                if (fixedSpecialType.MetadataType == MetadataType.String)
-                    return true;
-                return false;
-            }
-
-            if (type.IsEnum)
-                return false;
-
-            // if none of the above check the type's fields
-            bool isManaged = !type.IsValueType;
-            var typeResolver = TypeResolver.For(typeRef);
-            foreach (var field in type.Fields)
-            {
-                if (field.IsStatic)
-                    continue;
-
-                var fieldType = typeResolver.Resolve(field.FieldType);
-                if(seenTypes.Contains(fieldType))
-                    continue;
-
-                var fieldTypeDef = fieldType.Resolve();
-
-                if (fieldType.IsEntityType())
-                    hasEntityRefs = true;
-                else if (fieldType.IsBlobAssetReferenceType())
-                    hasBlobRefs = true;
-
-                if (!fieldTypeDef.IsSealed)
-                {
-                    hasEntityRefs = true;
-                    hasBlobRefs = true;
-                }
-
-                if (IsManagedTypeInternal(fieldType, ref hasEntityRefs, ref hasBlobRefs, seenTypes))
-                    isManaged = true;
-            }
-
-            return isManaged;
-        }
-
-        public static bool IsComplex(this TypeReference typeRef)
-        {
-            // We must check this before calling Resolve() as cecil loses this property otherwise
-            if (typeRef.IsPointer)
-                return false;
-
-            var type = typeRef.Resolve();
-
-            if (TypeUtils.ValueTypeIsComplex[0].ContainsKey(type))
-                return TypeUtils.ValueTypeIsComplex[0][type];
-
-            if (type.IsDynamicArray())
-                return true;
-
-            TypeDefinition fixedSpecialType = type.FixedSpecialType();
-            if (fixedSpecialType != null)
-            {
-                if (fixedSpecialType.MetadataType == MetadataType.String)
-                    return true;
-                return false;
-            }
-
-            if (type.IsEnum)
-                return false;
-
-            TypeUtils.PreprocessTypeFields(typeRef, 0);
-
-            return TypeUtils.ValueTypeIsComplex[0][typeRef];
-        }
-
-        public static bool IsDynamicArray(this TypeReference type)
-        {
-            return type.Name.StartsWith("DynamicArray`", StringComparison.Ordinal);
-        }
-
-        public static ulong CalculateStableTypeHash(this TypeReference typeRef)
-        {
-            return TypeHash.CalculateStableTypeHash(typeRef);
-        }
-
-        public static ulong CalculateMemoryOrdering(this TypeReference typeRef)
-        {
-            return TypeHash.CalculateMemoryOrdering(typeRef);
+            return Unity.Entities.CodeGen.TypeHash.CalculateStableTypeHash(typeDef);
         }
     }
 }
-#endif
+

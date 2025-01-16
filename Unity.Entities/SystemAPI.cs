@@ -190,9 +190,8 @@ namespace Unity.Entities
         /// have a component that contains an Entity field, you can look up the component data for the referenced
         /// entity using this method.
         ///
-        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, do not use this method to access data of the
-        /// current entity in the set. This function is much slower than accessing the data directly (by passing the
-        /// component containing the data to your lambda iteration function as a parameter).
+        /// When iterating over a set of entities with an idomatic foreach query, don't use this method to access the data of the
+        /// current entity in the set. It's faster to access the data by requesting it as an argument of a query.
         ///
         /// When you call this method it gets replaced with component access methods through <see cref="ComponentLookup{T}"/>.
         ///
@@ -214,9 +213,8 @@ namespace Unity.Entities
         /// have a component that contains an Entity field, you can look up the component data for the referenced
         /// entity using this method.
         ///
-        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, do not use this method to access data of the
-        /// current entity in the set. This function is much slower than accessing the data directly (by passing the
-        /// component containing the data to your lambda iteration function as a parameter).
+        /// When iterating over a set of entities with an idomatic foreach query, don't use this method to access the data of the
+        /// current entity in the set. It's faster to access the data by requesting it as an argument of a query.
         ///
         /// When you call this method it gets replaced with component access methods through <see cref="ComponentLookup{T}"/>.
         ///
@@ -238,9 +236,8 @@ namespace Unity.Entities
         /// have a component that contains an Entity field, you can look up the component data for the referenced
         /// entity using this method.
         ///
-        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, do not use this method to access data of the
-        /// current entity in the set. This function is much slower than accessing the data directly (by passing the
-        /// component containing the data to your lambda iteration function as a parameter).
+        /// When iterating over a set of entities with an idomatic foreach query, don't use this method to access the data of the
+        /// current entity in the set. It's faster to access the data by requesting it as an argument of a query.
         ///
         /// When you call this method it gets replaced with component access methods through <see cref="ComponentLookup{T}"/>.
         ///
@@ -262,9 +259,8 @@ namespace Unity.Entities
         /// have a component that contains an Entity field, you can update the component data for the referenced
         /// entity using this method.
         ///
-        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, do not use this method to update data of the
-        /// current entity in the set. This function is much slower than accessing the data directly (by passing the
-        /// component containing the data to your lambda iteration function as a parameter).
+        /// When iterating over a set of entities with an idomatic foreach query, don't use this method to access the data of the
+        /// current entity in the set. It's faster to access the data by requesting it as an argument of a query.
         ///
         /// When you call this method gets replaced with component access methods through <see cref="ComponentLookup{T}"/>.
         ///
@@ -288,9 +284,8 @@ namespace Unity.Entities
         /// referenced entity has a specific type of component using this method. (Entities in the set always have
         /// required components, so you don’t need to check for them.)
         ///
-        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, avoid using this method with the
-        /// current entity in the set. It is generally faster to change your entity query methods to avoid
-        /// optional components; this may require a different construction to handle each combination of optional and non-optional components.
+        /// When iterating over a set of entities with an idomatic foreach query, don't use this method to access the data of the
+        /// current entity in the set. It's faster to change your query to avoid using optional components.
         ///
         /// When you call this method this method gets replaced with component access methods through a cached <see cref="ComponentLookup{T}"/>.
         ///
@@ -462,10 +457,8 @@ namespace Unity.Entities
         /// Use this method to check if another entity has a dynamic buffer of a given IBufferElementData type using its <see cref="Entity"/>
         /// object.
         ///
-        /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, avoid using this method with the
-        /// current entity in the set. It is generally faster to change your entity query methods to avoid
-        /// optional components; this may require a different iteration construction to handle
-        /// each combination of optional and non-optional components.
+        /// When iterating over a set of entities with an idomatic foreach query, don't use this method to access the data of the
+        /// current entity in the set. It's faster to change your query to avoid using optional components.
         ///
         /// this method gets replaced with component access methods through <see cref="BufferLookup{T}"/>.
         ///
@@ -761,9 +754,8 @@ namespace Unity.Entities
             /// have a component that contains an Entity field, you can look up the component data for the referenced
             /// entity using this method.
             ///
-            /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, do not use this method to access data of the
-            /// current entity in the set. This function is much slower than accessing the data directly (by passing the
-            /// component containing the data to your lambda iteration function as a parameter).
+            /// When iterating over a set of entities with an idomatic foreach query, don't use this method to access the data of the
+            /// current entity in the set. It's faster to access the data by requesting it as an argument of a query.
             ///
             /// When you call this method gets replaced with component access methods through <see cref="EntityManager.GetComponentObject{T}(Entity)"/>.
             ///
@@ -788,10 +780,9 @@ namespace Unity.Entities
             /// referenced entity has a specific type of component using this method. (Entities in the set always have
             /// required components, so you don’t need to check for them.)
             ///
-            /// When iterating over a set of entities via <see cref="IJobEntity"/> or <see cref="SystemAPI.Query{T}"/>, avoid using this method with the
-            /// current entity in the set. It is generally faster to change your entity query methods to avoid
-            /// optional components; this may require a different construction to handle each combination of optional and non-optional components.
-            ///
+            /// When iterating over a set of entities with an idomatic foreach query, don't use this method to access the data of the
+            /// current entity in the set. It's faster to access the data by requesting it as an argument of a query.
+            /// 
             /// When you call this method this method gets replaced with component access methods through a cached <see cref="EntityManager.HasComponent{T}(Entity)"/>.
             ///
             /// This lookup method results in a slower, indirect memory access. When possible, organize your data to minimize the need for indirect lookups.

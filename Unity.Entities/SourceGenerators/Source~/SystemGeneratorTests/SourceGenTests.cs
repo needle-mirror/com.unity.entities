@@ -37,33 +37,40 @@ namespace Unity.Entities.SourceGenerators.Test
         public static DiagnosticResult CompilerInfo(string compilerInfo) => new (compilerInfo, DiagnosticSeverity.Info);
 
         public static async Task VerifySourceGeneratorAsync(string source, string generatedFolderName = "Default", params string[] expectedFileNames)
-            => await VerifySourceGeneratorAsync(source, DiagnosticResult.EmptyDiagnosticResults, preprocessorSymbols: Array.Empty<string>(), true, generatedFolderName, expectedFileNames);
+            => await VerifySourceGeneratorAsync(new []{source}, DiagnosticResult.EmptyDiagnosticResults, preprocessorSymbols: Array.Empty<string>(), true, generatedFolderName, expectedFileNames);
 
         public static async Task VerifySourceGeneratorWithPreprocessorSymbolAsync(string source, string[] preprocessorSymbols, string generatedFolderName = "Default", params string[] expectedFileNames)
-            => await VerifySourceGeneratorAsync(source, DiagnosticResult.EmptyDiagnosticResults, preprocessorSymbols, true, generatedFolderName, expectedFileNames);
+            => await VerifySourceGeneratorAsync(new []{source}, DiagnosticResult.EmptyDiagnosticResults, preprocessorSymbols, true, generatedFolderName, expectedFileNames);
         public static async Task VerifySourceGeneratorAsync(string source, params DiagnosticResult[] expected)
-            => await VerifySourceGeneratorAsync(source, expected, preprocessorSymbols: Array.Empty<string>(), false);
+            => await VerifySourceGeneratorAsync(new []{source}, expected, preprocessorSymbols: Array.Empty<string>(), false);
+        public static async Task VerifySourceGeneratorAsync(string[] sources, params DiagnosticResult[] expected)
+            => await VerifySourceGeneratorAsync(sources, expected, preprocessorSymbols: Array.Empty<string>(), false);
 
         public static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult expected, Assembly additionalAssemblyOverride)
-            => await VerifySourceGeneratorAsync(source, new []{expected}, new []{additionalAssemblyOverride}, preprocessorSymbols: Array.Empty<string>(), false);
+            => await VerifySourceGeneratorAsync(new []{source}, new []{expected}, new []{additionalAssemblyOverride}, preprocessorSymbols: Array.Empty<string>(), false);
 
-        static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, string[] preprocessorSymbols, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)
-            => await VerifySourceGeneratorAsync(source, expected, new []{
+        static async Task VerifySourceGeneratorAsync(string[] sources, DiagnosticResult[] expected, string[] preprocessorSymbols, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)
+            => await VerifySourceGeneratorAsync(sources, expected, new []{
             typeof(EntitiesMock).Assembly,
             typeof(EntitiesHybridMock).Assembly,
             typeof(BurstMock).Assembly,
             typeof(CollectionsMock).Assembly
         }, preprocessorSymbols, checksGeneratedSource, generatedFolderName, expectedFileNames);
 
-        static async Task VerifySourceGeneratorAsync(string source, DiagnosticResult[] expected, IEnumerable<Assembly> additionalAssembliesOverride, string[] preprocessorSymbols, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)
+        static async Task VerifySourceGeneratorAsync(string[] sources, DiagnosticResult[] expected, IEnumerable<Assembly> additionalAssembliesOverride, string[] preprocessorSymbols, bool checksGeneratedSource = true, string generatedFolderName = "Default", params string[] expectedFileNames)
         {
             // Initial Test setup
             var test = new Test(preprocessorSymbols)
             {
-                TestCode = source.ReplaceLineEndings()
+                TestCode = sources[0].ReplaceLineEndings()
             };
             foreach (var additionalReference in additionalAssembliesOverride)
                 test.TestState.AdditionalReferences.Add(additionalReference);
+            for (var index = 1; index < sources.Length; index++)
+            {
+                var source = sources[index];
+                test.TestState.Sources.Add(SourceText.From(source.ReplaceLineEndings(), Encoding.UTF8));
+            }
 
             // Create results folder if not present
             var executingAssemblyPath = Path.GetDirectoryName(Assembly.GetExecutingAssembly().Location)!;

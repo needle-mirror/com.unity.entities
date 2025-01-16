@@ -398,16 +398,19 @@ namespace Unity.Entities.Editor.Tests
             Assert.Throws<InvalidOperationException>(() => PropertyContainer.Accept(new InvalidEntityVisitor(), container));
 
             // We can find the correct path and this will not throw.
-            Assert.That(PropertyContainer.IsPathValid(ref container, new PropertyPath($"{nameof(EntityContainerTest)}_{nameof(StructComponentData)}")), Is.True);
-            Assert.That(PropertyContainer.IsPathValid(ref container, new PropertyPath($"{nameof(EntityContainerTest)}_{nameof(BufferElement)}")), Is.True);
+            Assert.That(PropertyContainer.IsPathValid(ref container, GetComponentPropertyPath<StructComponentData>()), Is.True);
+            Assert.That(PropertyContainer.IsPathValid(ref container, GetComponentPropertyPath<BufferElement>()), Is.True);
 
             m_Manager.DestroyEntity(entity);
 
             Assert.DoesNotThrow(() => PropertyContainer.Accept(new InvalidEntityVisitor(), container));
 
             // We cannot find the correct path anymore and this will not throw.
-            Assert.That(PropertyContainer.IsPathValid(ref container, new PropertyPath($"{nameof(EntityContainerTest)}_{nameof(StructComponentData)}")), Is.False);
-            Assert.That(PropertyContainer.IsPathValid(ref container, new PropertyPath($"{nameof(EntityContainerTest)}_{nameof(BufferElement)}")), Is.False);
+            Assert.That(PropertyContainer.IsPathValid(ref container, GetComponentPropertyPath<StructComponentData>()), Is.False);
+            Assert.That(PropertyContainer.IsPathValid(ref container, GetComponentPropertyPath<BufferElement>()), Is.False);
+
+            static PropertyPath GetComponentPropertyPath<T>()
+                => new($"{typeof(T).Namespace}.{TypeUtility.GetTypeDisplayName(typeof(T))}".Replace(".", "_"));
         }
 
         [Test]

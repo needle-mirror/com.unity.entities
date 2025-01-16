@@ -1245,31 +1245,29 @@ namespace Unity.Entities
                                 if (entityToLinkedEntityGroupRoot.TryGetValue(entity, out var linkedEntityGroupRoot))
                                 {
                                     // This entity is part of a LinkedEntityGroup
-                                    var linkedEntityGroup = entityManager.GetBuffer<LinkedEntityGroup>(linkedEntityGroupRoot);
+                                    var legEntities = entityManager.GetBuffer<LinkedEntityGroup>(linkedEntityGroupRoot).Reinterpret<Entity>();
 
                                     // Scan through the group and look for the entity with the target entityGuid.
-                                    for (var elementIndex = 0; elementIndex < linkedEntityGroup.Length; elementIndex++)
+                                    foreach(var legEntity in legEntities)
                                     {
                                         // Get the entityGuid from each element.
-                                        if (entityToEntityGuid.TryGetValue(linkedEntityGroup[elementIndex].Value, out var entityGuidInGroup))
+                                        if (entityToEntityGuid.TryGetValue(legEntity, out var entityGuidInGroup))
                                         {
                                             if (entityGuidInGroup.Equals(targetEntityGuid))
                                             {
                                                 // Match found this is our entity
-                                                targetEntity = linkedEntityGroup[elementIndex].Value;
+                                                targetEntity = legEntity;
                                                 break;
                                             }
                                         }
                                     }
                                 }
-                                else
+
+                                // We are not dealing with a LinkedEntityGroup at this point, let's hope it's a prefab.
+                                if (targetEntity == Entity.Null && !entityGuidToPrefab.TryGetValue(targetEntityGuid, out targetEntity))
                                 {
-                                    // We are not dealing with a LinkedEntityGroup at this point, let's hope it's a prefab.
-                                    if (!entityGuidToPrefab.TryGetValue(targetEntityGuid, out targetEntity))
-                                    {
-                                        Debug.LogWarning($"PatchEntities<{component}>({packedEntityGuids[packedComponent.PackedEntityIndex]}) but 2+ entities for GUID of entity-to-patch-to, and no root for entity-to-patch is, so we can't disambiguate.");
-                                        continue;
-                                    }
+                                    Debug.LogWarning($"PatchEntities<{component}>({packedEntityGuids[packedComponent.PackedEntityIndex]}) but 2+ entities for GUID of entity-to-patch-to, and no root for entity-to-patch is, so we can't disambiguate.");
+                                    continue;
                                 }
                             }
 

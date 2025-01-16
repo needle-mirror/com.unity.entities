@@ -1,3 +1,7 @@
+---
+uid: concepts-safety
+---
+
 # Safety in Entities
 
 The Entities package provides a framework and set of APIs so that you can use data-oriented design principles to transform data efficiently. This involves leveraging the [Burst compiler](https://docs.unity3d.com/Packages/com.unity.burst@latest) and native-interop to access data directly whenever possible. This approach sometimes goes against the safety mechanisms built into the C# language.

@@ -1,6 +1,8 @@
 # Entity concepts
 
-An **entity** represents something discrete in your program that has its own set of data, such as a character, visual effect, UI element, or even something abstract like a network transaction. An entity is similar to an unmanaged lightweight [GameObject](https://docs.unity3d.com/Manual/class-GameObject.html), which represents specific elements of your program. However, an entity acts as an ID which associates individual unique [components](concepts-components.md) together, rather than containing any code or serving as a container for its associated components.
+An entity represents something discrete in your program that has its own set of data, such as a character, visual effect, UI element, or even something abstract like a network transaction. An entity is similar to an unmanaged lightweight [GameObject](https://docs.unity3d.com/Manual/class-GameObject.html), which represents specific elements of your program. However, an entity acts as an ID which associates individual unique [components](concepts-components.md) together, rather than containing any code or serving as a container for its associated components.
+
+![](images/entities-concepts.png)<br/>_Discrete entities labelled Entity A, B, and C._
 
 Collections of entities are stored in a [`World`](xref:Unity.Entities.World), where a world's [`EntityManager`](xref:Unity.Entities.EntityManager) manages all the entities in the world. `EntityManager` contains methods that you can use to create, destroy, and modify the entities within that world. These include the following common methods:
 
@@ -25,7 +27,7 @@ In the Editor, the following icon represents an Entity: ![](images/editor-entity
 
 ## Additional resources
 
-* [Accessing data](systems-overview.md)
+* [Introduction to systems](systems-intro.md)
 * [World concepts](concepts-worlds.md)
 * [Archetypes concepts](concepts-archetypes.md)
 * [Component concepts](concepts-components.md)

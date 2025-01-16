@@ -13,16 +13,16 @@ namespace Unity.Entities.Build
     /// Holds the set of assemblies which are to be excluded during the baking process.
     /// </summary>
     /// <remarks>
-    /// The <see cref="Unity.Entities.Baker{TAuthoringType}"/> types defined in excluded assemblies are ignored during the baking process.
+    /// Any <see cref="T:Unity.Entities.Baker`1"/> types defined in excluded assemblies are ignored during the baking process.
     /// </remarks>
     [Serializable]
     public sealed class BakingSystemFilterSettings
     {
         HashSet<Assembly> m_ExcludedDomainAssemblies;
 
-        // this must be initialized to true, so that when properties does a transfer
-        // and updates the List<string> property, we get a chance to tell m_ConversionTypeCache
-        // about the change.
+        /// this must be initialized to true, so that when properties does a transfer
+        /// and updates the List<string> property, we get a chance to tell m_ConversionTypeCache
+        /// about the change.
         bool m_IsDirty = true;
 
         /// <summary>
@@ -80,7 +80,7 @@ namespace Unity.Entities.Build
             return UnityEditor.AssetDatabase.LoadAssetAtPath<UnityEditorInternal.AssemblyDefinitionAsset>(assetPath);
         }
 
-        //todo: add this attribute to GetSystemAttributes, and then stop using reflection here
+        /// todo: add this attribute to GetSystemAttributes, and then stop using reflection here
         internal bool ShouldRunBakingSystem(Type type)
         {
             UpdateIfDirty();
@@ -107,7 +107,7 @@ namespace Unity.Entities.Build
             return m_ExcludedDomainAssemblies.Contains(assembly);
         }
 
-        // TODO: DOTS-7396 - Apply filter to baking systems
+        /// TODO: DOTS-7396 - Apply filter to baking systems
         internal void SetDirty()
         {
             m_IsDirty = true;

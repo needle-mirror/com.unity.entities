@@ -4,8 +4,8 @@ There are several ways in which you can access data in a system. In general, the
 
 |**Topic**|**Description**|
 |---|---|
-|[Ways to access data](systems-access-data-intro.md)|Understand the different ways to access data in a system|
-|[SystemAPI overview](systems-systemapi.md)|Understand how to use `SystemAPI`, a class which lets you access entity data.|
+|[Access data on the main thread](systems-access-data-intro.md)|Understand how to access data on the main thread in a system|
+|[SystemAPI overview](systems-systemapi.md)|Access data with `SystemAPI`, which has a low overhead.|
 
 ## Additional resources
 

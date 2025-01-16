@@ -1,9 +1,11 @@
 using System;
+using System.Collections.Generic;
 using System.Linq;
 using JetBrains.Annotations;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Entities.UI;
+using Unity.Properties;
 using Unity.Transforms;
 using UnityEngine.UIElements;
 
@@ -45,19 +47,19 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void ComponentsTab_Comparer()
         {
-            var componentTypes = new[]
+            var componentTypes = new TestProperty[]
             {
-                nameof(XComponent),
-                nameof(BComponent),
-                nameof(YComponent),
-                nameof(LocalTransform),
-                nameof(DComponent),
-                nameof(LocalToWorld),
+                new TestProperty(nameof(XComponent)),
+                new TestProperty(nameof(BComponent)),
+                new TestProperty(nameof(YComponent)),
+                new TestProperty(nameof(LocalTransform)),
+                new TestProperty(nameof(DComponent)),
+                new TestProperty(nameof(LocalToWorld)),
             };
 
             Array.Sort(componentTypes, EntityInspectorComponentsComparer.Instance);
 
-            Assert.That(componentTypes, Is.EquivalentTo(new[]
+            Assert.That(componentTypes.Select(p => p.DisplayName).ToArray(), Is.EquivalentTo(new[]
             {
                 nameof(LocalTransform),
                 nameof(LocalToWorld),
@@ -68,6 +70,27 @@ namespace Unity.Entities.Editor.Tests
             }));
         }
 
+        class TestProperty : IComponentProperty
+        {
+            public TestProperty(string displayName)
+                => DisplayName = displayName;
+            public string DisplayName { get; set; }
+
+            public TypeIndex TypeIndex => throw new NotImplementedException();
+            public ComponentPropertyType Type => throw new NotImplementedException();
+            public string Name => throw new NotImplementedException();
+            public bool IsReadOnly => throw new NotImplementedException();
+            public void Accept(IPropertyVisitor visitor, ref EntityContainer container) => throw new NotImplementedException();
+            public Type DeclaredValueType() => throw new NotImplementedException();
+            public TAttribute GetAttribute<TAttribute>() where TAttribute : Attribute => throw new NotImplementedException();
+            public IEnumerable<TAttribute> GetAttributes<TAttribute>() where TAttribute : Attribute => throw new NotImplementedException();
+            public IEnumerable<Attribute> GetAttributes() => throw new NotImplementedException();
+            public object GetValue(ref EntityContainer container) => throw new NotImplementedException();
+            public bool HasAttribute<TAttribute>() where TAttribute : Attribute => throw new NotImplementedException();
+            public void SetValue(ref EntityContainer container, object value) => throw new NotImplementedException();
+
+        }
+
         [Test]
         public void ComponentsTab_UpdateComponentOrder_AddNewComponentsBeginning()
         {
@@ -75,18 +98,18 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
 
             m_World.EntityManager.AddComponent(m_InspectedEntity, new ComponentTypeSet(typeof(BComponent), typeof(AComponent)));
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
         }
 
@@ -97,18 +120,18 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
             }));
 
             m_World.EntityManager.AddComponent(m_InspectedEntity, new ComponentTypeSet(typeof(CComponent), typeof(DComponent)));
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
         }
 
@@ -119,18 +142,18 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
 
             m_World.EntityManager.AddComponent(m_InspectedEntity, new ComponentTypeSet(typeof(BComponent), typeof(CComponent)));
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
         }
 
@@ -141,10 +164,10 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
 
             m_World.EntityManager.RemoveComponent<AComponent>(m_InspectedEntity);
@@ -152,8 +175,8 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
         }
 
@@ -164,10 +187,10 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
 
             m_World.EntityManager.RemoveComponent<CComponent>(m_InspectedEntity);
@@ -175,8 +198,8 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
             }));
         }
 
@@ -187,10 +210,10 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
 
             m_World.EntityManager.RemoveComponent<BComponent>(m_InspectedEntity);
@@ -198,8 +221,8 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
         }
 
@@ -210,10 +233,10 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
 
             m_World.EntityManager.RemoveComponent<AComponent>(m_InspectedEntity);
@@ -222,9 +245,9 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                nameof(LocalTransform),
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<LocalTransform>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
         }
 
@@ -235,10 +258,10 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
 
             m_World.EntityManager.RemoveComponent<CComponent>(m_InspectedEntity);
@@ -248,10 +271,10 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(XComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(YComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<XComponent>(),
+                GetComponentPropertyName<YComponent>(),
             }));
         }
 
@@ -262,10 +285,10 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                nameof(LocalTransform),
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(YComponent)}",
+                GetComponentPropertyName<LocalTransform>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
+                GetComponentPropertyName<YComponent>(),
             }));
 
             m_World.EntityManager.RemoveComponent<CComponent>(m_InspectedEntity);
@@ -275,12 +298,12 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                nameof(LocalTransform),
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(XComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(YComponent)}",
+                GetComponentPropertyName<LocalTransform>(),
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<DComponent>(),
+                GetComponentPropertyName<EComponent>(),
+                GetComponentPropertyName<XComponent>(),
+                GetComponentPropertyName<YComponent>(),
             }));
         }
 
@@ -291,10 +314,10 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<DComponent>(),
             }));
 
             m_World.EntityManager.RemoveComponent<AComponent>(m_InspectedEntity);
@@ -313,10 +336,10 @@ namespace Unity.Entities.Editor.Tests
 
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                nameof(LocalTransform),
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(CComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}"
+                GetComponentPropertyName<LocalTransform>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<CComponent>(),
+                GetComponentPropertyName<EComponent>()
             }));
 
             m_World.EntityManager.RemoveComponent<CComponent>(m_InspectedEntity);
@@ -325,11 +348,11 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                nameof(LocalTransform),
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}"
+                GetComponentPropertyName<LocalTransform>(),
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<DComponent>(),
+                GetComponentPropertyName<EComponent>()
             }));
         }
 
@@ -341,12 +364,12 @@ namespace Unity.Entities.Editor.Tests
 
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(AComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(BComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(DComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(XComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(YComponent)}"
+                GetComponentPropertyName<AComponent>(),
+                GetComponentPropertyName<BComponent>(),
+                GetComponentPropertyName<DComponent>(),
+                GetComponentPropertyName<EComponent>(),
+                GetComponentPropertyName<XComponent>(),
+                GetComponentPropertyName<YComponent>()
             }));
 
             m_World.EntityManager.RemoveComponent<AComponent>(m_InspectedEntity);
@@ -360,8 +383,8 @@ namespace Unity.Entities.Editor.Tests
             m_Root.ForceUpdateBindings();
             Assert.That(GetComponentsOrderFromUI(), Is.EquivalentTo(new[]
             {
-                $"{nameof(ComponentsTabTests)}_{nameof(EComponent)}",
-                $"{nameof(ComponentsTabTests)}_{nameof(XComponent)}"
+                GetComponentPropertyName<EComponent>(),
+                GetComponentPropertyName<XComponent>()
             }));
         }
 
@@ -415,5 +438,8 @@ namespace Unity.Entities.Editor.Tests
 
         // Reserved for: ComponentsTab_Update_DoesNotChangeEntityVersion
         struct VersionChangeTestComponent : IComponentData { [UsedImplicitly] public int Field; }
+
+        static string GetComponentPropertyName<T>()
+            => $"{typeof(T).Namespace}.{TypeUtility.GetTypeDisplayName(typeof(T))}".Replace(".", "_");
     }
 }

@@ -1,10 +1,12 @@
 using System;
 using System.Collections.Generic;
 using System.Diagnostics;
+using System.Runtime.CompilerServices;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities;
+using Unity.Entities.Serialization;
 using Unity.Entities.Tests;
 using Unity.Mathematics;
 using Unity.Transforms;
@@ -24,6 +26,58 @@ namespace Unity.Entities.Tests
 {
     partial class TypeManagerTests : ECSTestsFixture
     {
+        internal unsafe struct MyGenericPointerStruct<T> where T : unmanaged
+        {
+#pragma warning disable 8500
+            T* ptr;
+#pragma warning restore 8500
+        }
+
+        internal struct MyIEquatableTupleMember : IEquatable<MyIEquatableTupleMember>
+        {
+            int x;
+
+            public bool Equals(MyIEquatableTupleMember other)
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        /*
+         * this exercises the type traversal logic in the typemanager ILPP; it catches a bug
+         * that only triggered when one of the members of the tuple implemented IEquatable<T>
+         */
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+        internal class TestClassTypeWithArrayOfTuples: IComponentData
+        {
+            internal (int x, MyIEquatableTupleMember y)[] MyArray;
+        }
+
+        internal class ClassWithCircularSelfReference
+        {
+            internal ClassWithCircularSelfReference[] array;
+            int otherfield;
+        }
+
+        //this catches a bug that would cause the ilpp to stack overflow trying to
+        //incorrectly traverse the layout of managed ISCD for no reason
+        internal struct TestStructISCDWithCircularClassReference : ISharedComponentData, IEquatable<TestStructISCDWithCircularClassReference>
+        {
+            ClassWithCircularSelfReference field;
+
+            public bool Equals(TestStructISCDWithCircularClassReference other)
+            {
+                throw new NotImplementedException();
+            }
+
+            public override int GetHashCode()
+            {
+                return base.GetHashCode();
+            }
+
+        }
+#endif
+
         internal struct TestType1 : IComponentData
         {
             int empty;
@@ -169,6 +223,13 @@ namespace Unity.Entities.Tests
             {
                 return empty.GetHashCode();
             }
+        }
+
+        public static unsafe void AssertWeakAssetRefOffsetIs(in TypeManager.TypeInfo ti, int expectedOffset)
+        {
+            var y = TypeManager.GetWeakAssetRefOffsets(ti);
+            Assert.AreEqual(1, ti.WeakAssetRefOffsetCount);
+            Assert.AreEqual(8, y[0].Offset);
         }
 
         [Test]
@@ -757,6 +818,20 @@ namespace Unity.Entities.Tests
         }
 
         [DisableAutoTypeRegistration]
+        struct NonRegisteredComponentType : IComponentData
+        {
+            public int Foo;
+        }
+
+        [Test]
+        public void BuildComponentType_ThrowsArgumentException_IfCalledAfterTypeManagerInitializationIsComplete()
+        {
+            Assert.Throws<InvalidOperationException>(
+                () => TypeManager.BuildComponentType(typeof(NonRegisteredComponentType), new TypeManager.BuildComponentCache())
+            );
+        }
+
+        [DisableAutoTypeRegistration]
         struct NonBlittableComponentData : IComponentData
         {
             string empty;
@@ -778,17 +853,20 @@ namespace Unity.Entities.Tests
             string empty;
         }
 
+        //uncomment this and make sure an ILPP throws an exception
+        /*
         class ClassBuffer : IBufferElementData
         {
-        }
+        }*/
 
         interface InterfaceBuffer : IBufferElementData
         {
         }
 
-        class ClassShared : ISharedComponentData
+        //uncomment this and make sure an ILPP throws an exception
+        /*class ClassShared : ISharedComponentData
         {
-        }
+        }*/
 
         interface InterfaceShared : ISharedComponentData
         {
@@ -823,17 +901,16 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(NonBlittableComponentData2), @"\bblittable\b", TestName = "Non-blittable component data (interface)")]
 
         [TestCase(typeof(InterfaceBuffer), @"\binterface\b", TestName = "Interface implementing IBufferElementData")]
-        [TestCase(typeof(ClassBuffer), @"\b(struct|class)\b", TestName = "Class implementing IBufferElementData")]
         [TestCase(typeof(NonBlittableBuffer), @"\bblittable\b", TestName = "Non-blittable IBufferElementData")]
 
         [TestCase(typeof(InterfaceShared), @"\binterface\b", TestName = "Interface implementing ISharedComponentData")]
-        [TestCase(typeof(ClassShared), @"\b(struct|class)\b", TestName = "Class implementing ISharedComponentData")]
 
         [TestCase(typeof(Cleanup), @"\bdisabled\b", TestName = "Implements both ICleanupComponentData and IEnableableComponent")]
         [TestCase(typeof(Shared), @"\bdisabled\b", TestName = "Implements both ISharedComponentData and IEnableableComponent")]
 
         [TestCase(typeof(float), @"\b(not .*|in)valid\b", TestName = "Not valid component type")]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures(Type type, string keywordPattern)
         {
             Assert.That(
@@ -845,6 +922,7 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(EmptyBufferComponent), TestName = "IBufferElementData types can be empty")]
         [TestCase(typeof(EmptySharedComponent), TestName = "ISharedComponentData types can be empty")]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void BuildComponentType_DoesNotThrow(Type type)
         {
             // This was briefly a fatal error in TypeManager initialization, but we decided to relax it;
@@ -896,6 +974,25 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void CleanupFlag_IsCorrectlySet()
+        {
+            Assert.IsTrue(TypeManager.IsCleanupComponent(TypeManager.GetTypeIndex<EcsCleanup1>()));
+        }
+
+        [Test]
+        public void BufferFlag_IsCorrectlySet()
+        {
+            Assert.IsTrue(TypeManager.IsBuffer(TypeManager.GetTypeIndex<EcsTestEnableableBuffer1>()));
+        }
+
+        [Test]
+        public void IEquatableFlag_IsCorrectlySet()
+        {
+            Assert.IsTrue(TypeManager.IsIEquatable(TypeManager.GetTypeIndex<TestTypeWithChar>()));
+        }
+
+
+        [Test]
         public void OptionalComponent_IsEnableableFlagCorrectlySet()
         {
             Assert.IsTrue(TypeManager.IsEnableable(TypeManager.GetTypeIndex<OptionalEnableableComponent>()));
@@ -904,6 +1001,7 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(UnityEngine.Transform))]
         [TestCase(typeof(TypeManagerTests))]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void BuildComponentType_WithClass_WhenUnityEngineObjectTypeIsNull_ThrowsArgumentException(Type type)
         {
             var componentType = TypeManager.UnityEngineObjectType;
@@ -923,6 +1021,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void BuildComponentType_WithNonComponent_WhenUnityEngineObjectTypeIsCorrect_ThrowsArgumentException()
         {
             var componentType = TypeManager.UnityEngineObjectType;
@@ -942,6 +1041,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void BuildComponentType_WithComponent_WhenUnityEngineObjectTypeIsCorrect_DoesNotThrowException()
         {
             var componentType = TypeManager.UnityEngineObjectType;
@@ -959,7 +1059,6 @@ namespace Unity.Entities.Tests
         [TestCase(null)]
         [TestCase(typeof(TestType1))]
         [TestCase(typeof(InterfaceShared))]
-        [TestCase(typeof(ClassShared))]
         [TestCase(typeof(UnityEngine.Transform))]
         public void RegisterUnityEngineObjectType_WithWrongType_ThrowsArgumentException(Type type)
         {
@@ -1001,39 +1100,37 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(ecsTestDataAsmRefersToUnityEngine);
         }
 
-        partial class TestSystem : SystemBase
-        {
-
-            protected override void OnCreate()
-            {
-            }
-
-            protected override void OnUpdate()
-            {
-                Entities.ForEach((Entity e, ref LocalTransform t) =>
-                {
-                }).Run();
-            }
-        }
-
         [DisableAutoTypeRegistration]
         public struct UnregisteredComponent : IComponentData
         {
             public int Int;
         }
 
+        public struct ComponentWithPointerAndThenEntity_ForTestingOffsets : IComponentData
+        {
+            public IntPtr myptr;
+            public Entity e;
+        }
+
         [Test]
         public unsafe void TypeInfo_EntityReferenceOffsets_AreSortedAndCorrect()
         {
             var typeInfo = TypeManager.GetTypeInfo<EcsTestDataEntity2>();
+            var typeInfo2 = TypeManager.GetTypeInfo<ComponentWithPointerAndThenEntity_ForTestingOffsets>();
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<EcsTestDataEntity2>()));
+            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<ComponentWithPointerAndThenEntity_ForTestingOffsets>()));
             Assert.AreEqual(2, typeInfo.EntityOffsetCount);
+            Assert.AreEqual(1, typeInfo2.EntityOffsetCount);
             var offsets = TypeManager.GetEntityOffsets(typeInfo);
+            var offsets2 = TypeManager.GetEntityOffsets(typeInfo2);
             int offsetA = offsets[0].Offset;
             int offsetB = offsets[1].Offset;
+            int offset2a = offsets2[0].Offset;
             Assert.Less(offsetA, offsetB, "Entity offsets are assumed to be sorted.");
             Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataEntity2).GetField(nameof(EcsTestDataEntity2.value1))), offsetA);
             Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataEntity2).GetField(nameof(EcsTestDataEntity2.value2))), offsetB);
+            Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(ComponentWithPointerAndThenEntity_ForTestingOffsets).GetField(nameof(ComponentWithPointerAndThenEntity_ForTestingOffsets.e))), offset2a);
+
         }
 
         [Test]
@@ -1047,6 +1144,32 @@ namespace Unity.Entities.Tests
             Assert.Less(offsetA, offsetB, "BlobAssetOffsets offsets are assumed to be sorted.");
             Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataBlobAssetRef2).GetField(nameof(EcsTestDataBlobAssetRef2.value))), offsetA);
             Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataBlobAssetRef2).GetField(nameof(EcsTestDataBlobAssetRef2.value2))), offsetB);
+        }
+
+        [Test]
+        public unsafe void TypeInfo_WeakAssetReferenceOffsets_AreSortedAndCorrect()
+        {
+            var typeInfo = TypeManager.GetTypeInfo<EcsTestDataWeakAssetRef2>();
+            Assert.AreEqual(2, typeInfo.WeakAssetRefOffsetCount);
+            var offsets = TypeManager.GetWeakAssetRefOffsets(typeInfo);
+            int offsetA = offsets[0].Offset;
+            int offsetB = offsets[1].Offset;
+            Assert.Less(offsetA, offsetB, "WeakAssetOffsets offsets are assumed to be sorted.");
+            Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataWeakAssetRef2).GetField(nameof(EcsTestDataWeakAssetRef2.value))), offsetA);
+            Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataWeakAssetRef2).GetField(nameof(EcsTestDataWeakAssetRef2.value2))), offsetB);
+        }
+
+        [Test]
+        public unsafe void TypeInfo_UnityObjectReferenceOffsets_AreSortedAndCorrect()
+        {
+            var typeInfo = TypeManager.GetTypeInfo<EcsTestDataUnityObjectRef2>();
+            Assert.AreEqual(2, typeInfo.UnityObjectRefOffsetCount);
+            var offsets = TypeManager.GetUnityObjectRefOffsets(typeInfo);
+            int offsetA = offsets[0].Offset;
+            int offsetB = offsets[1].Offset;
+            Assert.Less(offsetA, offsetB, "UnityObjectRef Offsets offsets are assumed to be sorted.");
+            Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataUnityObjectRef2).GetField(nameof(EcsTestDataUnityObjectRef2.value))), offsetA);
+            Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataUnityObjectRef2).GetField(nameof(EcsTestDataUnityObjectRef2.value2))), offsetB);
         }
 
         [DisableAutoTypeRegistration]
@@ -1072,6 +1195,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TypeOverrideWorks_Unmanaged_InvalidTypesThrow()
         {
             var cache = new TypeManager.BuildComponentCache();
@@ -1092,6 +1216,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestNativeContainersWorks()
         {
             Assert.DoesNotThrow(
@@ -1099,6 +1224,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestNestedNativeContainersDoesNotThrow()
         {
             Assert.DoesNotThrow(() =>
@@ -1248,22 +1374,6 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
-        public void TestHasNativeContainer_Managed()
-        {
-            Assert.IsFalse(TypeManager.GetTypeIndex<TestNoRefManaged>().HasNativeContainer);
-            Assert.IsFalse(TypeManager.GetTypeIndex<TestEntityInClass>().HasNativeContainer);
-            Assert.IsFalse(TypeManager.GetTypeIndex<TestEntityInClassWithManagedFields>().HasNativeContainer);
-            Assert.IsFalse(TypeManager.GetTypeIndex<TestEntityArray>().HasNativeContainer);
-            Assert.IsFalse(TypeManager.GetTypeIndex<TestHasBlobRefAndEntityRef>().HasNativeContainer);
-            Assert.IsFalse(TypeManager.GetTypeIndex<TestHasBlobRefAndEntityRef>().HasNativeContainer);
-            Assert.IsFalse(TypeManager.GetTypeIndex<TestBlobRefInClassWithManagedFields>().HasNativeContainer);
-
-            Assert.IsTrue(TypeManager.GetTypeIndex<TestNativeContainerInClass>().HasNativeContainer);
-            Assert.IsTrue(TypeManager.GetTypeIndex<TestNativeContainerInClassWithManagedFields>().HasNativeContainer);
-        }
-
-        [Test]
         public void TestHasBlobReferencesManaged()
         {
             Assert.IsFalse(TypeManager.GetTypeInfo<TestNoRefManaged>().HasBlobAssetRefs);
@@ -1315,6 +1425,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestArrayNativeContainersWorks()
         {
             Assert.DoesNotThrow(
@@ -1322,6 +1433,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestNestedArrayNativeContainersDoesNotThrow()
         {
             Assert.DoesNotThrow(() =>
@@ -1331,6 +1443,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TypeOverrideWorks_Managed_InvalidTypesThrow()
         {
             TypeManager.BuildComponentCache cache = new TypeManager.BuildComponentCache();
@@ -1380,6 +1493,7 @@ namespace Unity.Entities.Tests
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestNestedNativeContainerCachingHandlesTypeWithValidCircularReference()
         {
             Assert.DoesNotThrow(
@@ -1387,6 +1501,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestNestedNativeContainerCachingHandlesTypeWithValidCircularReference_StillDetectsNestedNativeContainers()
         {
             Assert.DoesNotThrow(() =>
@@ -1394,39 +1509,6 @@ namespace Unity.Entities.Tests
                 Assert.IsTrue(TypeManager.BuildComponentType(typeof(ComponentWithValidCircularReferenceAndNestedNativeContainer), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer);
             });
         }
-
-#if UNITY_2022_3_11F1_OR_NEWER
-    class CircularReferenceB : IComponentData
-        {
-            CircularReferenceA m_A1;
-            CircularReferenceA m_A2;
-            CircularReferenceB m_B;
-            CircularReferenceA m_A3;
-        }
-
-        class CircularReferenceA : IComponentData
-        {
-            CircularReferenceB m_B1;
-            CircularReferenceB m_B2;
-            CircularReferenceA m_A;
-            CircularReferenceB m_B3;
-        }
-
-        [Test]
-        public void TestTypeHashComponentWithCircularReference()
-        {
-            var cache = new Dictionary<Type, ulong>();
-            var hashA = TypeHash.CalculateStableTypeHash(typeof(CircularReferenceA), cache);
-            var hashB = TypeHash.CalculateStableTypeHash(typeof(CircularReferenceB), cache);
-
-            // Clearing the cache is to simulate rebuilding the hash from a player build however to
-            // confirm our hashes are stable, hash the types in reverse order and ensure the hashes match
-            cache.Clear();
-
-            Assert.AreEqual(hashB, TypeHash.CalculateStableTypeHash(typeof(CircularReferenceB), cache));
-            Assert.AreEqual(hashA, TypeHash.CalculateStableTypeHash(typeof(CircularReferenceA), cache));
-        }
-#endif
 #endif
     }
 }

@@ -557,6 +557,7 @@ namespace Unity.Entities.Editor
         /// Open SearchWindow with SystemSearchProvider enabled.
         /// </summary>
         /// <param name="query">Optional initial query.</param>
+        /// <param name="world">Optional world to search.</param>
         public static void OpenProvider(string query = null, World world = null)
         {
             query = SearchUtils.GetDefaultWorldQuery(query, world);

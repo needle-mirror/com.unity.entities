@@ -22,7 +22,7 @@ namespace Unity.Entities.Editor
             TypeIndex = property.TypeIndex;
             Type = property.Type;
             Path = property.Name;
-            DisplayName = ComponentsUtility.GetComponentDisplayName(property.Name);
+            DisplayName = ComponentsUtility.GetComponentDisplayName(property.DisplayName);
             Context = context;
             Container = Context.EntityContainer;
         }

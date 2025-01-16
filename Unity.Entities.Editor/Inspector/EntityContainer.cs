@@ -23,6 +23,7 @@ namespace Unity.Entities
     interface IComponentProperty : IProperty<EntityContainer>
     {
         TypeIndex TypeIndex { get; }
+        string DisplayName { get; }
         ComponentPropertyType Type { get; }
     }
 
@@ -104,9 +105,10 @@ namespace Unity.Entities
 
         abstract class ComponentProperty<TComponent> : Property<EntityContainer, TComponent>, IComponentProperty
         {
-            public override string Name { get; } = SanitizedPropertyName(TypeUtility.GetTypeDisplayName(typeof(TComponent)));
+            public override string Name { get; } = SanitizedPropertyName(GetComponentName(typeof(TComponent)));
             public override bool IsReadOnly { get; }
             public TypeIndex TypeIndex { get; }
+            public string DisplayName { get; } = SanitizedPropertyName(TypeUtility.GetTypeDisplayName(typeof(TComponent)));
             public abstract ComponentPropertyType Type { get; }
 
             public ComponentProperty(TypeIndex typeIndex, bool isReadOnly)
@@ -133,6 +135,10 @@ namespace Unity.Entities
             protected abstract TComponent DoGetValue(ref EntityContainer container);
             protected abstract void DoSetValue(ref EntityContainer container, TComponent value);
             protected abstract bool IsZeroSize { get; }
+
+            protected static string GetComponentName(Type type)
+                => string.IsNullOrEmpty(type.Namespace) ? TypeUtility.GetTypeDisplayName(type)
+                                                        : $"{type.Namespace}.{TypeUtility.GetTypeDisplayName(type)}";
         }
 
         class SharedComponentProperty<TComponent> : ComponentProperty<TComponent>
@@ -280,7 +286,7 @@ namespace Unity.Entities
         class DynamicBufferProperty<TElement> : ComponentProperty<DynamicBufferContainer<TElement>>
             where TElement : unmanaged, IBufferElementData
         {
-            public override string Name => SanitizedPropertyName(Properties.TypeUtility.GetTypeDisplayName(typeof(TElement)));
+            public override string Name => SanitizedPropertyName(GetComponentName(typeof(TElement)));
             protected override bool IsZeroSize { get; } = TypeManager.IsZeroSized(TypeManager.GetTypeIndex<TElement>());
             public override ComponentPropertyType Type { get; } = ComponentPropertyType.Buffer;
 

@@ -1,5 +1,6 @@
 {
     "name": "Unity.Scenes.Editor",
+    "rootNamespace": "",
     "references": [
         "Unity.Build",
         "Unity.Build.Classic",
@@ -25,6 +26,12 @@
     "precompiledReferences": [],
     "autoReferenced": true,
     "defineConstraints": [],
-  "versionDefines": [],
+    "versionDefines": [
+        {
+            "name": "com.unity.scriptablebuildpipeline",
+            "expression": "2.0.0",
+            "define": "SBP_VERSION_2"
+        }
+    ],
     "noEngineReferences": false
 }

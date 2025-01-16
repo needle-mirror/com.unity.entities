@@ -142,7 +142,7 @@ namespace Unity.Entities.Editor
             });
         }
 
-        public static void Synchronize(List<string> existingOrder, List<string> targetOrder, IComparer<string> comparer, VisualElement root, Func<string, VisualElement> Factory)
+        public static void Synchronize<T>(List<T> existingOrder, List<T> targetOrder, IComparer<T> comparer, VisualElement root, Func<T, VisualElement> Factory)
         {
             // optimizations for simple cases
             if (targetOrder.Count == 0)

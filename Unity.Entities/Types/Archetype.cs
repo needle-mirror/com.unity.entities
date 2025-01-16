@@ -30,7 +30,7 @@ namespace Unity.Entities
         public UnsafeList<ChunkIndex> ChunksWithEmptySlots;
 
         public ChunkListMap FreeChunksBySharedComponents;
-        public ComponentTypeInArchetype* Types; // Array with TypeCount elements
+        public ComponentTypeInArchetype* Types; // Array with TypeCount elements, sorted by TypeIndex during CreateArchetype().
         public int* EnableableTypeIndexInArchetype; // Array with EnableableTypesCount elements
 
         // back pointer to EntityQueryData(s), used for chunk list caching

@@ -1,9 +1,17 @@
-# Use the job system with Entities
+# Job system in Entities introduction
 
-The Entities package uses the [C# Job System](https://docs.unity3d.com/Manual/JobSystem.html) extensively. Whenever possible, you should use jobs in your system code. 
+The Entities package uses the [job system](xref:um-job-system) to create multithreaded code. If you're concerned about performance, use jobs whenever possible.
 
-For main thread access, you can use C# `foreach` over the `Query` objects in [SystemAPI](xref:Unity.Entities.SystemAPI). For convenient job scheduling, you can use [IJobEntity](xref:Unity.Entities.IJobEntity). In niche situations, or when you want manual control, you can use [`IJobChunk`](iterating-data-ijobchunk.md)'s `Schedule()` and `ScheduleParallel()` methods, to transform data outside the main thread. 
+The following techniques are available, depending on the type of access you require:
 
-When you schedule jobs, ECS keeps track of which systems read and write which components. Later systems' `Dependency` property will include the job handles of earlier systems' scheduled jobs, in cases where the set of components read and written overlap. 
+* **Main thread access**: Use a `foreach` statement over the `Query` objects in [`SystemAPI`](xref:Unity.Entities.SystemAPI). 
+* **Job scheduling**: For convenient job scheduling, use [`IJobEntity`](xref:Unity.Entities.IJobEntity). For more information, refer to [Iterate over component data in multiple systems](iterating-data-ijobentity.md).
+* **Manual scheduling outside the main thread**: Use [`IJobChunk`](iterating-data-ijobchunk.md)'s `Schedule()` and `ScheduleParallel()` methods to transform data outside the main thread. 
 
-For more information about systems, see [System concepts](concepts-systems.md).
+When you schedule jobs, ECS keeps track of which systems read and write which components. Later systems' `Dependency` property include the job handles of earlier systems' scheduled jobs, in cases where the set of components' read and write operations overlap. For more information, refer to [Job dependencies](scheduling-jobs-dependencies.md).
+
+## Additional resources
+
+* [Job system introduction](xref:um-job-system)
+* [Iterate over chunks of component data](iterating-data-ijobchunk.md)
+* [Iterate over component data in multiple systems](iterating-data-ijobentity.md)

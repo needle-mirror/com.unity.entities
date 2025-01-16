@@ -1,4 +1,4 @@
-# Using transforms
+# Use transforms
 
 To use transforms in your project, use the [`Unity.Transforms`](xref:Unity.Transforms) namespace to control the position, rotation, and scale of any entity in your project.
 

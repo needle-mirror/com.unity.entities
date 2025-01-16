@@ -4,6 +4,27 @@ uid: changelog
 
 # Changelog
 
+## [1.3.9] - 2025-01-16
+
+### Added
+
+* Enabled content downloads from the Editor while in Playmode.
+
+### Fixed
+
+* Entities Hierarchy shows content for _Dont Destroy On Load_ scene in playmode.
+* Prefab reference disappears after instantiating the prefab in runtime and rebaking.
+* Entity inspector now differentiate editors for component types when type names are the same but namespaces are different.
+* compile error when using 'unsafe' in one partial system (that's generated) but not another
+* compile error when having mismatched using statements in one partial system that's different than another
+* Fixed an error where an `EntityQuery` whose `WithAny` list contained a mix of enableable and disableable components would fail to match entities with at least one of the non-enableable components, if all of its enableable Any components were disabled. As a side effect, queries with `WithAny` constraints should now have slightly faster matching.
+* For empty scene sections, `SceneSectionData.BoundingVolume` will no longer contain NaN values, and the `BoundingVolume.IsValid` property will return `true` as expected. Note that converting this field to an `AABB` will still result in NaN values; for now, this case will need special-case handling in user code.
+* Massively reduced reflection on startup in player builds by moving work to an ILPostProcessor.
+* Unit test Instability (memory corruption) caused by dynamically registering new types with the TypeManager.
+
+### Security
+
+
 ## [1.3.8] - 2024-11-08
 
 ### Removed
@@ -14,7 +35,8 @@ uid: changelog
 
 * Disable "new empty subscene" menu item on default untitled scene.
 * Fix invalid queries generated for `IJobEntity` with `[WithPresent(typeof(T))]` and `EnabledRef<T>` and/or `in T` in the same job.
-	
+
+
 
 ## [1.3.5] - 2024-10-04
 

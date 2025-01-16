@@ -224,7 +224,7 @@ namespace Unity.Entities.Tests
             }
         }
     #endif
-        
+
     }
 }
 #endif

@@ -8,11 +8,13 @@ This section explains how to iterate over entity data in the following ways:
 
 |**Topic**|**Description**|
 |---|---|
-|[Using SystemAPI.Query to iterate over data](systems-systemapi-query.md)|Iterate through a collection of data on the main thread.|
-|[Iterate over data with `IJobEntity`](iterating-data-ijobentity.md)| Write once and create multiple schedules with [`IJobEntity`](xref:Unity.Entities.IJobEntity).|
-| [Iterate over chunks of data](iterating-data-ijobchunk.md)| Iterate over [archetype chunks](concepts-archetypes.md#archetype-chunks) that contain matching entities with `IJobChunk`. |
+|[Iterate over component data with SystemAPI.Query](systems-systemapi-query.md)|Iterate through a collection of data on the main thread.|
+|[Iterate over component data with IJobEntity](iterating-data-ijobentity.md)| Write once and create multiple schedules with `IJobEntity`.|
+| [Iterate over chunks of data with IJobChunk](iterating-data-ijobchunk.md)| Iterate over archetype chunks that contain matching entities with `IJobChunk`. |
 |[Iterate manually over data](iterating-manually.md)| Manually iterate over entities or archetype chunks.|
-|[Iterate with Entities.ForEach in SystemBase systems](iterating-data-entities-foreach.md)|Use `Entities.ForEach` in SystemBase to iterate over entities.|
+|[Iterate over component data with Entities.ForEach](iterating-data-entities-foreach.md)|Use `Entities.ForEach` in SystemBase to iterate over entities.|
+|[Query data with an entity query](systems-entityquery.md)|Find component data with entity queries.|
+|[Look up arbitrary data](systems-looking-up-data.md)|Access arbitrary data without using an entity query.|
 
 ## Additional resources
 

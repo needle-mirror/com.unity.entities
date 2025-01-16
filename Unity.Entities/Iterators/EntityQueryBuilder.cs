@@ -400,7 +400,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Add a required [Chunk Component](xref:components-chunk) type to the query.
+        /// Add a read-only required [chunk component](xref:components-chunk) type to the query.
         /// </summary>
         /// <remarks>
         /// Call this method on the query builder to find entities that have all the specified chunk components. Chunk
@@ -431,8 +431,22 @@ namespace Unity.Entities
             return this;
         }
 
-        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAllChunkComponent``1"/>
-        /// <typeparam name="T">Component type to use as a required, read-write Chunk Component</typeparam>
+        /// <summary>
+        /// Add a required [chunk component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to find entities that have all the specified chunk components. Chunk
+        /// components are a distinct component type, which are different from adding the same type as a standard
+        /// component.
+        /// To add additional required Chunk Components, call this method multiple times.
+        ///
+        /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAllChunkComponentRW``1(``0@)"/>
+        ///
+        /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAll``1(``0@)"/>
+        /// </remarks>
+        ///
+        /// <typeparam name="T">Component type to use as a required, read-write chunk component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAllChunkComponentRW<T>()
         {
@@ -682,7 +696,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Add an optional [Chunk Component](xref:components-chunk) type to the query.
+        /// Add an optional read-only [chunk component](xref:components-chunk) type to the query.
         /// </summary>
         /// <remarks>
         /// To match the resulting query, an Entity must have at least one of the query's optional component types,
@@ -703,7 +717,7 @@ namespace Unity.Entities
         /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAnyChunkComponentRW``1(``0@)"/>
         ///
         /// </remarks>
-        /// <typeparam name="T">Component type to use as an optional, read-only Chunk Component</typeparam>
+        /// <typeparam name="T">Component type to use as an optional, read-only chunk component</typeparam>
         /// <returns>The builder object that invoked this method.</returns>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAnyChunkComponent<T>()
@@ -715,8 +729,25 @@ namespace Unity.Entities
             return this;
         }
 
-        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithAnyChunkComponent``1"/>
-        /// <typeparam name="T">Component type to use as an optional, read-write Chunk Component</typeparam>
+        /// <summary>
+        /// Add an optional [chunk component](xref:components-chunk) type to the query.
+        /// </summary>
+        /// <remarks>
+        /// To match the resulting query, an Entity must have at least one of the query's optional component types,
+        /// specified using either <see cref="WithAny"/> or <see cref="WithAnyChunkComponent"/>. Chunk components are a distinct component
+        /// type, which are different from adding the same type as a standard component.
+        ///
+        /// Compare this to <see cref="M:Unity.Entities.EntityQueryBuilder.WithAllChunkComponent``1"/>
+        ///
+        /// To add additional optional Chunk Components, call this method multiple times.
+        ///
+        /// To add component types that are not known at compile time, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAny``1(``0@)"/>
+        ///
+        /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithAnyChunkComponentRW``1(``0@)"/>
+        ///
+        /// </remarks>
+        /// <typeparam name="T">Component type to use as an optional, read-write chunk component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithAnyChunkComponentRW<T>()
         {
@@ -1631,7 +1662,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Add a required [Chunk Component](xref:components-chunk) type to the query, whether it is enabled or disabled.
+        /// Add a required read-only [chunk component](xref:components-chunk) type to the query, whether it is enabled or disabled.
         /// </summary>
         /// <remarks>
         /// Call this method on the query builder to find entities that have all the specified chunk components, whether it
@@ -1659,8 +1690,20 @@ namespace Unity.Entities
             return this;
         }
 
-        /// <inheritdoc cref="M:Unity.Entities.EntityQueryBuilder.WithPresentChunkComponent``1"/>
-        /// <typeparam name="T">Component type to use as a required, read-write Chunk Component</typeparam>
+        /// <summary>
+        /// Add a required [chunk component](xref:components-chunk) type to the query, whether it is enabled or disabled.
+        /// </summary>
+        /// <remarks>
+        /// Call this method on the query builder to find entities that have all the specified chunk components, whether it
+        /// is enabled or disabled. Chunk components are a distinct component type, which are different from adding the
+        /// same type as a standard component.
+        ///
+        /// To add additional required Chunk Components, call this method multiple times.
+        ///
+        /// The query will request read-only access to the referenced component(s). To request read/write access, use <see cref="M:Unity.Entities.EntityQueryBuilder.WithPresentChunkComponentRW``1(``0@)"/>
+        /// </remarks>
+        /// <typeparam name="T">Component type to use as a required, read-write chunk component</typeparam>
+        /// <returns>The builder object that invoked this method.</returns>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public EntityQueryBuilder WithPresentChunkComponentRW<T>()
         {

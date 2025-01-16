@@ -4,7 +4,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 
-namespace Miscellaneous.CustomTransforms
+namespace Doc.CodeSamples.Tests
 {
     #region Transform2DAuthoring
     public class Transform2DAuthoring : MonoBehaviour

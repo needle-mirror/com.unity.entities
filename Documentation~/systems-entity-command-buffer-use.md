@@ -8,6 +8,8 @@ You can't perform [structural changes](concepts-structural-changes.md) in a job,
 
 [!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_single_threaded)]
 
+
+
 ### Parallel jobs
 
 If you want to use an ECB in a [parallel job](xref:JobSystemParallelForJobs), use [`EntityCommandBuffer.ParallelWriter`](xref:Unity.Entities.EntityCommandBuffer.ParallelWriter), which concurrently records in a thread-safe way to a command buffer:

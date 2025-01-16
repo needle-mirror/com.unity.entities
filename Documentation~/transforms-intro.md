@@ -5,7 +5,7 @@ This section contains information about how transforms work in Entities, and how
 |**Topic**|**Description**|
 |---|---|
 |[Transform concepts](transforms-concepts.md)|Understand how transforms work in Entities.|
-|[Using transforms](transforms-using.md)|Use transforms in your project.|
+|[Use transforms](transforms-using.md)|Use transforms in your project.|
 |[Transforms comparison](transforms-comparison.md)|Compare the transform operations in ECS with the transform operations in `UnityEngine`.|
 |[Transform helper overview](transforms-helpers.md)|Use transform helpers to work with transform matrices.|
 |[Transform usage flags](transforms-usage-flags.md)|Understand transform usage flags, which help convert transform data efficiently.|

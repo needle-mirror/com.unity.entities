@@ -5,7 +5,6 @@ using System.Runtime.CompilerServices;
 using System.Text;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using Unity.Assertions;
 
 #if UNITY_DOTSRUNTIME
 namespace Unity.Entities.CodeGen

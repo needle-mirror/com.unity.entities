@@ -130,6 +130,12 @@ namespace Unity.Entities.Content
 
         internal static void Update()
         {
+            // Update only during play mode in the Editor or when running in the Player
+#if UNITY_EDITOR
+            if (!Application.isPlaying)
+                return;
+#endif
+
             if (contentDeliveryService == null)
                 return;
             contentDeliveryService.Process();

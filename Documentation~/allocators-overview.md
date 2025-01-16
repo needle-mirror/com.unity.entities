@@ -1,6 +1,6 @@
-# Allocators overview
+# Memory allocators overview
 
-Entities and the [Collections package](https://docs.unity3d.com/Packages/com.unity.collections@latest) has different allocators that you can use to manage memory allocations. The different allocators organize and track their memory in different ways. These are the allocators available:
+Entities and the [Collections package](https://docs.unity3d.com/Packages/com.unity.collections@latest) have different allocators that you can use to manage memory allocations. The different allocators organize and track their memory in different ways. These are the allocators available:
 
 * [Allocator.Temp](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/manual/allocation.html): A fast allocator for short-lived allocations, which is created on every thread.
 * [Allocator.TempJob](https://docs.unity3d.com/Packages/com.unity.collections@latest/index.html?subfolder=/manual/allocation.html): A short-lived allocator, which must be deallocated within 4 frames of their creation.

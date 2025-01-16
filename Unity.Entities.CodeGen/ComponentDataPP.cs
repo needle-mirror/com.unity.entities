@@ -2,16 +2,17 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Linq;
-using System.Reflection;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
-using Unity.Burst;
 using Unity.CompilationPipeline.Common.Diagnostics;
-using UnityEngine.Scripting;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using ParameterAttributes = Mono.Cecil.ParameterAttributes;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
+using Unity.Cecil.Awesome;
+using UnityEngine.Scripting;
+using System.Reflection;
+using Unity.Burst;
 
 namespace Unity.Entities.CodeGen
 {
@@ -29,10 +30,10 @@ namespace Unity.Entities.CodeGen
          */
         protected override bool PostProcessImpl(TypeDefinition[] componentSystemTypes)
         {
-            var irefCountedType = AssemblyDefinition.MainModule.ImportReference(typeof(IRefCounted)).Resolve();
-            var iequatableType = AssemblyDefinition.MainModule.ImportReference(typeof(IEquatable<>)).Resolve();
+            var irefCountedType = AssemblyDefinition.MainModule.ImportReference(typeof(IRefCounted));
+            var iequatableType = AssemblyDefinition.MainModule.ImportReference(typeof(IEquatable<>));
             var isharedcomponentdataType =
-                AssemblyDefinition.MainModule.ImportReference(typeof(ISharedComponentData)).Resolve();
+                AssemblyDefinition.MainModule.ImportReference(typeof(ISharedComponentData));
 
             var preserveAttrCtor = AssemblyDefinition.MainModule.ImportReference(
                 typeof(PreserveAttribute).GetConstructors(BindingFlags.Public |
@@ -77,7 +78,7 @@ namespace Unity.Entities.CodeGen
                     modified = PreserveDefaultCtor(type, preserveAttrCtor);
                 }
 
-                if (!type.IsValueType() && !type.IsInterface && type.TypeImplements(typeof(IComponentData)))
+                if (!type.IsValueType() && !type.IsInterface && type.TypeImplements(mod.ImportReference(typeof(IComponentData))))
                 {
                     try
                     {
@@ -232,7 +233,7 @@ namespace Unity.Entities.CodeGen
             return modified;
         }
 
-        private static bool PreserveDefaultCtor(TypeDefinition type, MethodReference preserveAttrCtor)
+        public static bool PreserveDefaultCtor(TypeDefinition type, MethodReference preserveAttrCtor)
         {
             TypeDefinition tmptype = type;
             MethodDefinition defaultctor = null;

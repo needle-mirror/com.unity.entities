@@ -184,7 +184,7 @@ namespace Unity.Scenes.Editor
             return scene.isSubScene;
         }
 
-        static unsafe AABB GetBoundsAndRemove(EntityManager entityManager, EntityQuery query)
+        static unsafe MinMaxAABB GetBoundsAndRemove(EntityManager entityManager, EntityQuery query)
         {
             var bounds = MinMaxAABB.Empty;
             using (var allBounds = query.ToComponentDataArray<SceneBoundingVolume>(Allocator.TempJob))

@@ -102,7 +102,13 @@ namespace Unity.Entities
         /// Checks if the component exists on this entity.
         /// </summary>
         /// <remarks>
-        /// This doesn't take into account if the component is enabled or not.
+        /// This property does not take into account if the component is enabled or not.
+        ///
+        /// This property is intended to indicate whether it is safe to read or write this reference's value.
+        /// It is not safe to use this value as a synonym for "does the target entity have component T?".
+        /// For zero-size "tag" components (which have no addressable value in chunk memory), IsValid will always
+        /// return false, even if the component is present. It is safer to use existing HasComponent features to test
+        /// for component presence.
         /// </remarks>
         public unsafe bool IsValid => _Data != null;
 

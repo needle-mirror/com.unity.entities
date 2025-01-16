@@ -602,7 +602,8 @@ public partial class BlobTests : ECSTestsFixture
 #if !UNITY_GAMECORE // (disabled as gamecore has permission issues DOTS-7038)
     [Test]
     // Unstable on PS4: https://jira.unity3d.com/browse/DOTS-7693
-    [UnityEngine.TestTools.UnityPlatform(exclude = new [] { RuntimePlatform.PS4 })]
+    // Unstable on Switch: DOTS-9647
+    [UnityEngine.TestTools.UnityPlatform(exclude = new [] { RuntimePlatform.PS4, RuntimePlatform.Switch })]
     public void BlobAssetReferenceTryRead()
     {
         string fileName = "BlobAssetReferenceIOTestData.blob";

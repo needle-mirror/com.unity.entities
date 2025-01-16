@@ -2,7 +2,7 @@
 uid: ecs-components
 ---
 
-# Components overview
+# Organize data with components
 
 Components represent the data in the [Entity Component System](concepts-intro.md) (ECS) architecture. [Entities](concepts-entities.md) associate components together and [systems](concepts-systems.md) provide logic that can read from and write to the component data. This section introduces ECS components and explains how to use them.
 

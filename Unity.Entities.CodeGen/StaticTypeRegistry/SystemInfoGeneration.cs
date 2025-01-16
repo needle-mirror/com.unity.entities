@@ -1,4 +1,4 @@
-#if UNITY_DOTSRUNTIME
+#if !DISABLE_TYPEMANAGER_ILPP
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
@@ -7,10 +7,9 @@ using System.Collections.Generic;
 using System.Linq;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using ParameterAttributes = Mono.Cecil.ParameterAttributes;
-using TypeGenInfoList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.TypeGenInfo>;
-using SystemList = System.Collections.Generic.List<Mono.Cecil.TypeDefinition>;
 using Unity.Cecil.Awesome;
-using static Unity.Entities.CodeGen.MonoExtensions;
+using static Unity.Entities.BuildUtils.MonoExtensions;
+
 
 namespace Unity.Entities.CodeGen
 {
@@ -26,12 +25,10 @@ namespace Unity.Entities.CodeGen
                     .IsChildTypeOf(AssemblyDefinition.MainModule.ImportReference(typeof(ComponentSystemGroup))
                         .Resolve()))
                     flags |= TypeManager.SystemTypeInfo.kIsSystemGroupFlag;
-                var unused1 = false;
-                var unused2 = false;
-                if (s.IsManagedType(ref unused1, ref unused2))
+                if (TypeUtilsInstance.IsManagedType(s, 0))
                     flags |= TypeManager.SystemTypeInfo.kIsSystemManagedFlag;
 
-                if (s.TypeImplements(typeof(ISystemStartStop)))
+                if (s.TypeImplements(AssemblyDefinition.MainModule.ImportReference(typeof(ISystemStartStop))))
                     flags |= TypeManager.SystemTypeInfo.kIsSystemISystemStartStopFlag;
                 return flags;
             }).ToList();
@@ -143,7 +140,7 @@ namespace Unity.Entities.CodeGen
                 bc.Add(Instruction.Create(OpCodes.Ceq));
                 // Stack: bool
                 int branchToNext = bc.Count;
-                bc.Add(Instruction.Create(OpCodes.Nop));    // will be: Brfalse_S nextTestCase
+                bc.Add(Instruction.Create(OpCodes.Nop));    // will be: Brfalse nextTestCase
 
                 var attrList = sysDef.CustomAttributes;
 
@@ -210,7 +207,7 @@ namespace Unity.Entities.CodeGen
                 bc.Add(nextTest);
 
                 // And go back and patch the IL to jump to the next test no-op just created.
-                bc[branchToNext] = Instruction.Create(OpCodes.Brfalse_S, nextTest);
+                bc[branchToNext] = Instruction.Create(OpCodes.Brfalse, nextTest);
             }
             bc.Add(Instruction.Create(OpCodes.Ldstr, "FATAL: GetSystemAttributes asked to create an unknown Type."));
             var arguementExceptionCtor = AssemblyDefinition.MainModule.ImportReference(typeof(ArgumentException)).Resolve().GetConstructors()
@@ -336,14 +333,14 @@ namespace Unity.Entities.CodeGen
                 bc.Add(Instruction.Create(OpCodes.Call, m_GetTypeFromHandleFnRef));
                 bc.Add(Instruction.Create(OpCodes.Ceq));
                 int branchToNext = bc.Count;
-                bc.Add(Instruction.Create(OpCodes.Nop));    // will be: Brfalse_S nextTestCase
+                bc.Add(Instruction.Create(OpCodes.Nop));    // will be: Brfalse nextTestCase
                 bc.Add(Instruction.Create(OpCodes.Newobj, constructor));
                 bc.Add(Instruction.Create(OpCodes.Ret));
 
                 var nextTest = Instruction.Create(OpCodes.Nop);
                 bc.Add(nextTest);
 
-                bc[branchToNext] = Instruction.Create(OpCodes.Brfalse_S, nextTest);
+                bc[branchToNext] = Instruction.Create(OpCodes.Brfalse, nextTest);
             }
 
             bc.Add(Instruction.Create(OpCodes.Ldstr, "FATAL: CreateSystem asked to create an unknown type. Only subclasses of ComponentSystemBase can be constructed."));
@@ -356,4 +353,4 @@ namespace Unity.Entities.CodeGen
         }
     }
 }
-#endif
+#endif // !DISABLE_TYPEMANAGER_ILPP

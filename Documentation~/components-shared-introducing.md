@@ -1,4 +1,4 @@
-# Introducing shared components
+# Shared components introduction
 
 Shared components group entities in chunks based on the values of their shared component, which helps with the de-duplication of data. To do this, Unity stores all entities of an archetype that have the same shared component values together. This removes repeated values across entities.
 

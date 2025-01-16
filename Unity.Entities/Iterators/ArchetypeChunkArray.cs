@@ -755,7 +755,7 @@ namespace Unity.Entities
         /// Gets a copy of all the Enableable bits for the specified type handle.
         /// </summary>
         /// <param name="handle">A type handle for the component type whose enabled bits you want to query.</param>
-        /// <returns>A <see cref="v128"/> is returned containing a copy of the bitarray.</returns>
+        /// <returns>Returns a 128-bit mask which contains a copy of the bitarray.</returns>
         public readonly unsafe v128 GetEnableableBits(ref DynamicComponentTypeHandle handle)
         {
             var archetype = m_EntityComponentStore->GetArchetype(m_Chunk);

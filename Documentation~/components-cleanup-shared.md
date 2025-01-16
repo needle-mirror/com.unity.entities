@@ -1,3 +1,7 @@
+---
+uid: components-cleanup-shared
+---
+
 # Cleanup shared components
 
 Cleanup shared components are [shared components](components-shared.md) that have the destruction semantics of a [cleanup component](components-cleanup.md). They are useful to tag entities that require the same information for clean up.

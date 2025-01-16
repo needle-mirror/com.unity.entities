@@ -2,6 +2,8 @@
 
 A **system** provides the logic that transforms [component](concepts-components.md) data from its current state to its next state. For example, a system might update the positions of all moving entities by their velocity multiplied by the time interval since the previous update. 
 
+![](images/entities-concepts.png)<br/>_A system with logic that determines the position of entities._
+
 A system runs on the main thread once per frame. Systems are organized into a hierarchy of system groups that you can use to organize the order that systems should update in.
 
 You can create either an unmanaged, or a managed system in Entities. To define a managed system, create a class that inherits from [`SystemBase`](xref:Unity.Entities.SystemBase). To define an unmanaged system, create a struct that inherits from [`ISystem`](xref:Unity.Entities.ISystem). For more information, see [Systems overview](systems-intro.md).
@@ -46,6 +48,6 @@ In the Editor, the following icons represent the different types of Systems. You
 
 ## Additional resources
 
-* [Accessing data with systems](systems-overview.md)
+* [Introduction to systems](systems-intro.md)
 * [Systems window reference](editor-systems-window.md)
 * [System update order](systems-update-order.md)

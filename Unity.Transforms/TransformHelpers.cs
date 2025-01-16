@@ -186,8 +186,8 @@ namespace Unity.Transforms
         /// <summary>Computes a rotation so that "forward" points to the target.</summary>
         /// <param name="eyeWorldPosition">The 3D position of the viewer (the "eye"), in world-space.</param>
         /// <param name="targetWorldPosition">The 3D position the viewer wants to rotate to face, in world-space</param>
-        /// <param name="worldUp">The direction in world-space that represents "up". When in doubt,
-        /// <see cref="Unity.Mathematics.math.up()"/> is often a safe bet.</param>
+        /// <param name="worldUp">The direction in world-space to represent the up direction. If you don't want to set a
+        /// custom value, use `Unity.Mathematics.math.up`.</param>
         /// <remarks>
         /// Note that the viewer's existing orientation is ignored; the quaternion returned by this function should replace
         /// the viewer's rotation, not be added to it.

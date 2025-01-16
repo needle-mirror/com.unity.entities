@@ -8,7 +8,7 @@ namespace Unity.Core
     /// </summary>
     /// <remarks>
     /// This data is most frequently read using <see cref="Unity.Entities.World.Time"/>. It is updated every frame by
-    /// <see cref="Unity.Entities.UpdateWorldTimeSystem"/>. To temporarily override the time values,
+    /// <see cref="T:Unity.Entities.UpdateWorldTimeSystem"/>. To temporarily override the time values,
     /// use <see cref="Unity.Entities.World.SetTime"/> or <see cref="Unity.Entities.World.PushTime"/>.
     /// </remarks>
     public readonly struct TimeData

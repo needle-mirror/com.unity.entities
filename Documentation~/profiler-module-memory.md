@@ -1,4 +1,4 @@
-# Entities Memory Profiler module
+# Entities Memory Profiler module reference
 
 The Entities Memory Profiler module displays how much memory the [Archetypes](concepts-archetypes.md) in your project used on a per-frame basis. The information available in this module is the same as the [Archetypes window](editor-archetypes-window.md) but you can investigate the data on a per-frame basis. This is helpful to identify where any memory spikes happened, and what Archetypes contributed to performance-intensive actions. 
 

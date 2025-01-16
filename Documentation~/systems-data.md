@@ -1,4 +1,4 @@
-# Define and manage system data
+# Organize system data
 
 When defining how to structure your system level data, you should organize it as component level data, rather than as fields within the system type. 
 
@@ -10,7 +10,7 @@ Using public data on systems isn't best practice. This is because public data ac
 
 ## Store system data in components
 
-You should store publicly accessible data in systems in components rather than as fields in the system type. An example of this is in the [`World`](xref:Unity.Entities.World) namespace’s `Get` and `Create` system APIs such as [`GetExistingSystem<T>`](xref:Unity.Entities.World.GetExistingSystem*). They return an opaque [`SystemHandle`](xref:Unity.Entities.SystemHandle) handle to the system rather than direct access to the system’s instance. This applies for both managed [SystemBase](xref:Unity.Entities.SystemBase) and unmanaged [ISystem](xref:Unity.Entities.ISystem) systems.
+You should store publicly accessible data in systems in components rather than as fields in the system type. An example of this is in the [`World`](xref:Unity.Entities.World) namespace’s `Get` and `Create` system APIs such as [`GetExistingSystem<T>`](xref:Unity.Entities.World.GetExistingSystem*). They return an opaque [`SystemHandle`](xref:Unity.Entities.SystemHandle) handle to the system rather than direct access to the system’s instance. This applies for both managed [`SystemBase`](xref:Unity.Entities.SystemBase) and unmanaged [`ISystem`](xref:Unity.Entities.ISystem) systems.
 
 As an example, in a typically implemented object-oriented code, a type's data is part of the type's definition:
 
@@ -68,14 +68,14 @@ This defines a data protocol for the system which is separate from the system fu
 
 When you use this technique, you can access the system's data in the same way as any other entity component data. A reference or pointer to the system instance is no longer necessary.
 
-## Choosing system or singleton entity components
+## Using singleton entity components
 
-Using the singleton APIs is similar to using system data in an entity component, but with the following differences:
+A singleton component is a component that always has only one instance per [world](concepts-worlds.md), and the singleton APIs will error if you try to use them on a component type with more than once instance in the given world. Using the singleton APIs is similar to using system data in an entity component, but with the following differences:
 
 * Singletons aren't tied to the system's lifetime
-* Singletons can only exist per system type, not per [system instance](systems-comparison.md#multiple-system-instances)
+* Singletons can only exist per system type, not per [system instance](systems-comparison.md)
 
-For more information, see the documentation on [singleton components](components-singleton.md).
+For more information, refer to the documentation on [singleton components](components-singleton.md).
 
 ## Direct access APIs
 
@@ -89,3 +89,9 @@ The Entities package contains several APIs you can use to directly access system
 |[`World.AddSystemManaged<T>`](xref:Unity.Entities.World.AddSystemManaged*)|No|Yes|
 |[`WorldUnmanaged.GetUnsafeSystemRef<T>`](xref:Unity.Entities.WorldUnmanaged.GetUnsafeSystemRef*)|Yes|No|
 |[`WorldUnmanaged.ResolveSystemStateRef<T>`](xref:Unity.Entities.WorldUnmanaged.ResolveSystemStateRef*)|Yes|Yes|
+
+## Additional resources
+
+* [Query data with an entity query](systems-entityquery.md)
+* [Singleton entities](components-singleton.md)
+* [Store immutable data](blob-assets-intro.md)

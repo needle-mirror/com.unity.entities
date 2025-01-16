@@ -1,4 +1,4 @@
-# Working with authoring and runtime data
+# Authoring and runtime data modes
 
 The [Entities Hierarchy window](editor-hierarchy-window.md) and the [Entity inspector](editor-entity-inspector.md) has the following modes which represent the kind of data that you control:
 

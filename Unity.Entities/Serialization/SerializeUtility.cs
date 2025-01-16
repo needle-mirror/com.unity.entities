@@ -1205,7 +1205,7 @@ namespace Unity.Entities.Serialization
         /// </summary>
         /// <param name="manager">The <see cref="ExclusiveEntityTransaction"/> object ensuring that the deserialization is atomic.</param>
         /// <param name="reader">The deserialization object.</param>
-        /// <param name="unityObjects">The UnityEngine.Object references that are patched in during deserialization.</param>
+        /// <param name="unityObjectArray">The UnityEngine.Object references that are patched in during deserialization.</param>
         public static unsafe void DeserializeWorld(ExclusiveEntityTransaction manager, BinaryReader reader, object[] unityObjectArray = null)
         {
             // So we do this to keep compatibility

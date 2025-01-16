@@ -1,3 +1,7 @@
+---
+uid: systems-entityquery-create
+---
+
 # Create an EntityQuery
 
 To create an entity query, you can pass component types to the [`EntityQueryBuilder`](xref:Unity.Entities.EntityQueryBuilder) helper type. The following example defines an `EntityQuery` that finds all entities with both `ObjectRotation` and `ObjectRotationSpeed` components:

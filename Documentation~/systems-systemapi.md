@@ -1,6 +1,6 @@
 # SystemAPI overview
 
-[SystemAPI](xref:Unity.Entities.SystemAPI) is a class that provides caching and utility methods for accessing data in an entity's [world](concepts-worlds.md). It works in non-static methods in [SystemBase](systems-systembase.md) and non-static methods in [ISystem](systems-isystem.md) that take `ref SystemState` as a parameter. 
+[`SystemAPI`](xref:Unity.Entities.SystemAPI) is a class that provides caching and utility methods for accessing data in an entity's [world](concepts-worlds.md). It works in non-static methods in [`SystemBase`](systems-systembase.md) and non-static methods in [`ISystem`](systems-isystem.md) that take `ref SystemState` as a parameter. 
 
 You can use it to perform the following actions:
 

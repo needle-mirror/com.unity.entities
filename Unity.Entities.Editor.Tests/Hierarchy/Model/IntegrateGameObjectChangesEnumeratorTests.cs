@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Editor.Bridge;
@@ -66,10 +66,10 @@ namespace Unity.Entities.Editor.Tests
             }
 
             if (hasLoadedScene)
-            {
                 m_Changes.LoadedScenes.Add(testScene);
-                expectedSteps.Add(Step.HandleLoadedScenes);
-            }
+
+            // HandleLoadedScene is now a mandatory step to check if DontDestroyOnLoad scene is present
+            expectedSteps.Add(Step.HandleLoadedScenes);
 
             if (hasGameObjectChanges)
             {
@@ -101,6 +101,8 @@ namespace Unity.Entities.Editor.Tests
             }
 
             var iterator = m_HierarchyNodeStore.CreateIntegrateGameObjectChangesEnumerator(m_Changes, m_Mapping,10);
+            Assert.That(iterator.CurrentStep, Is.EqualTo(Step.HandleLoadedScenes));
+            Assert.That(iterator.MoveNext(), Is.True);
             Assert.That(iterator.CurrentStep, Is.EqualTo(Step.IntegrateChanges));
             Assert.That(iterator.MoveNext(), Is.True);
             Assert.That(iterator.CurrentStep, Is.EqualTo(Step.IntegrateChanges));

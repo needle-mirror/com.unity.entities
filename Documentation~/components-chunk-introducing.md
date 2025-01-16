@@ -1,4 +1,4 @@
-# Introducing chunk components
+# Chunk components introduction
 
 Chunk components store values per chunk instead of per entity. Their primary purpose is to act as an optimization because you can run code on a per-chunk level to check whether to process some behavior for all entities in each. For example, a chunk component can store the bounds of all the entities in it. You can check if the bounds are on-screen and only process the entities in that chunk if they are.
 

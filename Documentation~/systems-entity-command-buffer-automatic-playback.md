@@ -23,15 +23,15 @@ In each update, an `EntityCommandBufferSystem`:
 
 The default [world](concepts-worlds.md) has the following default `EntityCommandBufferSystem` systems:
 
-* `BeginInitializationEntityCommandBufferSystem`
-* `EndInitializationEntityCommandBufferSystem`
-* `BeginFixedStepSimulationEntityCommandBufferSystem`
-* `EndFixedStepSimulationEntityCommandBufferSystem`
-* `BeginVariableRateSimulationEntityCommandBufferSystem`
-* `EndVariableRateSimulationEntityCommandBufferSystem`
-* `BeginSimulationEntityCommandBufferSystem`
-* `EndSimulationEntityCommandBufferSystem`
-* `BeginPresentationEntityCommandBufferSystem`
+* [`BeginInitializationEntityCommandBufferSystem`](xref:Unity.Entities.BeginInitializationEntityCommandBufferSystem)
+* [`EndInitializationEntityCommandBufferSystem`](xref:Unity.Entities.EndInitializationEntityCommandBufferSystem)
+* [`BeginFixedStepSimulationEntityCommandBufferSystem`](xref:Unity.Entities.BeginFixedStepSimulationEntityCommandBufferSystem)
+* [`EndFixedStepSimulationEntityCommandBufferSystem`](xref:Unity.Entities.EndFixedStepSimulationEntityCommandBufferSystem)
+* [`BeginVariableRateSimulationEntityCommandBufferSystem`](xref:Unity.Entities.BeginVariableRateSimulationEntityCommandBufferSystem)
+* [`EndVariableRateSimulationEntityCommandBufferSystem`](xref:Unity.Entities.EndVariableRateSimulationEntityCommandBufferSystem)
+* [`BeginSimulationEntityCommandBufferSystem`](xref:Unity.Entities.BeginSimulationEntityCommandBufferSystem)
+* [`EndSimulationEntityCommandBufferSystem`](xref:Unity.Entities.EndSimulationEntityCommandBufferSystem)
+* [`BeginPresentationEntityCommandBufferSystem`](xref:Unity.Entities.BeginPresentationEntityCommandBufferSystem)
 
 Because structural changes can't happen in the frame after Unity gives the rendering data to the renderer, there's no `EndPresentationEntityCommandBufferSystem` system. You can use `BeginInitializationEntityCommandBufferSystem` instead: the end of one frame is the beginning of the next frame.
 

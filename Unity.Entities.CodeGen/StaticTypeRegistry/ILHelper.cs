@@ -1,13 +1,12 @@
 using System;
 using System.Collections.Generic;
-#if UNITY_DOTSRUNTIME
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 
 namespace Unity.Entities.CodeGen
 {
-    static class ILHelper
+    internal partial class EntitiesILPostProcessors
     {
         // Annoyingly cecil's il.Emit API doesn't allow generic operand values so we have a variety of
         // helper functions that all do similar things with only the input list type varying
@@ -160,4 +159,3 @@ namespace Unity.Entities.CodeGen
         }
     }
 }
-#endif

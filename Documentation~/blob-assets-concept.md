@@ -8,7 +8,6 @@ Blob assets represent immutable binary data. Because blob assets are immutable, 
 
 Blob assets can be referenced by [component](concepts-components.md) on an [entity](concepts-entities.md). 
 
-
 ## Supported data
 
 Blob assets mustn't contain any managed data such as regular arrays, strings, or any other managed object. Blob asset data is read-only, which means that it doesn't change at runtime. 

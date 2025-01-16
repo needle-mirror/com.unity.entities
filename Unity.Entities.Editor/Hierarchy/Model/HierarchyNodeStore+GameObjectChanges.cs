@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections;
 using System.Collections.Generic;
 using Unity.Collections;
@@ -73,11 +73,6 @@ namespace Unity.Entities.Editor
                             }
                             return;
                         case Step.HandleLoadedScenes:
-                            if (m_Changes.LoadedScenes.Length == 0)
-                            {
-                                step = Step.IntegrateChanges;
-                                continue;
-                            }
                             return;
                         case Step.IntegrateChanges:
                             if (m_Changes.GameObjectChangeTrackerEvents.Length == 0)
@@ -134,6 +129,13 @@ namespace Unity.Entities.Editor
 
             void HandleLoadedScenes()
             {
+                if (EditorApplication.isPlaying)
+                {
+                    var dontDestroyOnLoadScene = EditorSceneManagerBridge.GetDontDestroyOnLoadScene();
+                    if (dontDestroyOnLoadScene.IsValid() && dontDestroyOnLoadScene.isLoaded && dontDestroyOnLoadScene.rootCount > 0)
+                        m_Changes.LoadedScenes.Add(dontDestroyOnLoadScene);
+                }
+
                 if (m_Changes.LoadedScenes.Length == 0)
                     return;
 
@@ -336,6 +338,9 @@ namespace Unity.Entities.Editor
 
             static int GetSceneIndex(Scene scene)
             {
+                if (scene == EditorSceneManagerBridge.GetDontDestroyOnLoadScene())
+                    return int.MaxValue;
+
                 for (var i = 0; i < SceneManager.sceneCount; i++)
                 {
                     if (SceneManager.GetSceneAt(i) == scene)

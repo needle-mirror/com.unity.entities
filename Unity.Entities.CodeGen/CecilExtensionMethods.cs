@@ -4,28 +4,22 @@ using System.Linq;
 using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
-using Unity.Burst;
-using Unity.Collections;
 using MethodBody = Mono.Cecil.Cil.MethodBody;
+using Unity.Cecil.Awesome;
+using Unity.Cecil.Awesome.Comparers;
 
 namespace Unity.Entities.CodeGen
 {
-    static class TypeReferenceExtensions
+    public static class TypeReferenceExtensions
     {
         public static TypeDefinition CheckedResolve(this TypeReference typeReference)
         {
             return typeReference.Resolve() ?? throw new ResolutionException(typeReference);
         }
 
-        public static bool TypeReferenceEquals(this TypeReference ref1, Type ref2) =>
-            ref1.FullName == ref2.FullName;
-
-        public static bool TypeReferenceEquals(this TypeReference ref1, TypeReference ref2) =>
-            ref1.FullName == ref2.FullName;
-
         public static bool TypeReferenceEqualsOrInheritsFrom(this TypeReference ref1, TypeReference ref2)
         {
-            if (ref1.TypeReferenceEquals(ref2))
+            if (TypeReferenceEqualityComparer.AreEqual(ref1, ref2))
                 return true;
 
             var def1 = ref1.Resolve();
@@ -35,47 +29,50 @@ namespace Unity.Entities.CodeGen
             return false;
         }
 
-        public static bool IsIComponentDataStruct(this TypeDefinition typeDefinition) => typeDefinition.TypeImplements(typeof(IComponentData)) && typeDefinition.IsValueType();
-        public static bool IsTagComponentDataStruct(this TypeDefinition typeDefinition) => typeDefinition.IsIComponentDataStruct() && typeDefinition.Fields.All(fd => fd.IsStatic);
-        public static bool IsIBufferElementData(this TypeDefinition typeDefinition) => typeDefinition.TypeImplements(typeof(IBufferElementData)) && typeDefinition.IsValueType();
 
-        public static bool IsIComponentDataClass(this TypeDefinition typeDefinition)
+        public static TypeReference LaunderTypeRef(TypeReference r_, ModuleDefinition mod)
         {
-            if (typeDefinition.IsValueType())
-                return false;
+            TypeDefinition def = r_.Resolve();
+            TypeReference result;
 
-            if (typeDefinition.TypeImplements(typeof(IComponentData)))
-                return true;
+            if (r_ is GenericInstanceType git)
+            {
+                var gt = new GenericInstanceType(LaunderTypeRef(def, mod));
+                foreach (var gp in git.GenericParameters)
+                {
+                    gt.GenericParameters.Add(gp);
+                }
 
-            var baseType = typeDefinition.BaseType;
-            if (baseType == null || baseType.FullName == "System.Object")
-                return false;
+                foreach (var ga in git.GenericArguments)
+                {
+                    gt.GenericArguments.Add(LaunderTypeRef(ga, mod));
+                }
 
-            return IsIComponentDataClass(baseType.Resolve());
-        }
+                result = gt;
 
-        public static bool IsISharedComponentData(this TypeDefinition typeDefinition) =>
-            typeDefinition.TypeImplements(typeof(ISharedComponentData));
+            }
+            else
+            {
+                result = new TypeReference(def.Namespace, def.Name, def.Module, def.Scope, def.IsValueType);
+                if (def.DeclaringType != null)
+                {
+                    result.DeclaringType = LaunderTypeRef(def.DeclaringType, mod);
+                }
+            }
 
-        public static bool IsISharedComponentData(this TypeReference typeReference) =>
-            typeReference.TypeImplements(typeof(ISharedComponentData));
-
-        public static bool IsDynamicBufferOfT(this TypeReference typeReference) =>
-            typeReference.GetElementType().FullName == typeof(DynamicBuffer<>).FullName;
-
-        public static bool TypeImplements(this TypeReference typeReference, Type interfaceType)
-        {
-            var resolvedType = typeReference.Resolve();
-            if (resolvedType == null) return false;
-            return resolvedType.Interfaces.Any(i =>
-                i.InterfaceType.FullName == typeReference.Module.ImportReference(interfaceType).FullName);
+            return mod.ImportReference(result);
         }
 
         public static bool TypeImplements(this TypeReference typeReference, TypeReference interfaceType)
         {
             var resolvedType = typeReference.Resolve();
             if (resolvedType == null) return false;
-            return resolvedType.Interfaces.Any(i => i.InterfaceType == interfaceType);
+
+            return resolvedType.Interfaces.Any(i =>
+            {
+                var interfaceDef = i.InterfaceType.Resolve();
+                return interfaceDef != null && TypeReferenceEqualityComparer.AreEqual(interfaceDef, interfaceType);
+            });
         }
 
         public static TypeReference StripRef(this TypeReference tr) => tr is ByReferenceType brt ? brt.ElementType : tr;
@@ -89,47 +86,11 @@ namespace Unity.Entities.CodeGen
         // (seems to do the latter with DisplayClasses in value types for some reason)
         public static bool IsDisplayClassCandidate(this TypeReference tr) =>
             tr.Name.StartsWith("<>c");
-
-
+            
+            
         // Roslyn tends to generate local functions with names that contain g__ (and they are always static)
         public static bool IsLocalFunctionCandidate(this MethodDefinition md) =>
             (md.IsStatic && md.Name.Contains("g__"));
-
-        // Safer version of TypeReference.IsValueType property as extension method since the Cecil property is broken
-        // (Cecil doesn't have enough information without resolving references so it just guesses)
-        public static bool IsValueType(this TypeReference typeReference)
-        {
-            if (typeReference is ArrayType)
-                return false;
-
-            if (typeReference is PointerType)
-                return false;
-
-            if (typeReference is ByReferenceType)
-                return false;
-
-            if (typeReference is GenericParameter)
-                return false;
-
-            var pinnedType = typeReference as PinnedType;
-            if (pinnedType != null)
-                return pinnedType.ElementType.IsValueType();
-
-            var requiredModifierType = typeReference as RequiredModifierType;
-            if (requiredModifierType != null)
-                return requiredModifierType.ElementType.IsValueType();
-
-            var optionalModifierType = typeReference as OptionalModifierType;
-            if (optionalModifierType != null)
-                return optionalModifierType.ElementType.IsValueType();
-
-            var typeDefinition = typeReference.Resolve();
-
-            if (typeDefinition == null)
-                throw new InvalidOperationException($"Unable to locate the definition for {typeReference.FullName}. Is this assembly compiled against an older version of one of its dependencies?");
-
-            return typeDefinition.IsValueType;
-        }
     }
 
     static class MethodReferenceExtensions
@@ -198,49 +159,13 @@ namespace Unity.Entities.CodeGen
         }
     }
 
-    static class FieldDefinitionExtensions
-    {
-        public static bool HasReadOnlyAttribute(this FieldDefinition fieldDefinition) =>
-            fieldDefinition.CustomAttributes.Any(ca => ca.AttributeType.Name == nameof(ReadOnlyAttribute) && ca.AttributeType.Namespace == typeof(ReadOnlyAttribute).Namespace);
 
-        public static void AddReadOnlyAttribute(this FieldDefinition fieldDefinition, ModuleDefinition module)
-        {
-            var readOnlyAttribute = module.ImportReference(typeof(ReadOnlyAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
-            fieldDefinition.CustomAttributes.Add(new CustomAttribute(readOnlyAttribute));
-        }
-
-        public static void AddReadOnlyAttribute(this FieldDefinition fieldDefinition)
-        {
-            fieldDefinition.AddReadOnlyAttribute(fieldDefinition.Module);
-        }
-
-        public static void RemoveReadOnlyAttribute(this FieldDefinition fieldDefinition)
-        {
-            foreach (var attribute in fieldDefinition.CustomAttributes)
-            {
-                if (attribute.AttributeType.TypeReferenceEquals(typeof(ReadOnlyAttribute)))
-                {
-                    fieldDefinition.CustomAttributes.Remove(attribute);
-                    break;
-                }
-            }
-        }
-
-        public static void AddNoAliasAttribute(this FieldDefinition fieldDefinition, ModuleDefinition module)
-        {
-            var noAliasAttribute = fieldDefinition.Module.ImportReference(typeof(NoAliasAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
-            fieldDefinition.CustomAttributes.Add(new CustomAttribute(noAliasAttribute));
-        }
-
-        public static void AddNoAliasAttribute(this FieldDefinition fieldDefinition)
-        {
-            fieldDefinition.AddNoAliasAttribute(fieldDefinition.Module);
-        }
-    }
 
     static class TypeDefinitionExtensions
     {
         public static bool IsDelegate(this TypeDefinition typeDefinition) =>
+
+            //XXX THIS IS BAD https://jira.unity3d.com/browse/DOTS-10211
             typeDefinition.BaseType?.Name == nameof(MulticastDelegate);
 
         public static bool IsSystemBase(this TypeDefinition arg)
@@ -250,7 +175,8 @@ namespace Unity.Entities.CodeGen
             if (baseTypeRef == null)
                 return false;
 
-            if (baseTypeRef.Namespace == "Unity.Entities" && baseTypeRef.Name == nameof(SystemBase))
+            //XXX THIS IS BAD https://jira.unity3d.com/browse/DOTS-10211
+            if (baseTypeRef.Namespace == "Unity.Entities" && baseTypeRef.Name == "SystemBase")
                 return true;
 
             if (baseTypeRef.Name == "Object" && baseTypeRef.Namespace == "System")
@@ -273,7 +199,8 @@ namespace Unity.Entities.CodeGen
 
                 if (baseTypeRef == null) return false;
 
-                if (baseTypeRef.Namespace == "Unity.Entities" && baseTypeRef.Name == nameof(ComponentSystemBase)) return true;
+                ///XXX THIS IS BAD https://jira.unity3d.com/browse/DOTS-10211
+                if (baseTypeRef.Namespace == "Unity.Entities" && baseTypeRef.Name == "ComponentSystemBase") return true;
 
                 // Early out if we can count on source generators adding this attribute to every system
                 if (isFirstIteration && arg.CustomAttributes.All(a => a.Constructor.DeclaringType.Name != nameof(CompilerGeneratedAttribute)))
@@ -292,10 +219,12 @@ namespace Unity.Entities.CodeGen
             }
         }
 
+
         public static bool IsUnityEngineObject(this TypeDefinition typeDefinition)
         {
             if (typeDefinition.IsValueType())
                 return false;
+            //XXX BAD https://jira.unity3d.com/browse/DOTS-10211
             if (typeDefinition.Name == "Object" && typeDefinition.Namespace == "UnityEngine")
                 return true;
             if (typeDefinition.BaseType == null)
@@ -304,15 +233,11 @@ namespace Unity.Entities.CodeGen
             return IsUnityEngineObject(baseType);
         }
 
-        public static void AddNoAliasAttribute(this TypeDefinition typeDefinition)
-        {
-            var noAliasAttribute = typeDefinition.Module.ImportReference(typeof(NoAliasAttribute).GetConstructors().Single(c => !c.GetParameters().Any()));
-            typeDefinition.CustomAttributes.Add(new CustomAttribute(noAliasAttribute));
-        }
+
 
         public static bool IsChildTypeOf(this TypeDefinition typeDefinition, TypeDefinition baseClass)
         {
-            while (!baseClass.Equals(typeDefinition))
+            while (!TypeReferenceEqualityComparer.AreEqual(baseClass, typeDefinition))
             {
                 if (typeDefinition == null || typeDefinition.BaseType == null)
                     return false;
@@ -330,6 +255,7 @@ namespace Unity.Entities.CodeGen
                 {
                     typeDefinition.IsNestedFamilyOrAssembly = true;
                 }
+		        MakeTypeInternal(typeDefinition.DeclaringType);
             }
             else if (!typeDefinition.IsPublic)
             {

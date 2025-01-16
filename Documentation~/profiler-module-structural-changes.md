@@ -1,4 +1,4 @@
-# Entities Structural Changes Profiler module
+# Entities Structural Changes Profiler module reference
 
 The Entities Structural Changes Profiler module displays when the ECS framework created or destroyed an Entity, and when it added or removed Components. It can be useful to see this information because when a structural change happens, the ECS framework moves an Entity and a full copy of its data to a different Archetype, which is a performance-intensive operation.
 

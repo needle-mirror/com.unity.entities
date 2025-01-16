@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using System.Linq;
 using UnityEditor;
 using UnityEditor.SceneManagement;
@@ -31,6 +31,8 @@ namespace Unity.Editor.Bridge
 
             AskUserToRemovePrefabInstanceUnusedOverrides(instanceOverridesInfos);
         }
+
+        public static Scene GetDontDestroyOnLoadScene() => EditorSceneManager.GetDontDestroyOnLoadScene();
 
         static List<GameObject> GetScenePrefabInstancesWithNonDefaultOverrides(Scene scene)
         {

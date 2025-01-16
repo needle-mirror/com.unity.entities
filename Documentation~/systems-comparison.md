@@ -21,13 +21,92 @@ The following table outlines their compatibility:
 |[`IJobChunk`](xref:Unity.Entities.IJobChunk)|Yes|Yes|
 |Supports inheritance|No|Yes|
 
-## Multiple system instances
+## System comparison example
 
-You can manually create multiple instances of the same system type in a [`World`](xref:Unity.Entities.World) at runtime and track the SystemHandle for each instance. However, general APIs such as [`GetExistingSystem`](xref:Unity.Entities.World.GetExistingSystem*) and [`GetOrCreateSystem`](xref:Unity.Entities.World.GetOrCreateSystem*) don't support multiple system instances.
+Imagine you’re writing a system that moves certain entities along spline paths. The data the system accesses might be the following:
 
-You can use the [`CreateSystem`](xref:Unity.Entities.World.CreateSystem*) API to create runtime systems.
+* The system operates on all spline-following entities and identifies them with a `FollowingSplineTag` component. This is included in the [entity query](systems-entityquery.md), but the system doesn’t need to read or write this component.  
+* The system needs read-only access to a `SplineFollower` component in the spline follower entities, which contains an `Entity` to reference a spline entity to be followed, and a `float` indicating a distance along that spline.  
+* Spline entities contain a [dynamic buffer](components-buffer.md) of SplinePoints called `SplinePointsBuffer`. Given the spline followers use an arbitrary `Entity` handle to reference the spline entity to follow, the system needs read-only random-access to these buffers.  
+* Spline entities also contain a `SplineLength` component which the system requires read-only random-access to in order to perform spline position calculations.  
+* Finally, the system needs read-write access to the spline-following entities’ `LocalTranform` components in order to update the positions and rotations.
+
+The following declares a stub for a helper method that performs the spline calculation:
+
+```c#
+public struct FollowingSplineTag : IComponentData { }
+
+public struct SplineFollower : IComponentData
+{
+   public Entity Spline;
+   public float Distance;
+}
+
+public struct SplinePointsBuffer : IBufferElementData
+{
+   public float3 SplinePoint;
+}
+
+public struct SplineLength : IComponentData
+{
+   public float Value;
+}
+
+public struct SplineHelper
+{
+   public static LocalTransform FollowSpline(
+       DynamicBuffer<SplinePointsBuffer> pointsBuf, float length, float distance)
+    {
+       // Perform spline calculation and return a new LocalTransform here
+   }
+}
+```
+
+You can then use this in a `foreach` statement in an `ISystem` system:
+
+```c#
+var lengthLookup = SystemAPI.GetComponentLookup<SplineLength>(true);
+var pointsBufferLookup = SystemAPI.GetBufferLookup<SplinePointsBuffer>(true);
+
+// Version with writeable buffer lookup
+foreach (var (transform, follower) in
+        SystemAPI.Query<RefRW<LocalTransform>, RefRO<SplineFollower>>()
+        .WithAll<FollowingSplineTag>())
+{
+   var splineLength = lengthLookup[follower.ValueRO.Spline].Value;
+   var pointsBuf = pointsBufferLookup[follower.ValueRO.Spline];
+   transform.ValueRW = SplineHelper.FollowSpline(pointsBuf, splineLength, follower.ValueRO.Distance);
+}
+```
+
+You could also use multithreaded code to access this information. The following uses `IJobEntity` with an automatically-generated query:
+
+```c#
+// Job declaration
+[BurstCompile]
+[WithAll(typeof(FollowingSplineTag))]
+public partial struct FollowSplineJob : IJobEntity
+{
+   [ReadOnly] public ComponentLookup<SplineLength> LengthLookup;
+   [ReadOnly] public BufferLookup<SplinePointsBuffer> PointsBufferLookup;
+  
+   public void Execute(ref LocalTransform transform, in SplineFollower follower)
+   {
+       var splineLength = LengthLookup[follower.Spline].Value;
+       var pointsBuf = PointsBufferLookup[follower.Spline];
+       transform = SplineHelper.FollowSpline(pointsBuf, splineLength, follower.Distance);
+   }
+}
+
+// in OnUpdate()...
+new FollowSplineJob
+{
+   LengthLookup =  lengthLookup,
+   PointsBufferLookup =  pointsBufferLookup
+}.ScheduleParallel();
+```
 
 ## Additional resources
 
-* [Using `ISystem`](systems-isystem.md)
-* [Using `SystemBase`](systems-systembase.md)
+* [`ISystem` overview](systems-isystem.md)
+* [`SystemBase` overview](systems-systembase.md)

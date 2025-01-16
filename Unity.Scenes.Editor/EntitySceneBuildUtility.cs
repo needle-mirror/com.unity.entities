@@ -634,7 +634,11 @@ namespace Unity.Scenes.Editor
         {
             var taskList = DefaultBuildTasks.Create(DefaultBuildTasks.Preset.AssetBundleBuiltInShaderExtraction);
             // Remove the shader task to use the DOTS dedupe pass only
+#if SBP_VERSION_2
+            taskList.Remove(taskList.First(x => x is CreateBuiltInBundle));
+#else
             taskList.Remove(taskList.First(x => x is CreateBuiltInShadersBundle));
+#endif
             // Insert the dedupe dependency resolver task
             taskList.Insert(taskList.IndexOf(taskList.First(x => x is GenerateSubAssetPathMaps)), new UpdateBundlePacking());
             return taskList;

@@ -1,21 +1,26 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.IO;
 using System.Linq;
-using System.Reflection;
 using System.Runtime.CompilerServices;
-using System.Threading;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
+using Unity.Cecil.Awesome;
 using Unity.CompilationPipeline.Common.Diagnostics;
 using Unity.CompilationPipeline.Common.ILPostProcessing;
-using UnityEngine.Scripting;
+using System.Runtime.InteropServices;
+using Unity.Core;
+using Unity.Burst;
+using System.Reflection;
+using System.Threading;
+using UnityEngine;
 
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.CodeGen")]
 namespace Unity.Entities.CodeGen
 {
-    internal class EntitiesILPostProcessors : ILPostProcessor
+    internal partial class EntitiesILPostProcessors : ILPostProcessor
     {
         bool _ReferencesEntities;
         bool _ReferencesJobs;
@@ -36,6 +41,7 @@ namespace Unity.Entities.CodeGen
 
             return result;
         }
+        AssemblyDefinition AssemblyDefinition;
 
         public override ILPostProcessResult Process(ICompiledAssembly compiledAssembly)
         {
@@ -47,20 +53,22 @@ namespace Unity.Entities.CodeGen
                 var diagnostics = new List<DiagnosticMessage>();
                 bool madeAnyChange = false;
                 Defines = compiledAssembly.Defines;
-                var assemblyDefinition = AssemblyDefinitionFor(compiledAssembly);
+                Initialize(compiledAssembly);
+
                 var postProcessors = FindAllEntitiesILPostProcessors();
 
                 TypeDefinition[] componentSystemTypes;
-                var allTypes = assemblyDefinition.MainModule.GetAllTypes().ToArray();
+                var allTypes = AssemblyDefinition.MainModule.GetAllTypes().ToArray();
+
                 try
                 {
                     using (marker.CreateChildMarker("GetAllComponentTypes"))
                         componentSystemTypes = allTypes.Where(type => type.IsComponentSystem()).ToArray();
                     // Make sure IL2CPP doesn't strip systems
-                    if (componentSystemTypes.Length > 0) {
-                        var alwaysLinkAssemblyAttributeConstructors = typeof(AlwaysLinkAssemblyAttribute).GetConstructors();
-                        var alwaysLinkAssemblyAttribute = new CustomAttribute(assemblyDefinition.MainModule.ImportReference(alwaysLinkAssemblyAttributeConstructors[0]));
-                        assemblyDefinition.MainModule.Assembly.CustomAttributes.Add(alwaysLinkAssemblyAttribute);
+                    if (componentSystemTypes.Length > 0)
+                    {
+                        var alwaysLinkAssemblyAttribute = new CustomAttribute(AssemblyDefinition.MainModule.ImportReference(_alwaysLinkAssemblyAttributeCtorDef));
+                        AssemblyDefinition.MainModule.Assembly.CustomAttributes.Add(alwaysLinkAssemblyAttribute);
                     }
                 }
                 catch (FoundErrorInUserCodeException e)
@@ -71,31 +79,33 @@ namespace Unity.Entities.CodeGen
 
                 foreach (var postProcessor in postProcessors)
                 {
+                    postProcessor.runnerOfMe = this;
+
                     postProcessor.Initialize(Defines, _ReferencesEntities, _ReferencesJobs);
                     if (!postProcessor.WillProcess())
                         continue;
 
                     using (marker.CreateChildMarker(postProcessor.GetType().Name))
                     {
-                        diagnostics.AddRange(postProcessor.PostProcess(assemblyDefinition, componentSystemTypes, out var madeChange));
+                        diagnostics.AddRange(postProcessor.PostProcess(AssemblyDefinition, componentSystemTypes, out var madeChange));
                         madeAnyChange |= madeChange;
                     }
                 }
 
-                var unmanagedComponentSystemTypes = allTypes.Where((x) => x.TypeImplements(typeof(ISystem))).ToArray();
+                var unmanagedComponentSystemTypes = allTypes.Where((x) => x.TypeImplements(_ISystemDef)).ToArray();
                 foreach (var postProcessor in postProcessors)
                 {
-                    diagnostics.AddRange(postProcessor.PostProcessUnmanaged(assemblyDefinition, unmanagedComponentSystemTypes, out var madeChange));
+                    diagnostics.AddRange(postProcessor.PostProcessUnmanaged(AssemblyDefinition, unmanagedComponentSystemTypes, out var madeChange));
                     madeAnyChange |= madeChange;
                 }
 
                 // Hack to remove Entities => Entities circular references
-                var selfName = assemblyDefinition.Name.FullName;
-                foreach (var referenceName in assemblyDefinition.MainModule.AssemblyReferences)
+                var selfName = AssemblyDefinition.Name.FullName;
+                foreach (var referenceName in AssemblyDefinition.MainModule.AssemblyReferences)
                 {
                     if (referenceName.FullName == selfName)
                     {
-                        assemblyDefinition.MainModule.AssemblyReferences.Remove(referenceName);
+                        AssemblyDefinition.MainModule.AssemblyReferences.Remove(referenceName);
                         break;
                     }
                 }
@@ -109,10 +119,12 @@ namespace Unity.Entities.CodeGen
                     var pdb = new MemoryStream();
                     var writerParameters = new WriterParameters
                     {
-                        SymbolWriterProvider = new PortablePdbWriterProvider(), SymbolStream = pdb, WriteSymbols = true
+                        SymbolWriterProvider = new PortablePdbWriterProvider(),
+                        SymbolStream = pdb,
+                        WriteSymbols = true
                     };
 
-                    assemblyDefinition.Write(pe, writerParameters);
+                    AssemblyDefinition.Write(pe, writerParameters);
                     return new ILPostProcessResult(new InMemoryAssembly(pe.ToArray(), pdb.ToArray()), diagnostics);
                 }
             }
@@ -130,6 +142,7 @@ namespace Unity.Entities.CodeGen
         // to other assemblies until the CompilationPipeline.ILPostProcessing API is extended
         public override bool WillProcess(ICompiledAssembly compiledAssembly)
         {
+            _ReferencesEntities = false;
             if (compiledAssembly.Name == "Unity.Entities")
             {
                 _ReferencesEntities = true;
@@ -160,7 +173,7 @@ namespace Unity.Entities.CodeGen
             return _ReferencesEntities || _ReferencesJobs;
         }
 
-        class PostProcessorAssemblyResolver : IAssemblyResolver
+        class PostProcessorAssemblyResolver : Mono.Cecil.IAssemblyResolver
         {
             private readonly string[] _referenceDirectories;
             private Dictionary<string, HashSet<string>> _referenceToPathMap;
@@ -228,7 +241,7 @@ namespace Unity.Entities.CodeGen
             {
                 if (_referenceToPathMap.TryGetValue(name.Name, out var paths))
                 {
-                    if(paths.Count == 1)
+                    if (paths.Count == 1)
                         return paths.First();
 
                     // If we have more than one assembly with the same name loaded we now need to figure out which one
@@ -239,7 +252,7 @@ namespace Unity.Entities.CodeGen
                         if (onDiskAssemblyName.FullName == name.FullName)
                             return path;
                     }
-                    throw new ArgumentException($"Tried to resolve a reference in assembly '{name.FullName}' however the assembly could not be found. Known references which did not match: \n{string.Join("\n",paths)}");
+                    throw new ArgumentException($"Tried to resolve a reference in assembly '{name.FullName}' however the assembly could not be found. Known references which did not match: \n{string.Join("\n", paths)}");
                 }
 
                 // Unfortunately the current ICompiledAssembly API only provides direct references.
@@ -303,6 +316,7 @@ namespace Unity.Entities.CodeGen
             public void AddAssemblyDefinitionBeingOperatedOn(AssemblyDefinition assemblyDefinition)
             {
                 _selfAssembly = assemblyDefinition;
+
             }
         }
 
@@ -329,33 +343,289 @@ namespace Unity.Entities.CodeGen
 
             return assemblyDefinition;
         }
-    }
 
-    internal class PostProcessorReflectionImporterProvider : IReflectionImporterProvider
-    {
-        public IReflectionImporter GetReflectionImporter(ModuleDefinition module)
+        internal class PostProcessorReflectionImporterProvider : IReflectionImporterProvider
         {
-            return new PostProcessorReflectionImporter(module);
-        }
-    }
-
-    internal class PostProcessorReflectionImporter : DefaultReflectionImporter
-    {
-        private const string SystemPrivateCoreLib = "System.Private.CoreLib";
-        private AssemblyNameReference _correctCorlib;
-
-        public PostProcessorReflectionImporter(ModuleDefinition module) : base(module)
-        {
-            _correctCorlib = module.AssemblyReferences.FirstOrDefault(a => a.Name == "mscorlib" || a.Name == "netstandard" || a.Name == SystemPrivateCoreLib);
+            public IReflectionImporter GetReflectionImporter(ModuleDefinition module)
+            {
+                return new PostProcessorReflectionImporter(module);
+            }
         }
 
-        public override AssemblyNameReference ImportReference(AssemblyName reference)
+        internal class PostProcessorReflectionImporter : DefaultReflectionImporter
         {
-            if (_correctCorlib != null && reference.Name == SystemPrivateCoreLib)
-                return _correctCorlib;
+            private const string SystemPrivateCoreLib = "System.Private.CoreLib";
+            private AssemblyNameReference _correctCorlib;
 
-            return base.ImportReference(reference);
+            public PostProcessorReflectionImporter(ModuleDefinition module) : base(module)
+            {
+                _correctCorlib = module.AssemblyReferences.FirstOrDefault(a => a.Name == "mscorlib" || a.Name == "netstandard" || a.Name == SystemPrivateCoreLib);
+            }
+
+            public override AssemblyNameReference ImportReference(AssemblyName reference)
+            {
+                if (_correctCorlib != null && reference.Name == SystemPrivateCoreLib)
+                    return _correctCorlib;
+
+                return base.ImportReference(reference);
+            }
         }
+
+        internal ReaderParameters readerParameters;
+        internal AssemblyDefinition coreModule;
+        internal AssemblyDefinition entitiesAsm;
+
+        internal MethodDefinition _monoPInvokeAttributeCtorDef;
+        internal MethodDefinition _alwaysLinkAssemblyAttributeCtorDef;
+        internal MethodDefinition _preserveAttributeCtorDef;
+        internal MethodDefinition _readOnlyAttributeCtorDef;
+        internal MethodDefinition _UnsafeUtility_MemCmpFnDef;
+        internal MethodDefinition _XXHash_Hash32Def;
+
+        internal TypeDefinition _ISystemDef;
+        internal TypeDefinition _SystemBaseDef;
+        internal TypeDefinition _IComponentDataDef;
+        internal TypeDefinition _IBufferElementDataDef;
+        internal TypeDefinition _ISharedComponentDataDef;
+        internal TypeDefinition _BufferHeaderDef;
+
+        internal TypeDefinition _SystemBaseDelegatesFunctionDef; //SystemBaseDelegates.Function
+        internal TypeDefinition _IRefCountedDef;
+        internal TypeReference _voidStarRef;
+
+        internal TypeDefinition _TypeRegistryDef;
+        internal TypeDefinition _TypeRegistry_GetBoxedEqualsFnDef;
+        internal TypeDefinition _TypeRegistry_GetBoxedEqualsPtrFnDef;
+        internal TypeDefinition _TypeRegistry_BoxedGetHashCodeFnDef;
+        internal TypeDefinition _TypeRegistry_ConstructComponentFromBufferFnDef;
+        internal TypeDefinition _TypeRegistry_GetSystemAttributesFnDef;
+        internal TypeDefinition _TypeRegistry_CreateSystemFnDef;
+        internal TypeDefinition _TypeRegistry_SetSharedTypeIndicesFnDef;
+
+        internal TypeDefinition _TypeManagerDef;
+        internal TypeDefinition _TypeManager_TypeInfoDef;
+        internal TypeDefinition _TypeManager_SystemTypeInfoDef;
+        internal int _TMSTI_kIsSystemGroupFlag;
+        internal int _TMSTI_kIsSystemManagedFlag;
+        internal int _TMSTI_kIsSystemISystemStartStopFlag;
+        internal int _TMSTI_kSystemHasDefaultCtorFlag;
+
+        internal TypeDefinition _TypeManager_SharedTypeIndexDef;
+        internal TypeDefinition _TypeIndexDef;
+
+        internal TypeDefinition _ComponentSystemGroupDef;
+        internal TypeDefinition _ISystemStartStopDef;
+        internal TypeDefinition _NativeContainerAttributeDef;
+        internal TypeDefinition _TypeManager_TypeOverridesAttributeDef;
+        internal TypeDefinition _UnityEngine_ComponentDef;
+        internal TypeDefinition _UnityEngine_ObjectDef;
+        internal TypeDefinition _EntityDef;
+        internal TypeDefinition _BlobAssetReferenceDataDef;
+        internal TypeDefinition _UntypedUnityObjectRefDef;
+        internal TypeDefinition _UntypedWeakReferenceIdDef;
+
+        internal TypeDefinition _WorldSystemFilterFlagsDef;
+        internal int _WSFF_Default;
+        internal int _WSFF_LocalSimulation;
+        internal int _WSFF_ServerSimulation;
+        internal int _WSFF_ClientSimulation;
+        internal int _WSFF_Editor;
+
+        internal TypeDefinition _Burst_SharedStaticDef;
+        internal TypeReference _System_Int32Def;
+        internal TypeReference _System_Int64Def;
+        internal TypeReference _System_BoolDef;
+        internal TypeReference _System_DecimalDef;
+        internal TypeReference _System_ArgumentExceptionDef;
+        internal TypeReference _System_NotSupportedExceptionDef;
+        internal TypeReference _System_Collections_Generic_List_T_Def;
+
+        internal TypeReference _System_ValueTypeDef;
+
+        internal MethodDefinition _System_Guid_GetHashCode;
+
+        internal TypeReference _System_ObjectDef;
+        internal TypeDefinition _IRefCounted_RefCountDef;//IRefCounted.RefCountDelegate;
+        internal TypeDefinition _FastEquality_TypeInfo_CompareEqualDelegateDef;//FastEquality.TypeInfo.CompareEqualDelegate
+        internal TypeDefinition _FastEquality_TypeInfo_GetHashCodeDelegateDef;//FastEquality.TypeInfo.GetHashCodeDelegate
+
+        internal TypeDefinition _SystemBaseRegistryDef;
+        internal TypeDefinition _BurstRuntimeDef;
+        internal MethodDefinition _BurstRuntime_GetHashCode64Def;
+
+        private static MethodDefinition GetCtorForAttribute(AssemblyDefinition asm, string name)
+        {
+            var attr = asm.MainModule.GetType(name);
+
+            try
+            {
+                return attr.GetConstructors().First();
+            }
+            catch (Exception)
+            {
+                throw new InvalidOperationException($"Could not find type {name}");
+            }
+        }
+
+        [MethodImpl(MethodImplOptions.NoOptimization)]
+        internal void Initialize(ICompiledAssembly compiledAssembly)
+        {
+            var inMemoryAssembly = compiledAssembly.InMemoryAssembly;
+
+
+            var peData = inMemoryAssembly.PeData;
+            var pdbData = inMemoryAssembly.PdbData;
+
+            AssemblyDefinition = AssemblyDefinitionFor(compiledAssembly);
+
+            //don't load it twice
+            coreModule = AssemblyDefinition.Name.Name == "UnityEngine.CoreModule" ? AssemblyDefinition : AssemblyDefinition.MainModule.ImportReference(typeof(MonoBehaviour)).Resolve().Module.Assembly;
+            entitiesAsm = AssemblyDefinition.Name.Name == "Unity.Entities" ? AssemblyDefinition : AssemblyDefinition.MainModule.ImportReference(typeof(Entity)).Resolve().Module.Assembly;
+
+            // Initialize References
+
+            _monoPInvokeAttributeCtorDef = GetCtorForAttribute(coreModule, "AOT.MonoPInvokeCallbackAttribute");
+            _alwaysLinkAssemblyAttributeCtorDef = GetCtorForAttribute(coreModule, "UnityEngine.Scripting.AlwaysLinkAssemblyAttribute");
+            _preserveAttributeCtorDef = GetCtorForAttribute(coreModule, "UnityEngine.Scripting.PreserveAttribute");
+            _readOnlyAttributeCtorDef = GetCtorForAttribute(coreModule, "Unity.Collections.ReadOnlyAttribute");
+
+            var coreModuleMain = coreModule.MainModule;
+            var entitiesAsmMain = entitiesAsm.MainModule;
+            _ISystemDef = entitiesAsmMain.GetType("Unity.Entities.ISystem");
+            _SystemBaseDef = entitiesAsmMain.GetType("Unity.Entities.SystemBase");
+            _ComponentSystemGroupDef = entitiesAsmMain.GetType("Unity.Entities.ComponentSystemGroup");
+
+            var unsafeutility = coreModuleMain.GetType("Unity.Collections.LowLevel.Unsafe.UnsafeUtility");
+
+            _UnsafeUtility_MemCmpFnDef = unsafeutility.GetMethods().Single(m => m.Name == "MemCmp");
+
+            var xxhash = AssemblyDefinition.MainModule.ImportReference(typeof(XXHash)).Resolve();
+            _XXHash_Hash32Def = xxhash.GetMethods().Single(m => m.Name == "Hash32" && m.Parameters.Count == 3);
+
+            _IComponentDataDef = entitiesAsmMain.GetType("Unity.Entities.IComponentData");
+            _IBufferElementDataDef = entitiesAsmMain.GetType("Unity.Entities.IBufferElementData");
+            _ISharedComponentDataDef = entitiesAsmMain.GetType("Unity.Entities.ISharedComponentData");
+            _BufferHeaderDef = entitiesAsmMain.GetType("Unity.Entities.BufferHeader");
+            _SystemBaseDelegatesFunctionDef = entitiesAsmMain.GetType("Unity.Entities.SystemBaseDelegates/Function");
+            _IRefCountedDef = entitiesAsmMain.GetType("Unity.Entities.IRefCounted");
+
+            _TypeRegistryDef = entitiesAsmMain.GetType("Unity.Entities.TypeRegistry");
+
+            _TypeManagerDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeManager)).Resolve();
+
+            _TypeManager_TypeInfoDef = _TypeManagerDef.NestedTypes.First(t => t.Name == "TypeInfo");
+
+            _TypeManager_SystemTypeInfoDef = _TypeManagerDef.NestedTypes.First(t => t.Name == "SystemTypeInfo");
+            _TMSTI_kIsSystemGroupFlag = (int)_TypeManager_SystemTypeInfoDef.Fields.Single(t => t.Name == "kIsSystemGroupFlag").Constant;
+            _TMSTI_kIsSystemManagedFlag = (int)_TypeManager_SystemTypeInfoDef.Fields.Single(t => t.Name == "kIsSystemManagedFlag").Constant;
+            _TMSTI_kIsSystemISystemStartStopFlag = (int)_TypeManager_SystemTypeInfoDef.Fields.Single(t => t.Name == "kIsSystemISystemStartStopFlag").Constant;
+            _TMSTI_kSystemHasDefaultCtorFlag = (int)_TypeManager_SystemTypeInfoDef.Fields.Single(t => t.Name == "kSystemHasDefaultCtor").Constant;
+
+#if !DISABLE_TYPEMANAGER_ILPP
+            StaticTypeRegistryPostProcessor.MaximumTypesCount = (int)_TypeManagerDef.Fields.Single(t => t.Name == "MaximumTypesCount").Constant;
+            StaticTypeRegistryPostProcessor.HasNoEntityReferencesFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "HasNoEntityReferencesFlag").Constant;
+            StaticTypeRegistryPostProcessor.IsNotChunkSerializableTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "IsNotChunkSerializableTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.HasNativeContainerFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "HasNativeContainerFlag").Constant;
+            StaticTypeRegistryPostProcessor.BakingOnlyTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "BakingOnlyTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.TemporaryBakingTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "TemporaryBakingTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.IRefCountedComponentFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "IRefCountedComponentFlag").Constant;
+            StaticTypeRegistryPostProcessor.IEquatableTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "IEquatableTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.EnableableComponentFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "EnableableComponentFlag").Constant;
+            StaticTypeRegistryPostProcessor.CleanupComponentTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "CleanupComponentTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.BufferComponentTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "BufferComponentTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.SharedComponentTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "SharedComponentTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.ManagedComponentTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "ManagedComponentTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.ChunkComponentTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "ChunkComponentTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.ZeroSizeInChunkTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "ZeroSizeInChunkTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.CleanupSharedComponentTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "CleanupSharedComponentTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.CleanupBufferComponentTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "CleanupBufferComponentTypeFlag").Constant;
+            StaticTypeRegistryPostProcessor.ManagedSharedComponentTypeFlag = (int)_TypeManagerDef.Fields.Single(t => t.Name == "ManagedSharedComponentTypeFlag").Constant;
+
+            StaticTypeRegistryPostProcessor.ClearFlagsMask = (int)_TypeManagerDef.Fields.Single(t => t.Name == "ClearFlagsMask").Constant;
+            StaticTypeRegistryPostProcessor.MaximumChunkCapacity = (int)_TypeManagerDef.Fields.Single(t => t.Name == "MaximumChunkCapacity").Constant;
+            StaticTypeRegistryPostProcessor.MaximumSupportedAlignment = (int)_TypeManagerDef.Fields.Single(t => t.Name == "MaximumSupportedAlignment").Constant;
+            StaticTypeRegistryPostProcessor.DefaultBufferCapacityNumerator = (int)_TypeManagerDef.Fields.Single(t => t.Name == "DefaultBufferCapacityNumerator").Constant;
+#endif
+
+            _TypeManager_SharedTypeIndexDef = _TypeManagerDef.NestedTypes.Single(t => t.Name == "SharedTypeIndex`1");
+            _TypeIndexDef = entitiesAsmMain.GetType("Unity.Entities.TypeIndex");
+
+            _TypeManager_TypeOverridesAttributeDef = _TypeManagerDef.NestedTypes.First(t => t.Name == "TypeOverridesAttribute");
+
+            _ISystemStartStopDef = entitiesAsmMain.GetType("Unity.Entities.ISystemStartStop");
+            _NativeContainerAttributeDef = coreModuleMain.GetType("Unity.Collections.LowLevel.Unsafe.NativeContainerAttribute");
+            _UnityEngine_ComponentDef = coreModuleMain.GetType("UnityEngine.Component");
+            _UnityEngine_ObjectDef = coreModuleMain.GetType("UnityEngine.Object");
+            _EntityDef = entitiesAsmMain.GetType("Unity.Entities.Entity");
+            _BlobAssetReferenceDataDef = entitiesAsmMain.GetType("Unity.Entities.BlobAssetReferenceData");
+            _UntypedUnityObjectRefDef = AssemblyDefinition.MainModule.ImportReference(typeof(UntypedUnityObjectRef)).Resolve();
+            _UntypedWeakReferenceIdDef = entitiesAsmMain.GetType("Unity.Entities.Serialization.UntypedWeakReferenceId");
+
+            _WorldSystemFilterFlagsDef = AssemblyDefinition.MainModule.ImportReference(typeof(WorldSystemFilterFlags)).Resolve();
+
+            _WSFF_Default = _WSFF_LocalSimulation = _WSFF_ServerSimulation = _WSFF_ClientSimulation = _WSFF_Editor = -1;
+            foreach (var f in _WorldSystemFilterFlagsDef.Fields)
+            {
+                if (f.Name == "Default")
+                    _WSFF_Default = (int)(uint)f.Constant;
+                else if (f.Name == "LocalSimulation")
+                    _WSFF_LocalSimulation = (int)(uint)f.Constant;
+                else if (f.Name == "ServerSimulation")
+                    _WSFF_ServerSimulation = (int)(uint)f.Constant;
+                else if (f.Name == "ClientSimulation")
+                    _WSFF_ClientSimulation = (int)(uint)f.Constant;
+                else if (f.Name == "Editor")
+                    _WSFF_Editor = (int)(uint)f.Constant;
+            }
+
+            if (_WSFF_Default == -1 ||
+                _WSFF_LocalSimulation == -1 ||
+                _WSFF_ServerSimulation == -1 ||
+                _WSFF_ClientSimulation == -1 ||
+                _WSFF_Editor == -1)
+                throw new InvalidOperationException(@"Couldn't find all enum values for WorldSystemFilterFlags! This indicates a mismatch 
+						    between entities ILPP code and Entities runtime code. If you don't know what that means, please report a bug 
+						    via Help->Report a bug.... Thanks!");
+
+
+            _Burst_SharedStaticDef = AssemblyDefinition.MainModule.ImportReference(typeof(SharedStatic<>)).Resolve();
+
+            _IRefCounted_RefCountDef = entitiesAsmMain.GetType("Unity.Entities.IRefCounted/RefCountDelegate");
+            _FastEquality_TypeInfo_CompareEqualDelegateDef = entitiesAsmMain.GetType("Unity.Entities.FastEquality/TypeInfo/CompareEqualDelegate");
+            _FastEquality_TypeInfo_GetHashCodeDelegateDef = entitiesAsmMain.GetType("Unity.Entities.FastEquality/TypeInfo/GetHashCodeDelegate");
+            _SystemBaseRegistryDef = entitiesAsmMain.GetType("Unity.Entities.SystemBaseRegistry");
+            _BurstRuntimeDef = AssemblyDefinition.MainModule.ImportReference(typeof(BurstRuntime)).Resolve();
+            _BurstRuntime_GetHashCode64Def = _BurstRuntimeDef.Resolve().Methods.Single((x) => x.Name == "GetHashCode64" && x.HasGenericParameters);
+
+            _voidStarRef = AssemblyDefinition.MainModule.ImportReference(typeof(void)).MakePointerType(); //note if you say resolve() on this, it will turn into `void` instead of `void*`
+            _System_ObjectDef = AssemblyDefinition.MainModule.ImportReference(typeof(object));
+            var systemguid = AssemblyDefinition.MainModule.ImportReference(typeof(Guid)).Resolve();
+
+            _System_Guid_GetHashCode = systemguid.GetMethods().Single(x => x.Name == "GetHashCode");
+
+            _System_Int32Def = AssemblyDefinition.MainModule.ImportReference(typeof(int));
+            _System_BoolDef = AssemblyDefinition.MainModule.ImportReference(typeof(bool));
+            _System_DecimalDef = AssemblyDefinition.MainModule.ImportReference(typeof(decimal));
+            _System_Int64Def = AssemblyDefinition.MainModule.ImportReference(typeof(long));
+            _System_ArgumentExceptionDef = AssemblyDefinition.MainModule.ImportReference(typeof(ArgumentException));
+            _System_NotSupportedExceptionDef = AssemblyDefinition.MainModule.ImportReference(typeof(NotSupportedException));
+            _System_ValueTypeDef = AssemblyDefinition.MainModule.ImportReference(typeof(ValueType));
+            _System_Collections_Generic_List_T_Def = AssemblyDefinition.MainModule.ImportReference(typeof(List<>));
+
+            var tu = new TypeUtils();
+            tu.runnerOfMe = this;
+#if !DISABLE_TYPEMANAGER_ILPP
+            //alignandsizeoftype needs other stuff to be inited before we can use it, so we do it down here
+            var mysize = Marshal.SizeOf<StaticTypeRegistryPostProcessor.TypeInfo>();
+
+            if (mysize != tu.AlignAndSizeOfType(_TypeManager_TypeInfoDef, 64).size)
+            {
+                throw new InvalidOperationException(@"Found mismatch in size between ILPP's TypeInfo and Entities's TypeInfo struct.
+Entities initialization has therefore failed. Please report a bug via Help->Report a bug.... Thanks!");
+            }
+#endif
+        }
+
     }
 
     abstract class EntitiesILPostProcessor : IComparable<EntitiesILPostProcessor>
@@ -365,6 +635,8 @@ namespace Unity.Entities.CodeGen
         public bool ReferencesEntities { get; private set; }
         public bool ReferencesJobs { get; private set; }
         protected AssemblyDefinition AssemblyDefinition;
+
+        public EntitiesILPostProcessors runnerOfMe;
 
         internal void Initialize(string[] compilationDefines, bool referencesEntities, bool referencesJobs)
         {
@@ -398,7 +670,7 @@ namespace Unity.Entities.CodeGen
 
         protected abstract bool PostProcessImpl(TypeDefinition[] componentSystemTypes);
         protected abstract bool PostProcessUnmanagedImpl(TypeDefinition[] unmanagedComponentSystemTypes);
-        
+
         protected void AddDiagnostic(DiagnosticMessage diagnosticMessage)
         {
             _diagnosticMessages.Add(diagnosticMessage);

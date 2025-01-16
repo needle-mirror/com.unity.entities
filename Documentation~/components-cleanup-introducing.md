@@ -1,4 +1,4 @@
-# Introducing cleanup components
+# Cleanup components introduction
 
 Cleanup components are like regular components, but when you destroy an entity that contains one, Unity removes all non-cleanup components instead. The entity still exists until you remove all cleanup components from it. This is useful to tag entities that require cleanup when destroyed. For information on how to do this, refer to [Use cleanup components](components-cleanup-create.md#perform-cleanup).
 

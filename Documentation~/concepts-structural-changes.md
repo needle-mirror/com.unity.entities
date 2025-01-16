@@ -12,6 +12,8 @@ The following operations are considered structural changes:
 * Adding or removing [components](concepts-components.md).
 * Setting a shared component value.
 
+There are different ways to manage structural changes in your project. For more information, refer to [Manage structural changes](systems-manage-structural-changes.md)
+
 ## Create an entity
 
 When you create an entity, Unity either adds the entity to an existing chunk or, if no chunks are available for the entity's [archetype](concepts-archetypes.md), creates a new chunk and adds the entity to that.
@@ -33,23 +35,16 @@ When you set the value of an entity's [shared component](components-shared.md), 
 
 ## Sync points
 
-You can't make structural changes directly in a job because it might invalidate other jobs that are already scheduled, and creates a [sync point](#sync-points). 
+You can't make structural changes directly in a job because it might invalidate other jobs that are already scheduled, and creates a synchronization point (sync point).
 
-A synchronization point (sync point) is a point in program execution that waits for the completion of all jobs that have been scheduled so far. Sync points limit your ability to use all worker threads available in the job system for a period of time. As such, you should aim to avoid sync points. Structural changes to the data in ECS are the primary cause of sync points.
+A sync point is a point in program execution that waits on the main thread for the completion of all jobs that have been scheduled so far. Sync points limit your ability to use all worker threads available in the job system for a period of time. As such, you should aim to avoid sync points. 
 
-Structural changes not only require a sync point, but they also invalidate all direct references to any component data. This includes instances of [`DynamicBuffer`](xref:Unity.Entities.DynamicBuffer`1) and the result of methods that provide direct access to the components such as [`ComponentSystemBase.GetComponentDataFromEntity`](xref:Unity.Entities.ComponentSystemBase.GetComponentDataFromEntity*).
-
-### Avoiding sync points
-
-You can use [entity command buffers](systems-entity-command-buffers.md) to queue up structural changes instead of performing them instantly. You can play back commands stored in an entity command buffer at a later point during the frame. This reduces multiple sync points spread across the frame to a single sync point.
-
-Each of the standard [`ComponentSystemGroup`](xref:Unity.Entities.ComponentSystemGroup) instances provide an [`EntityCommandBufferSystem`](xref:Unity.Entities.EntityCommandBuffer) as the first and last systems updated in the group. If you get an entity command buffer object from one of these standard systems, all structural changes happen at the same point in the frame, which results in one sync point. You can also use entity command buffers to record structural changes within a job, rather than only making structural changes on the main thread.
-
-If you can't use an entity command buffer for a task, group any systems that make structural changes together in the system execution order. Two systems that both make structural changes only create one sync point if they update sequentially.
+Structural changes to the data in ECS are the primary cause of sync points. For information on how to avoid sync points, refer to [Managing sync points](performance-sync-points.md).
 
 ## Additional resources
 
 * [Archetype concepts](concepts-archetypes.md)
 * [Entity command buffers](systems-entity-command-buffers.md)
 * [System update order](systems-update-order.md)
-* [Shared components](components-shared.md)
+* [Managing structural changes](systems-manage-structural-changes.md)
+* [Managing sync points](performance-sync-points.md)

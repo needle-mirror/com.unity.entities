@@ -1,4 +1,3 @@
-#if UNITY_DOTSRUNTIME
 using System;
 using System.Collections.Generic;
 using System.Linq;
@@ -6,6 +5,7 @@ using System.Reflection;
 using System.Runtime.InteropServices;
 using Mono.Cecil;
 using Unity.Cecil.Awesome;
+using static Unity.Entities.BuildUtils.MonoExtensions;
 
 namespace Unity.Entities.CodeGen
 {
@@ -63,7 +63,13 @@ namespace Unity.Entities.CodeGen
 
             // UnityEngine objects have their own serialization mechanism so exclude hashing the type's
             // internals and just hash its name which is stable and important to how Entities will serialize
-            if (typeRef.IsArray || typeRef.IsGenericParameter || typeRef.IsPointer || typeDef.IsPrimitive || typeDef.IsEnum || typeDef.IsUnityEngineObject() || WorkaroundTypeNames.Contains(typeRef.FullName))
+            if (typeRef.IsArray
+                || typeRef.IsGenericParameter
+                || typeRef.IsPointer
+                || typeDef.IsPrimitive
+                || typeDef.IsEnum
+                || typeDef.IsUnityEngineObject()
+                || WorkaroundTypeNames.Contains(typeRef.FullName))
                 return hash;
 
             foreach (var field in typeDef.Fields)
@@ -117,7 +123,7 @@ namespace Unity.Entities.CodeGen
             var typeDef = typeRef.Resolve();
             if (typeDef.CustomAttributes.Count > 0)
             {
-                var versionAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == nameof(TypeManager.TypeVersionAttribute));
+                var versionAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == "TypeVersionAttribute");
                 if (versionAttribute != null)
                 {
                     version = (int)versionAttribute.ConstructorArguments
@@ -205,14 +211,15 @@ namespace Unity.Entities.CodeGen
         public static ulong CalculateStableTypeHash(TypeReference typeRef)
         {
             ulong versionHash = HashVersionAttribute(typeRef);
-            ulong typeHash = HashType(typeRef, new Dictionary<TypeReference, ulong>(new TypeReferenceComparer()));
+            ulong typeHash = HashType(typeRef, new Dictionary<TypeReference, ulong>(new Unity.Cecil.Awesome.Comparers.TypeReferenceEqualityComparer()));
 
             return CombineFNV1A64(versionHash, typeHash);
         }
 
-        public static ulong CalculateMemoryOrdering(TypeReference typeRef)
+        public static ulong CalculateMemoryOrdering(TypeReference typeRef, out bool HasCustomMemoryOrdering)
         {
-            if (typeRef == null || typeRef.IsEntityType())
+            HasCustomMemoryOrdering = false;
+            if (typeRef == null || TypeUtils.IsEntityType(typeRef))
             {
                 return 0;
             }
@@ -220,9 +227,10 @@ namespace Unity.Entities.CodeGen
             var typeDef = typeRef.Resolve();
             if (typeDef.CustomAttributes.Count > 0)
             {
-                var forcedMemoryOrderAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == nameof(TypeManager.ForcedMemoryOrderingAttribute));
+                var forcedMemoryOrderAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == "ForcedMemoryOrderingAttribute");
                 if (forcedMemoryOrderAttribute != null)
                 {
+                    HasCustomMemoryOrdering = true;
                     ulong memoryOrder = (ulong)forcedMemoryOrderAttribute.ConstructorArguments
                         .First(arg => arg.Type.MetadataType == MetadataType.UInt64)
                         .Value;
@@ -235,4 +243,3 @@ namespace Unity.Entities.CodeGen
         }
     }
 }
-#endif

@@ -24,6 +24,9 @@ To add an existing subscene to a scene:
 3. Add the [`SubScene`](xref:Unity.Scenes.SubScene) component.
 4. In the [`SubScene`](xref:Unity.Scenes.SubScene) component set the property **Scene Asset** to the scene that you want to use as subscene.
 
+>[!NOTE]
+> Changes you make to subscenes while in Play mode persist when you exit Play mode, which differs from the behavior of MonoBehaviour-based scenes. Unity overwrites all subscene states with the current state when you exit Play mode.
+
 ## Subscene component
 
 The [`SubScene`](xref:Unity.Scenes.SubScene) component is a Unity component that triggers baking and streaming for the referenced scene. Unity streams in the referenced scene when the `SubScene` component is enabled, if you set the `AutoLoadScene` field to true. You can also enable the **Auto Load Scene** field in the Editor. To do this, select the subscene in the Hierarchy, and in the Inspector under the Sub Scene script, enable the **Auto Load Scene** checkbox.

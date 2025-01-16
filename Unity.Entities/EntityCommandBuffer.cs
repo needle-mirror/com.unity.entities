@@ -2687,14 +2687,14 @@ namespace Unity.Entities
                 m_Data->AppendEntityQueryComponentTypeSetCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                     ECBCommand.AddMultipleComponentsForEntityQuery, entityQuery, componentTypeSet);
         }
-        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery,ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery,in ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
         /// <param name="componentTypeSet">The types of components to add.</param>
         [SupportedInEntitiesForEach]
         [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
         public void AddComponent(EntityQuery entityQuery, in ComponentTypeSet componentTypeSet)
             => AddComponent(entityQuery, componentTypeSet, EntityQueryCaptureMode.AtRecord);
-        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery,ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <summary>Obsolete. Use <see cref="AddComponent(EntityQuery,in ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities to which the components are added. </param>
         /// <param name="componentTypeSet">The types of components to add.</param>
         [SupportedInEntitiesForEach]
@@ -3128,6 +3128,7 @@ namespace Unity.Entities
             => RemoveComponent(entityQuery, ComponentType.ReadWrite<T>(), queryCaptureMode);
         /// <summary>Obsolete. Use <see cref="RemoveComponent{T}(EntityQuery,EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities to which the component is added.</param>
+        /// <typeparam name="T"> The type of component to remove. </typeparam>
         [SupportedInEntitiesForEach]
         [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
         public void RemoveComponent<T>(EntityQuery entityQuery)
@@ -3172,7 +3173,7 @@ namespace Unity.Entities
                 m_Data->AppendEntityQueryComponentTypeSetCommand(&m_Data->m_MainThreadChain, MainThreadSortKey,
                     ECBCommand.RemoveMultipleComponentsForEntityQuery, entityQuery, componentTypeSet);
         }
-        /// <summary>Obsolete. Use <see cref="RemoveComponent(EntityQuery,ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <summary>Obsolete. Use <see cref="RemoveComponent(EntityQuery,in ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities from which the components are removed. </param>
         /// <param name="componentTypeSet">The types of components to remove.</param>
         /// <exception cref="NullReferenceException">Throws if an Allocator was not passed in when the EntityCommandBuffer was created.</exception>
@@ -3183,7 +3184,7 @@ namespace Unity.Entities
 #pragma warning disable 0618 // EntityQueryCaptureMode.AtRecord is obsolete.
             => RemoveComponent(entityQuery, componentTypeSet, EntityQueryCaptureMode.AtRecord);
 #pragma warning restore
-        /// <summary>Obsolete. Use <see cref="RemoveComponent(EntityQuery,ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
+        /// <summary>Obsolete. Use <see cref="RemoveComponent(EntityQuery,in ComponentTypeSet,EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities from which the components are removed. </param>
         /// <param name="componentTypeSet">The types of components to remove.</param>
         [SupportedInEntitiesForEach]
@@ -3214,7 +3215,6 @@ namespace Unity.Entities
         }
         /// <summary>Obsolete. Use <see cref="DestroyEntity(EntityQuery,EntityQueryCaptureMode)"/> instead.</summary>
         /// <param name="entityQuery">The query specifying the entities to destroy.</param>
-        /// <typeparam name="T"> The type of shared component to set. </typeparam>
         [SupportedInEntitiesForEach]
         [Obsolete("This method now takes an extra parameter to control when the query is evaluated. To preserve the current semantics, use EntityQueryCaptureMode.AtRecord (RemovedAfter Entities 2.0)")]
         public void DestroyEntity(EntityQuery entityQuery)

@@ -12,6 +12,7 @@ using Unity.Collections.LowLevel.Unsafe;
 using UnityEngine;
 using UnityEngine.Assertions;
 using UnityEngine.Profiling;
+using Unity.Entities.UniversalDelegates;
 
 namespace Unity.Entities
 {
@@ -369,11 +370,9 @@ namespace Unity.Entities
         static UnsafeList<UnsafeText> s_SystemTypeNames;
         static UnsafeList<UnsafeList<SystemAttribute>> s_SystemAttributes;
 
-#if UNITY_DOTSRUNTIME
         static List<int> s_SystemTypeDelegateIndexRanges;
         static List<TypeRegistry.CreateSystemFn> s_AssemblyCreateSystemFn;
         static List<TypeRegistry.GetSystemAttributesFn> s_AssemblyGetSystemAttributesFn;
-#endif
 
         // While we provide a public interface for the TypeManager the init/shutdown
         // of the TypeManager owned by the TypeManager so we mark these functions as internal
@@ -393,11 +392,9 @@ namespace Unity.Entities
             s_SystemTypeNames = new UnsafeList<UnsafeText>(kInitialSystemCount, Allocator.Persistent);
             s_SystemAttributes = new UnsafeList<UnsafeList<SystemAttribute>>(kInitialSystemCount, Allocator.Persistent);
 
-#if UNITY_DOTSRUNTIME
             s_SystemTypeDelegateIndexRanges = new List<int>(kInitialSystemCount);
             s_AssemblyCreateSystemFn = new List<TypeRegistry.CreateSystemFn>(kInitialSystemCount);
             s_AssemblyGetSystemAttributesFn = new List<TypeRegistry.GetSystemAttributesFn>(kInitialSystemCount);
-#endif
         }
 
         private static void ShutdownSystemsState()
@@ -419,7 +416,7 @@ namespace Unity.Entities
                 name.Dispose();
             s_SystemTypeNames.Dispose();
 
-            for (int i=0; i<s_SystemAttributes.Length; i++)
+            for (int i = 0; i < s_SystemAttributes.Length; i++)
             {
                 var e = s_SystemAttributes[i];
                 if (e.IsCreated)
@@ -431,11 +428,9 @@ namespace Unity.Entities
             s_SystemAttributes.Dispose();
             s_SystemTypeHashes.Dispose();
 
-#if UNITY_DOTSRUNTIME
             s_SystemTypeDelegateIndexRanges.Clear();
             s_AssemblyCreateSystemFn.Clear();
             s_AssemblyGetSystemAttributesFn.Clear();
-#endif
         }
 
         private static void RegisterSpecialSystems()
@@ -445,86 +440,95 @@ namespace Unity.Entities
             AddSystemTypeToTables(null, "null", 0, 0, 0, 0);
             Assert.IsTrue(s_SystemCount == 1);
         }
-
+        static bool myfalse = false;
         internal static void InitializeAllSystemTypes()
         {
             // DOTS Runtime registers all system info when registering component info
-#if !UNITY_DOTSRUNTIME
-            try
+            if (myfalse) //avoid unused code error
             {
-                Profiler.BeginSample(nameof(InitializeAllSystemTypes));
-                var isystemTypes = GetTypesDerivedFrom(typeof(ISystem)).ToList();
-                foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
+                try
                 {
-                    foreach (var attr in asm.GetCustomAttributes<RegisterGenericSystemTypeAttribute>())
+                    Profiler.BeginSample(nameof(InitializeAllSystemTypes));
+                    var isystemTypes = GetTypesDerivedFrom(typeof(ISystem)).ToList();
+                    foreach (var asm in AppDomain.CurrentDomain.GetAssemblies())
                     {
-                        isystemTypes.Add(attr.ConcreteType);
+                        foreach (var attr in asm.GetCustomAttributes<RegisterGenericSystemTypeAttribute>())
+                        {
+                            isystemTypes.Add(attr.ConcreteType);
+                        }
+                    }
+
+                    // Used to detect cycles in the UpdateInGroup tree, so we don't recurse infinitely and crash.
+                    var visitedSystemGroupsSet = new HashSet<Type>(32);
+
+                    foreach (var systemType in isystemTypes)
+                    {
+                        if (!systemType.IsValueType)
+                            continue;
+                        if (systemType
+                            .ContainsGenericParameters) // don't register the open versions of generic isystems, only the closed
+                            continue;
+
+                        var name = systemType.FullName;
+                        var size = UnsafeUtility.SizeOf(systemType);
+                        var hash = GetHashCode64(systemType);
+                        // isystems can't be groups
+                        var flags = GetSystemTypeFlags(systemType);
+                        if (typeof(ISystem).IsAssignableFrom(systemType) && ((flags & SystemTypeInfo.kIsSystemManagedFlag) != 0))
+                            Debug.LogError($"System {systemType} has managed fields, but implements ISystem, which is not allowed. If you need to use managed fields, please inherit from SystemBase.");
+                        var filterFlags = MakeWorldFilterFlags(systemType, ref visitedSystemGroupsSet);
+
+                        AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
+                    }
+
+                    foreach (var systemType in GetTypesDerivedFrom(typeof(ComponentSystemBase)))
+                    {
+                        if (systemType.IsAbstract || systemType.ContainsGenericParameters)
+                            continue;
+
+                        var name = systemType.FullName;
+                        var size = -1; // Don't get a type size for a managed type
+                        var hash = GetHashCode64(systemType);
+                        var flags = GetSystemTypeFlags(systemType);
+
+                        var filterFlags = MakeWorldFilterFlags(systemType, ref visitedSystemGroupsSet);
+
+                        AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
+                    }
+
+                    /*
+                     * We need to do this after we've added all the systems to all the tables so that system type indices
+                     * will all already exist, even for systems later in the list, so that if we find e.g. an UpdateAfter
+                     * attr that refers to a system later in the list, we can find the typeindex for said later system
+                     * and put it in the table.
+                     */
+                    s_SystemAttributes.Add(new UnsafeList<SystemAttribute>());
+
+                    for (int i = 1; i < s_SystemCount; i++)
+                    {
+                        AddSystemAttributesToTable(GetSystemType(i));
                     }
                 }
-
-                // Used to detect cycles in the UpdateInGroup tree, so we don't recurse infinitely and crash.
-                var visitedSystemGroupsSet = new HashSet<Type>(32);
-
-                foreach (var systemType in isystemTypes)
+                finally
                 {
-                    if (!systemType.IsValueType)
-                        continue;
-                    if (systemType
-                        .ContainsGenericParameters) // don't register the open versions of generic isystems, only the closed
-                        continue;
-
-                    var name = systemType.FullName;
-                    var size = UnsafeUtility.SizeOf(systemType);
-                    var hash = GetHashCode64(systemType);
-                    // isystems can't be groups
-                    var flags = GetSystemTypeFlags(systemType);
-                    if (typeof(ISystem).IsAssignableFrom(systemType) && ((flags & SystemTypeInfo.kIsSystemManagedFlag) != 0))
-                        Debug.LogError($"System {systemType} has managed fields, but implements ISystem, which is not allowed. If you need to use managed fields, please inherit from SystemBase.");
-                    var filterFlags = MakeWorldFilterFlags(systemType, ref visitedSystemGroupsSet);
-
-                    AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
+                    Profiler.EndSample();
                 }
-
-                foreach (var systemType in GetTypesDerivedFrom(typeof(ComponentSystemBase)))
-                {
-                    if (systemType.IsAbstract || systemType.ContainsGenericParameters)
-                        continue;
-
-                    var name = systemType.FullName;
-                    var size = -1; // Don't get a type size for a managed type
-                    var hash = GetHashCode64(systemType);
-                    var flags = GetSystemTypeFlags(systemType);
-
-                    var filterFlags = MakeWorldFilterFlags(systemType, ref visitedSystemGroupsSet);
-
-                    AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
-                }
-
-                /*
-                 * We need to do this after we've added all the systems to all the tables so that system type indices
-                 * will all already exist, even for systems later in the list, so that if we find e.g. an UpdateAfter
-                 * attr that refers to a system later in the list, we can find the typeindex for said later system
-                 * and put it in the table.
-                 */
+            }
+            else
+            {
                 s_SystemAttributes.Add(new UnsafeList<SystemAttribute>());
 
                 for (int i = 1; i < s_SystemCount; i++)
                 {
-                    AddSystemAttributesToTable(GetSystemType(i));
+                    var type = GetSystemType(i);
+
+                    // Used to detect cycles in the UpdateInGroup tree, so we don't recurse infinitely and crash.
+                    var visitedSystemGroupsSet = new HashSet<Type>(32);
+
+                    AddSystemAttributesToTable(type);
+                    s_SystemFilterFlagsList[i] = MakeWorldFilterFlags(type, ref visitedSystemGroupsSet);
                 }
             }
-            finally
-            {
-                Profiler.EndSample();
-            }
-#else
-            s_SystemAttributes.Add(new UnsafeList<SystemAttribute>());
-
-            for (int i = 1; i < s_SystemCount; i++)
-            {
-                AddSystemAttributesToTable(GetSystemType(i));
-            }
-#endif
         }
 
         private static void AddSystemAttributesToTable(Type systemType)
@@ -642,16 +646,15 @@ namespace Unity.Entities
                             if (myattr.OrderFirst) flags |= SystemAttribute.kOrderFirstFlag;
                             if (myattr.OrderLast) flags |= SystemAttribute.kOrderLastFlag;
 
+                            var typeIndex = GetSystemTypeIndexNoThrow(myattr.GroupType);
+                            var isGroup = typeIndex != -1 && typeIndex.IsGroup;
+
                             list.Add(new SystemAttribute
                             {
                                 Kind = attrKind,
-                                TargetSystemTypeIndex =
-                                    (IsSystemType(myattr.GroupType) && IsSystemAGroup(myattr.GroupType))
-                                        ? GetSystemTypeIndex(myattr.GroupType)
-                                        : -1,
+                                TargetSystemTypeIndex = isGroup ? typeIndex : -1,
                                 Flags = flags
                             });
-
                         }
                     }
 
@@ -1313,6 +1316,7 @@ namespace Unity.Entities
             return types;
 #endif
         }
+#endif
 
         static WorldSystemFilterFlags GetParentGroupDefaultFilterFlags(Type type, ref HashSet<Type> visitedSystemGroupsSet)
         {
@@ -1380,7 +1384,6 @@ namespace Unity.Entities
 
             return systemFlags;
         }
-#else
 
         static object CreateSystem(Type systemType)
         {
@@ -1423,11 +1426,65 @@ namespace Unity.Entities
             // Todo: consolidate this all to a SystemInfo Struct
             for(int i = 0; i < typeRegistry.SystemTypes.Length; ++i)
             {
-                var type = typeRegistry.SystemTypes[i];
+                var systemType = typeRegistry.SystemTypes[i];
                 var typeName = typeRegistry.SystemTypeNames[i];
-                var typeSize = typeRegistry.SystemTypeSizes[i];
+                //size is not reliable because there are pointers in system types and we don't want to ban that
+                    
+                //var typeSize = typeRegistry.SystemTypeSizes[i];
+                var typeSize = typeof(ISystem).IsAssignableFrom(systemType) ? UnsafeUtility.SizeOf(systemType) : -1;
                 var typeHash = typeRegistry.SystemTypeHashes[i];
-                AddSystemTypeToTables(type, typeName, typeSize, typeHash, typeRegistry.SystemTypeFlags[i], typeRegistry.SystemFilterFlags[i]);
+                AddSystemTypeToTables(systemType, typeName, typeSize, typeHash, typeRegistry.SystemTypeFlags[i], typeRegistry.SystemFilterFlags[i]);
+                //uncomment below to fact-check above
+                /*if (typeof(ISystem).IsAssignableFrom(systemType))
+                {
+                    if (!systemType.IsValueType)
+                        continue;
+                    if (systemType
+                        .ContainsGenericParameters) // don't register the open versions of generic isystems, only the closed
+                        continue;
+
+                    var name = systemType.FullName;
+
+                    if (name != badtypeName)
+                        Debugger.Launch();
+                    var size = UnsafeUtility.SizeOf(systemType);
+                    if (size != badtypeSize)
+                        Debugger.Launch();
+                    var hash = GetHashCode64(systemType);
+                    if (hash != badtypeHash)
+                        Debugger.Launch();
+                    // isystems can't be groups
+                    var flags = GetSystemTypeFlags(systemType);
+
+                    if (flags != typeRegistry.SystemTypeFlags[i])
+                        Debugger.Launch();
+                    if (typeof(ISystem).IsAssignableFrom(systemType) && ((flags & SystemTypeInfo.kIsSystemManagedFlag) != 0))
+                        Debug.LogError($"System {systemType} has managed fields, but implements ISystem, which is not allowed. If you need to use managed fields, please inherit from SystemBase.");
+
+                    var visitedSystemGroupsSet = new HashSet<Type>(32);
+                    var filterFlags = MakeWorldFilterFlags(systemType, ref visitedSystemGroupsSet);
+
+                    if (filterFlags != typeRegistry.SystemFilterFlags[i])
+                        Debugger.Launch();
+
+                    AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
+                }
+
+                if (typeof(ComponentSystemBase).IsAssignableFrom(systemType))
+                {
+                    if (systemType.IsAbstract || systemType.ContainsGenericParameters)
+                        continue;
+
+                    var name = systemType.FullName;
+                    var size = -1; // Don't get a type size for a managed type
+                    var hash = GetHashCode64(systemType);
+                    var flags = GetSystemTypeFlags(systemType);
+                    var visitedSystemGroupsSet = new HashSet<Type>(32);
+
+                    var filterFlags = MakeWorldFilterFlags(systemType, ref visitedSystemGroupsSet);
+
+                    AddSystemTypeToTables(systemType, name, size, hash, flags, filterFlags);
+                }*/
             }
 
             if (typeRegistry.SystemTypes.Length > 0)
@@ -1438,7 +1495,5 @@ namespace Unity.Entities
                 s_AssemblyGetSystemAttributesFn.Add(typeRegistry.GetSystemAttributes);
             }
         }
-
-#endif
     }
 }

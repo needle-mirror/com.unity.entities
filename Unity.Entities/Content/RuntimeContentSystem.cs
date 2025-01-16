@@ -83,7 +83,7 @@ namespace Unity.Entities.Content
         static void Update()
         {
             //always update the CDGS in the player so that the catalog can load
-#if ENABLE_CONTENT_DELIVERY && !UNITY_EDITOR
+#if ENABLE_CONTENT_DELIVERY
             ContentDeliveryGlobalState.Update();
 #endif
 

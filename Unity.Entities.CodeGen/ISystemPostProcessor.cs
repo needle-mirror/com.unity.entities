@@ -1,11 +1,14 @@
 using System;
 using System.Collections.Generic;
+using System.Diagnostics;
 using System.Linq;
 using System.Reflection;
+using System.Runtime.CompilerServices;
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using Unity.Burst;
+using Unity.Cecil.Awesome;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using ParameterAttributes = Mono.Cecil.ParameterAttributes;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
@@ -33,6 +36,7 @@ namespace Unity.Entities.CodeGen
         {
             bool changes = false;
 
+            if (unmanagedComponentSystemTypes.Length == 0) return false;
             // Create the registration class first so that if we need to put forwarders for generic ISystems into it, it's ready.
             // This must use a stable hash code function (do not using string.GetHashCode).
             var autoClassName = $"__UnmanagedPostProcessorOutput__{TypeHash.FNV1A64(AssemblyDefinition.FullName)}";
@@ -42,6 +46,7 @@ namespace Unity.Entities.CodeGen
             _registrationClassDef.IsBeforeFieldInit = false;
             var burstCompileAttributeConstructor = typeof(BurstCompileAttribute).GetConstructor(Type.EmptyTypes);
             _registrationClassDef.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(burstCompileAttributeConstructor)));
+            _registrationClassDef.CustomAttributes.Add(new CustomAttribute(mod.ImportReference(runnerOfMe._preserveAttributeCtorDef)));
             mod.Types.Add(_registrationClassDef);
 
             var memos = new List<TypeMemo>();
@@ -53,15 +58,17 @@ namespace Unity.Entities.CodeGen
 
                 changes = true;
 
-                // We will be generating functions using these types (e.g. GetHashCode64<T>()) which will require internal access rights
+                // We will be generating functions using these types (e.g. GetHashCode64<T>()) which will require (at least) internal access rights
                 td.MakeTypeInternal();
                 memos.Add(AddStaticForwarders(td));
+                ComponentDataPP.PreserveDefaultCtor(td, mod.ImportReference(runnerOfMe._preserveAttributeCtorDef));
+
             }
 
             var assemblyAttributes = AssemblyDefinition.CustomAttributes;
             foreach (var attr in assemblyAttributes)
             {
-                if (attr.AttributeType.Resolve().FullName == RegisterGenericSystemTypeAttributeName)
+                if (attr.AttributeType.Resolve().FullName == "Unity.Entities.RegisterGenericSystemTypeAttribute")
                 {
                     var typeRef = (TypeReference)attr.ConstructorArguments[0].Value;
                     var openType = typeRef.Resolve();
@@ -119,35 +126,7 @@ namespace Unity.Entities.CodeGen
         private TypeReference LaunderTypeRef(TypeReference r_)
         {
             ModuleDefinition mod = AssemblyDefinition.MainModule;
-            TypeDefinition def = r_.Resolve();
-            TypeReference result;
-
-            if (r_ is GenericInstanceType git)
-            {
-                var gt = new GenericInstanceType(LaunderTypeRef(def));
-                foreach (var gp in git.GenericParameters)
-                {
-                    gt.GenericParameters.Add(gp);
-                }
-
-                foreach (var ga in git.GenericArguments)
-                {
-                    gt.GenericArguments.Add(LaunderTypeRef(ga));
-                }
-
-                result = gt;
-
-            }
-            else
-            {
-                result = new TypeReference(def.Namespace, def.Name, def.Module, def.Scope, def.IsValueType);
-                if (def.DeclaringType != null)
-                {
-                    result.DeclaringType = LaunderTypeRef(def.DeclaringType);
-                }
-            }
-
-            return mod.ImportReference(result);
+            return TypeReferenceExtensions.LaunderTypeRef(r_, mod);
         }
 
         private TypeMemo AddStaticForwarders(TypeDefinition systemType, TypeReference specializedSystemType = null, TypeDefinition alternateTypeToInsertForwarders = null)

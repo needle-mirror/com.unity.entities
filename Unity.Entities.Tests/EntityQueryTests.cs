@@ -4948,6 +4948,21 @@ namespace Unity.Entities.Tests
             sys.Update();
         }
 
+        [Test]
+        public void WithAny_NormalAndDisabled_Works()
+        {
+            // ECSB-809 regression test:
+            // a query with WithAny<NormalComponent,EnabledComponent>() should match an entity with both components,
+            // even if the enabled component is disabled.
+            using var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAny<EcsTestData, EcsTestDataEnableable>()
+                .Build(m_Manager);
+            var e = m_Manager.CreateEntity(typeof(EcsTestData), typeof(EcsTestDataEnableable));
+            m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e, false);
+            using var matchingEntities = query.ToEntityArray(Allocator.TempJob);
+            CollectionAssert.AreEqual(new[] { e }, matchingEntities.ToArray());
+        }
+
         struct JobWithQuery : IJob
         {
             [NativeDisableUnsafePtrRestriction] // Suppresses the usual "no pointers in jobs" safety error

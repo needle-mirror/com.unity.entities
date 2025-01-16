@@ -1008,20 +1008,29 @@ namespace Unity.Entities
                 }
             }
 
-            var enableableAnyCount = 0;
-            typeComponentIndex = 0;
-            for (var i = 0; i < archetypeQuery.AnyCount; ++i)
+            // If the archetype contains any of the required non-enableable Any types, then we know every entity in this
+            // archetype definitely meets this query's Any constraint; we don't need to perform any per-entity checks
+            // on any enableable components in the Any list. We've already set the MatchingArchetype's Any count to zero in this
+            // case, but we also need to skip storing these types into the EnableableTypeMemoryOrderInArchetype_Any array.
+            if (match->EnableableComponentsCount_Any > 0)
             {
-                var typeIndex = archetypeQuery.Any[i];
-                if (TypeManager.IsEnableable(typeIndex))
+                var enableableAnyCount = 0;
+                typeComponentIndex = 0;
+                for (var i = 0; i < archetypeQuery.AnyCount; ++i)
                 {
-                    var currentTypeComponentIndex = ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
-                    // The archetype might not contain *all* the Any types (by definition; this is the whole point of Any).
-                    // Skip storing the missing types.
-                    if (currentTypeComponentIndex != -1)
+                    var typeIndex = archetypeQuery.Any[i];
+                    if (TypeManager.IsEnableable(typeIndex))
                     {
-                        match->EnableableTypeMemoryOrderInArchetype_Any[enableableAnyCount++] = archetype->TypeIndexInArchetypeToMemoryOrderIndex[currentTypeComponentIndex];
-                        typeComponentIndex = currentTypeComponentIndex;
+                        var currentTypeComponentIndex =
+                            ChunkDataUtility.GetNextIndexInTypeArray(archetype, typeIndex, typeComponentIndex);
+                        // The archetype might not contain *all* the Any types (by definition; this is the whole point of Any).
+                        // Skip storing the missing types.
+                        if (currentTypeComponentIndex != -1)
+                        {
+                            match->EnableableTypeMemoryOrderInArchetype_Any[enableableAnyCount++] =
+                                archetype->TypeIndexInArchetypeToMemoryOrderIndex[currentTypeComponentIndex];
+                            typeComponentIndex = currentTypeComponentIndex;
+                        }
                     }
                 }
             }
@@ -1305,9 +1314,41 @@ namespace Unity.Entities
         public static MatchingArchetype* Create(ref BlockAllocator allocator, Archetype* archetype, in ArchetypeQuery archetypeQuery,
             int queryRequiredComponentCount)
         {
+            // If the archetype matches any of the non-enableable Any types in this archetypeQuery, we don't need to do
+            // any per-entity checks on the enableable Any types. Force the count to zero in this case.
+            //
+            // This is not just an optimization; it's necessary for correctness. Otherwise, an entity with components
+            // T1 (non-enableable) and T2 (enableable) would fail to match a query with WithAny<T1,T2> if T2 is disabled.
+            // (This was a bug for the first several versions of Entities 1.x -- see ECSB-809).
+            //
+            // Both Archetype.Types[] and ArchetypeQuery.Any[] are assumed to be sorted by TypeIndex, so we can
+            // implement this as a single loop instead of N^2.
+            bool archetypeMatchesNonEnableableAnyTypes = false;
+            int iA = 0, iAQ = 0;
+            while (iA < archetype->TypesCount && iAQ < archetypeQuery.AnyCount)
+            {
+                TypeIndex typeAQ = archetypeQuery.Any[iAQ];
+                if (typeAQ.IsEnableable)
+                {
+                    iAQ++;
+                    continue;
+                }
+                TypeIndex typeA = archetype->Types[iA].TypeIndex;
+                if (typeAQ < typeA)
+                    iAQ++;
+                else if (typeA < typeAQ)
+                    iA++;
+                else // non-enableable typeA == typeAQ
+                {
+                    archetypeMatchesNonEnableableAnyTypes = true;
+                    break;
+                }
+            }
+
             var enableableAllCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, archetypeQuery.All, archetypeQuery.AllCount);
             var enableableNoneCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, archetypeQuery.None, archetypeQuery.NoneCount);
-            var enableableAnyCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, archetypeQuery.Any, archetypeQuery.AnyCount);
+            var enableableAnyCount = archetypeMatchesNonEnableableAnyTypes
+                ? 0 : CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, archetypeQuery.Any, archetypeQuery.AnyCount);
             var enableableDisabledCount = CalculateMatchingArchetypeEnableableTypeIntersectionCount(archetype, archetypeQuery.Disabled, archetypeQuery.DisabledCount);
             var totalEnableableTypeCount = enableableAllCount + enableableNoneCount + enableableAnyCount + enableableDisabledCount;
             var match = (MatchingArchetype*)allocator.Allocate(GetAllocationSize(queryRequiredComponentCount, totalEnableableTypeCount), 8);
@@ -1393,6 +1434,7 @@ namespace Unity.Entities
     [GenerateTestsForBurstCompatibility]
     unsafe struct ArchetypeQuery : IEquatable<ArchetypeQuery>
     {
+        // The TypeIndex arrays in this struct are sorted by TypeIndex inside CreateArchetypeQueries().
         public TypeIndex*   Any;
         public byte*        AnyAccessMode;
         public int          AnyCount;

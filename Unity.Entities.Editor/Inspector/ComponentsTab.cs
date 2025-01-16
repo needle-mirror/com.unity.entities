@@ -93,9 +93,9 @@ namespace Unity.Entities.Editor
                     if (property is IComponentProperty componentProperty)
                     {
                         if (componentProperty.Type == ComponentPropertyType.Tag)
-                            m_CurrentComponentStructure.Tags.Add(componentProperty.Name);
+                            m_CurrentComponentStructure.Tags.Add(componentProperty);
                         else
-                            m_CurrentComponentStructure.Components.Add(componentProperty.Name);
+                            m_CurrentComponentStructure.Components.Add(componentProperty);
                     }
                 }
 
@@ -104,15 +104,15 @@ namespace Unity.Entities.Editor
                 if (m_LastComponentStructure == null)
                 {
                     m_LastComponentStructure = new EntityInspectorComponentStructure();
-                    foreach (var path in m_CurrentComponentStructure.Tags)
+                    foreach (var p in m_CurrentComponentStructure.Tags)
                     {
-                        PropertyContainer.Accept(m_InspectorBuilderVisitor, ref container, new PropertyPath(path));
+                        PropertyContainer.Accept(m_InspectorBuilderVisitor, ref container, new PropertyPath(p.Name));
                         m_TagsRoot.Add(m_InspectorBuilderVisitor.Result);
                     }
 
-                    foreach (var path in m_CurrentComponentStructure.Components)
+                    foreach (var p in m_CurrentComponentStructure.Components)
                     {
-                        PropertyContainer.Accept(m_InspectorBuilderVisitor, ref container, new PropertyPath(path));
+                        PropertyContainer.Accept(m_InspectorBuilderVisitor, ref container, new PropertyPath(p.Name));
                         m_ComponentsRoot.Add(m_InspectorBuilderVisitor.Result);
                     }
                 }
@@ -137,7 +137,7 @@ namespace Unity.Entities.Editor
                 {
                     InspectorUtility.Synchronize(m_LastComponentStructure.Tags,
                         m_CurrentComponentStructure.Tags,
-                                StringComparer.OrdinalIgnoreCase,
+                                EntityInspectorComponentsComparer.Instance,
                                 m_TagsRoot,
                                 Factory);
                 }
@@ -152,9 +152,9 @@ namespace Unity.Entities.Editor
                                 Factory);
                 }
 
-                VisualElement Factory(string path)
+                VisualElement Factory(IComponentProperty property)
                 {
-                    PropertyContainer.Accept(m_InspectorBuilderVisitor, ref container, new PropertyPath(path));
+                    PropertyContainer.Accept(m_InspectorBuilderVisitor, ref container, new PropertyPath(property.Name));
                     return m_InspectorBuilderVisitor.Result;
                 }
             }

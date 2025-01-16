@@ -17,6 +17,7 @@
         "Mono.Cecil.dll",
         "Mono.Cecil.Rocks.dll",
         "Mono.Cecil.Pdb.dll",
+	"Unity.Cecil.Awesome.dll",
         "Unity.IL2CPP",
         "Unity.IL2CPP.Common"
     ],

@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Linq;
 
@@ -9,8 +9,8 @@ namespace Unity.Entities.Editor
     /// </summary>
     class EntityInspectorComponentStructure
     {
-        public readonly List<string> Components = new List<string>();
-        public readonly List<string> Tags = new List<string>();
+        public readonly List<IComponentProperty> Components = new List<IComponentProperty>();
+        public readonly List<IComponentProperty> Tags = new List<IComponentProperty>();
 
         public void Reset()
         {
@@ -20,7 +20,7 @@ namespace Unity.Entities.Editor
 
         public void Sort()
         {
-            Tags.Sort(StringComparer.OrdinalIgnoreCase);
+            Tags.Sort(EntityInspectorComponentsComparer.Instance);
             Components.Sort(EntityInspectorComponentsComparer.Instance);
         }
 

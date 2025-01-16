@@ -103,7 +103,7 @@ namespace Unity.Entities.UI
         /// <typeparam name="T">The type of the target.</typeparam>
         public void SetTarget<T>(T target)
         {
-            if (TryGetTarget(out T current) && EqualityComparer<T>.Default.Equals(target, current))
+            if (TryGetTarget(out T current) && TryEquals(target, current, out var equals) && equals)
             {
                 // Nothing to do..
                 return;
@@ -114,7 +114,7 @@ namespace Unity.Entities.UI
                 var declaredType = typeof(T);
 
                 var targetType = declaredType;
-                if (typeof(T).IsClass && EqualityComparer<T>.Default.Equals(target, default))
+                if (typeof(T).IsClass && TryEquals(target, default, out equals) && equals)
                 {
                     targetType = target.GetType();
                 }
@@ -128,7 +128,7 @@ namespace Unity.Entities.UI
 
             m_BindingTarget?.Release();
 
-            if (TypeTraits<T>.CanBeNull && EqualityComparer<T>.Default.Equals(target, default))
+            if (TypeTraits<T>.CanBeNull && TryEquals(target, default, out equals) && equals)
             {
                 m_BindingTarget = null;
                 return;
@@ -137,6 +137,22 @@ namespace Unity.Entities.UI
             m_BindingTarget = new BindingTarget<T>(this, target);
             name = TypeUtility.GetTypeDisplayName(target.GetType());
             m_BindingTarget.GenerateHierarchy();
+
+            static bool TryEquals(T x, T y, out bool equals)
+            {
+                try
+                {
+                    equals = EqualityComparer<T>.Default.Equals(x, y);
+                    return true;
+                }
+                catch (NullReferenceException) 
+                {
+                    // NullReferenceException can happen when comparing disposed native structures like NativeReference
+                    // This makes sure we don't throw in this case and considere X and Y equals.
+                    equals = false;
+                    return false;
+                }
+            }
         }
 
         /// <summary>

@@ -1,4 +1,4 @@
-# Entities windows
+# Entities windows reference
 
 The Editor contains several windows that you can use to inspect the ECS data in your project. To access these windows open the **Window** menu and select **Entities**.
 

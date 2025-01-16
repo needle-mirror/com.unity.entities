@@ -234,7 +234,10 @@ namespace Unity.Entities.Tests.SystemAPIQueryBuilderCodeGen
             var array = new NativeArray<ComponentType>(archetypeQuery.AllCount, Allocator.Temp);
             for (int i = 0; i != array.Length; i++)
                 array[i] = archetypeQuery.GetComponentTypeAllAt(i);
-            NativeSortExtension.Sort((ComponentType*)array.GetUnsafePtr(), array.Length);
+            // The ArchetypeQuery.All array should already be sorted. But, let's confirm that!
+            // NativeSortExtension.Sort((ComponentType*)array.GetUnsafePtr(), array.Length);
+            for (int i = 1; i < array.Length; ++i)
+                Assert.Less(array[i - 1].TypeIndex, array[i].TypeIndex, "ArchetypeQuery.All[] array must be sorted by TypeIndex!");
             return array;
         }
         public static unsafe ComponentType GetComponentTypeAllAt(this ArchetypeQuery archetypeQuery, int index)

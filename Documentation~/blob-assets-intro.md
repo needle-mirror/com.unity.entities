@@ -1,6 +1,6 @@
-# Blob assets
+# Store immutable data with blob assets
 
-This section contains information about what blob assets are, how to create them and how to use them in Baking.
+This section contains information about using blob assets to store immutable data.
 
 |**Topic**|**Description**|
 |---|---|

@@ -7,6 +7,7 @@ using Unity.Assertions;
 using Unity.Burst;
 using Unity.Collections;
 using Unity.Burst.Intrinsics;
+using Unity.Entities.Serialization;
 
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<int>))]
 [assembly: RegisterGenericComponentType(typeof(EcsTestGeneric<float>))]
@@ -556,6 +557,19 @@ namespace Unity.Entities.Tests
         public BlobAssetReference<int> value;
         public BlobAssetReference<int> value2;
     }
+
+    internal struct EcsTestDataWeakAssetRef2 : IComponentData
+    {
+        public EntityPrefabReference value;
+        public EntityPrefabReference value2;
+    }
+
+    internal struct EcsTestDataUnityObjectRef2 : IComponentData
+    {
+        public UnityObjectRef<UnityEngine.MonoBehaviour> value;
+        public UnityObjectRef<UnityEngine.MonoBehaviour> value2;
+    }
+
 
     internal struct EcsTestDataBlobAssetArray : IComponentData
     {

@@ -421,6 +421,11 @@ namespace Unity.Entities
         }
     }
 
+    public unsafe struct WorldUnmanaged
+    {
+        public ref TimeData Time => throw new Exception();
+    }
+
     public struct SystemState
     {
         public EntityQuery GetEntityQuery(ComponentType a) => default;
@@ -432,6 +437,8 @@ namespace Unity.Entities
             where T : struct, IComponentData => default;
         public BufferLookup<T> GetBufferLookup<T>(bool isReadOnly = false) where T : unmanaged, IBufferElementData =>
             default;
+
+        public WorldUnmanaged WorldUnmanaged => default;
         public void CompleteDependency(){}
         public EntityTypeHandle GetEntityTypeHandle() => default;
         public EntityManager EntityManager => default;

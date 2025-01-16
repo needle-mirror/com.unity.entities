@@ -1,24 +1,24 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.3.8",
+  "version": "1.3.9",
   "unity": "2022.3",
   "unityRelease": "11f1",
   "dependencies": {
     "com.unity.burst": "1.8.18",
-    "com.unity.serialization": "3.1.1",
-    "com.unity.collections": "2.5.1",
+    "com.unity.collections": "2.5.2",
     "com.unity.mathematics": "1.3.2",
+    "com.unity.nuget.mono-cecil": "1.11.4",
+    "com.unity.profiling.core": "1.0.2",
+    "com.unity.scriptablebuildpipeline": "1.21.21",
+    "com.unity.serialization": "3.1.1",
+    "com.unity.test-framework.performance": "3.0.3",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
-    "com.unity.modules.unityanalytics": "1.0.0",
-    "com.unity.modules.unitywebrequest": "1.0.0",
-    "com.unity.test-framework.performance": "3.0.3",
-    "com.unity.nuget.mono-cecil": "1.11.4",
-    "com.unity.scriptablebuildpipeline": "1.21.21",
-    "com.unity.profiling.core": "1.0.2",
     "com.unity.modules.physics": "1.0.0",
-    "com.unity.modules.uielements": "1.0.0"
+    "com.unity.modules.uielements": "1.0.0",
+    "com.unity.modules.unityanalytics": "1.0.0",
+    "com.unity.modules.unitywebrequest": "1.0.0"
   },
   "description": "The Entities package provides a modern Entity Component System (ECS) implementation with a basic set of systems and components made for Unity.",
   "keywords": [
@@ -27,15 +27,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Removed\n\n* removing various material assets within entities (Test.mat and TestMaterial.mat).\n\n### Fixed\n\n* Disable \"new empty subscene\" menu item on default untitled scene.\n* Fix invalid queries generated for `IJobEntity` with `[WithPresent(typeof(T))]` and `EnabledRef<T>` and/or `in T` in the same job."
+    "changelog": "### Added\n\n* Enabled content downloads from the Editor while in Playmode.\n\n### Fixed\n\n* Entities Hierarchy shows content for _Dont Destroy On Load_ scene in playmode.\n* Prefab reference disappears after instantiating the prefab in runtime and rebaking.\n* Entity inspector now differentiate editors for component types when type names are the same but namespaces are different.\n* compile error when using 'unsafe' in one partial system (that's generated) but not another\n* compile error when having mismatched using statements in one partial system that's different than another\n* Fixed an error where an `EntityQuery` whose `WithAny` list contained a mix of enableable and disableable components would fail to match entities with at least one of the non-enableable components, if all of its enableable Any components were disabled. As a side effect, queries with `WithAny` constraints should now have slightly faster matching.\n* For empty scene sections, `SceneSectionData.BoundingVolume` will no longer contain NaN values, and the `BoundingVolume.IsValid` property will return `true` as expected. Note that converting this field to an `AABB` will still result in NaN values; for now, this case will need special-case handling in user code.\n* Massively reduced reflection on startup in player builds by moving work to an ILPostProcessor.\n* Unit test Instability (memory corruption) caused by dynamically registering new types with the TypeManager.\n\n### Security"
   },
   "upmCi": {
-    "footprint": "625b7430bb260dfcd202a110b278aaabe4689c15"
+    "footprint": "a0aef86923a4c76829b77a0b18e00ee99c6af97c"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.3/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "3ea543f9dd8be902be20c6f04e900cb913436f36"
+    "revision": "05bb8b738d908a2d757d25ca253ed16f35bdc78d"
   }
 }

@@ -1,26 +1,144 @@
-#if UNITY_DOTSRUNTIME
+#if !DISABLE_TYPEMANAGER_ILPP
+
 using Mono.Cecil;
 using Mono.Cecil.Cil;
 using Mono.Cecil.Rocks;
 using System;
 using System.Collections.Generic;
 using System.Linq;
-using static Unity.Entities.CodeGen.ILHelper;
-using static Unity.Entities.TypeManager;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using TypeGenInfoList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.TypeGenInfo>;
-using SystemList = System.Collections.Generic.List<Mono.Cecil.TypeDefinition>;
 using Unity.Cecil.Awesome;
-using static Unity.Entities.CodeGen.TypeReferenceExtensions;
-using Unity.Collections.LowLevel.Unsafe;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
-using TypeInfo = Unity.Entities.TypeManager.TypeInfo;
+using Unity.Entities.BuildUtils;
+using static Unity.Entities.BuildUtils.MonoExtensions;
+using System.Reflection;
+using System.Diagnostics;
+using System.Runtime.CompilerServices;
+using TypeReferenceEqualityComparer = Unity.Cecil.Awesome.Comparers.TypeReferenceEqualityComparer;
+using static Unity.Entities.CodeGen.TypeUtils;
+using static Unity.Entities.CodeGen.EntitiesILPostProcessors;
+using static Unity.Entities.TypeManager;
 
 namespace Unity.Entities.CodeGen
 {
     internal partial class StaticTypeRegistryPostProcessor : EntitiesILPostProcessor
     {
+        public enum HasRefResult
+        {
+            NoRef = 0,
+            MayHaveRef = 1,
+            HasRef = 2
+        }
+
+	//These are automatically filled in from the actual values in the engine
+        public static int MaximumTypesCount;
+        public static int HasNoEntityReferencesFlag; // this flag is inverted to ensure the type id of Entity can still be 1
+        public static int IsNotChunkSerializableTypeFlag;
+        public static int HasNativeContainerFlag;
+        public static int BakingOnlyTypeFlag;
+        public static int TemporaryBakingTypeFlag;
+        public static int IRefCountedComponentFlag;
+        public static int IEquatableTypeFlag;
+        public static int EnableableComponentFlag;
+        public static int CleanupComponentTypeFlag;
+        public static int BufferComponentTypeFlag;
+        public static int SharedComponentTypeFlag;
+        public static int ManagedComponentTypeFlag;
+        public static int ChunkComponentTypeFlag;
+        public static int ZeroSizeInChunkTypeFlag;
+        public static int CleanupSharedComponentTypeFlag;
+        public static int CleanupBufferComponentTypeFlag;
+        public static int ManagedSharedComponentTypeFlag;
+
+        public static int ClearFlagsMask;
+
+        public static int MaximumChunkCapacity;
+        public static int MaximumSupportedAlignment;
+        public static int DefaultBufferCapacityNumerator;
+        /* This must be kept in sync with TypeManager.TypeInfo in the engine,
+	 * but we have a check enforcing that
+	 */
+        public readonly struct TypeInfo
+        {
+            public TypeInfo(
+                int typeIndex,
+                TypeCategory category,
+                int entityOffsetCount,
+                int entityOffsetStartIndex,
+                ulong memoryOrdering,
+                ulong stableTypeHash,
+                int bufferCapacity,
+                int sizeInChunk,
+                int elementSize,
+                int alignmentInBytes,
+                int maximumChunkCapacity,
+                int writeGroupCount,
+                int writeGroupStartIndex,
+                bool hasBlobRefs,
+                bool hasUnityObjRefs,
+                int blobAssetRefOffsetCount,
+                int blobAssetRefOffsetStartIndex,
+                int weakAssetRefOffsetCount,
+                int weakAssetRefOffsetStartIndex,
+                int unityObjectRefOffsetCount,
+                int unityObjectRefOffsetStartIndex,
+                int typeSize,
+                ulong bloomFilterMask = 0L)
+            {
+                TypeIndex = typeIndex;
+                Category = category;
+                EntityOffsetCount = entityOffsetCount;
+                EntityOffsetStartIndex = entityOffsetStartIndex;
+                MemoryOrdering = memoryOrdering;
+                StableTypeHash = stableTypeHash;
+                BloomFilterMask = bloomFilterMask;
+                BufferCapacity = bufferCapacity;
+                SizeInChunk = sizeInChunk;
+                ElementSize = elementSize;
+                AlignmentInBytes = alignmentInBytes;
+                MaximumChunkCapacity = maximumChunkCapacity;
+                WriteGroupCount = writeGroupCount;
+                WriteGroupStartIndex = writeGroupStartIndex;
+                _HasBlobAssetRefs = hasBlobRefs ? 1 : 0;
+                _HasUnityObjectRefs = hasUnityObjRefs ? 1 : 0;
+                BlobAssetRefOffsetCount = blobAssetRefOffsetCount;
+                BlobAssetRefOffsetStartIndex = blobAssetRefOffsetStartIndex;
+                WeakAssetRefOffsetCount = weakAssetRefOffsetCount;
+                WeakAssetRefOffsetStartIndex = weakAssetRefOffsetStartIndex;
+                UnityObjectRefOffsetCount = unityObjectRefOffsetCount;
+                UnityObjectRefOffsetStartIndex = unityObjectRefOffsetStartIndex;
+                TypeSize = typeSize;
+            }
+            public readonly int TypeIndex;
+            public readonly int SizeInChunk;
+            public readonly int ElementSize;
+            public readonly int BufferCapacity;
+            public readonly ulong MemoryOrdering;
+            public readonly ulong StableTypeHash;
+            public readonly ulong BloomFilterMask;
+            public readonly int AlignmentInBytes;
+            public readonly TypeCategory Category;
+            public readonly int EntityOffsetCount;
+
+            internal readonly int EntityOffsetStartIndex;
+            private readonly int _HasBlobAssetRefs;
+            private readonly int _HasUnityObjectRefs;
+
+            public readonly int BlobAssetRefOffsetCount;
+            internal readonly int BlobAssetRefOffsetStartIndex;
+            public readonly int WeakAssetRefOffsetCount;
+            internal readonly int WeakAssetRefOffsetStartIndex;
+
+            public readonly int UnityObjectRefOffsetCount;
+            internal readonly int UnityObjectRefOffsetStartIndex;
+            public readonly int WriteGroupCount;
+            internal readonly int WriteGroupStartIndex;
+            public readonly int MaximumChunkCapacity;
+            public readonly int TypeSize;
+        }
+
         internal struct TypeGenInfo
         {
             public TypeReference TypeReference;
@@ -31,10 +149,10 @@ namespace Unity.Entities.CodeGen
             public int BlobAssetRefOffsetIndex;
             public List<int> WeakAssetRefOffsets;
             public int WeakAssetRefOffsetIndex;
+            public List<int> UnityObjectRefOffsets;
+            public int UnityObjectRefOffsetIndex;
             public HashSet<TypeReference> WriteGroupTypes;
             public int WriteGroupsIndex;
-            public int FieldInfoCount;
-            public int FieldInfoIndex;
             public int TypeIndex;
             public bool IsManaged;
             public TypeUtils.AlignAndSize AlignAndSize;
@@ -46,13 +164,16 @@ namespace Unity.Entities.CodeGen
             public ulong StableHash;
             public ulong MemoryOrdering;
             public bool MightHaveEntityReferences;
+            public bool MightHaveWeakAssetReferences;
             public bool MightHaveBlobAssetReferences;
+            internal bool MightHaveUnityObjectReferences;
         }
 
         int m_TotalTypeCount;
         int m_TotalEntityOffsetCount;
         int m_TotalBlobAssetRefOffsetCount;
         int m_TotalWeakAssetRefOffsetCount;
+        int m_TotalUnityObjectRefOffsetCount;
         int m_TotalWriteGroupCount;
 
         internal FieldReference GenerateConstantData(TypeDefinition constantStorageTypeDef, byte[] data)
@@ -60,7 +181,11 @@ namespace Unity.Entities.CodeGen
             const string kConstantDataFieldNamePrefix = "ConstantData";
             int constantDataCount = constantStorageTypeDef.NestedTypes.Count(t => t.Name.StartsWith(kConstantDataFieldNamePrefix, StringComparison.Ordinal));
 
-            var constantDataTypeDef = new TypeDefinition(constantStorageTypeDef.Namespace, $"{kConstantDataFieldNamePrefix}{constantDataCount}", TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.Sealed | TypeAttributes.AnsiClass, AssemblyDefinition.MainModule.ImportReference(typeof(ValueType)));
+            var constantDataTypeDef = new TypeDefinition(
+                constantStorageTypeDef.Namespace,
+                $"{kConstantDataFieldNamePrefix}{constantDataCount}",
+                TypeAttributes.Class | TypeAttributes.NestedPublic | TypeAttributes.Sealed | TypeAttributes.AnsiClass,
+                AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_ValueTypeDef));
             constantStorageTypeDef.NestedTypes.Add(constantDataTypeDef);
             constantDataTypeDef.IsExplicitLayout = true;
             constantDataTypeDef.PackingSize = 1;
@@ -79,7 +204,7 @@ namespace Unity.Entities.CodeGen
         /// </summary>
         internal void GenerateBlobAssetReferenceArray(ILProcessor il, in TypeGenInfoList typeGenInfoList, FieldReference fieldRef, bool isStaticField)
         {
-            var intRef = AssemblyDefinition.MainModule.ImportReference(typeof(int));
+            var intRef = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def);
             PushNewArray(il, intRef, m_TotalBlobAssetRefOffsetCount);
 
             int blobOffsetIndex = 0;
@@ -102,7 +227,7 @@ namespace Unity.Entities.CodeGen
         /// </summary>
         internal void GenerateEntityOffsetInfoArray(ILProcessor il, in TypeGenInfoList typeGenInfoList, FieldReference fieldRef, bool isStaticField)
         {
-            PushNewArray(il, AssemblyDefinition.MainModule.ImportReference(typeof(int)), m_TotalEntityOffsetCount);
+            PushNewArray(il, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def), m_TotalEntityOffsetCount);
 
             int entityOffsetIndex = 0;
             foreach (var typeGenInfo in typeGenInfoList)
@@ -111,7 +236,7 @@ namespace Unity.Entities.CodeGen
                 {
                     PushNewArrayElement(il, entityOffsetIndex++);
                     EmitLoadConstant(il, offset);
-                    il.Emit(OpCodes.Stelem_Any, AssemblyDefinition.MainModule.ImportReference(typeof(int)));
+                    il.Emit(OpCodes.Stelem_Any, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def));
                 }
             }
 
@@ -123,7 +248,7 @@ namespace Unity.Entities.CodeGen
         /// </summary>
         internal void GenerateTypeArray(ILProcessor il, List<TypeReference> typeReferences, FieldReference fieldRef, bool isStaticField)
         {
-            PushNewArray(il, m_SystemTypeRef, typeReferences.Count);
+            PushNewArray(il, AssemblyDefinition.MainModule.ImportReference(typeof(Type)), typeReferences.Count);
 
             for (int typeIndex = 0; typeIndex < typeReferences.Count; ++typeIndex)
             {
@@ -144,12 +269,12 @@ namespace Unity.Entities.CodeGen
         /// </summary>
         internal void GenerateSystemTypeSizeArray(ILProcessor il, List<TypeReference> typeReferences, FieldReference fieldRef, bool isStaticField, int archbits)
         {
-            PushNewArray(il, m_SystemIntRef, typeReferences.Count);
+            PushNewArray(il, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def), typeReferences.Count);
 
             for (int typeIndex = 0; typeIndex < typeReferences.Count; ++typeIndex)
             {
                 TypeReference typeRef = EnsureImported(typeReferences[typeIndex]);
-                var size = TypeUtils.AlignAndSizeOfType(typeRef, archbits).size;
+                var size = TypeUtilsInstance.AlignAndSizeOfType(typeRef, archbits).size;
 
                 PushNewArrayElement(il, typeIndex);
                 il.Emit(OpCodes.Ldc_I4, size); // Push our size onto the stack
@@ -164,14 +289,14 @@ namespace Unity.Entities.CodeGen
         /// </summary>
         internal void GenerateSystemTypeHashArray(ILProcessor il, List<TypeReference> typeReferences, FieldReference fieldRef, bool isStaticField)
         {
-            PushNewArray(il, m_SystemLongRef, typeReferences.Count);
+            PushNewArray(il, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int64Def), typeReferences.Count);
 
             for (int typeIndex = 0; typeIndex < typeReferences.Count; ++typeIndex)
             {
                 TypeReference typeRef = EnsureImported(typeReferences[typeIndex]);
 
                 PushNewArrayElement(il, typeIndex);
-                il.Emit(OpCodes.Call, m_BurstRuntimeGetHashCode64Ref.MakeGenericInstanceMethod(typeRef)); // Call BurstRuntime.GetHashCode64 with the above stack arg. Return value pushed on the stack
+                il.Emit(OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._BurstRuntime_GetHashCode64Def.MakeGenericInstanceMethod(typeRef))); // Call BurstRuntime.GetHashCode64 with the above stack arg. Return value pushed on the stack
                 il.Emit(OpCodes.Stelem_I8);
             }
 
@@ -185,7 +310,7 @@ namespace Unity.Entities.CodeGen
         /// </summary>
         internal void GenerateWriteGroupArray(ILProcessor il, TypeGenInfoList typeGenInfoList, FieldReference fieldRef, bool isStaticField)
         {
-            PushNewArray(il, m_SystemTypeRef, m_TotalWriteGroupCount);
+            PushNewArray(il, AssemblyDefinition.MainModule.ImportReference(typeof(Type)), m_TotalWriteGroupCount);
 
             int writeGroupIndex = 0;
             foreach (var typeGenInfo in typeGenInfoList)
@@ -232,11 +357,15 @@ namespace Unity.Entities.CodeGen
                         typeGenInfo.WriteGroupTypes.Count,
                         typeGenInfo.WriteGroupsIndex,
                         typeGenInfo.MightHaveBlobAssetReferences,
+                        typeGenInfo.MightHaveUnityObjectReferences,
                         typeGenInfo.BlobAssetRefOffsets.Count,
                         typeGenInfo.BlobAssetRefOffsetIndex,
-                        0,
-                        0,
-                        typeGenInfo.AlignAndSize.size
+                        typeGenInfo.WeakAssetRefOffsets.Count,
+                        typeGenInfo.WeakAssetRefOffsetIndex,
+                        typeGenInfo.UnityObjectRefOffsets.Count,
+                        typeGenInfo.UnityObjectRefOffsetIndex,
+                        typeGenInfo.AlignAndSize.size,
+                        bloomFilterMask: 0L
                     );
                     *((TypeInfo*)pData + i) = typeInfo;
                 }
@@ -244,13 +373,26 @@ namespace Unity.Entities.CodeGen
 
             return blob;
         }
+        public static bool IsPowerOfTwo(int value)
+        {
+            return (value & (value - 1)) == 0;
+        }
+
+        internal static int CalculateAlignmentInChunk(int sizeOfTypeInBytes)
+        {
+            int alignmentInBytes = MaximumSupportedAlignment;
+            if (sizeOfTypeInBytes < alignmentInBytes && IsPowerOfTwo(sizeOfTypeInBytes))
+                alignmentInBytes = sizeOfTypeInBytes;
+
+            return alignmentInBytes;
+        }
 
         /// <summary>
         /// Populates the registry's TypeInfo array in typeIndex order.
         /// </summary>
         internal void GenerateTypeInfoArray(ILProcessor il, TypeGenInfoList typeGenInfoList, FieldReference fieldRef, bool isStaticField)
         {
-            PushNewArray(il, m_TypeInfoRef, typeGenInfoList.Count);
+            PushNewArray(il, runnerOfMe._TypeManager_TypeInfoDef, typeGenInfoList.Count);
 
             for (int i = 0; i < typeGenInfoList.Count; ++i)
             {
@@ -283,55 +425,7 @@ namespace Unity.Entities.CodeGen
 
                 il.Emit(OpCodes.Newobj, m_TypeInfoConstructorRef);
 
-                il.Emit(OpCodes.Stelem_Any, m_TypeInfoRef);
-            }
-
-            StoreTopOfStackToField(il, fieldRef, isStaticField);
-        }
-
-        internal void GenerateFieldInfoArray(ILProcessor il, List<FieldGenInfo> fieldInfoList, FieldReference fieldRef, bool isStaticField)
-        {
-            PushNewArray(il, m_FieldInfoRef, fieldInfoList.Count);
-
-            for (int i = 0; i < fieldInfoList.Count; ++i)
-            {
-                var fieldInfo = fieldInfoList[i];
-
-                PushNewArrayElement(il, i);
-
-                // Push constructor arguments on to the stack
-                EmitLoadConstant(il, fieldInfo.Offset);
-                EmitLoadConstant(il, fieldInfo.FieldTypeIndex);
-                EmitLoadConstant(il, fieldInfo.FieldNameIndex);
-
-                il.Emit(OpCodes.Newobj, m_FieldInfoConstructorRef);
-
-                il.Emit(OpCodes.Stelem_Any, m_FieldInfoRef);
-            }
-
-            StoreTopOfStackToField(il, fieldRef, isStaticField);
-        }
-
-        internal void GenerateFieldInfoLookupArray(ILProcessor il, FieldReference fieldRef, bool isStaticField)
-        {
-            PushNewArray(il, m_FieldInfoLookupRef, m_FieldTypes.Count);
-
-            int typeIndex = 0;
-            foreach (var fieldType in m_FieldTypes)
-            {
-                var lookup = m_FieldInfoMap[fieldType];
-
-                PushNewArrayElement(il, typeIndex);
-
-                // Push constructor arguments on to the stack
-                EmitLoadConstant(il, typeIndex);
-                EmitLoadConstant(il, lookup.Index);
-                EmitLoadConstant(il, lookup.Count);
-
-                il.Emit(OpCodes.Newobj, m_FieldInfoLookupConstructorRef);
-
-                il.Emit(OpCodes.Stelem_Any, m_FieldInfoLookupRef);
-                typeIndex++;
+                il.Emit(OpCodes.Stelem_Any, runnerOfMe._TypeManager_TypeInfoDef);
             }
 
             StoreTopOfStackToField(il, fieldRef, isStaticField);
@@ -342,18 +436,18 @@ namespace Unity.Entities.CodeGen
             var createComponentFn = new MethodDefinition(
                 "ConstructComponentFromBuffer",
                 MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig,
-                AssemblyDefinition.MainModule.ImportReference(typeof(object)));
+                AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_ObjectDef));
             GeneratedRegistryDef.Methods.Add(createComponentFn);
 
             var srcPtrArg =
                 new ParameterDefinition("buffer",
                     Mono.Cecil.ParameterAttributes.None,
-                    AssemblyDefinition.MainModule.ImportReference(typeof(void*)));
+                    AssemblyDefinition.MainModule.ImportReference(runnerOfMe._voidStarRef));
             createComponentFn.Parameters.Add(srcPtrArg);
 
             var typeIndexNoFlagsArg = new ParameterDefinition("typeIndexNoFlags",
                 Mono.Cecil.ParameterAttributes.None,
-                AssemblyDefinition.MainModule.ImportReference(typeof(int)));
+                AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def));
             createComponentFn.Parameters.Add(typeIndexNoFlagsArg);
 
             createComponentFn.Body.InitLocals = true;
@@ -384,7 +478,8 @@ namespace Unity.Entities.CodeGen
             il.InsertAfter(opBeforeSwitch, il.Create(OpCodes.Switch, listOfBranches.ToArray()));
 
             il.Append(defaultCaseOp);
-            var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(typeof(NotSupportedException)).Resolve().GetConstructors()
+
+            var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_NotSupportedExceptionDef).Resolve().GetConstructors()
                 .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
             il.Emit(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(notSupportedExConstructor));
             il.Emit(OpCodes.Throw);
@@ -395,25 +490,43 @@ namespace Unity.Entities.CodeGen
         {
             // Declares: static public bool Equals(object lhs, object rhs, int typeIndex)
             // This function is required to allow users to query for equality when a Generic <T> param isn't available but the 'int' typeIndex is
-            var boxedEqualsFn = new MethodDefinition("Equals", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig, AssemblyDefinition.MainModule.ImportReference(typeof(bool)));
-            boxedEqualsFn.Parameters.Add(new ParameterDefinition("lhs", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(typeof(object))));
-            boxedEqualsFn.Parameters.Add(new ParameterDefinition("rhs", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(typeof(object))));
-            boxedEqualsFn.Parameters.Add(new ParameterDefinition("typeIndex", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(typeof(int))));
+            var boxedEqualsFn = new MethodDefinition(
+                "Equals",
+                MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig,
+                AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_BoolDef));
+            boxedEqualsFn.Parameters.Add(new ParameterDefinition("lhs", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_ObjectDef)));
+            boxedEqualsFn.Parameters.Add(new ParameterDefinition("rhs", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_ObjectDef)));
+            boxedEqualsFn.Parameters.Add(new ParameterDefinition("typeIndex", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def)));
             GeneratedRegistryDef.Methods.Add(boxedEqualsFn);
 
             // Declares: static public bool Equals(object lhs, void* rhs, int typeIndex)
             // This function is required to allow users to query for equality when a Generic <T> param isn't available but the 'int' typeIndex is
-            var boxedEqualsPtrFn = new MethodDefinition("Equals", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig, AssemblyDefinition.MainModule.ImportReference(typeof(bool)));
-            boxedEqualsPtrFn.Parameters.Add(new ParameterDefinition("lhs", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(typeof(object))));
-            boxedEqualsPtrFn.Parameters.Add(new ParameterDefinition("rhs", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(typeof(void*))));
-            boxedEqualsPtrFn.Parameters.Add(new ParameterDefinition("typeIndex", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(typeof(int))));
+            var boxedEqualsPtrFn = new MethodDefinition(
+                "Equals",
+                MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig,
+                AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_BoolDef));
+            boxedEqualsPtrFn.Parameters.Add(new ParameterDefinition("lhs", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_ObjectDef)));
+            boxedEqualsPtrFn.Parameters.Add(
+                new ParameterDefinition(
+                    "rhs",
+                    Mono.Cecil.ParameterAttributes.None,
+                    AssemblyDefinition.MainModule.ImportReference(
+                        runnerOfMe._voidStarRef)));
+                        //AssemblyDefinition.MainModule.TypeSystem.Void.MakePointerType())));
+            boxedEqualsPtrFn.Parameters.Add(new ParameterDefinition(
+                "typeIndex",
+                Mono.Cecil.ParameterAttributes.None,
+                AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def)));
             GeneratedRegistryDef.Methods.Add(boxedEqualsPtrFn);
 
             // Declares: static public int GetHashCode(object val, int typeIndex)
             // This function is required to allow users to query for equality when a Generic <T> param isn't available but the 'int' typeIndex is
-            var boxedGetHashCodeFn = new MethodDefinition("BoxedGetHashCode", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig, AssemblyDefinition.MainModule.ImportReference(typeof(int)));
-            boxedGetHashCodeFn.Parameters.Add(new ParameterDefinition("val", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(typeof(object))));
-            boxedGetHashCodeFn.Parameters.Add(new ParameterDefinition("typeIndex", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(typeof(int))));
+            var boxedGetHashCodeFn = new MethodDefinition(
+                 "BoxedGetHashCode",
+                 MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig,
+                 AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def));
+            boxedGetHashCodeFn.Parameters.Add(new ParameterDefinition("val", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_ObjectDef)));
+            boxedGetHashCodeFn.Parameters.Add(new ParameterDefinition("typeIndex", Mono.Cecil.ParameterAttributes.None, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def)));
             GeneratedRegistryDef.Methods.Add(boxedGetHashCodeFn);
 
             // List of instructions in an array where index == typeIndex
@@ -442,7 +555,7 @@ namespace Unity.Entities.CodeGen
                             instructionList.Add(eqIL.Create(OpCodes.Ldarg_1));
                             instructionList.Add(eqIL.Create(OpCodes.Unbox, thisTypeRef));
                             instructionList.Add(eqIL.Create(OpCodes.Ldc_I8, (long)typeGenInfo.AlignAndSize.size));
-                            instructionList.Add(eqIL.Create(OpCodes.Call, m_MemCmpFnRef));
+                            instructionList.Add(eqIL.Create(OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._UnsafeUtility_MemCmpFnDef)));
                             instructionList.Add(eqIL.Create(OpCodes.Ldc_I4_0));
                             instructionList.Add(eqIL.Create(OpCodes.Ceq));
                         }
@@ -493,7 +606,7 @@ namespace Unity.Entities.CodeGen
                             instructionList.Add(eqIL.Create(OpCodes.Unbox, thisTypeRef));
                             instructionList.Add(eqIL.Create(OpCodes.Ldarg_1));
                             instructionList.Add(eqIL.Create(OpCodes.Ldc_I8, (long)typeGenInfo.AlignAndSize.size));
-                            instructionList.Add(eqIL.Create(OpCodes.Call, m_MemCmpFnRef));
+                            instructionList.Add(eqIL.Create(OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._UnsafeUtility_MemCmpFnDef)));
                             instructionList.Add(eqIL.Create(OpCodes.Ldc_I4_0));
                             instructionList.Add(eqIL.Create(OpCodes.Ceq));
                             instructionList.Add(eqIL.Create(OpCodes.Ret));
@@ -501,7 +614,7 @@ namespace Unity.Entities.CodeGen
                         else
                         {
                             instructionList.Add(eqIL.Create(OpCodes.Ldstr, "Equals(object, void*) is not supported for managed types in DOTSRuntime"));
-                            var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(typeof(NotSupportedException)).Resolve().GetConstructors()
+                            var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_NotSupportedExceptionDef).Resolve().GetConstructors()
                                 .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
                             instructionList.Add(eqIL.Create(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(notSupportedExConstructor)));
                             instructionList.Add(eqIL.Create(OpCodes.Throw));
@@ -523,7 +636,7 @@ namespace Unity.Entities.CodeGen
                             instructionList.Add(hashIL.Create(OpCodes.Unbox, thisTypeRef));
                             instructionList.Add(hashIL.Create(OpCodes.Ldc_I4, typeGenInfo.AlignAndSize.size));
                             instructionList.Add(hashIL.Create(OpCodes.Ldc_I4_0));
-                            instructionList.Add(hashIL.Create(OpCodes.Call, m_Hash32FnRef));
+                            instructionList.Add(hashIL.Create(OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._XXHash_Hash32Def)));
                         }
                         else
                         {
@@ -586,7 +699,7 @@ namespace Unity.Entities.CodeGen
 
                 // default case
                 eqIL.Append(defaultCaseOp);
-                var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(typeof(NotSupportedException)).Resolve().GetConstructors()
+                var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_NotSupportedExceptionDef).Resolve().GetConstructors()
                     .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
                 eqIL.Emit(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(notSupportedExConstructor));
                 eqIL.Emit(OpCodes.Throw);
@@ -623,7 +736,7 @@ namespace Unity.Entities.CodeGen
 
                 // default case
                 eqIL.Append(defaultCaseOp);
-                var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(typeof(NotSupportedException)).Resolve().GetConstructors()
+                var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_NotSupportedExceptionDef).Resolve().GetConstructors()
                     .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
                 eqIL.Emit(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(notSupportedExConstructor));
                 eqIL.Emit(OpCodes.Throw);
@@ -660,7 +773,7 @@ namespace Unity.Entities.CodeGen
 
                 // default case
                 hashIL.Append(defaultCaseOp);
-                var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(typeof(NotSupportedException)).Resolve().GetConstructors()
+                var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_NotSupportedExceptionDef).Resolve().GetConstructors()
                     .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
                 hashIL.Emit(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(notSupportedExConstructor));
                 hashIL.Emit(OpCodes.Throw);
@@ -678,12 +791,20 @@ namespace Unity.Entities.CodeGen
             return GetTypesEqualsMethodReference(typeRef.Resolve());
         }
 
-        private static MethodReference GetTypesEqualsMethodReference(TypeDefinition typeDef)
+        private static MethodDefinition GetTypesEqualsMethodReference(TypeDefinition typeDef)
         {
-            return typeDef.Methods.FirstOrDefault(
+            var candidate = typeDef.Methods.FirstOrDefault(
                 m => m.Name == "Equals"
                 && m.Parameters.Count == 1
                 && m.Parameters[0].ParameterType == typeDef);
+
+            if (candidate == null)
+            {
+                if (typeDef.BaseType != null)
+                    candidate = GetTypesEqualsMethodReference(typeDef.BaseType.Resolve());
+            }
+
+            return candidate;
         }
 
         private static MethodReference GetTypesGetHashCodeMethodReference(TypeReference typeRef)
@@ -716,7 +837,7 @@ namespace Unity.Entities.CodeGen
         internal MethodReference GenerateEqualsFunction(TypeDefinition registryDef, TypeGenInfo typeGenInfo)
         {
             var typeRef = AssemblyDefinition.MainModule.ImportReference(typeGenInfo.TypeReference);
-            var equalsFn = new MethodDefinition("DoEquals", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig, AssemblyDefinition.MainModule.ImportReference(typeof(bool)));
+            var equalsFn = new MethodDefinition("DoEquals", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_BoolDef));
             var arg0 = new ParameterDefinition("i0", Mono.Cecil.ParameterAttributes.None, typeRef.IsValueType() ? new ByReferenceType(typeRef) : typeRef);
             var arg1 = new ParameterDefinition("i1", Mono.Cecil.ParameterAttributes.None, typeRef.IsValueType() ? new ByReferenceType(typeRef) : typeRef);
             equalsFn.Parameters.Add(arg0);
@@ -762,7 +883,7 @@ namespace Unity.Entities.CodeGen
             il.Emit(OpCodes.Ldarg, arg0);
             il.Emit(OpCodes.Ldarg, arg1);
             il.Emit(OpCodes.Ldc_I8, (long)typeSize);
-            il.Emit(OpCodes.Call, m_MemCmpFnRef);
+            il.Emit(OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._UnsafeUtility_MemCmpFnDef));
             il.Emit(OpCodes.Ldc_I4_0);
             il.Emit(OpCodes.Ceq);
         }
@@ -773,7 +894,12 @@ namespace Unity.Entities.CodeGen
             const int FNV1a_32_OFFSET = unchecked((int)0x811C9DC5);
 
             var importedTypeRef = AssemblyDefinition.MainModule.ImportReference(typeRef);
-            var hashFn = new MethodDefinition("DoHash", MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig, AssemblyDefinition.MainModule.ImportReference(typeof(int)));
+            var hashFn = new MethodDefinition(
+                "DoHash",
+                MethodAttributes.Static
+                | MethodAttributes.Public
+                | MethodAttributes.HideBySig,
+                AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def));
             var arg0 = new ParameterDefinition("val", Mono.Cecil.ParameterAttributes.None, typeRef.IsValueType() ? new ByReferenceType(importedTypeRef) : importedTypeRef);
             hashFn.Parameters.Add(arg0);
             registryDef.Methods.Add(hashFn);
@@ -916,7 +1042,7 @@ namespace Unity.Entities.CodeGen
                             hashInstructions.AddRange(fieldLoadChain);
 
                             hashInstructions.Add(il.Create(OpCodes.Ldflda, AssemblyDefinition.MainModule.ImportReference(field)));
-                            hashInstructions.Add(il.Create(OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(m_SystemGuidHashFn)));
+                            hashInstructions.Add(il.Create(OpCodes.Call, AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Guid_GetHashCode)));
                             hashInstructions.Add(il.Create(OpCodes.Xor));
                         }
                         else
@@ -938,14 +1064,14 @@ namespace Unity.Entities.CodeGen
                 stableHash = 0;
                 return;
             }
+            var typeDef = typeRef.Resolve();
 
             stableHash = typeRef.CalculateStableTypeHash();
             memoryOrder = stableHash; // They are equivalent unless overridden below
 
-            var typeDef = typeRef.Resolve();
             if (typeDef.CustomAttributes.Count > 0)
             {
-                var forcedMemoryOrderAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == nameof(ForcedMemoryOrderingAttribute));
+                var forcedMemoryOrderAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == "ForcedMemoryOrderingAttribute");
                 if (forcedMemoryOrderAttribute != null)
                 {
                     memoryOrder = (ulong)forcedMemoryOrderAttribute.ConstructorArguments
@@ -968,7 +1094,8 @@ namespace Unity.Entities.CodeGen
             }
 
             var typeDef = type.Resolve();
-            if (typeDef.HasAttribute(typeof(NativeContainerAttribute).FullName))
+            //XXX LETS NOT COMPARE STRINGS AMONG FRIENDS
+            if (typeDef.HasAttribute(runnerOfMe._NativeContainerAttributeDef.FullName))
                 return true;
 
             // The incoming `type` should be a full generic instance.  This genericResolver
@@ -1008,7 +1135,7 @@ namespace Unity.Entities.CodeGen
                 return result;
 
             var typeDef = type.Resolve();
-            if (typeDef.HasAttribute(typeof(ChunkSerializableAttribute).FullName))
+            if (typeDef.HasAttribute("Unity.Entities.ChunkSerializableAttribute"))
             {
                 result = (true, true);
                 m_ChunkSerializableCache.Add(type, result);
@@ -1025,7 +1152,9 @@ namespace Unity.Entities.CodeGen
                 if (fieldType.IsGenericParameter)
                     continue;
 
-                if (fieldType.IsPointer || (fieldType == m_SystemIntPtrRef || fieldType == m_SystemUIntPtrRef))
+                if (fieldType.IsPointer
+                    || fieldType.Name == nameof(IntPtr)
+                    || fieldType.Name == nameof(UIntPtr))
                 {
                     m_ChunkSerializableCache.Add(type, result);
                     return result;
@@ -1065,145 +1194,285 @@ namespace Unity.Entities.CodeGen
             return isSerializable.isSerializable;
         }
 
-        internal unsafe TypeGenInfo CreateTypeGenInfo(TypeReference typeRef, TypeCategory typeCategory)
+        /*
+         * copied and translated from reflection from EntityRemapUtility.cs
+	     * 
+
+         */
+        public void HasEntityReferencesManaged(
+            TypeReference type,
+            out HasRefResult hasEntityReferences,
+            out HasRefResult hasBlobReferences,
+            out HasRefResult hasUnityObjReferences,
+            out HasRefResult hasWeakAssetReferences,
+            int maxDepth = 128)
         {
-            // We will be referencing this type in generated functions to make it's type internal if it's private
-            var typeDef = typeRef.Resolve();
-            typeDef.MakeTypeInternal();
-
-            TypeUtils.AlignAndSize alignAndSize = new TypeUtils.AlignAndSize();
-            List<int> entityOffsets = new List<int>();
-            List<int> blobAssetRefOffsets = new List<int>();
-            List<int> weakAssetRefOffsets = new List<int>();
-            bool mightHaveEntityRefs = false;
-            bool mightHaveBlobRefs = false;
-            bool hasNativeContainer = HasNativeContainer(typeRef);
-            var isIRefCounted = typeDef.Interfaces.Any(i => i.InterfaceType.Name.Contains("IRefCounted"));
-            var isIEquatable = typeDef.Interfaces.Any(i => i.InterfaceType.Name.Contains("IEquatable"));
-            bool isManaged = typeDef != null &&
-                             (typeRef.IsManagedType(
-                                  ref mightHaveEntityRefs,
-                                  ref mightHaveBlobRefs));
-
-            if (!isManaged)
+            hasEntityReferences = HasRefResult.NoRef;
+            hasBlobReferences = HasRefResult.NoRef;
+            hasUnityObjReferences = HasRefResult.NoRef;
+            hasWeakAssetReferences = HasRefResult.NoRef;
+            try
             {
-                entityOffsets = TypeUtils.GetEntityFieldOffsets(typeRef, ArchBits);
-                if (entityOffsets.Count > 0)
-                    mightHaveEntityRefs = true;
-                blobAssetRefOffsets = TypeUtils.GetFieldOffsetsOf("Unity.Entities.BlobAssetReferenceData", typeRef, ArchBits);
-                if (blobAssetRefOffsets.Count > 0)
-                    mightHaveBlobRefs = true;
-                weakAssetRefOffsets = TypeUtils.GetFieldOffsetsOf("Unity.Entities.Serialization.UntypedWeakReferenceId", typeRef, ArchBits);
-                alignAndSize = TypeUtils.AlignAndSizeOfType(typeRef, ArchBits);
+                ProcessEntityOrBlobReferencesRecursiveManaged(type, ref hasEntityReferences, ref hasBlobReferences, ref hasUnityObjReferences, ref hasWeakAssetReferences, 0, maxDepth);
             }
-            else if (isManaged && IsNetDots
-                // Todo: ISharedComponents are currently commonly managed as this was the only mechanism for storing managed
-                // data in ECS. Until Unmanaged Shared Component are available we allow managed shared components in NET_DOTS
-                // DOTSR-1865
-                && typeCategory != TypeCategory.ISharedComponentData)
+            catch (Exception e)
             {
-                throw new ArgumentException($"Found a managed component '{typeRef.FullName}'. Managed components are not supported when building for the Tiny configuration. Change the type to be a struct or build with the NetStandard 2.1 configuration.");
+                throw new InvalidOperationException($"While processing type {type}, caught exception {e}; this is always a bug in an ILPostProcessor. Please report with Help->Report a bug... or to the DOTS team directly. Thanks!");
+            }
+        }
+
+        /*
+         * copied and translated from reflection from EntityRemapUtility.cs
+         */
+        void ProcessEntityOrBlobReferencesRecursiveManaged(
+            TypeReference type,
+            ref HasRefResult hasEntityReferences,
+            ref HasRefResult hasBlobReferences,
+            ref HasRefResult hasUnityObjReferences,
+            ref HasRefResult hasWeakAssetReferences,
+            int depth,
+            int maxDepth = 10)
+        {
+            //we don't follow pointers for patching anyway, so don't follow them for looking for
+            //entity or blob references either
+            if (type.IsPointer)
+                return;
+
+            // Avoid deep / infinite recursion
+            if (depth > maxDepth)
+            {
+                hasEntityReferences = HasRefResult.MayHaveRef;
+                hasBlobReferences = HasRefResult.MayHaveRef;
+                hasUnityObjReferences = HasRefResult.MayHaveRef;
+                hasWeakAssetReferences = HasRefResult.MayHaveRef;
+                return;
             }
 
-            int typeIndex = m_TotalTypeCount++;
-            bool isCleanupBufferElement = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(ICleanupBufferElementData));
-            bool isCleanupSharedComponent = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(ICleanupSharedComponentData));
-            bool isCleanupComponent = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains(nameof(ICleanupComponentData)) || isCleanupSharedComponent || isCleanupBufferElement;
+            var typeDef = type.Resolve();
 
-            bool isEnableable = typeDef.Interfaces.Any(i => i.InterfaceType.Name.Contains(nameof(IEnableableComponent)));
+            var localHasEntityRefs = HasRefResult.NoRef;
+            var localHasBlobRefs = HasRefResult.NoRef;
+            var localHasUnityObjRefs = HasRefResult.NoRef;
+            var localHasWeakAssetRefs = HasRefResult.NoRef;
 
-            // if it's a managed component and it's not already obviously enableable, look for IEnableableComponent on
-            // its base classes.
-            if (isManaged && !isEnableable)
+            var fields = typeDef.Fields.Where(f=>!f.IsStatic);
+
+            var typeResolver = TypeResolver.For(type);
+
+            foreach (var f in fields)
             {
-                var mytype = typeDef.BaseType?.Resolve();
-                while (mytype != null)
+                var field = typeResolver.Resolve(f);
+                if (localHasEntityRefs > 0 && localHasBlobRefs > 0)
                 {
-                    if (mytype.Interfaces.Any(i => i.InterfaceType.Name.Contains(nameof(IEnableableComponent))))
+                    break;
+                }
+
+                //if we don't do this, if we're on a MyGenericThing<int> and we get to a field of type T,
+                //it won't figure out that the type here is actually int.
+                var fieldRef = typeResolver.Resolve(field.FieldType);
+                var fieldType = fieldRef.Resolve();
+
+
+                // Get underlying type for Array or List
+                if (fieldRef.IsArray)
+                {
+                    fieldRef = ((TypeSpecification)fieldRef).ElementType;
+                   
+                }
+                else if (fieldRef is GenericInstanceType ginst)
+                {
+                    fieldType = fieldRef.Resolve();
+                    if (TypeReferenceEqualityComparer.AreEqual(
+                        fieldType,
+                        AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Collections_Generic_List_T_Def)))
                     {
-                        isEnableable = true;
-                        break;
+                        fieldRef = ginst.GenericArguments[0];
                     }
-
-                    mytype = mytype.BaseType?.Resolve();
                 }
-            }
 
-            //check typeOverride attributes
-            if (typeDef.CustomAttributes.Count > 0)
-            {
-                var overrideAttribute = typeDef.CustomAttributes.FirstOrDefault(ca =>
-                    ca.Constructor.DeclaringType.Name == nameof(TypeOverridesAttribute));
+                fieldType = typeResolver.Resolve(fieldRef).Resolve();
 
-                var hasOverrideAttribute = overrideAttribute != null;
-
-                if (hasOverrideAttribute && (bool)overrideAttribute.ConstructorArguments[0].Value)
-                    mightHaveEntityRefs = false;
-                if (hasOverrideAttribute && (bool)overrideAttribute.ConstructorArguments[1].Value)
-                    mightHaveBlobRefs = false;
-            }
-
-            bool isChunkSerializable = IsComponentChunkSerializable(typeRef, typeCategory, mightHaveEntityRefs);
-
-            if (alignAndSize.empty || typeCategory == TypeCategory.ISharedComponentData)
-                typeIndex |= ZeroSizeInChunkTypeFlag;
-
-            if (typeCategory == TypeCategory.ISharedComponentData)
-                typeIndex |= SharedComponentTypeFlag;
-
-            if (isCleanupComponent)
-                typeIndex |= CleanupComponentTypeFlag;
-
-            if (isCleanupSharedComponent)
-                typeIndex |= CleanupSharedComponentTypeFlag;
-
-            if (typeCategory == TypeCategory.BufferData)
-                typeIndex |= BufferComponentTypeFlag;
-
-            if (!mightHaveEntityRefs)
-                typeIndex |= HasNoEntityReferencesFlag;
-
-            if (hasNativeContainer)
-                typeIndex |= HasNativeContainerFlag;
-
-            if (isManaged)
-                typeIndex |= ManagedComponentTypeFlag;
-
-            if (isEnableable)
-                typeIndex |= EnableableComponentFlag;
-
-            if (isIRefCounted)
-                typeIndex |= IRefCountedComponentFlag;
-
-            if (isIEquatable)
-                typeIndex |= IEquatableTypeFlag;
-
-            if (!isChunkSerializable)
-                typeIndex |= IsNotChunkSerializableTypeFlag;
-
-            if (typeCategory == TypeCategory.ISharedComponentData && isManaged && !isIEquatable)
-                throw new ArgumentException($"Type '{typeRef.FullName}' is a ISharedComponentData and has managed references, you must implement IEquatable<T>");
-
-            CalculateMemoryOrderingAndStableHash(typeRef, out ulong memoryOrdering, out ulong stableHash);
-
-            // Determine if there is a special buffer capacity set for the type
-            int bufferCapacity = -1;
-            if (typeCategory == TypeCategory.BufferData && typeDef.CustomAttributes.Count > 0)
-            {
-                var forcedCapacityAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == "InternalBufferCapacityAttribute");
-                if (forcedCapacityAttribute != null)
+                if (fieldType.IsPrimitive)
                 {
-                    bufferCapacity = (int)forcedCapacityAttribute.ConstructorArguments
-                        .First(arg => arg.Type.MetadataType == MetadataType.Int32)
-                        .Value;
+
+                }
+                else if (fieldType.IsChildTypeOf(runnerOfMe._UnityEngine_ObjectDef))
+                {
+
+                }
+                else if (TypeReferenceEqualityComparer.AreEqual(fieldType, runnerOfMe._EntityDef))
+                {
+                    localHasEntityRefs = HasRefResult.HasRef;
+                }
+                else if (TypeReferenceEqualityComparer.AreEqual(fieldType, runnerOfMe._BlobAssetReferenceDataDef))
+                {
+                    localHasBlobRefs = HasRefResult.HasRef;
+                }
+                else if (TypeReferenceEqualityComparer.AreEqual(fieldType, runnerOfMe._UntypedUnityObjectRefDef))
+                {
+                    localHasUnityObjRefs = HasRefResult.HasRef;
+                }
+                else if (TypeReferenceEqualityComparer.AreEqual(fieldType, runnerOfMe._UntypedWeakReferenceIdDef))
+                {
+                    localHasWeakAssetRefs = HasRefResult.HasRef;
+                }
+                else if (fieldType.IsValueType || fieldType.IsSealed)
+                {
+                    var recursiveHasEntityRefs = HasRefResult.NoRef;
+                    var recursiveHasBlobRefs = HasRefResult.NoRef;
+                    var recursiveHasUnityObjRefs = HasRefResult.NoRef;
+                    var recursiveHasWeakAssetRefs = HasRefResult.NoRef;
+
+                    ProcessEntityOrBlobReferencesRecursiveManaged(
+                        fieldRef,
+                        ref recursiveHasEntityRefs,
+                        ref recursiveHasBlobRefs,
+                        ref recursiveHasUnityObjRefs,
+                        ref recursiveHasWeakAssetRefs,
+                        depth + 1,
+                        maxDepth);
+
+                    localHasEntityRefs = localHasEntityRefs > recursiveHasEntityRefs ? localHasEntityRefs : recursiveHasEntityRefs;
+                    localHasBlobRefs = localHasBlobRefs > recursiveHasBlobRefs ? localHasBlobRefs : recursiveHasBlobRefs;
+                    localHasUnityObjRefs = localHasUnityObjRefs > recursiveHasUnityObjRefs ? localHasUnityObjRefs : recursiveHasUnityObjRefs;
+                    localHasWeakAssetRefs = localHasWeakAssetRefs > recursiveHasWeakAssetRefs ? localHasWeakAssetRefs : recursiveHasWeakAssetRefs;
+                }
+                // It is not possible to determine if there are entity references in a polymorphic non-sealed class type
+                else
+                {
+                    localHasEntityRefs = HasRefResult.MayHaveRef;
+                    localHasBlobRefs = HasRefResult.MayHaveRef;
+                    localHasUnityObjRefs = HasRefResult.MayHaveRef;
+                    localHasWeakAssetRefs = HasRefResult.MayHaveRef;
                 }
             }
 
-            // Determine max chunk capacity, if specified
-            int maxChunkCapacity = 128;
+            //Definitely seen a reference takes precedence over maybe, which is more cautious than being sure of no refs
+            hasEntityReferences = hasEntityReferences > localHasEntityRefs ? hasEntityReferences : localHasEntityRefs;
+            hasBlobReferences = hasBlobReferences > localHasBlobRefs ? hasBlobReferences : localHasBlobRefs;
+            hasUnityObjReferences = hasUnityObjReferences > localHasUnityObjRefs ? hasUnityObjReferences : localHasUnityObjRefs;
+            hasWeakAssetReferences = hasWeakAssetReferences > localHasWeakAssetRefs ? hasWeakAssetReferences : localHasWeakAssetRefs;
+        }
+
+        /*
+         * copied and translated from reflection from TypeManager.cs
+         */
+        internal static void ThrowOnDisallowedManagedComponentData(Type type, string baseTypeDesc)
+        {
+            // Validate the class component data type is usable:
+            // - Has a default constructor
+            if (type.GetConstructor(Type.EmptyTypes) == null)
+                throw new ArgumentException($"{type} is a class based {baseTypeDesc}. Class based {baseTypeDesc} must implement a default constructor.");
+        }
+        /*
+         * copied and translated from reflection from TypeManager.cs
+         */
+        internal static void ThrowOnDisallowedComponentData(TypeReference typeRef, TypeReference baseType, string baseTypeDesc)
+        {
+            if (typeRef.IsPrimitive)
+                return;
+
+            // if it's a pointer, we assume you know what you're doing
+            if (typeRef.IsPointer)
+                return;
+
+            var typeResolver = TypeResolver.For(typeRef);
+            var typeDef = typeRef.Resolve();
+
+            if (!typeRef.IsValueType || typeDef.IsByReference || typeDef.IsInterface || typeRef.IsArray)
+            {
+                if (typeRef == baseType)
+                    throw new ArgumentException(
+                        $"{typeRef} is a {baseTypeDesc} and thus must be a struct containing only primitive or blittable members.");
+
+                throw new ArgumentException($"{baseType} contains a field of {typeRef}, which is neither primitive nor blittable.");
+            }
+
+            foreach (var f in typeDef.Fields)
+            {
+                if (!f.IsStatic)
+                {
+                    var field = typeResolver.Resolve(f);
+                    ThrowOnDisallowedComponentData(field.FieldType, baseType, baseTypeDesc);
+                }
+            }
+        }
+        /*
+         * this is inefficient: it traverses through the type twice, once inside IsManagedType, and once in ThrowOnWhatever. 
+         */
+        internal void CheckIsAllowedAsComponentData(TypeReference type, string baseTypeDesc)
+        {
+            if (!TypeUtilsInstance.IsManagedType(type, 0))
+                return;
+
+            // it can't be used -- so we expect this to find and throw
+            ThrowOnDisallowedComponentData(type, type, baseTypeDesc);//, allowedComponentCache);
+
+            // if something went wrong and the above didn't throw, then throw
+            throw new ArgumentException($"{type} cannot be used as component data for unknown reasons (BUG)");
+        }
+
+
+        /*
+         * copied and translated from reflection from TypeManager.cs
+         */
+        private static ulong ComputeBloomFilterMask(ulong typeHash)
+        {
+            // This function effectively computes k different hashes from the input typeHash to a single bit in the output
+            // mask. If k is too low, the odds increase that multiple types will have the same bloomFilterMask. If k is
+            // too high, the odds increase that bitwise-or'ing multiple masks together will have so many bits set that a
+            // missing type is "hidden". Either way, the net result is a higher false positive rate, reducing
+            // the effectiveness of the Bloom filter early-out check.
+            // k=5 seems to strike a reasonable balance, given the number of unique component types and the number
+            // of types per archetype in typical DOTS applications.
+            const int k = 5;
+            const int maxShift = 8 * sizeof(ulong);
+            uint seed = (uint)((typeHash & 0xFFFFFFFF) ^ (typeHash >> 32));
+            var rng = new System.Random((int)(seed != 0 ? seed : 17)); //new Unity.Mathematics.Random(seed != 0 ? seed : 17);
+            ulong mask = 0;
+            for (int i = 0; i < k; i++)
+            {
+                mask |= 1UL << rng.Next(maxShift);
+            }
+            return mask;
+        }
+
+        bool AnybodyUpTheChainImplements(TypeDefinition type, TypeDefinition iface)
+        {
+            return type.TypeImplements(iface) || (type.BaseType != null && AnybodyUpTheChainImplements(type.BaseType.Resolve(), iface));
+        }
+
+        /*
+         * copied and translated from reflection from TypeManager.cs
+         */
+        internal TypeGenInfo BuildComponentType(TypeReference typeRef)//, BuildComponentCache caches)
+        {
+            var typeDef = typeRef.Resolve();
+
+            var sizeInChunk = 0;
+            TypeCategory category;
+            int bufferCapacity = -1;
+
+            //let's deal with caching if things are in fact slow
+            var memoryOrdering = TypeHash.CalculateMemoryOrdering(typeRef, out var hasCustomMemoryOrder);
+            // The stable type hash is the same as the memory order if the user hasn't provided a custom memory ordering
+            var stableTypeHash = !hasCustomMemoryOrder ? memoryOrdering : TypeHash.CalculateStableTypeHash(typeRef);
+            var bloomFilterMask = ComputeBloomFilterMask(stableTypeHash);
+            bool isManaged = !typeDef.IsValueType();
+            var isRefCounted = typeDef.TypeImplements(runnerOfMe._IRefCountedDef);
+            var maxChunkCapacity = MaximumChunkCapacity;
+            var valueTypeSize = 0;
+
+            var entityOffsets = new List<int>();
+            var blobAssetRefOffsets = new List<int>();
+            var weakAssetRefOffsets = new List<int>();
+            var unityObjectRefOffsets = new List<int>();
+
+            //xxx don't use a string
+            var maxCapacityAttribute = typeDef.CustomAttributes.FirstOrDefault(a => a.AttributeType.Name == "MaximumChunkCapacityAttribute"); 
             if (typeDef.CustomAttributes.Count > 0)
             {
-                var maxChunkCapacityAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == nameof(MaximumChunkCapacityAttribute));
+                var maxChunkCapacityAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == "MaximumChunkCapacityAttribute");
                 if (maxChunkCapacityAttribute != null)
                 {
                     var chunkCapacityFromAttribute = (int)maxChunkCapacityAttribute.ConstructorArguments
@@ -1215,76 +1484,353 @@ namespace Unity.Entities.CodeGen
             }
 
             int elementSize = 0;
-            int sizeInChunk = 0;
-            int alignment = 0;
-            if (typeCategory != TypeCategory.ISharedComponentData && !isManaged)
+            int alignmentInBytes = 0;
+
+            if (typeDef.IsInterface)
+                throw new ArgumentException($"{typeRef} is an interface. It must be a concrete type.");
+
+            //important to use typeRef and not typeDef here for generic purposes
+            //this traverses the type, but all the cases below are also going to traverse the type, so this is dumb
+            //also, maybe we could cache something mumble, but maybe it wouldn't help
+
+            bool hasNativeContainer = !isManaged && HasNativeContainer(typeRef);
+            bool hasEntityReferences = false;
+            bool hasBlobReferences = false;
+            bool hasWeakAssetReferences = false;
+            bool hasUnityObjectReferences = false;
+
+            bool implementsICD = AnybodyUpTheChainImplements(typeDef, runnerOfMe._IComponentDataDef);
+            if (implementsICD && !isManaged)
             {
-                elementSize = alignAndSize.empty ? 0 : alignAndSize.size;
-                sizeInChunk = elementSize;
-                // This is the native type alignment, which may be useful eventually but for now
-                // alignment for TypeInfo is purely referring to how the type aligns in chunk memory
-                //alignment = alignAndSize.align;
-                alignment = CalculateAlignmentInChunk(alignAndSize.size);
+                CheckIsAllowedAsComponentData(typeRef, "IComponentData");//, caches.AllowedComponentCache);
+
+                category = TypeCategory.ComponentData;
+
+                var alignAndSize = TypeUtilsInstance.AlignAndSizeOfType(typeRef, 64);
+                valueTypeSize = alignAndSize.size;//UnsafeUtility.SizeOf(typeRef);
+                //elliotc xxx todo: figure out the relationship between the alignment from TypeUtils.AlignAndSizeOfType and that from CalculateAlignmentInChunk
+                alignmentInBytes = CalculateAlignmentInChunk(valueTypeSize);
+
+                if (alignAndSize.empty)
+                    sizeInChunk = 0;
+                else
+                    sizeInChunk = valueTypeSize;
+
+                entityOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._EntityDef, typeRef, 64);
+                if (entityOffsets.Count > 0)
+                    hasEntityReferences = true;
+                blobAssetRefOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._BlobAssetReferenceDataDef, typeRef, 64);
+                if (blobAssetRefOffsets.Count > 0)
+                    hasBlobReferences = true;
+                weakAssetRefOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._UntypedWeakReferenceIdDef, typeRef, ArchBits);
+                if (weakAssetRefOffsets.Count > 0)
+                    hasWeakAssetReferences = true;
+                unityObjectRefOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._UntypedUnityObjectRefDef, typeRef, ArchBits);
+                if (unityObjectRefOffsets.Count > 0)
+                    hasUnityObjectReferences = true;
             }
-
-            if (typeCategory != TypeCategory.ISharedComponentData && isManaged)
+#if !UNITY_DISABLE_MANAGED_COMPONENTS
+            else if (implementsICD && isManaged)
             {
-                // Managed components are stored as an integer index inside the chunk
-                sizeInChunk = alignment = 4;
+                if (!typeDef.GetConstructors().Any(c => c.Parameters.Count == 0))
+                    throw new ArgumentException($"{typeDef} is a class based IComponentData. Class based IComponentData must implement a default constructor.");
+
+                category = TypeCategory.ComponentData;
+                sizeInChunk = sizeof(int);
+                HasEntityReferencesManaged(typeRef, out var entityRefResult, out var blobRefResult, out var unityObjRefResult, out var weakAssetRefResult);
+
+                hasEntityReferences = entityRefResult > 0;
+                hasBlobReferences = blobRefResult > 0;
+                hasUnityObjectReferences = unityObjRefResult > 0;
+                hasWeakAssetReferences = weakAssetRefResult > 0;
             }
-
-            if (typeCategory == TypeCategory.BufferData)
+#endif
+            else if (typeDef.TypeImplements(runnerOfMe._IBufferElementDataDef))
             {
-                if (elementSize == 0)
-                    throw new ArgumentException($"Component '{typeRef.FullName}' is used as a buffer data, but has size == 0.");
+                CheckIsAllowedAsComponentData(typeRef, "IBufferElementData");
 
-                // If we haven't overridden the bufferSize via an attribute
-                if (bufferCapacity == -1)
+                category = TypeCategory.BufferData;
+
+
+                var alignAndSize = TypeUtilsInstance.AlignAndSizeOfType(typeRef, 64);
+                valueTypeSize = alignAndSize.size;
+		
+                alignmentInBytes = CalculateAlignmentInChunk(valueTypeSize);
+
+                elementSize = valueTypeSize;
+
+                if (typeDef.CustomAttributes.Count > 0)
                 {
-                    bufferCapacity = DefaultBufferCapacityNumerator / elementSize;
+                    var forcedCapacityAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.Constructor.DeclaringType.Name == "InternalBufferCapacityAttribute");
+                    if (forcedCapacityAttribute != null)
+                    {
+                        bufferCapacity = (int)forcedCapacityAttribute.ConstructorArguments
+                            .First(arg => arg.Type.MetadataType == MetadataType.Int32)
+                            .Value;
+                    }
                 }
+                if (bufferCapacity == -1)
+                    bufferCapacity = DefaultBufferCapacityNumerator / elementSize; // Rather than 2*cachelinesize, to make it cross platform deterministic
 
-                int bufferHeaderSize = sizeof(BufferHeader);
-                sizeInChunk = (bufferCapacity * elementSize) + bufferHeaderSize;
+                sizeInChunk = TypeUtilsInstance.AlignAndSizeOfType(runnerOfMe._BufferHeaderDef, 64).size + bufferCapacity * elementSize;
+                entityOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._EntityDef, typeRef, 64);
+                if (entityOffsets.Count > 0)
+                    hasEntityReferences = true;
+                blobAssetRefOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._BlobAssetReferenceDataDef, typeRef, 64);
+                if (blobAssetRefOffsets.Count > 0)
+                    hasBlobReferences = true;
+                weakAssetRefOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._UntypedWeakReferenceIdDef, typeRef, ArchBits);
+                if (weakAssetRefOffsets.Count > 0)
+                    hasWeakAssetReferences = true;
+                unityObjectRefOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._UntypedUnityObjectRefDef, typeRef, ArchBits);
+                if (unityObjectRefOffsets.Count > 0)
+                    hasUnityObjectReferences = true;
+            }
+            else if (typeDef.TypeImplements(runnerOfMe._ISharedComponentDataDef))
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+                if (!typeRef.IsValueType)
+                    throw new ArgumentException($"{typeRef} is an ISharedComponentData, and thus must be a struct.");
+#endif
+
+                isManaged = TypeUtilsInstance.IsManagedType(typeRef, 0);
+
+                AlignAndSize alignAndSize = default;
+
+                //do not traverse managed types, because they can have cycles and blow us up
+                if (!isManaged)
+                    alignAndSize = TypeUtilsInstance.AlignAndSizeOfType(typeRef, 64);
+
+                valueTypeSize = alignAndSize.size;//UnsafeUtility.SizeOf(typeRef);
+
+                category = TypeCategory.ISharedComponentData;
+
+
+                if (isManaged)
+                {
+                    HasEntityReferencesManaged(typeRef, out var entityRefResult, out var blobRefResult, out var unityObjRefResult, out var weakAssetRefResult);//, caches.HasEntityOrBlobAssetReferenceCache);
+
+                    // Managed shared components explicitly do not allow patching of entity references
+                    hasEntityReferences = false;
+                    hasBlobReferences = blobRefResult > 0;
+                    hasUnityObjectReferences = unityObjRefResult > 0;
+                    hasWeakAssetReferences = weakAssetRefResult > 0;
+                }
+                else
+                {
+                    //xxx elliotc todo: commonize this shit, obviously, between this and buffers and icd
+                    entityOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._EntityDef, typeRef, 64);
+                    if (entityOffsets.Count > 0)
+                        hasEntityReferences = true;
+                    blobAssetRefOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._BlobAssetReferenceDataDef, typeRef, 64);
+                    if (blobAssetRefOffsets.Count > 0)
+                        hasBlobReferences = true;
+                    weakAssetRefOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._UntypedWeakReferenceIdDef, typeRef, ArchBits);
+                    if (weakAssetRefOffsets.Count > 0)
+                        hasWeakAssetReferences = true;
+                    unityObjectRefOffsets = TypeUtilsInstance.GetFieldOffsetsOf(runnerOfMe._UntypedUnityObjectRefDef, typeRef, ArchBits);
+                    if (unityObjectRefOffsets.Count > 0)
+                        hasUnityObjectReferences = true;
+                }
+            }
+            else if (TypeUtilsInstance.IsManagedType(typeDef, 0))
+            {
+                category = TypeCategory.UnityEngineObject;
+                sizeInChunk = sizeof(int);
+                alignmentInBytes = sizeof(int);
+                hasEntityReferences = false;
+                hasBlobReferences = false;
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+               if (!typeDef.IsChildTypeOf(runnerOfMe._UnityEngine_ObjectDef))
+                    throw new ArgumentException($"{typeRef} must inherit from {runnerOfMe._UnityEngine_ObjectDef}.");
+#endif
+            }
+            else
+            {
+                throw new ArgumentException($"{typeRef} is not a valid component.");
             }
 
-            var fieldInfoLookUp = new FieldInfoLookUp { Count = -1, Index = -1 };
-            if (IsToolConfig)
-                fieldInfoLookUp = GenerateFieldInfos(typeRef);
-
-            var typeGenInfo = new TypeGenInfo()
+            // If the type explicitly overrides entity/blob reference attributes account for that now
+            if (typeDef.CustomAttributes.Count > 0)
             {
-                TypeReference = typeRef,
+                var overrideAttribute = typeDef.CustomAttributes.FirstOrDefault(ca =>
+                    ca.Constructor.DeclaringType.Name == "TypeOverridesAttribute");
+
+                var hasOverrideAttribute = overrideAttribute != null;
+
+                if (hasOverrideAttribute)
+                {
+                    var allowForcedNoReferences = overrideAttribute.ConstructorArguments.Count == 3 || (bool)overrideAttribute.ConstructorArguments[3].Value;
+                    if ((bool)overrideAttribute.ConstructorArguments[0].Value)
+                    {
+                        if (!allowForcedNoReferences && hasEntityReferences)
+                        {
+                            throw new ArgumentException(
+                                $"Component type '{typeDef.FullName}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
+                                $"Entity references, however the type does in fact contain a (potentially nested) Entity reference. " +
+                                $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
+                        }
+                        else
+                        {
+                            hasEntityReferences = false;
+                        }
+                    }
+                    if ((bool)overrideAttribute.ConstructorArguments[1].Value)
+                    {
+                        if (!allowForcedNoReferences && hasBlobReferences)
+                            throw new ArgumentException(
+                                $"Component type '{typeDef.FullName}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
+                                $"BlobAssetReferences, however the type does in fact contain a (potentially nested) BlobAssetReference. " +
+                                $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
+                        else 
+                            hasBlobReferences = false;
+                    }
+                    if ((bool)overrideAttribute.ConstructorArguments[2].Value)
+                    {
+                        if (!allowForcedNoReferences && hasUnityObjectReferences)
+                            throw new ArgumentException(
+                                $"Component type '{typeDef.FullName}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
+                                $"UnityObjectRef<T>, however the type does in fact contain a (potentially nested) UnityObjectRef<T>. " +
+                                $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
+                        else
+                            hasUnityObjectReferences = false;
+                    }
+                }
+            }
+
+            //fastequality is supposed to be handled later by generating all the equals fns in InjectEqualityFunctions
+            //AddFastEqualityInfo(typeRef, category == TypeCategory.UnityEngineObject, caches.FastEqualityLayoutInfoCache);
+
+            int typeIndex = m_TotalTypeCount++;
+            bool isCleanupBufferElement = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains("ICleanupBufferElementData");
+            bool isCleanupSharedComponent = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains("ICleanupSharedComponentData");
+            bool isCleanupComponent = typeDef.Interfaces.Select(i => i.InterfaceType.Name).Contains("ICleanupComponentData") || isCleanupSharedComponent || isCleanupBufferElement;
+
+            bool isEnableable = typeDef.Interfaces.Any(i => i.InterfaceType.Name.Contains("IEnableableComponent"));
+
+            // if it's a managed component and it's not already obviously enableable, look for IEnableableComponent on
+            // its base classes.
+            if (isManaged && !isEnableable)
+            {
+                var mytype = typeDef.BaseType?.Resolve();
+                while (mytype != null)
+                {
+                    // should switch to real checking for the interface, probably
+                    if (mytype.Interfaces.Any(i => i.InterfaceType.Name.Contains("IEnableableComponent")))
+                    {
+                        isEnableable = true;
+                        break;
+                    }
+
+                    mytype = mytype.BaseType?.Resolve();
+                }
+            }
+
+            bool isChunkSerializable = isManaged || IsComponentChunkSerializable(typeRef, category, hasEntityReferences);
+
+            // Cleanup shared components are also considered cleanup components
+            if (isEnableable)
+            {
+                if (!(category == TypeCategory.ComponentData || category == TypeCategory.BufferData) || isCleanupComponent)
+                    throw new ArgumentException($"IEnableableComponent is not supported for type {typeRef}. Only IComponentData and IBufferElementData can be disabled. Cleanup components are not supported.");
+            }
+
+            bool isTemporaryBakingType = false;
+            bool isBakingOnlyType = false;
+            foreach (var c in typeDef.CustomAttributes)
+            {
+                if (c.AttributeType.Name == "TemporaryBakingTypeAttribute")
+                    isTemporaryBakingType = true;
+                else if (c.AttributeType.Name == "BakingTypeAttribute")
+                    isBakingOnlyType = true;
+            }
+            var isIEquatable = typeDef.TypeImplements(AssemblyDefinition.MainModule.ImportReference(typeof(IEquatable<>))); 
+
+            if (sizeInChunk == 0)
+                typeIndex |= ZeroSizeInChunkTypeFlag;
+
+            if (category == TypeCategory.ISharedComponentData)
+                typeIndex |= SharedComponentTypeFlag;
+
+            if (isCleanupComponent)
+                typeIndex |= CleanupComponentTypeFlag;
+
+            if (isCleanupSharedComponent)
+                typeIndex |= CleanupSharedComponentTypeFlag;
+
+            if (bufferCapacity >= 0)
+                typeIndex |= BufferComponentTypeFlag;
+
+            if (!hasEntityReferences)
+                typeIndex |= HasNoEntityReferencesFlag;
+
+            if (hasNativeContainer)
+                typeIndex |= HasNativeContainerFlag;
+
+            if (isManaged)
+                typeIndex |= ManagedComponentTypeFlag;
+
+            if (isEnableable)
+                typeIndex |= EnableableComponentFlag;
+
+            if (isRefCounted)
+                typeIndex |= IRefCountedComponentFlag;
+
+            if (isTemporaryBakingType)
+                typeIndex |= TemporaryBakingTypeFlag;
+
+            if (isBakingOnlyType)
+                typeIndex |= BakingOnlyTypeFlag;
+
+            if (isIEquatable)
+                typeIndex |= IEquatableTypeFlag;
+
+            if (!isChunkSerializable)
+                typeIndex |= IsNotChunkSerializableTypeFlag;
+
+
+            /* note: typegeninfo has the actual list of offsets for all the kinds of offsets, 
+             * whereas typeinfo just has indices into the giant array, because typeinfo is global
+             * and typegeninfo is local
+            */
+
+            typeDef.MakeTypeInternal();
+            var ret = new TypeGenInfo() {
+                TypeReference = TypeReferenceExtensions.LaunderTypeRef(typeRef, AssemblyDefinition.MainModule),
                 TypeIndex = typeIndex,
-                TypeCategory = typeCategory,
+                TypeCategory = category,
+
+                MemoryOrdering = memoryOrdering,
+                StableHash = stableTypeHash,
+                BufferCapacity = bufferCapacity,
+                SizeInChunk = sizeInChunk,
+                ElementSize = elementSize > 0 ? elementSize : sizeInChunk,
+                Alignment = alignmentInBytes,
+                MaxChunkCapacity = maxChunkCapacity,
+                WriteGroupTypes = new HashSet<TypeReference>(),
+                WriteGroupsIndex = 0, //writeGroupIndex,
+                MightHaveWeakAssetReferences = hasWeakAssetReferences,
+                MightHaveEntityReferences = hasEntityReferences,
+                MightHaveBlobAssetReferences = hasBlobReferences,
+                MightHaveUnityObjectReferences = hasUnityObjectReferences,
                 EntityOffsets = entityOffsets,
                 EntityOffsetIndex = m_TotalEntityOffsetCount,
                 BlobAssetRefOffsets = blobAssetRefOffsets,
                 BlobAssetRefOffsetIndex = m_TotalBlobAssetRefOffsetCount,
                 WeakAssetRefOffsets = weakAssetRefOffsets,
                 WeakAssetRefOffsetIndex = m_TotalWeakAssetRefOffsetCount,
-                WriteGroupTypes = new HashSet<TypeReference>(),
-                WriteGroupsIndex = 0,
-                IsManaged = isManaged,
-                AlignAndSize = alignAndSize,
-                BufferCapacity = bufferCapacity,
-                MaxChunkCapacity = maxChunkCapacity,
-                ElementSize = elementSize,
-                SizeInChunk = sizeInChunk,
-                Alignment = alignment,
-                StableHash = stableHash,
-                MemoryOrdering = memoryOrdering,
-                FieldInfoCount = fieldInfoLookUp.Count,
-                FieldInfoIndex = fieldInfoLookUp.Index,
-                MightHaveEntityReferences = mightHaveEntityRefs,
-                MightHaveBlobAssetReferences = mightHaveBlobRefs
+                UnityObjectRefOffsets = unityObjectRefOffsets,
+                UnityObjectRefOffsetIndex = m_TotalUnityObjectRefOffsetCount,
+                AlignAndSize = isManaged ? new AlignAndSize() : TypeUtilsInstance.AlignAndSizeOfType(typeRef, 64),
             };
 
             m_TotalEntityOffsetCount += entityOffsets.Count;
             m_TotalBlobAssetRefOffsetCount += blobAssetRefOffsets.Count;
             m_TotalWeakAssetRefOffsetCount += weakAssetRefOffsets.Count;
+            m_TotalUnityObjectRefOffsetCount += unityObjectRefOffsets.Count;
 
-            return typeGenInfo;
+            return ret;
         }
 
         internal void PopulateWriteGroups(TypeGenInfoList typeGenInfoList)
@@ -1295,7 +1841,7 @@ namespace Unity.Entities.CodeGen
             {
                 var typeRef = typeGenInfo.TypeReference;
                 var typeDef = typeRef.Resolve();
-                foreach (var attribute in typeDef.CustomAttributes.Where(a => a.AttributeType.Name == nameof(WriteGroupAttribute) && a.AttributeType.Namespace == "Unity.Entities"))
+                foreach (var attribute in typeDef.CustomAttributes.Where(a => a.AttributeType.Name == "WriteGroupAttribute" && a.AttributeType.Namespace == "Unity.Entities"))
                 {
                     if (!writeGroupMap.ContainsKey(typeRef))
                     {
@@ -1323,4 +1869,4 @@ namespace Unity.Entities.CodeGen
         }
     }
 }
-#endif
+#endif // !DISABLE_TYPEMANAGER_ILPP

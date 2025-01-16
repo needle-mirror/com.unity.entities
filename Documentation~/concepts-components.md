@@ -2,6 +2,8 @@
 
 In the Entity Component System (ECS) architecture, **components** contain [entity](concepts-entities.md) data that [systems](concepts-systems.md) can read or write. 
 
+![](images/entities-concepts.png)</br>_Example components are Speed, Direction, Position, and Renderer._
+
 Use the [`IComponentData`](xref:Unity.Entities.IComponentData) interface, which has no methods, to mark a struct as a component type. This component type can only contain unmanaged data, and they can contain methods, but it's best practice for them to just be pure data. If you want to create a managed component, you define this as a class. For more information, refer to [Managed components](components-managed.md).
 
 A unique set of an entity's components is called an **archetype**. The ECS architecture stores component data by archetype in 16KiB blocks of memory called chunks. For more information on how ECS stores component data refer to the documentation on [Archetype concepts](concepts-archetypes.md).

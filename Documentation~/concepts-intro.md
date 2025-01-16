@@ -4,6 +4,7 @@ The Entities package uses the entity component system (ECS) architecture to orga
 
 |**Topic**|**Description**|
 |---|---|
+|[Entity component system introduction](concepts-ecs.md)|Overview of how data is stored and organized in Entities.|
 |[Entity concepts](concepts-entities.md)|Understand what an entity is in ECS.|
 |[Component concepts](concepts-components.md)|Understand what a component is in ECS.|
 |[System concepts](concepts-systems.md)|Understand what a system is in ECS.|
