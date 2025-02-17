@@ -7495,5 +7495,75 @@ namespace Unity.Entities.Tests
                     "Invalid Entity.Null passed. ECBCommand.DestroyEntity");
             }
         }
+
+        internal struct TestSharedComponentManaged : ISharedComponentData, IEquatable<TestSharedComponentManaged>
+        {
+            public int[] managedObject;
+
+            public bool Equals(TestSharedComponentManaged other)
+            {
+                return managedObject?.Length == other.managedObject?.Length;
+            }
+
+            public override bool Equals(object obj)
+            {
+                return obj is TestSharedComponentManaged other && Equals(other);
+            }
+
+            public override int GetHashCode()
+            {
+                return managedObject?.Length ?? -1;
+            }
+        }
+
+        [Test]
+        public unsafe void ChainsContainingManagedObjectsDoesNotLeaks()
+        {
+            var gcHandlePointerList = new NativeList<IntPtr>(Allocator.Temp);
+            {
+                var commandBufferSystem = World.GetOrCreateSystemManaged<EndSimulationEntityCommandBufferSystem>();
+                var commandBuffer = commandBufferSystem.CreateCommandBuffer();
+
+                var entity1 = commandBuffer.CreateEntity();
+                commandBuffer.AddSharedComponentManaged(entity1, new TestSharedComponentManaged { managedObject = new int[1024] });
+                commandBuffer.SetSharedComponentManaged(entity1, new TestSharedComponentManaged { managedObject = new int[1024] });
+                var entity2 = commandBuffer.Instantiate(entity1);
+                commandBuffer.DestroyEntity(entity1);
+                commandBuffer.SetSharedComponentManaged(entity2, new TestSharedComponentManaged { managedObject = new int[1024] });
+                commandBuffer.DestroyEntity(entity2);
+
+                var cleanupList = commandBuffer.m_Data->m_MainThreadChain.m_Cleanup == null
+                    ? null
+                    : commandBuffer.m_Data->m_MainThreadChain.m_Cleanup->CleanupList;
+                while (cleanupList != null)
+                {
+                    if (cleanupList->BoxedObject.IsAllocated)
+                    {
+                        gcHandlePointerList.Add(GCHandle.ToIntPtr(cleanupList->BoxedObject));
+                        Assert.DoesNotThrow(() => GCHandle.FromIntPtr(gcHandlePointerList[gcHandlePointerList.Length - 1]));
+                    }
+                    cleanupList = cleanupList->Prev;
+                }
+
+                commandBufferSystem.Update();
+            }
+
+            for (var i = 0; i < gcHandlePointerList.Length; ++i)
+            {
+                bool isValidObjct = true;
+                try
+                {
+                    if(GCHandle.FromIntPtr(gcHandlePointerList[i]).Target == null)
+                    {
+                        isValidObjct = false;
+                    }
+                }
+                catch (Exception /*e*/)
+                {
+                    isValidObjct = false;
+                }
+                Assert.IsFalse(isValidObjct);
+            }
+        }
     }
 }

@@ -21,7 +21,19 @@ For example, a car body can be the parent of its wheels. The wheels are children
 
 An entity can have multiple children, but only one parent. Children can have their own child entities. These multiple levels of parent-child relationships form a transform hierarchy. The entity at the top of a hierarchy, without a parent, is the **root**.
 
-To declare a Transform hierarchy, you must do this from the bottom up. This means that you use [`Parent`](xref:Unity.Transforms.Parent) to declare an Entity's parent, rather than declare its children. If you want to declare a child of an Entity, find the Entities that you want to be children and set their parent to be the target Entity. For more information, see the [Using a hierarchy](transforms-using.md#using-a-hierarchy) documentation.
+To declare a Transform hierarchy, you must do this from the bottom up. This means that you use [`Parent`](xref:Unity.Transforms.Parent) to declare an Entity's parent, rather than declare its children. If you want to declare a child of an Entity, find the Entities that you want to be children and set their parent to be the target Entity.
+
+The value of an entity's `LocalTransform` component is relative to the entity's parent in its transform hierarchy. For entities not in a hierarchy, the "local" transform is equivalent to a world-space transform.
+
+Two additional components are automatically added by the system to entities in transform hierarchies:
+* The [`Child`](xref:Unity.Transforms.Child) buffer component is added to all entities referenced by at least one entity's `Parent` component. The `Child` buffer contains all of the parent entity's direct children.
+* The [`PreviousParent`](xref:Unity.Transforms.PreviousParent) component is added to all entities with the `Parent` component. It is used internally by the `ParentSystem` to detect changes to the `Parent` component.
+
+Once per frame, the [`TransformSystemGroup`](xref:Unity.Transforms.TransformSystemGroup) updates. It contains the following systems:
+* The [`ParentSystem`](xref:Unity.Transforms.ParentSystem) system is responsible for handling any hierarchy changes, including newly-instantiated hierarchies and newly-destroyed hierarchies. It detects when any entity's `Parent` component has been added, removed, or modified, and ensures that the other hierarchy components (`Child` and `PreviousParent`) are added, removed, and modified accordingly.
+* The [`LocalToWorldSystem`](xref:Unity.Transforms.LocalToWorldSystem) computes the value of the `LocalToWorld` component for all entities. For entities in a hierarchy, the local-to-world matrix is computed by recursively descending each hierarchy, composing the entity's `LocalTransform` and `PostTransformMatrix` with its parent's `LocalToWorld`. For entities that are not part of a hierarchy, `LocalToWorld` is computed directly from `LocalTransform` and `PostTransformMatrix`.
+
+For more information, refer to the [Using a hierarchy](transforms-using.md#using-a-hierarchy) documentation.
 
 ## The LocalToWorld component
 
@@ -64,3 +76,4 @@ The `ParentSystem` maintains the `Child` component buffer, based on the `Parent`
 ## The LocalToWorldSystem
 
 `LocalToWorldSystem` computes and updates the `LocalToWorld` component, based on the `LocalTransform` component and the hierarchy. When you set a `LocalTransform` component on an entity, Unity only updates its `LocalToWorld` component when the `LocalToWorldSystem` has run.
+

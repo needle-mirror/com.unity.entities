@@ -35,6 +35,20 @@ Adding component `C` to an entity which has an [archetype](concepts-archetypes.m
 
 The individual steps to perform structural changes aren't slow, but when thousands of entities change archetypes in a single frame, this can significantly impact performance. The processing overhead scales with the number of EntityArchetypes and EntityQueries that have been declared at runtime.
 
+## Structural changes approach comparision
+
+The following table compares different approaches to structural changes, and the time in milliseconds that it takes to add one component to one million entities with each approach:
+
+| **Method** | **Description** | **Time in ms** |
+| :---: | ----- | :---: |
+| **EntityManager and query with enableable components** | Don't add any components, and enable a component that implements `IEnableable`, which was previously disabled. For more information, refer to [Enableable components](components-enableable.md) | 0.03 |
+| **EntityManager and query** | Pass an `EntityQuery` to the `EntityManager` with `AddComponent` to immediately add components in bulk on the main thread. | 3.5 |
+| **EnityManager and NativeArray** | Pass a `NativeArray<Entity>` to the `EntityManager` to immediately add components on the main thread | 35 |
+| **Entity command buffer and playback query** | Pass an `EntityQuery` to an `EntityCommandBuffer` on the main thread to queue components to add using the `EntityQueryCaptureMode.AtPlayback` flag. Then execute that entity command buffer (time includes the entity command buffer execution time). For more information, refer to [Entity command buffers](systems-entity-command-buffer-use.md).| 3.5 |
+| **Entity command buffer and NativeArray** | Pass a `NativeArray<Entity>` to an `EntityCommandBuffer` on the main thread to queue components to add, then execute that entity command buffer (time includes the entity command buffer execution time).| 35 |
+| **Entity command buffer and job system with `IJobChunk** | Use an `IJobChunk` across multiple worker threads to pass a `NativeArray<Entity>` per chunk to an `EntityCommandBuffer`, then execute that entity command buffer (time includes the entity command buffer execution time). | 17 |
+| **Entity command buffer and job system with `IJobEntity** | Use an `IJobEntity` across multiple worker threads to pass instructions to add components to entities one at a time to an `EntityCommandBuffer`, then execute that entity command buffer (time includes the entity command buffer execution time)| 170 |
+
 ## Optimize native arrays for chunks
 
 If you need to build a `NativeArray` of entities to apply a structural change to, match the entity order in the array with the order of the entities in memory. The simplest way to do this is with an [`IJobChunk`](iterating-data-ijobchunk.md) which can iterate over the chunks matching your target query. The job can iterate over the entities in the chunk in order and build a `NativeArray` of the entities to apply the change to. 
@@ -45,7 +59,7 @@ You can pass this NativeArray to an `EntityCommandBuffer.ParallelWriter` to queu
 
 When an `EntityQuery` is passed to an `EntityManager` method, the method operates at a chunk level rather than on individual entities. When you pass an `EntityQuery` to an `EntityCommandBuffer` method, between the time the command is added to the `EntityCommandBuffer` and the time when the buffer executes its commands, the content of the chunks might change because of other structural changes. 
 
-Use `EntityQueryCaptureMode.AtPlayback` to store the `EntityQuery` and evaluate it when the buffer is executed, which avoids executing structural changes one entity at a time.
+Use [`EntityQueryCaptureMode.AtPlayback`](xref:Unity.Entities.EntityQueryCaptureMode) to store the `EntityQuery` and evaluate it when the buffer is executed, which avoids executing structural changes one entity at a time.
 
 ## Enable systems to avoid structural changes
 

@@ -1935,6 +1935,16 @@ namespace Unity.Entities
             {
                 disposeChains = true;
             }
+            // If a boxedObject is assigned, it should be freed here.
+            if (!disposeChains)
+            {
+                if (ecb.m_Data->m_MainThreadChain.m_Cleanup != null &&
+                    ecb.m_Data->m_MainThreadChain.m_Cleanup->CleanupList != null)
+                {
+                    disposeChains = true;
+                }
+            }
+
             if (ecb.m_Data != null && disposeChains)
             {
                 ecb.FreeChain(&ecb.m_Data->m_MainThreadChain, ecb.m_Data->m_PlaybackPolicy, ecb.m_Data->m_DidPlayback);

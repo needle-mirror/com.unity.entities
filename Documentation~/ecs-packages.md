@@ -16,3 +16,4 @@ Built on top of these core parts are the following entity component system (ECS)
 * [Havok Physics for Unity](https://docs.unity3d.com/Packages/com.havok.physics@latest): A stateful and deterministic physics system for entities.
 * [Netcode for Entities](https://docs.unity3d.com/Packages/com.unity.netcode@latest): A client-server netcode solution for entities.
 * [Entities Graphics](https://docs.unity3d.com/Packages/com.unity.entities.graphics@latest): Uses the scriptable render pipeline (SRP) to render entities.
+* [Character Controller](https://docs.unity3d.com/Packages/com.unity.charactercontroller@latest): Contains mechanisms for creating your own ECS-based character controller.

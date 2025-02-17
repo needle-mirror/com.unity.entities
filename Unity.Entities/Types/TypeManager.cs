@@ -2611,6 +2611,15 @@ namespace Unity.Entities
                                 AddComponentTypeToListIfSupported(combinedComponentTypeSet, type);
                         }
                     }
+
+                    // Register ComponentData concrete generics
+                    foreach (var registerGenericComponentTypeAttribute in assembly.GetCustomAttributes<RegisterGenericComponentTypeAttribute>())
+                    {
+                        var type = registerGenericComponentTypeAttribute.ConcreteType;
+
+                        if (IsSupportedComponentType(type))
+                            combinedComponentTypeSet.Add(type);
+                    }
 #endif
                 }
 
@@ -2629,6 +2638,8 @@ namespace Unity.Entities
                 var startTypeIndex = s_TypeCount;
 #if !DISABLE_TYPEMANAGER_ILPP
                 RegisterStaticAssemblyTypes(assemblies, ref combinedComponentTypeSet, out var typesToReprocess);
+#else
+                var typesToReprocess = Array.Empty<Type>();
 #endif
                 var combinedComponentTypes = combinedComponentTypeSet.ToList();
                 typesToProcessByReflection.AddRange(typesToReprocess);
@@ -3679,8 +3690,11 @@ namespace Unity.Entities
                         /*
                          * If we are running in 32-bit, the precomputed sizes and offsets by codegen may be wrong if they contain a pointer.
                          * So, if that's the case, we check the size of each type, and if it differs, we mark it to be reprocessed by reflection.
+                         * 
+                         * Also, even on 64-bit, netstandard refassemblies claim that the size of GCHandle and Guid is 4, when actually 
+                         * they're 8 and 16 respectively. 
                          */ 
-                        if (UIntPtr.Size == 4 && pTypeInfo->TypeSize != 0 && pTypeInfo->TypeSize != UnsafeUtility.SizeOf(pTypeInfo->Type))
+                        if (pTypeInfo->TypeSize != 0 && pTypeInfo->TypeSize != UnsafeUtility.SizeOf(pTypeInfo->Type))
                         {
                             typesToReprocess.Add(pTypeInfo->Type);
                             continue;
@@ -3786,7 +3800,7 @@ namespace Unity.Entities
 
     }
 
-    public sealed unsafe class TypeRegistry
+    internal sealed unsafe class TypeRegistry
     {
         // TODO: Have Burst generate a native function ptr we can invoke instead of using a delegate
         public delegate bool GetBoxedEqualsFn(object lhs, object rhs, int typeIndexNoFlags);
@@ -3795,7 +3809,6 @@ namespace Unity.Entities
         public unsafe delegate object ConstructComponentFromBufferFn(void* buffer, int typeIndexNoFlags);
         public unsafe delegate void SetSharedTypeIndicesFn(int* typeInfoArray, int count);
         public delegate Attribute[] GetSystemAttributesFn(Type system);
-        public delegate object CreateSystemFn(Type system);
 
         public GetBoxedEqualsFn BoxedEquals;
         public GetBoxedEqualsPtrFn BoxedEqualsPtr;
@@ -3803,7 +3816,6 @@ namespace Unity.Entities
         public ConstructComponentFromBufferFn ConstructComponentFromBuffer;
         public SetSharedTypeIndicesFn SetSharedTypeIndices;
         public GetSystemAttributesFn GetSystemAttributes;
-        public CreateSystemFn CreateSystem;
 
 #pragma warning disable 0649
         public string AssemblyName;

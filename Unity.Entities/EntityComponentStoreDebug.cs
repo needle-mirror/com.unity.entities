@@ -612,8 +612,10 @@ namespace Unity.Entities
                     if (!archetypeChunk.Has(ref linkedGroupTypeHandle))
                         continue;
 
+                    ChunkEntityEnumerator enumerator = new ChunkEntityEnumerator(chunksToProcess[i].UseEnabledMask == 0 ? false : true, chunksToProcess[i].EnabledMask, chunksToProcess[i].ChunkEntityCount);
+                    Entity* chunkEntities = (Entity*)chunksToProcess[i].Chunk.Buffer;
                     var chunkLegBuffers = archetypeChunk.GetBufferAccessor(ref linkedGroupTypeHandle);
-                    for (int b = 0, bufferCount = chunkLegBuffers.Length; b < bufferCount; b++)
+                    while (enumerator.NextEntityIndex(out int b))
                     {
                         var buffer = chunkLegBuffers[b];
                         var legEntities = (Entity*)buffer.GetUnsafeReadOnlyPtr();
@@ -635,7 +637,6 @@ namespace Unity.Entities
                                     if (Hint.Unlikely((shiftedMask.ULong0 & 0x1) == 0))
                                     {
                                         // referencedChunk matches the query, but referencedEntity is not enabled in this query & will not be deleted
-                                        var chunkEntities = (Entity*)chunksToProcess[i].Chunk.Buffer;
                                         ThrowDestroyEntityError(chunkEntities[b], referencedEntity);
                                     }
                                 }
@@ -643,7 +644,6 @@ namespace Unity.Entities
                             else
                             {
                                 // referencedChunk isn't in chunksToProcess at all, and won't be destroyed.
-                                var chunkEntities = (Entity*)chunksToProcess[i].Chunk.Buffer;
                                 ThrowDestroyEntityError(chunkEntities[b], referencedEntity);
                             }
                         }

@@ -371,7 +371,6 @@ namespace Unity.Entities
         static UnsafeList<UnsafeList<SystemAttribute>> s_SystemAttributes;
 
         static List<int> s_SystemTypeDelegateIndexRanges;
-        static List<TypeRegistry.CreateSystemFn> s_AssemblyCreateSystemFn;
         static List<TypeRegistry.GetSystemAttributesFn> s_AssemblyGetSystemAttributesFn;
 
         // While we provide a public interface for the TypeManager the init/shutdown
@@ -393,7 +392,6 @@ namespace Unity.Entities
             s_SystemAttributes = new UnsafeList<UnsafeList<SystemAttribute>>(kInitialSystemCount, Allocator.Persistent);
 
             s_SystemTypeDelegateIndexRanges = new List<int>(kInitialSystemCount);
-            s_AssemblyCreateSystemFn = new List<TypeRegistry.CreateSystemFn>(kInitialSystemCount);
             s_AssemblyGetSystemAttributesFn = new List<TypeRegistry.GetSystemAttributesFn>(kInitialSystemCount);
         }
 
@@ -429,7 +427,6 @@ namespace Unity.Entities
             s_SystemTypeHashes.Dispose();
 
             s_SystemTypeDelegateIndexRanges.Clear();
-            s_AssemblyCreateSystemFn.Clear();
             s_AssemblyGetSystemAttributesFn.Clear();
         }
 
@@ -440,11 +437,9 @@ namespace Unity.Entities
             AddSystemTypeToTables(null, "null", 0, 0, 0, 0);
             Assert.IsTrue(s_SystemCount == 1);
         }
-        static bool myfalse = false;
         internal static void InitializeAllSystemTypes()
         {
-            // DOTS Runtime registers all system info when registering component info
-            if (myfalse) //avoid unused code error
+#if DISABLE_TYPEMANAGER_ILPP
             {
                 try
                 {
@@ -514,7 +509,7 @@ namespace Unity.Entities
                     Profiler.EndSample();
                 }
             }
-            else
+#else
             {
                 s_SystemAttributes.Add(new UnsafeList<SystemAttribute>());
 
@@ -529,6 +524,7 @@ namespace Unity.Entities
                     s_SystemFilterFlagsList[i] = MakeWorldFilterFlags(type, ref visitedSystemGroupsSet);
                 }
             }
+#endif
         }
 
         private static void AddSystemAttributesToTable(Type systemType)
@@ -1385,24 +1381,6 @@ namespace Unity.Entities
             return systemFlags;
         }
 
-        static object CreateSystem(Type systemType)
-        {
-            int systemIndex = 1; // 0 is reserved for null
-            for (; systemIndex < s_SystemTypes.Count; ++systemIndex)
-            {
-                if (s_SystemTypes[systemIndex] == systemType)
-                    break;
-            }
-
-            for (int i = 0; i < s_SystemTypeDelegateIndexRanges.Count; ++i)
-            {
-                if (systemIndex < s_SystemTypeDelegateIndexRanges[i])
-                    return s_AssemblyCreateSystemFn[i](systemType);
-            }
-
-            throw new ArgumentException("No function was generated for the provided type.");
-        }
-
         internal static Attribute[] GetSystemAttributes(Type system)
         {
             int typeIndexNoFlags = 1; // 0 is reserved for null
@@ -1491,7 +1469,6 @@ namespace Unity.Entities
             {
                 s_SystemTypeDelegateIndexRanges.Add(s_SystemCount);
 
-                s_AssemblyCreateSystemFn.Add(typeRegistry.CreateSystem);
                 s_AssemblyGetSystemAttributesFn.Add(typeRegistry.GetSystemAttributes);
             }
         }

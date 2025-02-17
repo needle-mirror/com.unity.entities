@@ -244,7 +244,7 @@ namespace Unity.Entities.CodeGen
                 case MetadataType.Boolean:
                     instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (bool) caValue ? 1 : 0)); break;
                 case MetadataType.Byte:
-                    instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (byte) caValue)); break;
+                    instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (int)(byte)caValue)); break;
                 case MetadataType.Char:
                     instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (char) caValue)); break;
                 case MetadataType.Double:
@@ -266,7 +266,10 @@ namespace Unity.Entities.CodeGen
                 case MetadataType.SByte:
                     instructions.Add(Instruction.Create(OpCodes.Ldc_I4, (sbyte) caValue)); break;
                 case MetadataType.String:
-                    instructions.Add(Instruction.Create(OpCodes.Ldstr, (string) caValue)); break;
+                    instructions.Add(caValue == null
+                                            ? Instruction.Create(OpCodes.Ldnull)
+                                            : Instruction.Create(OpCodes.Ldstr, (string)caValue));
+                                        break;
                 case MetadataType.Class:
                 {
                     if (caValue is TypeReference)
@@ -302,54 +305,6 @@ namespace Unity.Entities.CodeGen
                 default:
                     throw new ArgumentException($"Invalid custom argument type for {caType.FullName}");
             }
-        }
-
-        public MethodDefinition InjectCreateSystem(List<TypeReference> systems)
-        {
-            var createSystemsFunction = new MethodDefinition(
-                "CreateSystem",
-                MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig,
-                AssemblyDefinition.MainModule.ImportReference(typeof(object)));
-
-            createSystemsFunction.Parameters.Add(
-                new ParameterDefinition("systemType",
-                    ParameterAttributes.None,
-                    AssemblyDefinition.MainModule.ImportReference(typeof(Type))));
-
-            createSystemsFunction.Body.InitLocals = true;
-            var bc = createSystemsFunction.Body.Instructions;
-
-            foreach (var sysRef in systems)
-            {
-                if (sysRef.IsValueType())
-                    continue;
-
-                var sysDef = sysRef.Resolve();
-                var constructor = AssemblyDefinition.MainModule.ImportReference(sysDef.GetConstructors()
-                    .Single(param => !param.HasParameters && !param.IsStatic));
-
-                bc.Add(Instruction.Create(OpCodes.Ldarg_0));
-                bc.Add(Instruction.Create(OpCodes.Ldtoken, AssemblyDefinition.MainModule.ImportReference(sysRef)));
-                bc.Add(Instruction.Create(OpCodes.Call, m_GetTypeFromHandleFnRef));
-                bc.Add(Instruction.Create(OpCodes.Ceq));
-                int branchToNext = bc.Count;
-                bc.Add(Instruction.Create(OpCodes.Nop));    // will be: Brfalse nextTestCase
-                bc.Add(Instruction.Create(OpCodes.Newobj, constructor));
-                bc.Add(Instruction.Create(OpCodes.Ret));
-
-                var nextTest = Instruction.Create(OpCodes.Nop);
-                bc.Add(nextTest);
-
-                bc[branchToNext] = Instruction.Create(OpCodes.Brfalse, nextTest);
-            }
-
-            bc.Add(Instruction.Create(OpCodes.Ldstr, "FATAL: CreateSystem asked to create an unknown type. Only subclasses of ComponentSystemBase can be constructed."));
-            var argumentExceptionCtor = AssemblyDefinition.MainModule.ImportReference(typeof(ArgumentException)).Resolve().GetConstructors()
-                .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
-            bc.Add(Instruction.Create(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(argumentExceptionCtor)));
-            bc.Add(Instruction.Create(OpCodes.Throw));
-
-            return createSystemsFunction;
         }
     }
 }

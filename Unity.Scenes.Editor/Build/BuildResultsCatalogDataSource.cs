@@ -39,7 +39,7 @@ namespace Unity.Entities.Content
 
         public IEnumerable<ContentArchiveId> GetArchiveIds()
         {
-            return _results.WriteResults.Keys.Select(s => new ContentArchiveId { Value = new Hash128(s) }).OrderBy(id => id.Value).Append(default);
+            return _results.BundleInfos.Keys.Select(s => new ContentArchiveId { Value = new Hash128(s) }).OrderBy(id => id.Value).Append(default);
         }
 
         public IEnumerable<ContentFileId> GetDependencies(ContentFileId fileId)

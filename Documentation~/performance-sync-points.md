@@ -4,7 +4,7 @@ You can't make [structural changes](concepts-structural-changes.md) directly in 
 
 A sync point is a point in program execution that waits on the main thread for the completion of all jobs that have been scheduled so far. Sync points limit your ability to use all worker threads available in the job system for a period of time. As such, you should aim to avoid sync points. 
 
-Structural changes to the data in ECS are the primary cause of sync points. Sync points can also happen when you use `Run` to run a job. `Run` blocks the main thread and waits for all job dependencies to complete before the job scheduler executes the job synchronously on the main thread. 
+Structural changes to the data in ECS are the primary cause of sync points. Sync points can also happen when you use `Run` or `foreach` to run a job. These methods block the main thread and wait for all job dependencies to complete before the job scheduler executes the job synchronously on the main thread. 
 
 Structural changes not only require a sync point, but they also invalidate all direct references to any component data. This includes instances of [`DynamicBuffer`](xref:Unity.Entities.DynamicBuffer`1) and the result of methods that provide direct access to the components such as [`ComponentSystemBase.GetComponentDataFromEntity`](xref:Unity.Entities.ComponentSystemBase.GetComponentDataFromEntity*).
 

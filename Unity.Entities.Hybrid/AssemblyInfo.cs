@@ -24,6 +24,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Entities.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Graphics")]
 [assembly: InternalsVisibleTo("Unity.NetCode.TestsUtils")]
+[assembly: InternalsVisibleTo("Unity.NetCode.TestsUtils.Runtime.Tests")]
 [assembly: InternalsVisibleTo("Unity.NetCode.Editor")]
 [assembly: InternalsVisibleTo("Unity.Physics.PlayModeTests")]
 [assembly: InternalsVisibleTo("Unity.Physics.EditModeTests")]

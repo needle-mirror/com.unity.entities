@@ -88,7 +88,10 @@ namespace Unity.Transforms
                 float4x4 localToWorld;
                 bool hasChildBuffer = ChildLookupRO.TryGetBuffer(childEntity, out DynamicBuffer<Child> children);
 
-                if (updateChildrenTransform && LocalToWorldWriteGroupMask.MatchesIgnoreFilter(childEntity))
+                // If false, some other system is responsible for writing this entity's LocalToWorld (e.g. physics interpolation),
+                // and this system shouldn't write it.
+                bool canWriteLocalToWorld = LocalToWorldWriteGroupMask.MatchesIgnoreFilter(childEntity);
+                if (updateChildrenTransform && canWriteLocalToWorld)
                 {
                     // this entity (or its ancestors) has a dirty transform, AND this system is responsible for updating it LocalToWorld.
                     var localTransform = LocalTransformLookupRO[childEntity];
@@ -102,7 +105,7 @@ namespace Unity.Transforms
                     {
                         for (int i = 0, childCount = children.Length; i < childCount; i++)
                         {
-                            ChildLocalToWorldFromTransformMatrix(localToWorld, children[i].Value, updateChildrenTransform);
+                            ChildLocalToWorldFromTransformMatrix(localToWorld, children[i].Value, true);
                         }
                     }
                 }
@@ -113,7 +116,10 @@ namespace Unity.Transforms
                     if (hasChildBuffer)
                     {
                         localToWorld = LocalToWorldLookupRW[childEntity].Value;
-                        updateChildrenTransform = LocalToWorldLookupRW.DidChange(childEntity, LastSystemVersion);
+                        // If another system may have written this entity's LocalToWorld, we need to treat this node's
+                        // transform as dirty while processing its children.
+                        if (!canWriteLocalToWorld)
+                            updateChildrenTransform = LocalToWorldLookupRW.DidChange(childEntity, LastSystemVersion);
                         for (int i = 0, childCount = children.Length; i < childCount; i++)
                         {
                             ChildLocalToWorldFromTransformMatrix(localToWorld, children[i].Value, updateChildrenTransform);

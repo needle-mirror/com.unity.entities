@@ -125,6 +125,7 @@
     * [Baking worlds overview](baking-baking-worlds-overview.md)
     * [Filter baking output](baking-filter-output.md)
     * [Prefabs in baking](baking-prefabs.md)
+    * [Linked entity groups](linked-entity-group.md)
   * [Scenes overview](conversion-scene-overview.md)
     * [Subscenes](conversion-subscenes.md)
     * [Scene streaming](streaming-scenes.md)

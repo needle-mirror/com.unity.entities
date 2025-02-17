@@ -1,17 +1,17 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.3.9",
+  "version": "1.3.10",
   "unity": "2022.3",
   "unityRelease": "11f1",
   "dependencies": {
     "com.unity.burst": "1.8.18",
-    "com.unity.collections": "2.5.2",
+    "com.unity.collections": "2.5.3",
     "com.unity.mathematics": "1.3.2",
-    "com.unity.nuget.mono-cecil": "1.11.4",
+    "com.unity.nuget.mono-cecil": "1.11.5",
     "com.unity.profiling.core": "1.0.2",
-    "com.unity.scriptablebuildpipeline": "1.21.21",
-    "com.unity.serialization": "3.1.1",
+    "com.unity.scriptablebuildpipeline": "1.21.25",
+    "com.unity.serialization": "3.1.2",
     "com.unity.test-framework.performance": "3.0.3",
     "com.unity.modules.assetbundle": "1.0.0",
     "com.unity.modules.audio": "1.0.0",
@@ -27,15 +27,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Added\n\n* Enabled content downloads from the Editor while in Playmode.\n\n### Fixed\n\n* Entities Hierarchy shows content for _Dont Destroy On Load_ scene in playmode.\n* Prefab reference disappears after instantiating the prefab in runtime and rebaking.\n* Entity inspector now differentiate editors for component types when type names are the same but namespaces are different.\n* compile error when using 'unsafe' in one partial system (that's generated) but not another\n* compile error when having mismatched using statements in one partial system that's different than another\n* Fixed an error where an `EntityQuery` whose `WithAny` list contained a mix of enableable and disableable components would fail to match entities with at least one of the non-enableable components, if all of its enableable Any components were disabled. As a side effect, queries with `WithAny` constraints should now have slightly faster matching.\n* For empty scene sections, `SceneSectionData.BoundingVolume` will no longer contain NaN values, and the `BoundingVolume.IsValid` property will return `true` as expected. Note that converting this field to an `AABB` will still result in NaN values; for now, this case will need special-case handling in user code.\n* Massively reduced reflection on startup in player builds by moving work to an ILPostProcessor.\n* Unit test Instability (memory corruption) caused by dynamically registering new types with the TypeManager.\n\n### Security"
+    "changelog": "### Added\n\n* An override for OnGUI in the WeakReferencePropertyDrawer class has been added. This ensures that WeakObjectReference, WeakObjectSceneReference, EntitySceneReference and EntityPrefabReference can be displayed properly in a  CustomEditor.\n* Documentation for LinkedEntityGroup was added. Additionally documentation on Transforms was expanded.\n\n### Changed\n\n* Updated com.unity.scriptablebuildpipeline dependency to version 1.21.25\n* Updated com.unity.serialization dependency to version 3.1.2\n* Updated the `com.unity.nuget.mono-cecil` dependency to version `1.11.5`\n\n### Fixed\n\n* Live Baking would aggressively reset components containing non-null entity references to their baked values, effectively causing editor UI interaction to overwrite changes made at runtime. After this fix, it should only happen when those references are explicitly updated.\n* Fixed a memory leak of the EntityCommandBuffer.SetSharedComponentManaged()\n* Fixed not recognizing JobEntity calls defined in partial classes with no inheritance markings.\n* AssertWillDestroyAllInLinkedEntityGroup will respect enableable filtering when used via EntityManager.DestroyEntity when passed a query\n* Fixed to enable code analysis and generation for LambdaJobs inside property setters.\n* Fixed dependency calculation when multiple files are included in a single content archive.\n* Fixed a case where LocalToWorldSystem would occasionally recompute subhierarchy LocalToWorld component values, even if their ancestor transforms hadn't changed.\n* Fixed ILPP errors when using nullables\n* Fixed ILPP errors when combining UnityEngine.Object and IComponentData on the same type\n* CalculateStableTypeHash(typeof(T)) now agrees with TypeManager.GetTypeInfo(TypeManager.GetTypeIndex<T>()).StableTypeHash whenever possible.\n* ILPP errors on some systems marked [DisableAutoCreation]\n* Fixed a serious a issue in EntityQuery and archetype memory allocation, which could potentially return invalid addresses for these instances on 32-bit platforms.\n\n### Security"
   },
   "upmCi": {
-    "footprint": "a0aef86923a4c76829b77a0b18e00ee99c6af97c"
+    "footprint": "9e9c3558df24aa834e3f3474db316df80bee65c3"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.3/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "05bb8b738d908a2d757d25ca253ed16f35bdc78d"
+    "revision": "893d3250e4978302326a812dde13aa126dbcd775"
   }
 }

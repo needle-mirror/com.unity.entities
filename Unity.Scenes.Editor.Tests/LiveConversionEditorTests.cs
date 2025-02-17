@@ -9027,5 +9027,66 @@ namespace Unity.Scenes.Editor.Tests
                 yield return UpdateEditorAndWorld(w);
             }
         }
+
+        [UnityTest]
+        public IEnumerator LiveConversion_EntitiesUseReferentialEquality([Values]Mode mode)
+        {
+            // IMPORTANT : entity references between the baking world and the shadow world are not bitwise equivalent,
+            // but they both have the same GUID, which is what referential equality is about.
+            // This test is a regression test for ECSB-1239, where a component change was incorrectly detected.
+
+            // Setup a subscene with two gameobjects, one of which has a component that references the other one.
+            // The important part is that the component contains both an entity field and something else (an int in this case).
+            SubScene subScene = CreateEmptySubScene("TestSubScene", true);
+            var go_a = new GameObject("A", typeof(TestEntityRefComponentAuthoring));
+            var go_b = new GameObject("B");
+            SceneManager.MoveGameObjectToScene(go_a, subScene.EditingScene);
+            SceneManager.MoveGameObjectToScene(go_b, subScene.EditingScene);
+
+            // The component's baker is simply copying the two fields with no processing.
+            var authoring = go_a.GetComponent<TestEntityRefComponentAuthoring>();
+            authoring.other = go_b;
+            authoring.value = 123;
+
+            yield return GetEnterPlayMode(mode);
+            {
+                // If we effectively entered play mode, we have to re-fetch the authoring component
+                // because it's not the same one anymore. This doesn't matter for edit mode.
+                authoring = go_a.GetComponent<TestEntityRefComponentAuthoring>();
+
+                var w = GetLiveConversionWorld(mode);
+
+                var query = w.EntityManager.CreateEntityQuery(ComponentType.ReadWrite<TestEntityRefComponentAuthoring.Component>());
+                var entity = query.GetSingletonEntity();
+
+                // At this stage, we expect the initial values to be stored there.
+                // We are not testing the entity value, this test is all about what happens to the other component (int).
+                var component = w.EntityManager.GetComponentData<TestEntityRefComponentAuthoring.Component>(entity);
+                Assert.AreEqual(123, component.value);
+
+                // Let's update the int value in the target world, but we keep the entity reference untouched.
+                component.value = 456;
+                w.EntityManager.SetComponentData(entity, component);
+
+                // Now we introduce a dummy change to the component. The goal is to trigger a rebake of the component, but
+                // this rebake should produce exactly the same result as the initial bake.
+                Undo.RecordObject(authoring, "TestChange");
+                authoring.other = null;
+                Undo.FlushUndoRecordObjects();
+                Undo.RecordObject(authoring, "TestChange");
+                authoring.other = go_b;
+                Undo.FlushUndoRecordObjects();
+
+                // What is expected now is that live baking will detect that the component is unchanged, because the
+                // result from the baking world and the shadow world are identical. So no patch should be produced, and the
+                // component should not be updated.
+                yield return UpdateEditorAndWorld(w);
+
+                // If the component has not been updated, it will still contain the value 456.
+                // If the component has been updated (which is incorrect), it will have been reverted to the value 123.
+                component = w.EntityManager.GetComponentData<TestEntityRefComponentAuthoring.Component>(entity);
+                Assert.AreEqual(456, component.value);
+            }
+        }
     }
 }

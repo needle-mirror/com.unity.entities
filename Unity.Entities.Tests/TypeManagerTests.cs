@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Diagnostics;
 using System.Runtime.CompilerServices;
+using System.Runtime.InteropServices;
 using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
@@ -78,6 +79,15 @@ namespace Unity.Entities.Tests
         }
 #endif
 
+        public struct TestTypeWithGCHandle : IComponentData
+        {
+            public GCHandle handle;
+        }
+
+        public struct TestTypeWithGuid : IComponentData
+        {
+            public Guid guid;
+        }
         internal struct TestType1 : IComponentData
         {
             int empty;
@@ -114,6 +124,84 @@ namespace Unity.Entities.Tests
                 return empty.GetHashCode();
             }
         }
+
+        internal class AttributeWithStringArgumentAttribute : Attribute
+        {
+            internal AttributeWithStringArgumentAttribute(string argument) { }
+        }
+
+
+
+        [AttributeWithStringArgument(null)]
+        partial class SystemWithAttributeWithNullString : SystemBase
+        {
+            protected override void OnCreate()
+            {
+                throw new NotImplementedException();
+            }
+            protected override void OnUpdate()
+            {
+                throw new NotImplementedException();
+            }
+            protected override void OnDestroy()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+
+#nullable enable
+
+        // this will make sure the typemanager tolerates ICD & MB's coexisting.
+        class CombinedMBAndICD : MonoBehaviour, IComponentData
+        {
+
+        }
+
+        [WorldSystemFilter(WorldSystemFilterFlags.Default | WorldSystemFilterFlags.Editor | WorldSystemFilterFlags.ThinClientSimulation, WorldSystemFilterFlags.Default)]
+        [UpdateAfter(typeof(TestComponentSystem))]
+        partial class NullableSystem : SystemBase
+        {
+#pragma warning disable 0067
+            //without a field like this, roslyn doesn't emit the nullable and nullablecontext attributes that
+            //exercise the fixed logic in typemanager. so, don't delete it or its usage!
+            private static event Action? Quitting;
+
+            private static void OnQuit()
+            {
+                Quitting?.Invoke();
+            }
+#pragma warning restore 0067
+            internal void noop() { }
+            protected override void OnCreate()
+            {
+                throw new NotImplementedException();
+            }
+            protected override void OnUpdate()
+            {
+                throw new NotImplementedException();
+            }
+            protected override void OnDestroy()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        class ThingUsingNullableSystem
+        {
+            static NullableSystem?[]? field;
+            private static void Method()
+            {
+                if (field != null)
+                {
+                    foreach (var s in field)
+                    {
+                        s?.noop();
+                    }
+                }
+            }
+        }
+#nullable disable
 
         struct TestTypeWithChar : IComponentData, IEquatable<TestTypeWithChar>
         {
@@ -230,6 +318,17 @@ namespace Unity.Entities.Tests
             var y = TypeManager.GetWeakAssetRefOffsets(ti);
             Assert.AreEqual(1, ti.WeakAssetRefOffsetCount);
             Assert.AreEqual(8, y[0].Offset);
+        }
+        [Test]
+        public void TypeWithGCHandle_HasCorrectSize()
+        {
+            Assert.AreEqual(Marshal.SizeOf<TestTypeWithGCHandle>(), TypeManager.GetTypeInfo<TestTypeWithGCHandle>().TypeSize);
+        }
+
+        [Test]
+        public void TypeWithGuid_HasCorrectSize()
+        {
+            Assert.AreEqual(Marshal.SizeOf<TestTypeWithGuid>(), TypeManager.GetTypeInfo<TestTypeWithGuid>().TypeSize);
         }
 
         [Test]
@@ -592,6 +691,26 @@ namespace Unity.Entities.Tests
                 Assert.AreEqual(value, CollectionHelper.Align(value, 0ul));
             }
         }
+
+        [Test]
+        public unsafe void TestAlignPointer_ToPow2()
+        {
+            ulong ulongOnStack = 0;
+            byte* bytePtrOnStack = (byte*)&ulongOnStack;
+            nuint expectedAlignedAddr = (nuint)(&ulongOnStack + 1);
+
+            Assert.AreEqual((nuint)(&ulongOnStack), (nuint)CollectionHelper.AlignPointer(bytePtrOnStack+0, sizeof(ulong)));
+            Assert.AreEqual(expectedAlignedAddr, (nuint)CollectionHelper.AlignPointer(bytePtrOnStack+1, sizeof(ulong)));
+            Assert.AreEqual(expectedAlignedAddr, (nuint)CollectionHelper.AlignPointer(bytePtrOnStack+2, sizeof(ulong)));
+            Assert.AreEqual(expectedAlignedAddr, (nuint)CollectionHelper.AlignPointer(bytePtrOnStack+3, sizeof(ulong)));
+            Assert.AreEqual(expectedAlignedAddr, (nuint)CollectionHelper.AlignPointer(bytePtrOnStack+4, sizeof(ulong)));
+            Assert.AreEqual(expectedAlignedAddr, (nuint)CollectionHelper.AlignPointer(bytePtrOnStack+5, sizeof(ulong)));
+            Assert.AreEqual(expectedAlignedAddr, (nuint)CollectionHelper.AlignPointer(bytePtrOnStack+6, sizeof(ulong)));
+            Assert.AreEqual(expectedAlignedAddr, (nuint)CollectionHelper.AlignPointer(bytePtrOnStack+7, sizeof(ulong)));
+            Assert.AreEqual(expectedAlignedAddr, (nuint)CollectionHelper.AlignPointer(bytePtrOnStack+8, sizeof(ulong)));
+        }
+
+
 
         [UpdateBefore(typeof(PresentationSystemGroup))]
         [UpdateAfter(typeof(InitializationSystemGroup))]
@@ -1309,6 +1428,47 @@ namespace Unity.Entities.Tests
             public string Str1;
             public string Str2;
         }
+
+#if UNITY_2022_3_11F1_OR_NEWER
+        class CircularReferenceB : IComponentData
+        {
+            CircularReferenceA m_A1;
+            CircularReferenceA m_A2;
+            CircularReferenceB m_B;
+            CircularReferenceA m_A3;
+        }
+
+        class CircularReferenceA : IComponentData
+        {
+            CircularReferenceB m_B1;
+            CircularReferenceB m_B2;
+            CircularReferenceA m_A;
+            CircularReferenceB m_B3;
+        }
+
+        [Test]
+        public void TestTypeHashComponentWithCircularReference()
+        {
+            var cache = new Dictionary<Type, ulong>();
+            var hashA = TypeHash.CalculateStableTypeHash(typeof(CircularReferenceA), cache);
+            var hashB = TypeHash.CalculateStableTypeHash(typeof(CircularReferenceB), cache);
+
+            // Clearing the cache is to simulate rebuilding the hash from a player build however to
+            // confirm our hashes are stable, hash the types in reverse order and ensure the hashes match
+            cache.Clear();
+
+            Assert.AreEqual(hashB, TypeHash.CalculateStableTypeHash(typeof(CircularReferenceB), cache));
+            Assert.AreEqual(hashA, TypeHash.CalculateStableTypeHash(typeof(CircularReferenceA), cache));
+        }
+
+        [Test]
+        public void TestCalculateStableTypeHash_MatchesTypeManagerVersion()
+        {
+            Assert.AreEqual(
+                TypeHash.CalculateStableTypeHash(typeof(CircularReferenceA), new Dictionary<Type, ulong>()),
+                TypeManager.GetTypeInfo(TypeManager.GetTypeIndex<CircularReferenceA>()).StableTypeHash);
+        }
+#endif
 
         [DisableAutoTypeRegistration]
         [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:true, hasNoUnityObjectReferences:true)]

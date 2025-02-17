@@ -22,7 +22,7 @@ public class LambdaJobDescription
 
     public LambdaParamDescription_EntityCommandBuffer EntityCommandBufferParameter { get; }
     public SystemDescription SystemDescription { get; }
-    public MethodDeclarationSyntax ContainingMethod { get; }
+    public SyntaxNode ContainingMethodOrAccessor { get; }
     public InvocationExpressionSyntax ContainingInvocationExpression { get; }
     public Dictionary<string, List<InvocationExpressionSyntax>> MethodInvocations { get; }
     public (bool IsEnabled, BurstSettings Settings) Burst { get; }
@@ -72,8 +72,10 @@ public class LambdaJobDescription
     public bool DOTSRuntimeProfilerEnabled => SystemDescription.PreprocessorInfo.IsDotsRuntimeProfilerEnabled;
     public bool ProfilerEnabled =>
         SystemDescription.PreprocessorInfo.IsProfilerEnabled || SystemDescription.PreprocessorInfo.IsForUnityEditor || SystemDescription.PreprocessorInfo.IsDevelopmentBuildEnabled;
-    public bool NeedsUnsafe => ContainingMethod.Modifiers.Any(modifier => modifier.IsKind(SyntaxKind.UnsafeKeyword)) ||
-                               OriginalLambdaExpression.AncestorOfKindOrDefault<UnsafeStatementSyntax>() != null;
+    public bool NeedsUnsafe =>
+        ContainingMethodOrAccessor is MethodDeclarationSyntax { Modifiers: var modifiers } &&
+        (modifiers.Any(modifier => modifier.IsKind(SyntaxKind.UnsafeKeyword)) ||
+         OriginalLambdaExpression.AncestorOfKindOrDefault<UnsafeStatementSyntax>() != null);
     public bool NeedsTimeData { get; }
 
     bool NeedsToPassSortKeyToOriginalLambdaBody => EntityCommandBufferParameter is {Playback: {ScheduleMode: ScheduleMode.ScheduleParallel}};
@@ -84,13 +86,13 @@ public class LambdaJobDescription
     List<INamedTypeSymbol> WithDeferredPlaybackSystemTypes { get; }
     bool WithImmediatePlayback { get; }
 
-    public LambdaJobDescription(SystemDescription systemDescription, LambdaJobsCandidate candidate, MethodDeclarationSyntax containingMethod, int id)
+    public LambdaJobDescription(SystemDescription systemDescription, LambdaJobsCandidate candidate, SyntaxNode containingMethodOrAccessor, int id)
     {
         try
         {
             SystemDescription = systemDescription;
             Location = candidate.Node.GetLocation();
-            ContainingMethod = containingMethod;
+            ContainingMethodOrAccessor = containingMethodOrAccessor;
             MethodInvocations = candidate.MethodInvocations;
             Schedule = GetScheduleModeAndDependencyArgument();
             ContainingInvocationExpression = MethodInvocations[Schedule.Mode.ToString()].FirstOrDefault();
@@ -173,7 +175,10 @@ public class LambdaJobDescription
 
             AdditionalFields = new List<DataLookupFieldDescription>();
 
-            var methodSymbol = systemDescription.SemanticModel.GetDeclaredSymbol(ContainingMethod);
+            var methodSymbol = systemDescription.SemanticModel.GetDeclaredSymbol(ContainingMethodOrAccessor) as IMethodSymbol;
+            if (methodSymbol == null)
+                throw new InvalidOperationException($"Unable to get IMethodSymbol for containing method or accessor: {ContainingMethodOrAccessor}");
+
             var stableHashCodeForMethod = GetStableHashCode($"{methodSymbol.ContainingType.ToFullName()}_{methodSymbol.GetMethodAndParamsAsString(this.SystemDescription)}") & 0x7fffffff;
             Name = GetName( $"{systemDescription.SystemTypeSyntax.Identifier}_{stableHashCodeForMethod:X}_LambdaJob_{id}");
             LambdaJobKind = candidate.LambdaJobKind;

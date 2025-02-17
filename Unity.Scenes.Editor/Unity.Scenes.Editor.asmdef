@@ -15,7 +15,8 @@
         "Unity.Serialization",
         "Unity.Build.DotsRuntime",
         "Unity.Entities.Build",
-        "Unity.Build.Classic.Private"
+        "Unity.Build.Classic.Private",
+		"Unity.ScriptableBuildPipeline"
     ],
     "includePlatforms": [
         "Editor"

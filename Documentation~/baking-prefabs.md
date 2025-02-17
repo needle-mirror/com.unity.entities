@@ -1,9 +1,9 @@
 #  Prefabs in baking
 
-During the baking process, [prefabs](xref:Prefabs) are baked into **entity prefabs**. An entity prefab is an entity that has the following components:
+During the baking process, [prefabs](xref:Prefabs) are baked into entity prefabs. An entity prefab is an entity that has the following components:
 
 * A prefab tag: Identifies the entity as a prefab and excludes them from queries by default. 
-* A [`LinkedEntityGroup`](xref:Unity.Entities.LinkedEntityGroup) buffer: Stores all children within the prefab in a flat list. For example, to quickly create the whole set of entities within a prefab without having to traverse the hierarchy. 
+* A [`LinkedEntityGroup`](linked-entity-group.md) buffer: Stores all children within the prefab in a flat list. For example, to quickly create the whole set of entities within a prefab without having to traverse the hierarchy. 
 
 You can use an entity prefabs in a similar way to GameObject prefabs, because they can be instantiated at runtime. However, to use them at runtime, you must [bake](baking-overview.md) the GameObject Prefabs and make them available in the [entity scene](conversion-scene-overview.md).
 
@@ -48,3 +48,4 @@ To destroy a prefab instance, use an [`EntityManager`](xref:Unity.Entities.Entit
 ## Additional resources
 
 * [Baker overview](baking-baker-overview.md)
+* [Linked entity groups](linked-entity-group.md)

@@ -18,3 +18,4 @@ This section outlines how to organize and manage the entities and components in 
 * [Entity component system concepts](concepts-intro.md)
 * [Convert data](conversion-intro.md)
 * [Performance and debugging](performance-debugging.md)
+* [Linked entity groups](linked-entity-group.md)

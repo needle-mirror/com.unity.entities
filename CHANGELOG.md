@@ -4,6 +4,38 @@ uid: changelog
 
 # Changelog
 
+## [1.3.10] - 2025-02-17
+
+### Added
+
+* An override for OnGUI in the WeakReferencePropertyDrawer class has been added. This ensures that WeakObjectReference, WeakObjectSceneReference, EntitySceneReference and EntityPrefabReference can be displayed properly in a  CustomEditor.
+* Documentation for LinkedEntityGroup was added. Additionally documentation on Transforms was expanded.
+
+### Changed
+
+* Updated com.unity.scriptablebuildpipeline dependency to version 1.21.25
+* Updated com.unity.serialization dependency to version 3.1.2
+* Updated the `com.unity.nuget.mono-cecil` dependency to version `1.11.5`
+
+### Fixed
+
+* Live Baking would aggressively reset components containing non-null entity references to their baked values, effectively causing editor UI interaction to overwrite changes made at runtime. After this fix, it should only happen when those references are explicitly updated.
+* Fixed a memory leak of the EntityCommandBuffer.SetSharedComponentManaged()
+* Fixed not recognizing JobEntity calls defined in partial classes with no inheritance markings.
+* AssertWillDestroyAllInLinkedEntityGroup will respect enableable filtering when used via EntityManager.DestroyEntity when passed a query
+* Fixed to enable code analysis and generation for LambdaJobs inside property setters.
+* Fixed dependency calculation when multiple files are included in a single content archive.
+* Fixed a case where LocalToWorldSystem would occasionally recompute subhierarchy LocalToWorld component values, even if their ancestor transforms hadn't changed.
+* Fixed ILPP errors when using nullables
+* Fixed ILPP errors when combining UnityEngine.Object and IComponentData on the same type
+* CalculateStableTypeHash(typeof(T)) now agrees with TypeManager.GetTypeInfo(TypeManager.GetTypeIndex<T>()).StableTypeHash whenever possible.
+* ILPP errors on some systems marked [DisableAutoCreation]
+* Fixed a serious a issue in EntityQuery and archetype memory allocation, which could potentially return invalid addresses for these instances on 32-bit platforms.
+
+### Security
+
+
+
 ## [1.3.9] - 2025-01-16
 
 ### Added
@@ -21,8 +53,6 @@ uid: changelog
 * For empty scene sections, `SceneSectionData.BoundingVolume` will no longer contain NaN values, and the `BoundingVolume.IsValid` property will return `true` as expected. Note that converting this field to an `AABB` will still result in NaN values; for now, this case will need special-case handling in user code.
 * Massively reduced reflection on startup in player builds by moving work to an ILPostProcessor.
 * Unit test Instability (memory corruption) caused by dynamically registering new types with the TypeManager.
-
-### Security
 
 
 ## [1.3.8] - 2024-11-08

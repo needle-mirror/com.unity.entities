@@ -24,6 +24,105 @@ namespace Unity.Entities.Tests
             return AreNearlyEqual(a.x, b.x, tolerance) && AreNearlyEqual(a.y, b.y, tolerance) && AreNearlyEqual(a.z, b.z, tolerance) && AreNearlyEqual(a.w, b.w, tolerance);
         }
 
+        [DisableAutoCreation]
+        partial struct ResetAllTransformsToIdentity : ISystem
+        {
+            public void OnUpdate(ref SystemState state)
+            {
+                foreach(var lt in SystemAPI.Query<RefRW<LocalTransform>>())
+                {
+                    lt.ValueRW = LocalTransform.Identity;
+                }
+            }
+        }
+
+        [DisableAutoCreation]
+        partial struct ChangeOneParentTransform : ISystem
+        {
+            public void OnUpdate(ref SystemState state)
+            {
+                foreach(var lt in SystemAPI.Query<RefRW<LocalTransform>>().WithAll<EcsTestData>())
+                {
+                    lt.ValueRW = LocalTransform.Identity;
+                }
+            }
+        }
+
+        [Test]
+        public void LocalToWorldSystem_MultipleHierarchiesInChunk_CorrectChangeVersion()
+        {
+            var parentSystem = World.GetOrCreateSystem<ParentSystem>();
+            var resetAllTransformsSystem = World.GetOrCreateSystem<ResetAllTransformsToIdentity>();
+            var changeOneParentSystem = World.GetOrCreateSystem<ChangeOneParentTransform>();
+            var localToWorldSystem = World.GetOrCreateSystem<LocalToWorldSystem>();
+            // Force change version of all components to 0
+            m_Manager.Debug.SetGlobalSystemVersion(10);
+            // Create the two hierarchies in five chunks:
+            // parentA <- childA <- grandA
+            // parentB <- childB <- grandB
+            // [parentA]     [parentB]
+            //     [childA,childB]
+            // [grandA]      [grandB]
+            Entity parentA = m_Manager.CreateEntity(typeof(LocalTransform), typeof(LocalToWorld), typeof(EcsTestData));
+            Entity parentB = m_Manager.CreateEntity(typeof(LocalTransform), typeof(LocalToWorld), typeof(EcsTestData2));
+            Entity childA = m_Manager.CreateEntity(typeof(LocalTransform), typeof(LocalToWorld), typeof(EcsTestData3));
+            Entity childB = m_Manager.CreateEntity(typeof(LocalTransform), typeof(LocalToWorld), typeof(EcsTestData3));
+            Entity grandA = m_Manager.CreateEntity(typeof(LocalTransform), typeof(LocalToWorld), typeof(EcsTestData4));
+            Entity grandB = m_Manager.CreateEntity(typeof(LocalTransform), typeof(LocalToWorld), typeof(EcsTestData5));
+            m_Manager.SetName(parentA, "ParentA");
+            m_Manager.SetName(parentB, "ParentB");
+            m_Manager.SetName(childA, "ChildA");
+            m_Manager.SetName(childB, "ChildB");
+            m_Manager.SetName(grandA, "GrandA");
+            m_Manager.SetName(grandB, "GrandB");
+            m_Manager.AddComponentData(childA, new Parent { Value = parentA });
+            m_Manager.AddComponentData(childB, new Parent { Value = parentB });
+            m_Manager.AddComponentData(grandA, new Parent { Value = childA });
+            m_Manager.AddComponentData(grandB, new Parent { Value = childB });
+            parentSystem.Update(World.Unmanaged); // Connect parents & children
+            localToWorldSystem.Update(World.Unmanaged); // Compute initial local-to-world matrices
+            // Validate expected chunk layout
+            Assert.AreNotEqual(m_Manager.GetChunk(parentA), m_Manager.GetChunk(parentB));
+            Assert.AreEqual(m_Manager.GetChunk(childA), m_Manager.GetChunk(childB));
+            Assert.AreNotEqual(m_Manager.GetChunk(grandA), m_Manager.GetChunk(grandB));
+            uint versionMatchCount = 0;
+            var localTransformTypeHandleRO = m_Manager.GetComponentTypeHandle<LocalTransform>(isReadOnly: true);
+            var localToWorldTypeHandleRO = m_Manager.GetComponentTypeHandle<LocalToWorld>(isReadOnly: true);
+            uint testCount = 1000;
+            for (uint i = 0; i < testCount; ++i)
+            {
+                // Touch all LocalTransform and LocalToWorld components, so everything is considered clean.
+                resetAllTransformsSystem.Update(World.Unmanaged);
+                localToWorldSystem.Update(World.Unmanaged);
+                m_Manager.CompleteAllTrackedJobs();
+                uint parentAVersion = m_Manager.GetChunk(parentA).GetChangeVersion(ref localTransformTypeHandleRO);
+                uint parentBVersion = m_Manager.GetChunk(parentB).GetChangeVersion(ref localTransformTypeHandleRO);
+                uint grandAVersion = m_Manager.GetChunk(grandA).GetChangeVersion(ref localToWorldTypeHandleRO);
+                uint grandBVersion = m_Manager.GetChunk(grandB).GetChangeVersion(ref localToWorldTypeHandleRO);
+                Assert.AreEqual(parentAVersion, parentBVersion, $"Expected parentA/B LT to have the same version after resetting all, but instead A={parentAVersion} B={parentBVersion}");
+                Assert.AreEqual(grandAVersion, grandBVersion, $"Expected grandA/B LTW to have the same version after resetting all, but instead A={grandAVersion} B={grandBVersion}");
+                // Write only parentA's transform, which should cause all of hierarchyA to recalculate its LocalToWorld.
+                // Depending on the order in which the hierarchies are processed, this may cause grandB's LocalToWorld to be recalculated as well
+                // (since childA and child B are in the same chunk, and dirtying either entity flags all other entities in the chunk as dirty).
+                // - If childA is visited first (by the thread processing hierarchy A), childB will have its LocalToWorld marked as dirty, which
+                //   which means when hierarchy B is processed it will assumed grandB needs to be recalculated as well.
+                // - If childB is visited first (by the thread processing hierarchy B), childB's LocalToWorld will still be clean, so grandB won't
+                //   be recalculated. The thread processing hierarchy A will still mark the childA/childB chunk as dirty
+                changeOneParentSystem.Update(World.Unmanaged);
+                parentAVersion = m_Manager.GetChunk(parentA).GetChangeVersion(ref localTransformTypeHandleRO);
+                parentBVersion = m_Manager.GetChunk(parentB).GetChangeVersion(ref localTransformTypeHandleRO);
+                Assert.AreNotEqual(parentAVersion, parentBVersion, $"Expected parentA/B LTW versions to differ, but they are both {parentAVersion}");
+                localToWorldSystem.Update(World.Unmanaged);
+                m_Manager.CompleteAllTrackedJobs();
+                grandAVersion = m_Manager.GetChunk(grandA).GetChangeVersion(ref localToWorldTypeHandleRO);
+                grandBVersion = m_Manager.GetChunk(grandB).GetChangeVersion(ref localToWorldTypeHandleRO);
+                if (grandAVersion == grandBVersion)
+                    versionMatchCount += 1;
+            }
+            Assert.IsTrue(versionMatchCount == 0 || versionMatchCount == testCount,
+                $"Expected versionMatchCount to be 0 or {testCount}, but was {versionMatchCount}");
+        }
+
         [Test]
         public void TRS_ChildPosition()
         {

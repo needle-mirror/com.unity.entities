@@ -46,11 +46,6 @@ public partial class JobEntityModule : ISystemModule
             if (ScheduleModes.Contains(schedulingMethodName))
             {
                 var containingType = node.AncestorOfKind<TypeDeclarationSyntax>();
-
-                // Discard if no base type, meaning it can't possible inherit from a System
-                if (containingType.BaseList == null || containingType.BaseList.Types.Count == 0)
-                    return;
-
                 _jobEntityInvocationCandidates.Add(containingType, new JobEntityCandidate(memberAccessExpressionSyntax));
             }
         }

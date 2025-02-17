@@ -632,6 +632,30 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void DestroyEntityWithQueryAndLinkedEntityGroupDoesntMistakenlyAssert()
+        {
+            // Regression test for DOTS-10670
+            EntityArchetype archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEnableable));
+
+            for (int i=0; i<2; ++i)
+            {
+                Entity e = m_Manager.CreateEntity();
+                m_Manager.AddComponent<EcsTestDataEnableable>(e);
+
+                if (i==0)
+                    m_Manager.SetComponentEnabled<EcsTestDataEnableable>(e, false);
+
+                DynamicBuffer<LinkedEntityGroup> b = m_Manager.AddBuffer<LinkedEntityGroup>(e);
+                b.Add(e);
+            }
+
+            using (EntityQuery query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestDataEnableable>().WithAll<LinkedEntityGroup>().Build(m_Manager))
+            {
+                m_Manager.DestroyEntity(query);
+            }
+        }
+
+        [Test]
         public void MoveEntitiesFrom_PreservesBitValues([Values(1, 4)] int chunkCount)
         {
             using var dstWorld = new World("CopyWorld");

@@ -228,12 +228,18 @@ namespace Unity.Entities.CodeGen
                             i.InterfaceType.Resolve(),
                             runnerOfMe._ISharedComponentDataDef)) ? 1 : 0;
 
-                if (isUO + isICD + isIBED + isISCD > 1)
+                if (isUO > 0 && (isIBED > 0 || isISCD > 0))
+                {
+                    throw new InvalidOperationException(@$"Type initialization failure: {def.Name} inherits from UnityEngine.Object and also
+							at least one of IBufferElementData or ISharedComponentData, which is not allowed.");
+                }
+
+                if (isICD + isIBED + isISCD > 1)
                 {
                     throw new InvalidOperationException(@$"Type initialization failure: {def.Name} inherits from more than one of IBufferElementData,
-							IComponentData, ISharedComponentData, and UnityEngine.Object, which is not allowed.");
+							IComponentData, and ISharedComponentData, which is not allowed.");
                 }
-                return isUO + isICD + isIBED + isISCD == 1;
+                return isUO + isICD + isIBED + isISCD >= 1;
             }
 
             bool HasAnyOfTheInterfacesRecursive(TypeDefinition def)
@@ -674,17 +680,6 @@ namespace Unity.Entities.CodeGen
             il.Emit(OpCodes.Ldftn, getSystemAttributesFn);
             il.Emit(OpCodes.Newobj, getSystemAttributesFnCtor);
             il.Emit(OpCodes.Stfld, getSystemAttributesFnFieldDef);
-
-            // Store TypeRegistry.CreateSystem
-            var createSystemFn = InjectCreateSystem(systemList);
-            GeneratedRegistryDef.Methods.Add(createSystemFn);
-            il.Emit(OpCodes.Ldloc_0);
-            var getSystemFnCtor = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry.CreateSystemFn).GetConstructor(new Type[] { typeof(object), typeof(IntPtr) }));
-            var createSystemFnFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("CreateSystem", BindingFlags.Public | BindingFlags.Instance));
-            il.Emit(OpCodes.Ldnull); // no this ptr
-            il.Emit(OpCodes.Ldftn, createSystemFn);
-            il.Emit(OpCodes.Newobj, getSystemFnCtor);
-            il.Emit(OpCodes.Stfld, createSystemFnFieldDef);
 
             // Store TypeRegistry.SetSharedTypeIndices
             var setSharedTypeIndicesFn = InjectSetSharedStaticTypeIndices(typeGenInfoList);

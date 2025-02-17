@@ -11,7 +11,7 @@ namespace Unity.Entities
         BufferAllocator m_bufferAllocator;
         private UnsafeList<int> m_allocations;
         int m_currentBlockIndex;
-        ulong m_nextPtr;
+        byte* m_nextPtr;
 
         private const int ms_Log2BlockSize = 16;
         private const int ms_BlockSize = 1 << ms_Log2BlockSize;
@@ -21,7 +21,7 @@ namespace Unity.Entities
         public BlockAllocator(AllocatorManager.AllocatorHandle handle, int budgetInBytes)
         {
             m_bufferAllocator = new BufferAllocator(budgetInBytes, ms_BlockSize, handle);
-            m_nextPtr = 0;
+            m_nextPtr = null;
             var blocks = (budgetInBytes + ms_BlockSize - 1) >> ms_Log2BlockSize;
             m_allocations = new UnsafeList<int>(blocks, handle);
 
@@ -66,7 +66,7 @@ namespace Unity.Entities
                     if (--m_allocations.Ptr[i] == 0) // if this was the last allocation in the block,
                     {
                         if (i == blocks - 1) // if it's the last block,
-                            m_nextPtr = (ulong)m_bufferAllocator[i]; // just forget that we allocated anything from it, but keep it for later allocations
+                            m_nextPtr = (byte*)m_bufferAllocator[i]; // just forget that we allocated anything from it, but keep it for later allocations
                         else
                         {
                             m_bufferAllocator.Free(i);
@@ -123,22 +123,22 @@ namespace Unity.Entities
         public byte* Allocate(int bytesToAllocate, int alignment)
         {
             CheckAllocationTooLarge(bytesToAllocate, alignment);
-            var nextAligned = CollectionHelper.Align(m_nextPtr, (ulong)alignment);
-            var nextAllocationEnd = nextAligned + (ulong)bytesToAllocate;
+            var nextAligned = (byte*)CollectionHelper.AlignPointer(m_nextPtr, alignment);
+            var nextAllocationEnd = nextAligned + bytesToAllocate;
 
             // If we haven't allocated a block or the next allocation end is past the end of the current block, then allocate a new block.
-            if (m_currentBlockIndex < 0 || nextAllocationEnd > (ulong)m_bufferAllocator[m_currentBlockIndex] + ms_BlockSize)
+            if (m_currentBlockIndex < 0 || nextAllocationEnd > (byte*)m_bufferAllocator[m_currentBlockIndex] + ms_BlockSize)
             {
                 CheckExceededBudget();
                 // Allocate a fresh block of memory
                 int index = m_bufferAllocator.Allocate();
                 m_allocations.Ptr[index] = 0;
                 m_currentBlockIndex = index;
-                nextAligned = CollectionHelper.Align((ulong) m_bufferAllocator[m_currentBlockIndex], (ulong)alignment);
-                nextAllocationEnd = nextAligned + (ulong) bytesToAllocate;
+                nextAligned = (byte*)CollectionHelper.AlignPointer(m_bufferAllocator[m_currentBlockIndex], alignment);
+                nextAllocationEnd = nextAligned + bytesToAllocate;
             }
 
-            var pointer = (byte*) nextAligned;
+            var pointer = nextAligned;
             m_nextPtr = nextAllocationEnd;
             m_allocations.Ptr[m_currentBlockIndex]++;
             return pointer;

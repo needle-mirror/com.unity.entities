@@ -22,4 +22,5 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Environment.Tests")]
 [assembly: InternalsVisibleTo("Unity.NetCode.Authoring.Hybrid")]
 [assembly: InternalsVisibleTo("Unity.NetCode.EditorTests")]
+[assembly: InternalsVisibleTo("Unity.NetCode.Editor.Tests")]
 [assembly: InternalsVisibleTo("Tests.Playmode")]

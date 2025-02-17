@@ -15,13 +15,9 @@ The following diagram illustrates an example of a job waiting for an unneeded de
 
 ![](images/job-dependencies.png)
 
-`System1` schedules two jobs: one that writes to `ComponentA`, and another that writes to `ComponentB`. They were scheduled using the default chaining approach, so by the end of `System1` execution its `Dependency` property will contain the `Write B` job handle, which depends on the `Write A` job. Later, `System2` schedules a job that reads `ComponentA`. `System2` has to wait for both jobs scheduled by `System1` to complete, even if `System2` doesn't need to access `ComponentB`.
+`System1` schedules two jobs: one that writes to `ComponentA`, and another that writes to `ComponentB`. They were scheduled using the default chaining approach, so by the end of `System1` execution its `Dependency` property will contain the `Write B` job handle, which depends on the `Write A` job. Later, `System2` schedules a job that reads `ComponentA`. The jobs in `System2` have to wait for both jobs scheduled by `System1` to complete, even if `System2` doesn't need to access `ComponentB`.
 
 The `Read A` job is waiting for the `Write B` job needlessly. To get around this unneeded dependency, you could make `System1` only schedule the `Write B` job, and then `System2` schedule both `Write A` and `Read A` jobs. 
-
-## Job dependency update order
-
-A system's [`Dependency`](xref:Unity.Entities.SystemBase.Dependency) property is a [`JobHandle`](https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.html) that represents the ECS-related dependencies of the system. Before [`OnUpdate()`](xref:Unity.Entities.SystemBase.OnUpdate*), the `Dependency` property reflects the incoming dependencies that the system has on prior jobs. By default, the system updates the `Dependency` property based on the components that each job reads and writes as you schedule jobs in a system. 
 
 ## Override the default dependency structure
 

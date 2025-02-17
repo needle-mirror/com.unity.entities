@@ -618,6 +618,12 @@ namespace Unity.Entities
         public DOTSCompilerPatchedMethodAttribute(string targetMethodName) { }
     }
 
+    [AttributeUsage(AttributeTargets.Property)]
+    public class DOTSCompilerPatchedPropertyAttribute : Attribute
+    {
+        public DOTSCompilerPatchedPropertyAttribute(string targetPropertyName) { }
+    }
+
     public class EntityIndexInChunk : Attribute {}
     public class EntityIndexInQuery : Attribute {}
     public class ChunkIndexInQuery : Attribute {}
