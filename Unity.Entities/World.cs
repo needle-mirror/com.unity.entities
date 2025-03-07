@@ -229,6 +229,13 @@ namespace Unity.Entities
 
         void Init(WorldFlags flags, AllocatorManager.AllocatorHandle backingAllocatorHandle)
         {
+#if UNITY_EDITOR
+            // Multiple worlds can be created, but we only want the cleanup callback registered once.
+            // Removing the callback if it is missing is silently ignored.
+            AppDomain.CurrentDomain.DomainUnload -= DefaultWorldInitialization.CleanupEntityComponentStore;
+            AppDomain.CurrentDomain.DomainUnload += DefaultWorldInitialization.CleanupEntityComponentStore;
+#endif
+
             s_NewWorldMarker.Begin();
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
@@ -412,7 +419,7 @@ namespace Unity.Entities
                 throw new ArgumentException(
                     "During destruction of a system you are not allowed to create more systems.");
 #endif
-            
+
             return TypeManager.ConstructSystem(TypeManager.GetSystemType(type));
         }
 
@@ -591,8 +598,8 @@ namespace Unity.Entities
         /// <returns>The instance of system type <typeparamref name="T"/> in this World. If the system
         /// does not exist in this World, it will first be created.</returns>
         public T GetOrCreateSystemManaged<T>() where T : ComponentSystemBase
-        //sadly, we have to use reflection to account for the fact that T might not have been registered at startup. 
-        //someday, we can ban this and avoid reflection here. 
+        //sadly, we have to use reflection to account for the fact that T might not have been registered at startup.
+        //someday, we can ban this and avoid reflection here.
         {
             var idx = TypeManager.GetSystemTypeIndexNoThrow<T>();
             if (idx == SystemTypeIndex.Null)
@@ -748,7 +755,7 @@ namespace Unity.Entities
                 TypeManager.AddSystemTypeToTablesAfterInit(typeof(T));
                 idx = TypeManager.GetSystemTypeIndex<T>();
             }
-                
+
             return (T)CreateSystemManaged(idx);
         }
 
@@ -769,7 +776,7 @@ namespace Unity.Entities
         {
             return CreateSystem(TypeManager.GetSystemTypeIndex(type));
         }
-        
+
         /// <summary>
         /// Create and return a handle to an instance of a system of type <paramref name="type"/> in this World.
         /// </summary>
@@ -817,7 +824,7 @@ namespace Unity.Entities
         {
             return CreateSystemManaged(TypeManager.GetSystemTypeIndex(type));
         }
-        
+
         /// <summary>
         /// Create and return an instance of a system of type <paramref name="type"/> in this World.
         /// </summary>

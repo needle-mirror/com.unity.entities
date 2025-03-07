@@ -102,11 +102,11 @@ namespace Unity.Entities
         /// </summary>
         Streaming                       = 1 << 13,
         /// <summary>
-        /// Worlds baking EntityBehaviours in motion
+        /// Worlds baking
         /// </summary>
         EntityProxy                     = 1 << 14,
         /// <summary>
-        /// Worlds baking EntityBehaviours in preview mode in motion
+        /// Worlds baking in preview mode
         /// </summary>
         EntityProxyPreview                     = 1 << 15,
         /// <summary>

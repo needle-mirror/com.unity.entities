@@ -7,6 +7,9 @@ namespace Unity.Entities
     /// This interface marks structs as 'unmanaged components' and classes as 'managed components'.
     /// </summary>
     /// <remarks>
+    /// Only one `IComponentData` of a given type can be added to each entity. To associate multiple values of a given component
+    /// type with an entity, use <see cref="IBufferElementData"/>.
+    ///
     /// For more information, see the documentation on [components](xref:ecs-components).
     /// </remarks>
     [RequireImplementors]
@@ -18,8 +21,14 @@ namespace Unity.Entities
     /// An interface for creating structs that can be stored in a <see cref="DynamicBuffer{T}"/>.
     /// </summary>
     /// <remarks>
+    /// This is a variant of <see cref="IComponentData"/> which allows more than one value of a given type to
+    /// be associated with an entity, in an ordered list.
+    ///
     /// See [Dynamic Buffers](xref:components-buffer-introducing) for additional information.
     /// </remarks>
+    /// <example>
+    /// <code lang="csharp" source="../../DocCodeSamples.Tests/DynamicBufferExamples.cs" region="dynamicbuffer.class" title="DynamicBuffer Example"/>
+    /// </example>
     [RequireImplementors]
     public interface IBufferElementData
     {
@@ -291,7 +300,7 @@ namespace Unity.Entities
     /// are still created. This component is not kept on the instantiated entities afterwards. This component is
     /// completely ignored and treated as a regular tag component when LinkedEntityGroup is not present on the
     /// source prefab entity.
-    /// 
+    ///
     /// This component might add a large performance overhead, because creating buffer components
     /// involves heap memory allocations linear to the number of instances being instantiated.
     /// Omitting the LinkedEntityGroup might make it difficult to associate the children entities with their prefab

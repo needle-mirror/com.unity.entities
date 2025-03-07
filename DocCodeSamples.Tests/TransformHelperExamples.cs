@@ -48,8 +48,33 @@ namespace Doc.CodeSamples.Tests
             #endregion
         }
 
+        public void TransformPointExample()
+        {
+            #region transform-point-example
+            float3 point = new float3(1, 2, 3);
+            LocalTransform t = LocalTransform.FromPositionRotationScale(position: new float3(1, 2, 3),
+                rotation: quaternion.identity, scale: 1);
+            float3 point2 = t.TransformPoint(point);
+            //point3 should be the same as point, within the limits of floating-point precision
+            float3 point3 = t.InverseTransformPoint(point);
+            #endregion
+        }
 
+        public void TransformDirExample()
+        {
+            #region transform-direction-example
+            float3 dir = new float3(2, 1, 0);
+            LocalTransform translationTransform = LocalTransform.FromPosition(new float3(1, 2, 3));
+            // dir2 will be identical to dir; transforming a direction by a translation does not change its direction.
+            float3 dir2 = translationTransform.TransformDirection(dir);
 
+            // Rotate the direction by pi/2 radians around the X axis, and back again.
+            LocalTransform rotationTransform = LocalTransform.FromRotation(quaternion.RotateX(math.PI2));
+            float3 dir3 = rotationTransform.TransformDirection(dir);
+            // dir4 should be identical to dir, within the limits of floating-point precision
+            float3 dir4 = rotationTransform.InverseTransformDirection(dir3);
+            #endregion
+        }
 
     }
 

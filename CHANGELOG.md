@@ -4,6 +4,53 @@ uid: changelog
 
 # Changelog
 
+## [1.4.0-exp.2] - 2025-03-07
+
+### Added
+
+* Added `ComponentLookup.TryGetRefRW()` and `ComponentLookup.TryGetRefRO()` methods, to safely ask for references to components which may not be present on the target entity.
+* DisableBootstrapOverridesAttribute can be used on types or assemblies with `ICustomBootstrap` to prevent them from being the used bootstrap.
+* Missing API documentation has been added for IAspect.Lookup
+* RemoteContentCatalogBuildUtility.PublishContent method with enumerable file list as input instead of a directory name.  This allows for creating the update with only the files included in the catalog instead of just copying everything in the folder, which can lead to unwanted files getting included.
+* New `ArchetypeChunk.GetBufferAccessorRO<T>()` and `ArchetypeChunk.GetBufferAccessorRW<T>()` methods allow users to request a specific access mode to a chunk's buffer component data, potentially avoiding an unnecessary write dependency when asking for read-only access through a read-write type handle.
+* New `ArchetypeChunk.GetUntypedBufferAccessorReinterpret<T>(ref DynamicComponentTypeHandle, int expectedSize)` method allows creating a typed `BufferAccessor` from an untyped component handle. The source and destination buffer types must be safely aliasable in memory, including both the element size and internal buffer capacity.
+
+### Changed
+
+* Updated the `com.unity.burst` dependency to version `1.8.19`
+* Entities.ForEach marked as obsolete.  In order to consolidate our API and improve iteration time, we have decided to remove Entities.ForEach in a future major release of Entities. The two replacement APIs for Entities.ForEach are IJobEntity and SystemAPI.Query. Both Entities.ForEach and Aspects will remain supported in 1.x packages of Entities.
+* IAspect marked as obsolete.  In order to consolidate our API and improve iteration time, we have decided to remove Aspects in a future major release of Entities. Component and EntityQuery APIs should be used directly in the future instead of Aspects.  Both Entities.ForEach and Aspects will remain supported in 1.x packages of Entities.
+
+### Deprecated
+
+* Deprecated `ComponentLookup.GetRefRWOptional()` and `ComponentLookup.GetRefROOptional()`. These methods should only be used to implement the `[Optional]` attribute in Aspect source generation, and should never have been part of the package's public API. User code should prefer the new `TryGetRefRO()` and `TryGetRefRW()` methods.
+
+### Fixed
+
+* Optimized usage of `IEntitiesPlayerSettings.GetFilterSettings()` by hoisting getting `BakingSystemFilterSettings` out of loops.
+* The debug checks in AddComponent methods to protect against exceeding the maximum size of a single entity now handle chunk components correctly.
+* Bug where Debug Breakpoints weren't hit correctly when you had comments in your ISystem/SystemBase code.
+* InvalidOperationException when Exclusive Entity Transaction was pending while creating Entity Remap Array
+* Slight performance improvement on SetSharedComponentManaged.
+* fixed compile error when an IJobEntity is inside a namespace which contains conditional using statements
+* No longer get an SGICE002 when typing incomplete/invalid typeargs e.g. SystemAPI.Query<RefRW<>>
+* Failure to add IJobEntity Attributes like WithAll, WithOptions etc when using full attribute name e.g. WithAllAttribute
+* Failure to query for the right component when using generic component with copy semantic e.g. `SystemAPI.Query<Holder<int>>` would query `int` instead of `Holder<int>`
+* CompanionComponents no longer throw an error in LiveBaking when being updated.
+* Fixed horizontal alignment of field values when viewing `WeakObjectReference` and `UnityObjectRef` instances in the Inspector.
+* a memory leak was reported from the EntitiesComponentStore upon entering playmode a second time from the editor if at least one entity was created with the custom bootstrap disabled (`UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP`, `UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_RUNTIME_WORLD` or `UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_EDITOR_WORLD`). The leak has been addressed and shouldn't be reported anymore.
+* Exceptions were thrown by two search providers (Components and Archetypes) from the entities package when using Unity Search with an unhandled filter (e.g. "ref"). Those search providers will now quietly ignore unhandled filters.
+* Fix compile error due to an ambiguous reference to `DecalProjector` if both HDRP and URP packages are included in the same project.
+* Added better URI checking for remote root and changes the failure fallback code to switch to streaming assets if there is not a local remote catalog file, which can happen when content delivery is enabled but not set up yet.
+* The Systems window no longer throws an error if ECS systems are added to the player loop outside of the three default system groups.
+* `DestroyEntity(EntityQuery)` no longer throws if the query matches an entity with a `LinkedEntityGroup` containing a destroyed entity with a cleanup component.
+* Assemblies are no longer stripped if they include a system that doesn't use source generated features.
+* CalculateStableTypeHash now won't throw when called on non-component types.
+* Eliminated code size problems caused by ConstructComponentFromBuffer
+* Compile error when certain attributes are used on systems
+* The `WorldUpdateAllocator` available in Baking systems is now correctly rewound between baking World updates.
+
+
 ## [1.3.10] - 2025-02-17
 
 ### Added
@@ -65,7 +112,6 @@ uid: changelog
 
 * Disable "new empty subscene" menu item on default untitled scene.
 * Fix invalid queries generated for `IJobEntity` with `[WithPresent(typeof(T))]` and `EnabledRef<T>` and/or `in T` in the same job.
-
 
 
 ## [1.3.5] - 2024-10-04

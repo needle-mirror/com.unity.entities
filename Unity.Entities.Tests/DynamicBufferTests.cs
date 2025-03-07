@@ -1,3 +1,4 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 using System;
 using System.Diagnostics;
 using NUnit.Framework;
@@ -248,7 +249,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                var buffer = chunk.GetBufferAccessor(ref BufferTypeRO)[0];
+                var buffer = chunk.GetBufferAccessorRO(ref BufferTypeRO)[0];
                 IntArray[0] += buffer.Length;
             }
         }
@@ -262,7 +263,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                var buffer = chunk.GetBufferAccessor(ref BufferTypeRW)[0];
+                var buffer = chunk.GetBufferAccessorRW(ref BufferTypeRW)[0];
                 buffer.Add(10);
             }
         }

@@ -1,3 +1,4 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 using NUnit.Framework;
 using static Unity.Entities.SystemAPI;
 namespace Unity.Entities.Tests.Aspects.FunctionalTests

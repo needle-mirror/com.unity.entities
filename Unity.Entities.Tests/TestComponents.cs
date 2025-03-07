@@ -28,11 +28,13 @@ namespace Unity.Entities.Tests
         public int MovementSpeed;
     }
 
+#pragma warning disable 0618 // Disable Aspects obsolete warnings
     internal readonly partial struct CharacterAspect : IAspect
     {
         readonly RefRW<Character> m_Character;
         public ref Character Character => ref m_Character.ValueRW;
     }
+#pragma warning restore 0618
 
     internal struct EcsTestData : IComponentData, IGetValue
     {
@@ -1018,6 +1020,7 @@ namespace Unity.Entities.Tests
         }
     }
 
+#pragma warning disable 0618 // Disable Aspects obsolete warnings
     internal readonly partial struct EcsTestAspect0RO : IAspect
     {
         public readonly RefRO<EcsTestData> EcsTestData;
@@ -1027,4 +1030,5 @@ namespace Unity.Entities.Tests
     {
         public readonly RefRW<EcsTestData> EcsTestData;
     }
+#pragma warning restore 0618
 }

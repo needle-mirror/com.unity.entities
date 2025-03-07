@@ -1429,6 +1429,8 @@ namespace Unity.Entities
             return ChunkDataUtility.GetComponentDataWithTypeRO(entityInChunk.Chunk, GetArchetype(entityInChunk.Chunk), entityInChunk.IndexInChunk, typeIndex, ref cache);
         }
 
+        // This method does NOT check the input entity for validity/existence. It is the caller's responsibility to confirm
+        // the input entity exists.
         // This method will return a null pointer if the entity does not have the provided type.
         public byte* GetOptionalComponentDataWithTypeRO(Entity entity, TypeIndex typeIndex, ref LookupCache cache)
         {
@@ -1451,6 +1453,8 @@ namespace Unity.Entities
             return data;
         }
 
+        // This method does NOT check the input entity for validity/existence. It is the caller's responsibility to confirm
+        // the input entity exists.
         // This method will return a null pointer if the entity does not have the provided type.
         public byte* GetOptionalComponentDataWithTypeRW(Entity entity, TypeIndex typeIndex, uint globalVersion, ref LookupCache cache)
         {

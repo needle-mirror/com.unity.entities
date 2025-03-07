@@ -356,6 +356,9 @@ namespace Unity.Entities.SourceGen.Aspect
                     var syntaxTree = aspectTreeGrouping.Key;
                     var syntaxTreeSourceBuilder = new System.IO.StringWriter(new StringBuilder());
 
+                    // Ensure that we ignore aspect deprecation warnings in generated code
+                    syntaxTreeSourceBuilder.WriteLine($"#pragma warning disable 0618 // Disable Aspects obsolete warnings");
+
                     // Gather all 'using' statement from all source nodes and output
                     foreach (var @using in GetAllUsingsInSyntaxTree(aspectTreeGrouping))
                         syntaxTreeSourceBuilder.WriteLine(@using);

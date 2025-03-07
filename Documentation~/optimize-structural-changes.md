@@ -40,14 +40,14 @@ The individual steps to perform structural changes aren't slow, but when thousan
 The following table compares different approaches to structural changes, and the time in milliseconds that it takes to add one component to one million entities with each approach:
 
 | **Method** | **Description** | **Time in ms** |
-| :---: | ----- | :---: |
+| --- | --- | --- |
 | **EntityManager and query with enableable components** | Don't add any components, and enable a component that implements `IEnableable`, which was previously disabled. For more information, refer to [Enableable components](components-enableable.md) | 0.03 |
 | **EntityManager and query** | Pass an `EntityQuery` to the `EntityManager` with `AddComponent` to immediately add components in bulk on the main thread. | 3.5 |
-| **EnityManager and NativeArray** | Pass a `NativeArray<Entity>` to the `EntityManager` to immediately add components on the main thread | 35 |
+| **EntityManager and NativeArray** | Pass a `NativeArray<Entity>` to the `EntityManager` to immediately add components on the main thread | 35 |
 | **Entity command buffer and playback query** | Pass an `EntityQuery` to an `EntityCommandBuffer` on the main thread to queue components to add using the `EntityQueryCaptureMode.AtPlayback` flag. Then execute that entity command buffer (time includes the entity command buffer execution time). For more information, refer to [Entity command buffers](systems-entity-command-buffer-use.md).| 3.5 |
 | **Entity command buffer and NativeArray** | Pass a `NativeArray<Entity>` to an `EntityCommandBuffer` on the main thread to queue components to add, then execute that entity command buffer (time includes the entity command buffer execution time).| 35 |
-| **Entity command buffer and job system with `IJobChunk** | Use an `IJobChunk` across multiple worker threads to pass a `NativeArray<Entity>` per chunk to an `EntityCommandBuffer`, then execute that entity command buffer (time includes the entity command buffer execution time). | 17 |
-| **Entity command buffer and job system with `IJobEntity** | Use an `IJobEntity` across multiple worker threads to pass instructions to add components to entities one at a time to an `EntityCommandBuffer`, then execute that entity command buffer (time includes the entity command buffer execution time)| 170 |
+| **Entity command buffer and job system with IJobChunk** | Use an `IJobChunk` across multiple worker threads to pass a `NativeArray<Entity>` per chunk to an `EntityCommandBuffer`, then execute that entity command buffer (time includes the entity command buffer execution time). | 17 |
+| **Entity command buffer and job system with IJobEntity** | Use an `IJobEntity` across multiple worker threads to pass instructions to add components to entities one at a time to an `EntityCommandBuffer`, then execute that entity command buffer (time includes the entity command buffer execution time)| 170 |
 
 ## Optimize native arrays for chunks
 

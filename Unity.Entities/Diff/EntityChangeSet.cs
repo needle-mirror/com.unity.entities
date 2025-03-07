@@ -369,11 +369,12 @@ namespace Unity.Entities
     /// <summary>
     /// Represents a hash of a component type.
     /// </summary>
-    /// <remarks>This struct is mostly intended for internal use in the Entity differ and patcher code.</remarks>
+    /// <remarks>This struct is mostly intended for internal use in the Entity differ and patcher code.
+    /// This hash is NOT expected to be stable across versions.</remarks>
     public struct ComponentTypeHash : IEquatable<ComponentTypeHash>
     {
         /// <summary>
-        /// The hash value.
+        /// The hash value. Not expected to be stable across versions.
         /// </summary>
         public ulong StableTypeHash;
         /// <summary>

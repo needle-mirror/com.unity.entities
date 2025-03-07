@@ -263,8 +263,10 @@ namespace Unity.Entities.SourceGen.Aspect
                 case PrimitiveType.BufferLookup:
                     return printer.Print("this.").Print(fieldName).Print("[entity]");
                 case PrimitiveType.ComponentLookup:
-                    return printer.Print("this.").Print(fieldName).Print(".GetRef").Print(Bind.IsReadOnly ? "RO" : "RW")
-                        .PrintIf(Bind.IsOptional, "Optional").Print("(entity").PrintIf(!Bind.IsReadOnly, string.Empty).Print(")");
+                    return printer.Print("global::Unity.Entities.Internal.InternalCompilerInterface.GetComponentRef")
+                        .Print(Bind.IsReadOnly ? "RO" : "RW")
+                        .PrintIf(Bind.IsOptional, "Optional")
+                        .Print($"<{Bind.ComponentTypeName}>(ref this.{fieldName}, entity)");
                 case PrimitiveType.EntityLookup:
                     return printer.Print("entity");
                 case PrimitiveType.EntityStorageInfoLookup:

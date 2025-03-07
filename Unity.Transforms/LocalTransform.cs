@@ -208,8 +208,15 @@ namespace Unity.Transforms
         /// <summary>
         /// Transforms a point by this transform.
         /// </summary>
+        /// <remarks>
+        /// To transform a directional vector, use <see cref="TransformDirection"/>.
+        /// To apply the inverse transform instead, use <see cref="InverseTransformDirection"/>.
+        /// </remarks>
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/TransformHelperExamples.cs" region="transform-point-example" title="TransformPoint Example"/>
+        /// </example>
         /// <param name="point">The point to be transformed.</param>
-        /// <returns>The point after transformation.</returns>
+        /// <returns>The result of applying this transform to the input point.</returns>
         public float3 TransformPoint(float3 point) => Position + math.rotate(Rotation, point) * Scale;
 
         /// <summary>
@@ -217,21 +224,40 @@ namespace Unity.Transforms
         /// </summary>
         /// <remarks>
         /// Throws if the <see cref="Scale"/> field is zero.
+        /// To inverse-transform a directional vector, use <see cref="InverseTransformDirection"/>.
+        /// To apply the forward transform instead, use <see cref="TransformPoint"/>.
         /// </remarks>
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/TransformHelperExamples.cs" region="transform-point-example" title="TransformPoint Example"/>
+        /// </example>
         /// <param name="point">The point to be transformed.</param>
-        /// <returns>The point after transformation.</returns>
+        /// <returns>The result of applying the inverse of this transform to the input point.</returns>
         public float3 InverseTransformPoint(float3 point) => math.rotate(math.conjugate(Rotation), point - Position) / Scale;
 
         /// <summary>
         /// Transforms a direction by this transform.
         /// </summary>
-        /// <param name="direction">The direction to be transformed.</param>
+        /// <remarks>
+        /// To transform a directional vector, use <see cref="TransformDirection"/>.
+        /// To apply the inverse transform instead, use <see cref="InverseTransformDirection"/>.
+        /// </remarks>
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/TransformHelperExamples.cs" region="transform-direction-example" title="TransformDirection Example"/>
+        /// </example>
+        /// <param name="direction">The direction vector to be transformed. This vector does not need to be unit-length.</param>
         /// <returns>The direction after transformation.</returns>
         public float3 TransformDirection(float3 direction) => math.rotate(Rotation, direction);
 
         /// <summary>
         /// Transforms a direction by the inverse of this transform.
         /// </summary>
+        /// <remarks>
+        /// To apply a forward transform instead, use <see cref="TransformDirection"/>.
+        /// To inverse-transform a point instead, use <see cref="InverseTransformPoint"/>.
+        /// </remarks>
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/TransformHelperExamples.cs" region="transform-direction-example" title="TransformDirection Example"/>
+        /// </example>
         /// <param name="direction">The direction to be transformed.</param>
         /// <returns>The direction after transformation.</returns>
         public float3 InverseTransformDirection(float3 direction) => math.rotate(math.conjugate(Rotation), direction);

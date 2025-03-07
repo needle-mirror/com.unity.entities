@@ -712,6 +712,17 @@ namespace Unity.Entities
                         }
                     }
 
+#if UNITY_EDITOR
+                    if (bakingSettings != null)
+                    {
+                        var bakingSettingsBakingSystemFilterSettings = bakingSettings.BakingSystemFilterSettings;
+                        if (bakingSettingsBakingSystemFilterSettings != null)
+                        {
+                            BakerDataUtility.ApplyAssemblyFilter(bakingSettingsBakingSystemFilterSettings);
+                        }
+                    }
+#endif
+
                     // bake new and changed components
                     foreach (var component in instructions.BakeComponents)
                     {
@@ -722,13 +733,6 @@ namespace Unity.Entities
                             Debug.LogError(
                                 $"Baking entity that doesn't exist: {entity} GameObject: {component.GameObjectInstanceID} Component: {component}",
                                 (GameObject) Resources.InstanceIDToObject(component.GameObjectInstanceID));
-
-#if UNITY_EDITOR
-                        if (bakingSettings != null && bakingSettings.BakingSystemFilterSettings != null)
-                        {
-                            BakerDataUtility.ApplyAssemblyFilter(bakingSettings.BakingSystemFilterSettings);
-                        }
-#endif
 
                         var bakeTypeIndex = TypeManager.GetTypeIndex(component.Component.GetType());
                         var bakers = BakerDataUtility.GetBakers(bakeTypeIndex);

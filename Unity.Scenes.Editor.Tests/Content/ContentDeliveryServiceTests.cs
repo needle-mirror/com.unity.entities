@@ -1,18 +1,16 @@
 using NUnit.Framework;
 using System;
 using System.Collections;
-using System.Collections.Generic;
 using System.IO;
 using Unity.Collections;
-using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Content;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace Unity.Entities.Editor.Tests
+namespace Unity.Scenes.Editor.Tests
 {
     [TestFixture]
-    class ContentDeliveryServiceTests
+    public class ContentDeliveryServiceTests
     {
         Mathematics.Random random = new Mathematics.Random();
         string DataPath => $"{Application.persistentDataPath}/{nameof(ContentDeliveryServiceTests)}/Data";
@@ -231,6 +229,37 @@ namespace Unity.Entities.Editor.Tests
                 Assert.IsTrue(File.Exists(status.DownloadStatus.LocalPath.ToString()));
                 File.Delete(status.DownloadStatus.LocalPath.ToString());
             }
+        }
+        public static object[] uriTestCases =
+        {
+                new object[]{"sdfsdfqsfd", false },
+                new object[]{"http://dsasdg/", true },
+                new object[]{ "https://dsasdg/", true },
+                new object[]{"ftp://adfadf/", true},
+                new object[]{"file://c:/dir/sdsdfasd/", true},
+                new object[]{"file://dir/sdsdfasd/", true},
+                new object[]{"file:/dir//sdsdfasd/", false},
+                new object[]{"file://../dir//sdsdfasd/", false},
+                new object[]{"blah://qfasdfqdsf/qsdf/", false },
+                new object[]{"http://??", false },
+                new object[]{"https:\\dfqasdf/", false },
+                new object[]{"https:://adfqdf/", false },
+                new object[]{"https:://c:/adfqdf/", false },
+                new object[]{"localhost", false },
+                new object[]{"http://localhost/", true },
+                new object[]{"http://localhost:8000/", true },
+                new object[]{"http://local:host:8000/", false },
+                new object[]{"http://192.168.1.1/", true },
+                new object[]{"192.168.1.1", false },
+                new object[]{"http://192.168.1.1:8000", true},
+                new object[]{"https://d3szac7xzgrbxg.cloudfront.net/content-1/", true }
+            };
+
+        [Test]
+        [TestCaseSource(nameof(uriTestCases))]
+        public void UriValidation(string uri, bool expected)
+        {
+            Assert.AreEqual(expected, ContentDeliveryGlobalState.IsValidURLRoot(uri), $"Failed with test case uri '{uri}'");
         }
     }
 }

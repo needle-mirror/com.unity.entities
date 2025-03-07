@@ -74,17 +74,6 @@ public void OnUpdate(ref SystemState state){
 }
 ```
 
-### Entities.ForEach compatibility
-
-Only a selection of SystemAPI methods work in [Entities.ForEach](iterating-data-entities-foreach.md). These are as follows:
-
-|**Data type**|**API**|
-|---|---|
-|Component data|[GetComponentLookup](xref:Unity.Entities.SystemAPI.GetComponentLookup*)<br/>[GetComponent](xref:Unity.Entities.SystemAPI.GetComponent*)<br/>[SetComponent](xref:Unity.Entities.SystemAPI.SetComponent*)<br/>[HasComponent](xref:Unity.Entities.SystemAPI.HasComponent*)|
-|Buffers|[GetBufferLookup](xref:Unity.Entities.SystemAPI.GetBufferLookup*)<br/>[GetBuffer](xref:Unity.Entities.SystemAPI.GetBuffer*)<br/>[HasBuffer](xref:Unity.Entities.SystemAPI.HasBuffer*)|
-|EntityInfo|[GetEntityStorageInfoLookup](xref:Unity.Entities.SystemAPI.GetEntityStorageInfoLookup)<br/>[Exists](xref:Unity.Entities.SystemAPI.Exists*)|
-|Aspects|[GetAspect](xref:Unity.Entities.SystemAPI.GetAspect*)|
-
 ## Access singletons
 
 `SystemAPI` has [singleton](components-singleton.md) methods that check to make sure that there is only a single instance of the data it retrieves when invoked. These methods don't sync, which gives them a performance boost.

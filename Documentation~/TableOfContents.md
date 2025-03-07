@@ -1,6 +1,5 @@
 * [Entities package](index.md)
-  * [What's new](whats-new.md)
-  * [Upgrade guide](upgrade-guide.md)
+* [Upgrade guide](upgrade-guide.md)
 * [Get started](getting-started.md)
   * [Installation](getting-started-installation.md)
   * [ECS packages](ecs-packages.md)

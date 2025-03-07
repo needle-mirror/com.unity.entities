@@ -10,6 +10,7 @@ using Unity.Mathematics;
 using Unity.Transforms;
 using static Unity.Entities.SystemAPI;
 
+[assembly: RegisterGenericComponentType(typeof(TestISystemSystem.Holder<int>))]
 [assembly: RegisterGenericSystemType(typeof(TestISystemSystem.TestGenericISystem_MyInterface<MyInterfaceImpl>))]
 [assembly: RegisterGenericSystemType(typeof(TestISystemSystem.TestGenericISystem_BufferElement<EcsIntElement>))]
 
@@ -43,6 +44,8 @@ namespace Unity.Entities.Tests.TestSystemAPI
         #region Query Access
         [Test]
         public void Query([Values] SystemAPIAccess access, [Values(1,2,3,4,5,6,7)] int queryArgumentCount) => GetTestSystemUnsafe().QuerySetup(ref GetSystemStateRef(), queryArgumentCount, access);
+        [Test]
+        public void CanIterateSpecifiedGenericComponentEvenWhenUsingCopySemantics() => GetTestSystemUnsafe().CanIterateSpecifiedGenericComponentEvenWhenUsingCopySemantics(ref GetSystemStateRef());
         #endregion
 
         #region Time Access
@@ -427,6 +430,28 @@ namespace Unity.Entities.Tests.TestSystemAPI
                     break;
             }
             return sum;
+        }
+
+        public struct Holder<DataType> : IComponentData
+        {
+            public DataType data;
+        }
+
+        [BurstCompile]
+        public void CanIterateSpecifiedGenericComponentEvenWhenUsingCopySemantics(ref SystemState state)
+        {
+            for (var i = 1; i <= 10; i++)
+            {
+                var e = state.EntityManager.CreateEntity(stackalloc []{ComponentType.ReadWrite<Holder<int>>()});
+                state.EntityManager.SetComponentData(e, new Holder<int> {data = i});
+            }
+
+            var sum = 0;
+            foreach (var data in SystemAPI.Query<Holder<int>>())
+            {
+                sum += data.data;
+            }
+            Assert.AreEqual(55, sum);
         }
 
         #endregion
@@ -1312,7 +1337,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
             var buffer =state.EntityManager.AddBuffer<EcsIntElement>(e);
             buffer.Add(new EcsIntElement{Value=5});
             var handle = SystemAPI.GetBufferTypeHandle<EcsIntElement>();
-            Assert.That(state.EntityManager.GetChunk(e).GetBufferAccessor(ref handle)[0][0].Value==5);
+            Assert.That(state.EntityManager.GetChunk(e).GetBufferAccessorRO(ref handle)[0][0].Value==5);
         }
 
         [BurstCompile]
@@ -1415,7 +1440,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
             }
         }
 
-        // Check that UUM-65598, UUM-68450 and DOTS-8177 are fixed 
+        // Check that UUM-65598, UUM-68450 and DOTS-8177 are fixed
         // (IL2CPP issues due to bad IL generated from local functions in original method that are not deleted)
         public partial struct SystemAPIUsageAndLocalFunction : ISystem
         {
@@ -1463,7 +1488,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
                 var buffer = state.EntityManager.AddBuffer<T>(e);
                 buffer.Add(new T { Value = 1 });
                 var handle = SystemAPI.GetBufferTypeHandle<T>();
-                Assert.That(state.EntityManager.GetChunk(e).GetBufferAccessor(ref handle)[0][0].Value == 1);
+                Assert.That(state.EntityManager.GetChunk(e).GetBufferAccessorRO(ref handle)[0][0].Value == 1);
             }
         }
 
@@ -1478,7 +1503,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
                 buffer.Add(new EcsIntElement { Value = 1 });
 
                 var handle = GetBufferTypeHandle<T>();
-                var bufferElementData = state.EntityManager.GetChunk(e).GetBufferAccessor(ref handle)[0][0];
+                var bufferElementData = state.EntityManager.GetChunk(e).GetBufferAccessorRO(ref handle)[0][0];
 
                 Assert.That(bufferElementData is EcsIntElement { Value: 1 });
             }

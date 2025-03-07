@@ -1,5 +1,8 @@
 # Aspect concepts
 
+> [!WARNING]  
+> Aspects are deprecated and will be removed in a future release. Use component access and query methods directly instead.
+
 An aspect is an object-like wrapper that you can use to group together a subset of an entity's components into a single C# struct.
 
 This section explains how to use aspects within your project.

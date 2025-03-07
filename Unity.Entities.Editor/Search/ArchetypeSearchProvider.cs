@@ -96,7 +96,7 @@ namespace Unity.Entities.Editor
             if (foldout)
             {
                 EditorGUI.indentLevel++;
-                
+
                 foreach (var typeIndex in types)
                 {
                     var type = TypeManager.GetType(typeIndex);
@@ -126,7 +126,7 @@ namespace Unity.Entities.Editor
     public static class ArchetypeSearchProvider
     {
         /// <summary>
-        /// Search Provider type id. 
+        /// Search Provider type id.
         /// </summary>
         public const string type = "archetype";
 
@@ -220,6 +220,7 @@ namespace Unity.Entities.Editor
         static void SetupQueryEngine()
         {
             s_QueryEngine = new();
+            s_QueryEngine.skipUnknownFilters = true;
             s_QueryEngine.SetSearchDataCallback(data =>
             {
                 return GetArchComponentTypes(data).Append(FormattingUtility.HashToString(data.StableHash));
@@ -337,7 +338,7 @@ namespace Unity.Entities.Editor
         }
 
         static IEnumerable<SearchColumn> FetchColumns(SearchContext context, IEnumerable<SearchItem> items)
-        {            
+        {
             yield return new SearchColumn("Archetype/Allocated (KB)", "allocated", nameof(Archetype));
             yield return new SearchColumn("Archetype/Unused (KB)", "unused", nameof(Archetype));
             if (context == null)

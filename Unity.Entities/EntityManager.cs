@@ -217,6 +217,7 @@ namespace Unity.Entities
         public int HighestEntityIndex()
         {
             int maxIndex = 0;
+            EndExclusiveEntityTransaction();
             var access = GetCheckedEntityDataAccess();
             var archetypes = access->EntityComponentStore->m_Archetypes;
 
@@ -425,7 +426,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component to retrieve.</typeparam>
         /// <returns>A struct of type T containing the component value.</returns>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if the system isn't from thie world.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the system isn't from this world.</exception>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public T GetComponentData<T>(SystemHandle system) where T : unmanaged, IComponentData
         {
@@ -440,7 +441,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component to retrieve.</typeparam>
         /// <returns>A <see cref="RefRW{T}"/> struct of type T containing access to the component value.</returns>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if the system isn't from thie world.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the system isn't from this world.</exception>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public RefRW<T> GetComponentDataRW<T>(SystemHandle system) where T : unmanaged, IComponentData
         {
@@ -458,8 +459,14 @@ namespace Unity.Entities
         /// <summary>
         /// Sets the value of a component of an entity.
         /// </summary>
-        /// <param name="entity">The entity.</param>
-        /// <param name="componentData">The data to set.</param>
+        /// <remarks>
+        /// The target entity must exist, and it must have the target component.
+        /// </remarks>
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/GeneralComponentExamples.cs" region="set-component-single-entity" title="SetComponentData Example"/>
+        /// </example>
+        /// <param name="entity">The entity whose <typeparamref name="T"/> component should be modified.</param>
+        /// <param name="componentData">The value to assign to <paramref name="entity"/>'s <typeparamref name="T"/> component.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
@@ -472,11 +479,17 @@ namespace Unity.Entities
         /// <summary>
         /// Sets the value of a component of an entity associated with a system.
         /// </summary>
-        /// <param name="system">The system handle.</param>
-        /// <param name="componentData">The data to set.</param>
+        /// <remarks>
+        /// The target entity must exist, and it must have the target component.
+        /// </remarks>
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/GeneralComponentExamples.cs" region="set-component-system-entity" title="SetComponentData SystemHandle Example"/>
+        /// </example>
+        /// <param name="system">Handle to the system whose entity's <typeparamref name="T"/> component should be modified.</param>
+        /// <param name="componentData">The value to assign to the <typeparamref name="T"/> component.</param>
         /// <typeparam name="T">The component type.</typeparam>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if the system isn't from thie world.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the system isn't from this world.</exception>
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleComponentData) })]
         public void SetComponentData<T>(SystemHandle system, T componentData) where T : unmanaged, IComponentData
         {
@@ -4760,12 +4773,14 @@ namespace Unity.Entities
         /// When calling from a SystemBase, use SystemBase.GetAspect instead.
         /// Use this method when calling from outside the dots runtime, e.g. from the editor code.
         /// </remarks>
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
         [ExcludeFromBurstCompatTesting("This unfortunately needs access to the managed world for the ExternalAPIState.")]
         public T GetAspect<T>(Entity entity) where T : struct, IAspect, IAspectCreate<T>
         {
             T aspect = default;
             return aspect.CreateAspect(entity, ref *World.ExternalAPIState);
         }
+#pragma warning restore CS0618
 
         /// <summary>
         /// Completes the dependency chain required for this component to have read and write access.
@@ -6024,7 +6039,7 @@ namespace Unity.Entities
         /// <typeparam name="T">The type of component to retrieve.</typeparam>
         /// <returns>A struct of type T containing the component value.</returns>
         /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
-        /// <exception cref="InvalidOperationException">Thrown if the system isn't from thie world.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if the system isn't from this world.</exception>
         public static T GetComponentData<T>(this EntityManager manager, SystemHandle system) where T : class, IComponentData, new()
         {
             var access = manager.GetCheckedEntityDataAccess();

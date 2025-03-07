@@ -13,6 +13,8 @@ namespace Unity.Entities.PerformanceTests
     {
         public float Value;
     }
+
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
     public readonly partial struct RotateAspect : IAspect
     {
         readonly RefRW<LocalTransform> Transform;
@@ -23,6 +25,7 @@ namespace Unity.Entities.PerformanceTests
                     math.normalize(Transform.ValueRO.Rotation),
                     quaternion.AxisAngle(math.up(), time * speedModifier));
     }
+#pragma warning restore CS0618
 
     [BurstCompile(CompileSynchronously = true)]
     partial struct IterateAndUseAspectSystem : ISystem
@@ -58,6 +61,7 @@ namespace Unity.Entities.PerformanceTests
         protected override void OnUpdate()
         {
             var time = SystemAPI.Time.DeltaTime;
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
             Entities.ForEach((ref LocalTransform localTransform, in SpeedModifier speedModifier) =>
             {
                 localTransform.Rotation =
@@ -66,6 +70,7 @@ namespace Unity.Entities.PerformanceTests
                         quaternion.AxisAngle(math.up(), time * speedModifier.Value));
 
             }).WithBurst(synchronousCompilation: true).Run();
+#pragma warning restore CS0618
         }
     }
 

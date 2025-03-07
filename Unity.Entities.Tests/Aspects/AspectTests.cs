@@ -1,3 +1,4 @@
+#pragma warning disable 0618 // Disable Aspects obsolete warnings
 using System;
 using System.Collections;
 using System.Collections.Generic;
@@ -5,8 +6,6 @@ using NUnit.Framework;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Tests.Aspects.FunctionalTests;
-
-//using Unity.Entities.Tests.Aspects.FunctionalTests;
 
 namespace Unity.Entities.Tests
 {

@@ -1,3 +1,4 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 ﻿namespace Unity.Entities.Editor.Tests
 {
     partial class TestSystemsForControls

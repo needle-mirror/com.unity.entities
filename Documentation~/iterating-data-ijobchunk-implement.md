@@ -87,7 +87,7 @@ The `ComponentTypeHandle` fields are part of the ECS job safety system that prev
 
 ### ComponentLookup and BufferLookup fields
 
-Accessing component data through an `EntityQuery` and an `IJobChunk` job (or with [Entities.ForEach](iterating-data-entities-foreach.md)) is the most efficient way to access your data. However, there are often cases where you need to look up data in a random-access fashion, for example, when one entity depends on data in another. To perform this data lookup, you must pass a different handle to your job through the job struct:
+Accessing component data through an `EntityQuery` and an `IJobChunk` job is the most efficient way to access your data. However, there are often cases where you need to look up data in a random-access fashion, for example, when one entity depends on data in another. To perform this data lookup, you must pass a different handle to your job through the job struct:
 
 * [ComponentLookup](xref:Unity.Entities.ComponentLookup`1): Access the component of any entity with that component type.
 * [BufferLookup](xref:Unity.Entities.BufferLookup`1): Access a buffer of any entity with that buffer type.

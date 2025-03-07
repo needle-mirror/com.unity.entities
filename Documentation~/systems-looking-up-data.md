@@ -6,11 +6,11 @@ uid: accessing-looking-up-data
 
 The most efficient way to access and change data is to use a [system](concepts-systems.md) with an [entity query](systems-entityquery.md) and a job. This utilizes the CPU resources in the most efficient way, with minimal memory cache misses. It's best practice to use the most efficient, fastest path to perform the bulk of data transformations. However, there are times when you might need to access an arbitrary component of an arbitrary entity at an arbitrary point in your program.
 
-You can look up data in an entity's [`IComponentData`](xref:Unity.Entities.IComponentData) and its [dynamic buffers](components-buffer-introducing.md). The way you look up data depends on whether your code uses [`Entities.ForEach`](xref:Unity.Entities.SystemBase.Entities), or an `IJobChunk` job, or some other method on the main thread to execute in a system.
+You can look up data in an entity's [`IComponentData`](xref:Unity.Entities.IComponentData) and its [dynamic buffers](components-buffer-introducing.md). 
 
 ## Look up entity data in a system
 
-To look up data stored in a component of an arbitrary entity from inside a system's `Entities.ForEach` or `Job.WithCode` method, use [`GetComponent<T>(Entity)`](xref:Unity.Entities.SystemBase.GetComponent``1(Unity.Entities.Entity)) 
+To look up data stored in a component of an arbitrary entity from inside a system's `Job.WithCode` method, use [`GetComponent<T>(Entity)`](xref:Unity.Entities.SystemBase.GetComponent``1(Unity.Entities.Entity)) 
 
 For example, the following code uses `GetComponent<T>(Entity)` to get a `Target` component, which has an entity field that identifies the entity to target. It then rotates the tracking entities towards their target:
 

@@ -9,14 +9,21 @@ using UnityEngine;
 namespace Unity.Entities
 {
     /// <summary>
-    /// Any type which implements this interface and also contains an `Execute()` method (with any number of parameters)
-    /// will trigger source generation of a corresponding IJobChunk or IJobEntity type. The generated job in turn
-    /// invokes the Execute() method on the IJobEntity type with the appropriate arguments.
+    /// Interface for a job type which runs code on each entity that matches an <see cref="EntityQuery"/>.
     /// </summary>
     /// <remarks>
-    /// If any SharedComponent, or ManagedComponent is part of the query, __EntityManager is generated.
-    /// It's needed to access the components from the batch. This also means, that type of job has to run in main thread.
+    /// Any type which implements this interface and also contains an `Execute()` method (with any number of parameters)
+    /// will trigger source generation of a corresponding <see cref="IJobChunk"/>. The generated job in turn
+    /// invokes the Execute() method on the IJobEntity type with the appropriate arguments.
+    ///
+    /// IJobChunk offers more flexibility for job authors, and may have slightly lower performance overhead. However,
+    /// for simple jobs involving straightforward per-entity computation, IJobEntity can express the same operation
+    /// with significantly less boilerplate code.
     /// </remarks>
+    /// <example>
+    /// <code lang="csharp" source="../../DocCodeSamples.Tests/JobEntityExamples.cs" region="SimpleSample" title="IJobEntity Example"/>
+    /// </example>
+    /// <seealso cref="IJobChunk"/>
     public interface IJobEntity {}
 
     /// <summary>

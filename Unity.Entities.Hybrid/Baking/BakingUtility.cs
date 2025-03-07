@@ -112,11 +112,12 @@ namespace Unity.Entities
             var systemTypes = settings.Systems ?? typesList;
 
 #if UNITY_EDITOR
-            if (settings.BakingSystemFilterSettings != null)
+            var bakingSystemFilterSettings = settings.BakingSystemFilterSettings;
+            if (bakingSystemFilterSettings != null)
             {
                 for (var i = systemTypes.Count - 1; i >= 0;  i--)
                 {
-                    if (!settings.BakingSystemFilterSettings.ShouldRunBakingSystem(systemTypes[i]))
+                    if (!bakingSystemFilterSettings.ShouldRunBakingSystem(systemTypes[i]))
                         systemTypes.RemoveAt(i);
                 }
             }
@@ -134,6 +135,9 @@ namespace Unity.Entities
             BakingAnalytics.BakingSystemTypes = systemTypes;
 #endif
 #endif
+
+            var allocatorResetSystem = conversionWorld.GetOrCreateSystem<WorldUpdateAllocatorResetSystem>();
+            allocatorResetSystem.Update(conversionWorld.Unmanaged);
 
             using (s_PreBakingSystemGroup.Auto())
             {

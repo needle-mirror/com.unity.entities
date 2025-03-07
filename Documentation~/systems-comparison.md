@@ -15,7 +15,6 @@ The following table outlines their compatibility:
 |GC allocated|No|Yes|
 |Can store managed data directly in system type|No|Yes|
 |[Idiomatic `foreach`](systems-systemapi-query.md)|Yes|Yes|
-|[`Entities.ForEach`](xref:Unity.Entities.SystemBase.Entities)|No|Yes|
 |[`Job.WithCode`](xref:Unity.Entities.SystemBase.Job)|No|Yes|
 |[`IJobEntity`](xref:Unity.Entities.IJobEntity)|Yes|Yes|
 |[`IJobChunk`](xref:Unity.Entities.IJobChunk)|Yes|Yes|

@@ -133,16 +133,17 @@ namespace Unity.Entities
 
                         var managedIndex = *(int*)(chunk.Buffer + (unityObjectTypeOffset + unityObjectTypeSizeOf * entityIndex));
                         var obj = (UnityEngine.Component)mcs.GetManagedComponent(managedIndex);
-                        var authoringGameObject = obj.gameObject;
-                        bool wasActive = authoringGameObject.activeSelf;
+                        // The first time this code is called the sourceGameObject is the authoring GameObject.
+                        // In further calls, this points to the previous companionGameObject
+                        var sourceGameObject = obj.gameObject;
 
                         try
                         {
-                            if(wasActive)
-                                authoringGameObject.SetActive(false);
 
                             // Replicate the authoringGameObject, we then strip Components we don't care about
-                            var companionGameObject = UnityEngine.Object.Instantiate(authoringGameObject);
+                            var companionGameObject = UnityEngine.Object.Instantiate(sourceGameObject);
+                            companionGameObject.SetActive(false);
+
                             #if UNITY_EDITOR
                             CompanionGameObjectUtility.SetCompanionName(entity, companionGameObject);
                             #endif
@@ -222,12 +223,7 @@ namespace Unity.Entities
                         }
                         catch (System.Exception exception)
                         {
-                            Debug.LogException(exception, authoringGameObject);
-                        }
-                        finally
-                        {
-                            if (wasActive)
-                                authoringGameObject.SetActive(true);
+                            Debug.LogException(exception, sourceGameObject);
                         }
                     }
                 }

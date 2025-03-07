@@ -126,7 +126,21 @@ namespace Unity.Entities.SourceGen.Common
                             builderStart = $"partial {keyword} {typeName} {constraint} {{" + Environment.NewLine + builderStart;
                             break;
                         case NamespaceDeclarationSyntax parentNameSpaceSyntax:
-                            builderStart = $"namespace {parentNameSpaceSyntax.Name} {{{Environment.NewLine}{parentNameSpaceSyntax.Usings}" + builderStart;
+                            var builderStartBuilder = new StringBuilder();
+                            builderStartBuilder.Append("namespace ");
+                            builderStartBuilder.Append(parentNameSpaceSyntax.Name);
+                            builderStartBuilder.Append(" {");
+                            builderStartBuilder.Append(Environment.NewLine);
+                            // Relying on the fact that usings with leading trivia are valid to ignore as they would not be part of compilation otherwise
+                            // Ergo, parentNameSpaceSyntax.Usings would not include | #if SOMETHING using Unity.Entities; #endif | if SOMEHTING is not defined
+                            // while parentNameSpaceSyntax.Usings would include the 'using Unity.Entities' if | #if !SOMETHING using Unity.Entities; #endif |
+                            // which means that even for the cases where the preprocessor directives would make a difference, the filtering has already been done
+                            // and so we can safely ignore the leading trivia.
+                            foreach (var usingDirectiveSyntax in parentNameSpaceSyntax.Usings)
+                                builderStartBuilder.Append(usingDirectiveSyntax.WithoutLeadingTrivia().ToFullString());
+                            builderStartBuilder.Append(builderStart);
+                            builderStart = builderStartBuilder.ToString();
+
                             break;
                     }
 

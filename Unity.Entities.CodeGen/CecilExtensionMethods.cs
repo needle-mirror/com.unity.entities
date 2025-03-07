@@ -188,7 +188,7 @@ namespace Unity.Entities.CodeGen
             return IsSystemBase(baseTypeRef.Resolve());
         }
 
-        public static bool IsComponentSystem(this TypeDefinition arg, bool isFirstIteration = true)
+        public static bool IsComponentSystem(this TypeDefinition arg)
         {
             while (true)
             {
@@ -202,10 +202,6 @@ namespace Unity.Entities.CodeGen
                 ///XXX THIS IS BAD https://jira.unity3d.com/browse/DOTS-10211
                 if (baseTypeRef.Namespace == "Unity.Entities" && baseTypeRef.Name == "ComponentSystemBase") return true;
 
-                // Early out if we can count on source generators adding this attribute to every system
-                if (isFirstIteration && arg.CustomAttributes.All(a => a.Constructor.DeclaringType.Name != nameof(CompilerGeneratedAttribute)))
-                    return false;
-
                 switch (baseTypeRef.Name)
                 {
                     case "Object" when baseTypeRef.Namespace == "System":
@@ -213,7 +209,6 @@ namespace Unity.Entities.CodeGen
                         return false;
                     default:
                         arg = baseTypeRef.Resolve();
-                        isFirstIteration = false;
                         break;
                 }
             }

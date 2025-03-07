@@ -896,6 +896,8 @@ namespace Unity.Entities
             /// This value is deterministic across builds provided that the underlying type layout
             /// of the component hasn't changed. For example, renaming a member doesn't affect things,
             /// however changing a member's type causes the parent StableTypeHash to change).
+            ///
+            /// This hash is NOT expected to be stable across versions.
             /// </remarks>
             /// <seealso cref="TypeHash"/>
             public   readonly ulong         StableTypeHash;
@@ -1172,6 +1174,11 @@ namespace Unity.Entities
         public static ref readonly TypeInfo GetTypeInfo<T>()
         {
             return ref GetTypeInfoPointer()[GetTypeIndex<T>().Index];
+        }
+
+        internal static TypeInfo* GetTypeInfoNoSharedStatic(TypeIndex typeIndex)
+        {
+            return (TypeInfo*)s_TypeInfos.GetUnsafeReadOnlyPtr() + typeIndex.Index;
         }
 
         internal static TypeInfo * GetTypeInfoPointer()
@@ -1459,7 +1466,6 @@ namespace Unity.Entities
             s_AssemblyBoxedEqualsFn = new List<TypeRegistry.GetBoxedEqualsFn>();
             s_AssemblyBoxedEqualsPtrFn = new List<TypeRegistry.GetBoxedEqualsPtrFn>();
             s_AssemblyBoxedGetHashCodeFn = new List<TypeRegistry.BoxedGetHashCodeFn>();
-            s_AssemblyConstructComponentFromBufferFn = new List<TypeRegistry.ConstructComponentFromBufferFn>();
 #if UNITY_EDITOR
             // Synchronous Burst compilation takes forever, so in the editor don't waste time for
             // users who are trying to iterate and turn the option off while we generate type info
@@ -1552,10 +1558,15 @@ namespace Unity.Entities
             s_Initialized = true;
         }
 
-        static void InitializeSharedStatics()
+        internal static void InitializeSharedStatics()
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            SharedSafetyHandle.Ref.Data = AtomicSafetyHandle.Create();
+            // Calling InitializeSharedStatics when they are already initialized is wasteful but not an error.
+            // So we check if the handle exists before creating it to avoid leaking it if it does.
+            if (AtomicSafetyHandle.IsDefaultValue(SharedSafetyHandle.Ref.Data))
+            {
+                SharedSafetyHandle.Ref.Data = AtomicSafetyHandle.Create();
+            }
 #endif
             Shared_SharedComponentData_FnPtrs.Ref.Data = new IntPtr(s_SharedComponent_FunctionPointers.Ptr);
             SharedTypeInfos.Ref.Data = new IntPtr(s_TypeInfos.GetUnsafePtr());
@@ -1573,34 +1584,37 @@ namespace Unity.Entities
             InitializeSystemSharedStatics();
         }
 
-        static void ShutdownSharedStatics()
+        internal static void ShutdownSharedStatics()
         {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            // Calling ShutdownSharedStatics when the safety handle is missing can happen when the
+            // initialization of the type manager is interrupted because it ran into a problem.
+            // When it happens, it shouldn't fail here so we're checking is the handle is valid first.
+            if (!AtomicSafetyHandle.IsDefaultValue(SharedSafetyHandle.Ref.Data))
+            {
+                AtomicSafetyHandle.CheckDeallocateAndThrow(SharedSafetyHandle.Ref.Data);
+                AtomicSafetyHandle.Release(SharedSafetyHandle.Ref.Data);
+                SharedSafetyHandle.Ref.Data = default;
+            }
+#endif
+            Shared_SharedComponentData_FnPtrs.Ref.Data = default;
             SharedTypeInfos.Ref.Data = default;
             SharedDescendantIndices.Ref.Data = default;
             SharedDescendantCounts.Ref.Data = default;
             SharedEntityOffsetInfos.Ref.Data = default;
             SharedBlobAssetRefOffsets.Ref.Data = default;
             SharedWeakAssetRefOffsets.Ref.Data = default;
+            SharedUnityObjectRefOffsets.Ref.Data = default;
             SharedStableTypeHashes.Ref.Data = default;
             SharedWriteGroups.Ref.Data = default;
             SharedFastEqualityTypeInfo.Ref.Data = default;
             SharedTypeNames.Ref.Data = default;
             SharedTypeFullNameHashes.Ref.Data = default;
+
             SharedSystemTypeNames.Ref.Data = default;
             SharedSystemAttributes.Ref.Data = default;
             SharedSystemCount.Ref.Data = default;
             SharedSystemTypeHashes.Ref.Data = default;
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            // If the TypeManager failed to initialize, this may not have been set
-#if UNITY_DOTSRUNTIME
-            if(SharedSafetyHandle.Ref.Data.nodePtr != default)
-#else
-            if(SharedSafetyHandle.Ref.Data.versionNode != default)
-#endif
-                AtomicSafetyHandle.Release(SharedSafetyHandle.Ref.Data);
-#endif
-                Shared_SharedComponentData_FnPtrs.Ref.Data = default;
         }
 
         static void RegisterSpecialComponents()
@@ -1623,7 +1637,7 @@ namespace Unity.Entities
             entityStableTypeHash = GetEntityStableTypeHash();
 #else
             entityStableTypeHash = TypeHash.CalculateStableTypeHash(typeof(Entity));
-#endif 
+#endif
 
             // Entity is special and is treated as having an entity offset at 0 (itself)
             s_EntityOffsetList.Add(new EntityOffsetInfo() { Offset = 0 });
@@ -2340,7 +2354,6 @@ namespace Unity.Entities
         /// <returns>Boxed component instance</returns>
         public static unsafe object ConstructComponentFromBuffer(TypeIndex typeIndex, void* data)
         {
-#if !UNITY_DOTSRUNTIME
             var tinfo = GetTypeInfo(typeIndex);
             Type type = GetType(typeIndex);
             object obj = Activator.CreateInstance(type);
@@ -2353,9 +2366,6 @@ namespace Unity.Entities
             }
 
             return obj;
-#else
-            return ConstructComponentFromBuffer(data, typeIndex.Index);
-#endif
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -2627,7 +2637,7 @@ namespace Unity.Entities
 
                 //Types to process by reflection include unity engine types and types
                 //that have variable size based on bitness and so will have wrong
-                //info on 32 bit platforms. 
+                //info on 32 bit platforms.
                 var typesToProcessByReflection = combinedComponentTypeSet.ToList();
 
                 var indexByType = new Dictionary<Type, int>();
@@ -2662,17 +2672,17 @@ namespace Unity.Entities
 
                 /*
                  * In order to call this function, we need the descendant counts to be filled in properly already.
-                 * so we have to save the list of stuff that we're going to do by reflection, 
-                 * call the other thing to make the integrated descendant info, 
+                 * so we have to save the list of stuff that we're going to do by reflection,
+                 * call the other thing to make the integrated descendant info,
                  * and then come back and call this on the limited list of types that we have to do by reflection.
-                 * 
-                 * Also, here we pass s_TypeCount as the startTypeIndex because we only want to do this part for 
+                 *
+                 * Also, here we pass s_TypeCount as the startTypeIndex because we only want to do this part for
                  * the unityEngineComponentTypes, so we should start counting after all the types that have already
-                 * been registered, which is to say at s_TypeCount. 
-                 * 
-                 * By contrast, above we pass the startTypeIndex as the s_TypeCount recorded before registering the 
+                 * been registered, which is to say at s_TypeCount.
+                 *
+                 * By contrast, above we pass the startTypeIndex as the s_TypeCount recorded before registering the
                  * types from the ILPP'd assemblies, because we want the write groups and the type trees to include
-                 * types from ILPP'd assemblies. 
+                 * types from ILPP'd assemblies.
                  */
                 AddAllComponentTypes(typesToProcessByReflection, s_TypeCount, writeGroupByType, descendantCountByType);
                 /*
@@ -2794,16 +2804,16 @@ namespace Unity.Entities
                 try
                 {
                     /*
-                     * We used to check here if FindTypeIndex(type) returned null, and error if it didn't, since it was a 
-                     * duplicate. 
-                     * 
-                     * However, we are now actually okay if this type already exists, because we intend to call this sometimes with some 
-                     * types that already have type indices. This is because when running on 32-bit, the type info we 
-                     * computed via codegen may be wrong if the type contains pointers. So if we detect that, 
-                     * we add that type to a list to be reprocessed and have the correct typeinfo added. 
-                     * 
+                     * We used to check here if FindTypeIndex(type) returned null, and error if it didn't, since it was a
+                     * duplicate.
+                     *
+                     * However, we are now actually okay if this type already exists, because we intend to call this sometimes with some
+                     * types that already have type indices. This is because when running on 32-bit, the type info we
+                     * computed via codegen may be wrong if the type contains pointers. So if we detect that,
+                     * we add that type to a list to be reprocessed and have the correct typeinfo added.
+                     *
                      * And, it's simpler to just reprocess it and append the correct typeinfo at the end than it would be
-                     * to go patch the typeinfo where it is. 
+                     * to go patch the typeinfo where it is.
                      */
                     var index = TypeIndex.Null;
 
@@ -3163,11 +3173,14 @@ namespace Unity.Entities
 
         internal static TypeInfo BuildComponentType(Type type, TypeIndex[] writeGroups, BuildComponentCache caches)
         {
-            if (IsInitialized)
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            if (!AtomicSafetyHandle.IsDefaultValue(SharedSafetyHandle.Ref.Data))
             {
                 // Adding stuff to the native lists whose pointers are cached by Burst statics cause undefined behavior.
-                throw new InvalidOperationException("Cannot build component types after the type manager has finished initializing.");
+                throw new InvalidOperationException(
+                    $"Cannot call {nameof(BuildComponentType)} when the shared statics are initialized. Please ensure types are built before the type manager initialization completes, or wrap this call in a {nameof(ShutdownSharedStatics)} / {nameof(InitializeSharedStatics)} pair.");
             }
+#endif
 
             CheckComponentType(type);
 
@@ -3399,7 +3412,7 @@ namespace Unity.Entities
             {
                 return ref SharedStatic<TypeIndex>.GetOrCreate(typeof(TypeManagerKeyContext), componentType).Data;
             }
-        } 
+        }
 
         private static void AddFastEqualityInfo(Type type, bool isUnityEngineObject = false, Dictionary<Type, List<FastEquality.LayoutInfo>> cache = null)
         {
@@ -3509,7 +3522,6 @@ namespace Unity.Entities
         static List<TypeRegistry.GetBoxedEqualsFn> s_AssemblyBoxedEqualsFn;
         static List<TypeRegistry.GetBoxedEqualsPtrFn> s_AssemblyBoxedEqualsPtrFn;
         static List<TypeRegistry.BoxedGetHashCodeFn> s_AssemblyBoxedGetHashCodeFn;
-        static List<TypeRegistry.ConstructComponentFromBufferFn> s_AssemblyConstructComponentFromBufferFn;
 
         internal static bool GetBoxedEquals(object lhs, object rhs, int typeIndexNoFlags)
         {
@@ -3550,19 +3562,6 @@ namespace Unity.Entities
             throw new ArgumentException("No function was generated for the provided type.");
         }
 
-        internal static object ConstructComponentFromBuffer(void* buffer, int typeIndexNoFlags)
-        {
-            int offset = 0;
-            for (int i = 0; i < s_TypeDelegateIndexRanges.Count; ++i)
-            {
-                if (typeIndexNoFlags < s_TypeDelegateIndexRanges[i])
-                    return s_AssemblyConstructComponentFromBufferFn[i](buffer, typeIndexNoFlags - offset);
-                offset = s_TypeDelegateIndexRanges[i];
-            }
-
-            throw new ArgumentException("No function was generated for the provided type.");
-        }
-
         static bool EntityBoxedEquals(object lhs, object rhs, int typeIndexNoFlags)
         {
             Assert.IsTrue(typeIndexNoFlags == 1);
@@ -3586,12 +3585,6 @@ namespace Unity.Entities
             return e0.GetHashCode();
         }
 
-        static object EntityConstructComponentFromBuffer(void* obj, int typeIndexNoFlags)
-        {
-            Assert.IsTrue(typeIndexNoFlags == 1);
-            return *(Entity*)obj;
-        }
-
         /// <summary>
         /// Registers, all at once, the type registry information generated for each assembly.
         /// </summary>
@@ -3604,7 +3597,6 @@ namespace Unity.Entities
             s_AssemblyBoxedEqualsFn.Add(EntityBoxedEquals);
             s_AssemblyBoxedEqualsPtrFn.Add(EntityBoxedEqualsPtr);
             s_AssemblyBoxedGetHashCodeFn.Add(EntityBoxedGetHashCode);
-            s_AssemblyConstructComponentFromBufferFn.Add(EntityConstructComponentFromBuffer);
 
             typesToReprocess = new List<Type>();
 
@@ -3690,10 +3682,10 @@ namespace Unity.Entities
                         /*
                          * If we are running in 32-bit, the precomputed sizes and offsets by codegen may be wrong if they contain a pointer.
                          * So, if that's the case, we check the size of each type, and if it differs, we mark it to be reprocessed by reflection.
-                         * 
-                         * Also, even on 64-bit, netstandard refassemblies claim that the size of GCHandle and Guid is 4, when actually 
-                         * they're 8 and 16 respectively. 
-                         */ 
+                         *
+                         * Also, even on 64-bit, netstandard refassemblies claim that the size of GCHandle and Guid is 4, when actually
+                         * they're 8 and 16 respectively.
+                         */
                         if (pTypeInfo->TypeSize != 0 && pTypeInfo->TypeSize != UnsafeUtility.SizeOf(pTypeInfo->Type))
                         {
                             typesToReprocess.Add(pTypeInfo->Type);
@@ -3713,7 +3705,6 @@ namespace Unity.Entities
                     s_AssemblyBoxedEqualsFn.Add(typeRegistry.BoxedEquals);
                     s_AssemblyBoxedEqualsPtrFn.Add(typeRegistry.BoxedEqualsPtr);
                     s_AssemblyBoxedGetHashCodeFn.Add(typeRegistry.BoxedGetHashCode);
-                    s_AssemblyConstructComponentFromBufferFn.Add(typeRegistry.ConstructComponentFromBuffer);
                 }
 
                 // Register system types
@@ -3806,14 +3797,12 @@ namespace Unity.Entities
         public delegate bool GetBoxedEqualsFn(object lhs, object rhs, int typeIndexNoFlags);
         public unsafe delegate bool GetBoxedEqualsPtrFn(object lhs, void* rhs, int typeIndexNoFlags);
         public delegate int BoxedGetHashCodeFn(object obj, int typeIndexNoFlags);
-        public unsafe delegate object ConstructComponentFromBufferFn(void* buffer, int typeIndexNoFlags);
         public unsafe delegate void SetSharedTypeIndicesFn(int* typeInfoArray, int count);
         public delegate Attribute[] GetSystemAttributesFn(Type system);
 
         public GetBoxedEqualsFn BoxedEquals;
         public GetBoxedEqualsPtrFn BoxedEqualsPtr;
         public BoxedGetHashCodeFn BoxedGetHashCode;
-        public ConstructComponentFromBufferFn ConstructComponentFromBuffer;
         public SetSharedTypeIndicesFn SetSharedTypeIndices;
         public GetSystemAttributesFn GetSystemAttributes;
 

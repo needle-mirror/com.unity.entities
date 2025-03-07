@@ -1,9 +1,13 @@
 ﻿using NUnit.Framework;
+using Unity.Entities.Hybrid.Tests;
+using UnityEngine.LowLevel;
 
 namespace Unity.Entities.Editor.Tests
 {
     class ControlsTestFixture
     {
+        PlayerLoopSystem m_PrevPlayerLoop;
+        TestWithCustomDefaultGameObjectInjectionWorld m_CustomInjectionWorld;
         public World m_TestWorld;
         public SystemBase m_SystemA;
         public SystemBase m_SystemB;
@@ -13,7 +17,11 @@ namespace Unity.Entities.Editor.Tests
         [SetUp]
         public void SetUp()
         {
-            m_TestWorld = new World("Relationship Test world");
+            m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            m_CustomInjectionWorld.Setup();
+            DefaultWorldInitialization.Initialize("Relationship Test world", false);
+            m_TestWorld = World.DefaultGameObjectInjectionWorld;
+
             var group = m_TestWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             m_SystemA = m_TestWorld.GetOrCreateSystemManaged<TestSystemsForControls.SystemA>();
             m_SystemB = m_TestWorld.GetOrCreateSystemManaged<TestSystemsForControls.SystemB>();
@@ -29,7 +37,8 @@ namespace Unity.Entities.Editor.Tests
         [TearDown]
         public void TearDown()
         {
-            m_TestWorld.Dispose();
+            m_CustomInjectionWorld.TearDown();
+            PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
         }
     }
 }

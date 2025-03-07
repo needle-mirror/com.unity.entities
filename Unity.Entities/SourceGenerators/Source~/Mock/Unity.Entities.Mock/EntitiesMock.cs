@@ -286,8 +286,8 @@ namespace Unity.Entities
         public RefRW<T> GetRefRW(Entity entity) => default;
         public RefRO<T> GetRefRO(Entity entity) => default;
 
-        public RefRO<T> GetRefROOptional(Entity entity) => default;
-        public RefRW<T> GetRefRWOptional(Entity entity) => default;
+        public bool TryGetRefRW(Entity entity, out RefRW<T> outRef) => default;
+        public bool TryGetRefRO(Entity entity, out RefRO<T> outRef) => default;
 
         public EnabledRefRW<T2> GetEnabledRefRW<T2>(Entity entity)
             where T2 : unmanaged, IComponentData, IEnableableComponent => default;
@@ -616,12 +616,6 @@ namespace Unity.Entities
     public class DOTSCompilerPatchedMethodAttribute : Attribute
     {
         public DOTSCompilerPatchedMethodAttribute(string targetMethodName) { }
-    }
-
-    [AttributeUsage(AttributeTargets.Property)]
-    public class DOTSCompilerPatchedPropertyAttribute : Attribute
-    {
-        public DOTSCompilerPatchedPropertyAttribute(string targetPropertyName) { }
     }
 
     public class EntityIndexInChunk : Attribute {}

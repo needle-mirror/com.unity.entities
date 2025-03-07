@@ -428,10 +428,10 @@ namespace Unity.Entities
             {
                 for (int i = 0; i < k_BlockCount; ++i)
                 {
-                    var block = (void*)m_DataBlocks[i];
-                    if (block != null)
+                    if (m_DataBlocks[i] != 0)
                     {
-                        Memory.Unmanaged.Free(block, Allocator.Persistent);
+                        Memory.Unmanaged.Free((void*)m_DataBlocks[i], Allocator.Persistent);
+                        m_DataBlocks[i] = 0;
                     }
                 }
 

@@ -78,8 +78,12 @@ namespace Unity.Entities.CodeGen
                 {
                     var fieldTypeRef = typeResolver.ResolveFieldType(field);
 
-                    // Classes can have cyclical type definitions so prevent recursion if we've seen the type already
-                    if (!cache.TryGetValue(fieldTypeRef, out ulong fieldTypeHash))
+                    ulong fieldTypeHash;
+                    if (fieldTypeRef.Resolve().IsClass)
+                    {
+                        fieldTypeHash = HashTypeName(fieldTypeRef);
+                    }
+                    else if (!cache.TryGetValue(fieldTypeRef, out fieldTypeHash))
                     {
                         // Classes can have cyclical type definitions so to prevent a potential stackoverflow
                         // we make all future occurence of fieldType resolve to the hash of its field type name
@@ -87,6 +91,7 @@ namespace Unity.Entities.CodeGen
                         fieldTypeHash = HashType(fieldTypeRef, cache);
                         cache[fieldTypeRef] =  fieldTypeHash;
                     }
+
 
                     if (field.HasLayoutInfo)
                     {

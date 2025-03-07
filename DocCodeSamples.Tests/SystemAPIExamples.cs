@@ -52,7 +52,7 @@ namespace Doc.CodeSamples.Tests
         }
     }
 
-    
+
     public partial struct MyCoolSystem : ISystem
     {
         [BurstCompile]
@@ -66,7 +66,7 @@ namespace Doc.CodeSamples.Tests
             foreach (var chunk in chunks)
             {
                 var numEntities = chunk.Count;
-                var bufferAccessor = chunk.GetBufferAccessor(ref bufferHandle);
+                var bufferAccessor = chunk.GetBufferAccessorRO(ref bufferHandle);
 
                 for (int j = 0; j < numEntities; j++)
                 {

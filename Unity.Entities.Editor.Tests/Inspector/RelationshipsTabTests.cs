@@ -1,14 +1,19 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Unity.Collections.LowLevel.Unsafe;
+using Unity.Entities.Hybrid.Tests;
+using UnityEngine.LowLevel;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Tests
 {
     partial class RelationshipsTabTests
     {
+        PlayerLoopSystem m_PrevPlayerLoop;
+        TestWithCustomDefaultGameObjectInjectionWorld m_CustomInjectionWorld;
         World m_TestWorld;
         SystemBase m_SystemA;
         SystemBase m_SystemB;
@@ -18,9 +23,13 @@ namespace Unity.Entities.Editor.Tests
         WorldProxy m_WorldProxy;
 
         [SetUp]
-        public void SetUp()
+        public void Setup()
         {
-            m_TestWorld = new World("RelationshipTabTestWorld");
+            m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            m_CustomInjectionWorld.Setup();
+            DefaultWorldInitialization.Initialize("RelationshipTabTestWorld", false);
+            m_TestWorld = World.DefaultGameObjectInjectionWorld;
+
             var group = m_TestWorld.GetOrCreateSystemManaged<SimulationSystemGroup>();
             m_SystemA = m_TestWorld.GetOrCreateSystemManaged<SystemA>();
             m_SystemB = m_TestWorld.GetOrCreateSystemManaged<SystemB>();
@@ -38,7 +47,8 @@ namespace Unity.Entities.Editor.Tests
         [TearDown]
         public void TearDown()
         {
-            m_TestWorld.Dispose();
+            m_CustomInjectionWorld.TearDown();
+            PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
         }
 
         [Test]

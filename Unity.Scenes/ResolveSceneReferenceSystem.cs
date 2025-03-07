@@ -211,47 +211,62 @@ namespace Unity.Scenes
             _SceneHeaderUtility.CleanupHeaders(EntityManager);
 
             bool headerLoadInProgress = false;
-            Entities.WithStructuralChanges().WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity>().ForEach(
-                (Entity sceneEntity, ref RequestSceneHeader requestHeader, ref SceneReference scene,
-                    ref ResolvedSceneHash resolvedSceneHash, ref RequestSceneLoaded requestSceneLoaded) =>
+
+            var query = SystemAPI.QueryBuilder().WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity>()
+                .WithAll<RequestSceneHeader, SceneReference, ResolvedSceneHash, RequestSceneLoaded>().Build();
+
+            var sceneEntities = query.ToEntityArray(Allocator.Temp);
+            foreach (var sceneEntity in sceneEntities)
+			{
+                var requestHeader = SystemAPI.GetComponent<RequestSceneHeader>(sceneEntity);
+                var sceneReference = SystemAPI.GetComponent<SceneReference>(sceneEntity);
+                var requestSceneLoaded = SystemAPI.GetComponent<RequestSceneLoaded>(sceneEntity);
+
+                if (!requestHeader.IsCompleted)
                 {
-                        if (!requestHeader.IsCompleted)
-                        {
-                            if ((requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) == 0)
-                            {
-                                headerLoadInProgress = true;
-                                return;
-                            }
-                            requestHeader.Complete();
-                        }
+                    if ((requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) == 0)
+                    {
+                        headerLoadInProgress = true;
+		                continue;
+                    }
 
-                        var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader, scene.SceneGUID, SceneSystem.SceneLoadDir);
-                        LogResolving($"Finished header load: {scene.SceneGUID}");
-                        if (!headerLoadResult.Success)
-                        {
-                            requestHeader.Dispose();
-                            EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
-                            EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
-                            return;
-                        }
+                    requestHeader.Complete();
+                }
 
-                        ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, requestSceneLoaded, ref headerLoadResult.SceneMetaData.Value,
+                var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader, sceneReference.SceneGUID, SceneSystem.SceneLoadDir);
+
+                LogResolving($"Finished header load: {sceneReference.SceneGUID}");
+                if (!headerLoadResult.Success)
+                {
+                    requestHeader.Dispose();
+
+                    EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
+                    EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
+
+                    continue;
+                }
+
+                ResolveSceneSectionUtility.ResolveSceneSections(EntityManager,
+                    sceneEntity, requestSceneLoaded, ref headerLoadResult.SceneMetaData.Value,
                             m_ResolveSceneSectionArchetypes, headerLoadResult.SectionPaths, headerLoadResult.HeaderBlobOwner);
-                        requestHeader.Dispose();
-                        EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
-#if UNITY_EDITOR
-                        if (EntityManager.HasComponent<SubScene>(sceneEntity))
-                        {
-                            var subScene = EntityManager.GetComponentObject<SubScene>(sceneEntity);
-                            // Add SubScene component to section entities
-                            using (var sectionEntities = EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity).ToNativeArray(Allocator.Temp))
-                            {
-                                for (int iSection = 0; iSection < sectionEntities.Length;++iSection)
-                                    EntityManager.AddComponentObject(sectionEntities[iSection].SectionEntity, subScene);
-                            }
-                        }
-#endif
-                }).Run();
+
+                requestHeader.Dispose();
+
+                EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
+
+                if (EntityManager.HasComponent<SubScene>(sceneEntity))
+                {
+                    var subScene = EntityManager.GetComponentObject<SubScene>(sceneEntity);
+
+                    // Add SubScene component to section entities
+                    using (var sectionEntities = EntityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity)
+                        .ToNativeArray(Allocator.Temp))
+					{
+                        for (int iSection = 0; iSection < sectionEntities.Length; ++iSection)
+							EntityManager.AddComponentObject(sectionEntities[iSection].SectionEntity, subScene);
+                    }
+				}
+			}
 
             if(headerLoadInProgress)
                 EditorUpdateUtility.EditModeQueuePlayerLoopUpdate();
@@ -340,41 +355,85 @@ namespace Unity.Scenes
             _SceneHeaderUtility.Dispose(EntityManager);
         }
 
-        protected unsafe override void OnUpdate()
+        void ScheduleHeaderLoad()
         {
-            Entities.WithStructuralChanges().WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity, RequestSceneHeader>().
-                ForEach((Entity sceneEntity, ref SceneReference scene, ref RequestSceneLoaded requestSceneLoaded) =>
+            var scheduleHeaderLoadQuery = SystemAPI.QueryBuilder()
+                .WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity, RequestSceneHeader>()
+                .WithAll<SceneReference, RequestSceneLoaded>().Build();
+
+            if (scheduleHeaderLoadQuery.CalculateEntityCount() == 0)
+                return;
+            using var scheduleHeaderLoadEntities = scheduleHeaderLoadQuery.ToEntityArray(Allocator.Temp);
+            using var scheduleHeaderLoadSceneReferences =
+                scheduleHeaderLoadQuery.ToComponentDataArray<SceneReference>(Allocator.Temp);
+            using var scheduleHeaderLoadRequestSceneLoadeds =
+                scheduleHeaderLoadQuery.ToComponentDataArray<RequestSceneLoaded>(Allocator.Temp);
+
+            for (var i = 0; i < scheduleHeaderLoadEntities.Length; i++)
                 {
-                    SceneHeaderUtility.ScheduleHeaderLoadOnEntity(EntityManager, sceneEntity, scene.SceneGUID, requestSceneLoaded, default, SceneSystem.SceneLoadDir);
-                }).Run();
+                SceneHeaderUtility.ScheduleHeaderLoadOnEntity(EntityManager,
+                    scheduleHeaderLoadEntities[i], scheduleHeaderLoadSceneReferences[i].SceneGUID,
+                    scheduleHeaderLoadRequestSceneLoadeds[i], default, SceneSystem.SceneLoadDir);
+            }
 
             _SceneHeaderUtility.CleanupHeaders(EntityManager);
+        }
 
-            Entities.WithStructuralChanges().WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity>().ForEach(
-                (Entity sceneEntity, ref RequestSceneHeader requestHeader, ref SceneReference scene, ref ResolvedSceneHash resolvedSceneHash, ref RequestSceneLoaded requestSceneLoaded) =>
+        void FinishHeaderLoad()
+		{
+            var finishHeaderLoadQuery = SystemAPI.QueryBuilder()
+                .WithNone<DisableSceneResolveAndLoad, ResolvedSectionEntity>()
+                .WithAll<RequestSceneHeader, SceneReference, ResolvedSceneHash, RequestSceneLoaded>().Build();
+
+            if (finishHeaderLoadQuery.CalculateEntityCount() == 0)
+                return;
+            using var finishHeaderLoadEntities = finishHeaderLoadQuery.ToEntityArray(Allocator.Temp);
+            using var finishHeaderLoadRequestSceneHeaders =
+                finishHeaderLoadQuery.ToComponentDataArray<RequestSceneHeader>(Allocator.Temp);
+            using var finishHeaderLoadSceneReferences =
+                finishHeaderLoadQuery.ToComponentDataArray<SceneReference>(Allocator.Temp);
+            using var finishHeaderLoadResolvedSceneHashs =
+                finishHeaderLoadQuery.ToComponentDataArray<ResolvedSceneHash>(Allocator.Temp);
+            using var finishHeaderLoadRequestSceneLoadeds =
+                finishHeaderLoadQuery.ToComponentDataArray<RequestSceneLoaded>(Allocator.Temp);
+
+            for (var i = 0; i < finishHeaderLoadEntities.Length; i++)
+            {
+                var sceneEntity = finishHeaderLoadEntities[i];
+                var requestHeader = finishHeaderLoadRequestSceneHeaders[i];
+                var scene = finishHeaderLoadSceneReferences[i];
+                var requestSceneLoaded = finishHeaderLoadRequestSceneLoadeds[i];
+
+                if (!requestHeader.IsCompleted)
                 {
-                    if (!requestHeader.IsCompleted)
-                    {
-                        if((requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) == 0)
-                            return;
-                        requestHeader.Complete();
-                    }
-
-                    var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader, scene.SceneGUID, SceneSystem.SceneLoadDir);
-                    if (!headerLoadResult.Success)
-                    {
-                        requestHeader.Dispose();
-                        EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
-                        EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
+                    if ((requestSceneLoaded.LoadFlags & SceneLoadFlags.BlockOnImport) == 0)
                         return;
-                    }
+                    requestHeader.Complete();
+                }
 
-                    ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, requestSceneLoaded, ref headerLoadResult.SceneMetaData.Value,
-                        m_ResolveSceneSectionArchetypes, headerLoadResult.SectionPaths, headerLoadResult.HeaderBlobOwner);
-
+                var headerLoadResult = SceneHeaderUtility.FinishHeaderLoad(requestHeader, scene.SceneGUID, SceneSystem.SceneLoadDir);
+                if (!headerLoadResult.Success)
+                {
                     requestHeader.Dispose();
+                    EntityManager.AddBuffer<ResolvedSectionEntity>(sceneEntity);
                     EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
-                }).Run();
+                    return;
+                }
+
+                ResolveSceneSectionUtility.ResolveSceneSections(EntityManager, sceneEntity, requestSceneLoaded,
+                    ref headerLoadResult.SceneMetaData.Value, m_ResolveSceneSectionArchetypes, headerLoadResult.SectionPaths,
+                    headerLoadResult.HeaderBlobOwner);
+
+                requestHeader.Dispose();
+                EntityManager.RemoveComponent<RequestSceneHeader>(sceneEntity);
+            }
+        }
+
+        protected unsafe override void OnUpdate()
+        {
+            ScheduleHeaderLoad();
+
+            FinishHeaderLoad();
         }
     }
 #endif

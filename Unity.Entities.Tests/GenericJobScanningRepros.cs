@@ -61,7 +61,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1
 
                 var entities = chunk.GetNativeArray(entityType);
                 var bazArray = chunk.GetNativeArray(ref bazType);
-                var t0Buffers = chunk.GetBufferAccessor(ref t0Type);
+                var t0Buffers = chunk.GetBufferAccessorRW(ref t0Type);
 
                 for (int i = 0; i < chunk.Count; i++)
                 {
@@ -389,7 +389,7 @@ namespace Unity.Entities.Tests.CustomerProvided.Forum1_Tweaked
                 {
                     var entities = chunk.GetNativeArray(entityType);
                     var bazArray = chunk.GetNativeArray(ref bazType);
-                    var t0Buffers = chunk.GetBufferAccessor(ref t0Type);
+                    var t0Buffers = chunk.GetBufferAccessorRW(ref t0Type);
 
                     for (int i = 0; i < chunk.Count; i++)
                     {

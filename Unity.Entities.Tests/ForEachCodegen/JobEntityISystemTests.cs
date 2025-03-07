@@ -180,7 +180,8 @@ namespace Unity.Entities.Tests.ForEachCodegen
         // public void ForEach_SystemStateAccessor_Matches() => GetTestSystemUnsafe().ForEach_SystemStateAccessor_Matches_SystemAPI(ref GetSystemStateRef());
     }
 
-    [WithOptions(EntityQueryOptions.IgnoreComponentEnabledState)]
+    // Don't Change the `Attribute` suffix as we use it to verify that adding Attribute still adds the WithOptions
+    [WithOptionsAttribute(EntityQueryOptions.IgnoreComponentEnabledState)]
     partial struct ToggleEnabledJob : IJobEntity
     {
         void Execute(EnabledRefRW<EcsTestDataEnableable> enabledRef1, EnabledRefRW<EcsTestTagEnableable> enabledRefR2)

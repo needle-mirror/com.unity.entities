@@ -1,6 +1,6 @@
 # Custom transforms
 
-You can customize the built-in transform system to address the specific transform functionality needs of your project. This section explains how to create a custom transform system, and uses the [2D custom transform system](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/EntitiesSamples/Assets/Miscellaneous/CustomTransforms) as a concrete example of one.
+You can customize the built-in transform system to address the specific transform functionality needs of your project. This section explains how to create a custom transform system, and uses the [2D custom transform system](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master/Dots101/Entities101/Assets/HelloCube/13.%20CustomTransforms) as a concrete example of one.
 
 ## Write groups
 

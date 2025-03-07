@@ -1,3 +1,4 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 namespace Doc.CodeSamples.Tests
 {
     #region stateful-example

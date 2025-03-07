@@ -822,7 +822,9 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities.ForEach((ref EcsTestData data ) => {  }).Schedule();
+#pragma warning restore CS0618
             }
         }
 
@@ -830,7 +832,9 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities.ForEach((ref EcsTestDataEnableable data ) => {  }).Schedule();
+#pragma warning restore CS0618
             }
         }
 
@@ -2971,11 +2975,13 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities
                     .WithAll<EcsTestTagEnableable>()
                     .ForEach((Entity entity) =>
                     {
                     }).ScheduleParallel();
+#pragma warning restore CS0618
             }
         }
 
@@ -2991,12 +2997,14 @@ namespace Unity.Entities.Tests
             {
                 _lookup.Update(this);
                 var lookupCopy = _lookup;
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities
                     .WithNativeDisableParallelForRestriction(lookupCopy)
                     .ForEach((Entity entity) =>
                 {
                     lookupCopy.SetComponentEnabled(entity, false);
                 }).ScheduleParallel();
+#pragma warning restore CS0618
             }
         }
 
@@ -3142,10 +3150,12 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities.WithNone<EcsTestTag>().ForEach((ref EcsTestData sum, in EcsTestData2 addends) =>
                 {
                     sum.value = addends.value0 + addends.value1;
                 }).Schedule();
+#pragma warning restore CS0618
             }
         }
 
@@ -3471,7 +3481,9 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                  Entities.ForEach((ref EcsTestData data) => { data.value = 10; }).Schedule();
+#pragma warning restore CS0618
             }
         }
         [Test]
@@ -4914,6 +4926,7 @@ namespace Unity.Entities.Tests
             {
                 int expectedCount = _query.CalculateEntityCount();
                 int actualCount = 0;
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 // Should match 20 entities
                 Entities
                     .WithAll<TestTag0>()
@@ -4929,6 +4942,7 @@ namespace Unity.Entities.Tests
                     {
                         actualCount++;
                     }).Run();
+#pragma warning restore CS0618
                 Assert.AreEqual(30, expectedCount, "Query on common components should match all 30 entities");
                 Assert.AreEqual(30, actualCount, "Between the two jobs, all 30 entities should be found once each");
                 //Assert.AreEqual(expectedCount, actualCount);

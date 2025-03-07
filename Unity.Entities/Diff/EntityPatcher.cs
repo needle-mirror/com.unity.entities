@@ -119,7 +119,7 @@ namespace Unity.Entities
                 var count = 0;
                 for (var chunkIndex = 0; chunkIndex < Chunks.Length; chunkIndex++)
                 {
-                    var linkedEntityGroups = Chunks[chunkIndex].GetBufferAccessor(ref LinkedEntityGroupTypeHandle);
+                    var linkedEntityGroups = Chunks[chunkIndex].GetBufferAccessorRO(ref LinkedEntityGroupTypeHandle);
                     for (var linkedEntityGroupIndex = 0; linkedEntityGroupIndex < linkedEntityGroups.Length; linkedEntityGroupIndex++)
                     {
                         count += linkedEntityGroups[linkedEntityGroupIndex].Length;
@@ -140,7 +140,7 @@ namespace Unity.Entities
             {
                 Assert.IsFalse(useEnabledMask);
 
-                var linkedEntityGroups = chunk.GetBufferAccessor(ref LinkedEntityGroupTypeHandle);
+                var linkedEntityGroups = chunk.GetBufferAccessorRO(ref LinkedEntityGroupTypeHandle);
 
                 for (var bufferIndex = 0; bufferIndex != linkedEntityGroups.Length; bufferIndex++)
                 {

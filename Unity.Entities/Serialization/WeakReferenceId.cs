@@ -148,7 +148,7 @@ namespace Unity.Entities.Serialization
         /// Get a weak reference from a Unity object reference.
         /// </summary>
         /// <param name="obj">The object to reference.</param>
-        /// <returns>The ide if the reference.</returns>
+        /// <returns>The id of the reference.</returns>
         public static UntypedWeakReferenceId CreateFromObjectInstance(UnityEngine.Object obj)
         {
             if (obj == null)

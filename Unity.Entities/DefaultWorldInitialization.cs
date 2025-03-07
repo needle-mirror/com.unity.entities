@@ -11,7 +11,6 @@ using Unity.Collections;
 using Unity.Profiling;
 using UnityEngine.LowLevel;
 using UnityEngine.PlayerLoop;
-using System.Linq;
 
 namespace Unity.Entities
 {
@@ -42,6 +41,14 @@ namespace Unity.Entities
         static void CleanupWorldBeforeSceneLoad()
         {
             DomainUnloadOrPlayModeChangeShutdown();
+        }
+
+        internal static void CleanupEntityComponentStore(object _, EventArgs __) => CleanupEntityComponentStore();
+        internal static void CleanupEntityComponentStore()
+        {
+#if!ENTITY_STORE_V1
+            EntityComponentStore.s_entityStore.Data.Dispose();
+#endif
         }
 
         /// <summary>
@@ -91,9 +98,7 @@ namespace Unity.Entities
 
             World.DisposeAllWorlds();
 
-#if!ENTITY_STORE_V1
-            EntityComponentStore.s_entityStore.Data.Dispose();
-#endif
+            CleanupEntityComponentStore();
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             EntitiesJournaling.Shutdown();
@@ -394,7 +399,17 @@ namespace Unity.Entities
 
         static ICustomBootstrap CreateBootStrap()
         {
-            var bootstrapTypes = TypeManager.GetTypesDerivedFrom(typeof(ICustomBootstrap));
+            IEnumerable<Type> bootstrapTypes = TypeManager.GetTypesDerivedFrom(typeof(ICustomBootstrap));
+
+            // Filter out types with DisableBootstrapOverridesAttribute
+            var filteredBootstrapTypes = new List<Type>();
+            foreach (var type in bootstrapTypes)
+            {
+                if (type.GetCustomAttribute<DisableBootstrapOverridesAttribute>() == null && type.Assembly.GetCustomAttribute<DisableBootstrapOverridesAttribute>() == null)
+                    filteredBootstrapTypes.Add(type);
+            }
+            bootstrapTypes = filteredBootstrapTypes;
+
             Type selectedType = null;
 
             foreach (var bootType in bootstrapTypes)
@@ -415,5 +430,41 @@ namespace Unity.Entities
 
             return bootstrap;
         }
+    }
+
+    /// <summary>
+    /// Prevents a <see cref="ICustomBootstrap"/> from automatically being used by world initialization.
+    /// </summary>
+    /// <remarks>
+    /// By default, all systems (classes derived from <see cref="ComponentSystemBase"/> or <see cref="ISystem"/>) are automatically discovered,
+    /// instantiated, and added to the default <see cref="World"/> when that World is created.
+    ///
+    /// Add this attribute to a type implementing ICustomBootstrap that you do not want to be used as the default bootstrap. Note that the attribute is not
+    /// inherited by any subclasses. Also note that if multiple bootstraps are found, the one with the most derived type is used unless the attribute is present.
+    ///
+    /// <code>
+    /// using Unity.Entities;
+    ///
+    /// [DisableBootstrapOverrides]
+    /// public class CustomBootstrap : ICustomBootstrap
+    /// { // Implementation... }
+    /// </code>
+    ///
+    /// You can also apply this attribute to an entire assembly to prevent any bootstrap in that assembly from being
+    /// created automatically. This is useful for test assemblies containing many bootstraps that expect to be tested
+    /// in isolation.
+    ///
+    /// To declare an assembly attribute, place it in any C# file compiled into the assembly, outside the namespace
+    /// declaration:
+    /// <code>
+    /// using Unity.Entities;
+    ///
+    /// [assembly: DisableBootstrapOverrides]
+    /// namespace Tests{}
+    /// </code>
+    /// </remarks>
+    [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class | AttributeTargets.Assembly, Inherited=false)]
+    public class DisableBootstrapOverridesAttribute : Attribute
+    {
     }
 }

@@ -294,7 +294,7 @@ namespace Unity.Entities.Tests
 
             var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             var bufferTypeHandle = m_Manager.GetBufferTypeHandle<EcsIntCleanupElement>(false);
-            var buffers = chunks[0].GetBufferAccessor(ref bufferTypeHandle);
+            var buffers = chunks[0].GetBufferAccessorRW(ref bufferTypeHandle);
 
             Assert.AreEqual(2, buffers.Length);
             Assert.AreEqual(0, buffers[0].Length);
@@ -603,7 +603,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                var intValue = chunk.GetBufferAccessor(ref Int)[0];
+                var intValue = chunk.GetBufferAccessorRW(ref Int)[0];
 
                 Assert.AreEqual(intValue.Length, 1);
 
@@ -648,7 +648,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                var intValue = chunk.GetBufferAccessor(ref Int)[0];
+                var intValue = chunk.GetBufferAccessorRO(ref Int)[0];
 
                 // Reading buffer
                 Assert.AreEqual(intValue.Length, 1);

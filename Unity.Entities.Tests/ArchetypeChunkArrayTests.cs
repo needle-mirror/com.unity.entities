@@ -112,6 +112,26 @@ namespace Unity.Entities.Tests
             }
         }
 
+        struct ChangeBufferValues : IJobParallelFor
+        {
+            [ReadOnly] public NativeArray<ArchetypeChunk> chunks;
+            public BufferTypeHandle<EcsIntElement> ecsBufferHandle;
+
+            public void Execute(int chunkIndex)
+            {
+                var chunk = chunks[chunkIndex];
+                var chunkCount = chunk.Count;
+                var chunkBuffers = chunk.GetBufferAccessorRW(ref ecsBufferHandle);
+
+                for (int i = 0; i < chunkBuffers.Length; i++)
+                {
+                    var buffer = chunkBuffers[i];
+                    for (int j = 0; j < i; ++j)
+                        buffer.Add(new EcsIntElement { Value = j });
+                }
+            }
+        }
+
         [Test]
         public void ACS_WriteMixed()
         {
@@ -311,12 +331,12 @@ namespace Unity.Entities.Tests
             var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
             group.Dispose();
 
-            var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
+            var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(isReadOnly:true);
 
             for (int i = 0; i < chunks.Length; ++i)
             {
                 var chunk = chunks[i];
-                var accessor = chunk.GetBufferAccessor(ref intElements);
+                var accessor = chunk.GetBufferAccessorRO(ref intElements);
 
                 for (int k = 0; k < accessor.Length; ++k)
                 {
@@ -341,7 +361,7 @@ namespace Unity.Entities.Tests
                 public void Execute(int chunkIndex)
                 {
                     var chunk = Chunks[chunkIndex];
-                    var ecsBufferAccessor = chunk.GetBufferAccessor(ref EcsIntElements);
+                    var ecsBufferAccessor = chunk.GetBufferAccessorRW(ref EcsIntElements);
                     for (int i = 0; i < ecsBufferAccessor.Length; ++i)
                     {
                         var buffer = ecsBufferAccessor[i];
@@ -509,12 +529,46 @@ namespace Unity.Entities.Tests
             var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(true);
 
             var chunk = chunks[0];
+            // GetBufferAccessor should automatically detect that the input handle is RO and return a read-only Accessor.
             var accessor = chunk.GetBufferAccessor(ref intElements);
             var buffer = accessor[0];
 
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             Assert.Throws<InvalidOperationException>(() => buffer.Add(12));
 #endif
+        }
+
+        [Test]
+        public void ACS_BuffersRW()
+        {
+            CreateEntities(128);
+
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            group.Dispose();
+            var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
+
+            var chunk = chunks[0];
+            var accessor = chunk.GetBufferAccessor(ref intElements);
+            var buffer = accessor[0];
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            Assert.DoesNotThrow(() => buffer.Add(12));
+#endif
+        }
+
+        [Test,TestRequiresDotsDebugOrCollectionChecks]
+        public void ACS_BuffersRW_WithReadOnlyHandle_Throws()
+        {
+            CreateEntities(128);
+
+            var group = m_Manager.CreateEntityQuery(ComponentType.ReadWrite<EcsIntElement>());
+            var chunks = group.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            group.Dispose();
+            var intElements = m_Manager.GetBufferTypeHandle<EcsIntElement>(true);
+
+            var chunk = chunks[0];
+            Assert.Throws<InvalidOperationException>(() => chunk.GetBufferAccessorRW(ref intElements));
         }
 
         [Test]
@@ -624,6 +678,67 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(0, foundValues);
         }
 
+        // A type that can safely alias EcsIntElement
+        [InternalBufferCapacity(8)]
+        struct EcsIntElementAlias : IBufferElementData
+        {
+            public int Value;
+        }
+        // A type that can't safely alias EcsIntElement, due to it having a different InternalBufferCapacity
+        [InternalBufferCapacity(4)]
+        struct EcsIntElementDifferentInternalCapacity : IBufferElementData
+        {
+            public int Value;
+        }
+
+        [Test,TestRequiresDotsDebugOrCollectionChecks]
+        public void ACS_DynamicUntypedBufferAccessorReinterpret()
+        {
+            CreateEntities(64);
+
+            var query = new EntityQueryBuilder(Allocator.Temp)
+                .WithAllRW<EcsTestData,EcsIntElement>()
+                .Build(m_Manager);
+            var chunks = query.ToArchetypeChunkArray(World.UpdateAllocator.ToAllocator);
+            query.Dispose();
+
+            var ecsBufferHandle = m_Manager.GetBufferTypeHandle<EcsIntElement>(false);
+            var changeValuesJobs = new ChangeBufferValues
+            {
+                chunks = chunks,
+                ecsBufferHandle = ecsBufferHandle,
+            };
+            var collectValuesJobHandle = changeValuesJobs.Schedule(chunks.Length, 64);
+            collectValuesJobHandle.Complete();
+
+            var ecsNonBufferDynamicHandle = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsTestData)));
+            var ecsBufferDynamicHandle = m_Manager.GetDynamicComponentTypeHandle(ComponentType.ReadOnly(typeof(EcsIntElement)));
+
+            for (int chunkIndex = 0; chunkIndex < chunks.Length; chunkIndex++)
+            {
+                var chunk = chunks[chunkIndex];
+                // Trying to alias from a non-buffer type handle should fail
+                Assert.Throws<ArgumentException>(() =>
+                    chunk.GetUntypedBufferAccessorReinterpret<EcsIntElement>(ref ecsNonBufferDynamicHandle,
+                        UnsafeUtility.SizeOf<EcsTestData>()));
+                // Trying to alias to a buffer type with a different size should fail
+                Assert.Throws<InvalidOperationException>(() =>
+                    chunk.GetUntypedBufferAccessorReinterpret<EcsIntElementDifferentInternalCapacity>(ref ecsBufferDynamicHandle,
+                        UnsafeUtility.SizeOf<EcsIntElement>()));
+
+                var chunkEcsBuffers = chunk.GetBufferAccessorRO(ref ecsBufferHandle);
+                var chunkEcsAliasedBuffers = chunk.GetUntypedBufferAccessorReinterpret<EcsIntElementAlias>(ref ecsBufferDynamicHandle,
+                    UnsafeUtility.SizeOf<EcsIntElementAlias>());
+                for (int i = 0; i < chunk.Count; i++)
+                {
+                    var buffer1 = chunkEcsBuffers[i];
+                    var buffer2 = chunkEcsAliasedBuffers[i];
+                    Assert.AreEqual(buffer1.Length, buffer2.Length);
+                    for (int j = 0; j < buffer1.Length; ++j)
+                        Assert.AreEqual(buffer1[j].Value, buffer2[j].Value);
+                }
+            }
+        }
 
         partial class UntypedBufferSystemBumpVersion : SystemBase
         {
@@ -1559,11 +1674,11 @@ namespace Unity.Entities.Tests
             m_Manager.AddBuffer<EcsTestContainerElement>(entity);
             m_Manager.GetBuffer<EcsTestContainerElement>(entity).Add(element);
 
-            var handle = m_Manager.GetBufferTypeHandle<EcsTestContainerElement>(false);
+            var handle = m_Manager.GetBufferTypeHandle<EcsTestContainerElement>(isReadOnly:true);
             var chunk = m_Manager.GetChunk(entity);
 
-            Assert.AreEqual(chunk.GetBufferAccessor(ref handle)[0][0], element);
-            Assert.AreEqual(chunk.GetBufferAccessor(ref handle)[0][0].data[1], element.data[1]);
+            Assert.AreEqual(chunk.GetBufferAccessorRO(ref handle)[0][0], element);
+            Assert.AreEqual(chunk.GetBufferAccessorRO(ref handle)[0][0].data[1], element.data[1]);
 
             element.Destroy();
         }

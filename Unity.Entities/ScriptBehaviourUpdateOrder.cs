@@ -444,7 +444,7 @@ namespace Unity.Entities
                 return false;
 
             // Is *this* system a delegate for a component system associated with the current World?
-            if (IsDelegateForWorldSystem(world, ref playerLoop))
+            if (IsDelegateForWorldSystem(world, playerLoop))
                 return true;
 
             // How about anything in the subsystem list?
@@ -491,10 +491,10 @@ namespace Unity.Entities
 
         static void RemoveWorldFromPlayerLoopList(World world, ref PlayerLoopSystem playerLoop)
         {
-            RemoveFromPlayerLoopList((ref PlayerLoopSystem pl) => IsDelegateForWorldSystem(world, ref pl), ref playerLoop);
+            RemoveFromPlayerLoopList((ref PlayerLoopSystem pl) => IsDelegateForWorldSystem(world, pl), ref playerLoop);
         }
 
-        static bool IsDelegateForWorldSystem(World world, ref PlayerLoopSystem playerLoop)
+        internal static bool IsDelegateForWorldSystem(World world, in PlayerLoopSystem playerLoop)
         {
             if (typeof(ComponentSystemBase).IsAssignableFrom(playerLoop.type))
             {

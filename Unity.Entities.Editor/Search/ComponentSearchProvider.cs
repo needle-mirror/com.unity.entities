@@ -110,7 +110,7 @@ namespace Unity.Entities.Editor
     public static class ComponentSearchProvider
     {
         /// <summary>
-        /// Search Provider type id. 
+        /// Search Provider type id.
         /// </summary>
         public const string type = "component";
 
@@ -134,7 +134,7 @@ namespace Unity.Entities.Editor
                 {
                     SetupTypeInfos();
                 }
-                    
+
                 return s_TypeInfos;
             }
         }
@@ -152,7 +152,7 @@ namespace Unity.Entities.Editor
                     },
                     closeWindowAfterExecution = false
                 }
-                
+
             };
         }
 
@@ -238,6 +238,7 @@ namespace Unity.Entities.Editor
         static void SetupQueryEngine()
         {
             s_QueryEngine = new();
+            s_QueryEngine.skipUnknownFilters = true;
             s_QueryEngine.SetSearchDataCallback(GetWords);
 
             SearchBridge.SetFilter(s_QueryEngine, "category", data => data.category);
@@ -265,12 +266,12 @@ namespace Unity.Entities.Editor
 
         static void OnEnable()
         {
-            
+
         }
 
         static void OnDisable()
         {
-            
+
         }
 
         static SearchTable GetDefaultTableConfig(SearchContext context)

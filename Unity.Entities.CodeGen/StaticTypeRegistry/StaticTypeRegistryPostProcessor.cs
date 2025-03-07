@@ -660,16 +660,6 @@ namespace Unity.Entities.CodeGen
             il.Emit(OpCodes.Newobj, boxedGetHashCodeFnCtor);
             il.Emit(OpCodes.Stfld, boxedGetHashCodeFnFieldDef);
 
-            // Store TypeRegistry.ConstructComponentFromBuffer
-            var constructComponentFn = InjectConstructComponentFunction(typeGenInfoList);
-            il.Emit(OpCodes.Ldloc_0);
-            var constructComponentFnCtor = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry.ConstructComponentFromBufferFn).GetConstructor(new Type[] { typeof(object), typeof(IntPtr) }));
-            var constructComponentFnFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("ConstructComponentFromBuffer", BindingFlags.Public | BindingFlags.Instance));
-            il.Emit(OpCodes.Ldnull); // no this ptr
-            il.Emit(OpCodes.Ldftn, constructComponentFn);
-            il.Emit(OpCodes.Newobj, constructComponentFnCtor);
-            il.Emit(OpCodes.Stfld, constructComponentFnFieldDef);
-
             // Store TypeRegistry.GetSystemAttributes
             var getSystemAttributesFn = InjectGetSystemAttributes(systemList);
             GeneratedRegistryDef.Methods.Add(getSystemAttributesFn);

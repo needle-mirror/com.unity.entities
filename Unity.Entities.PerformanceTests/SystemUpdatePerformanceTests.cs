@@ -14,11 +14,13 @@ using Unity.PerformanceTesting;
 namespace Unity.Entities.PerformanceTests
 {
     using static AspectUtils;
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
     readonly partial struct PerfTestAspect : IAspect
     {
         readonly public RefRW<EcsTestFloatData3> Output;
         readonly public RefRO<EcsTestFloatData> Input;
     }
+#pragma warning restore CS0618
 
     [TestFixture]
     [Category("Performance")]
@@ -233,7 +235,7 @@ namespace Unity.Entities.PerformanceTests
 
                 public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
                 {
-                    var buffers = chunk.GetBufferAccessor(ref BufferHandle);
+                    var buffers = chunk.GetBufferAccessorRW(ref BufferHandle);
                     var datas = (EcsTestData*)chunk.GetComponentDataPtrRO(ref DataHandle);
 
                     var enumerator =
@@ -264,8 +266,8 @@ namespace Unity.Entities.PerformanceTests
             ComponentTypeHandle<EcsTestFloatData> _ComponentFloatHandle;
             public void OnCreate(ref SystemState state)
             {
-                _FloatBufferHandle = state.GetBufferTypeHandle<EcsFloatElement>();
-                _ComponentFloatHandle = state.GetComponentTypeHandle<EcsTestFloatData>();
+                _FloatBufferHandle = state.GetBufferTypeHandle<EcsFloatElement>(isReadOnly:false);
+                _ComponentFloatHandle = state.GetComponentTypeHandle<EcsTestFloatData>(isReadOnly:true);
             }
 
             public void OnStartRunning(ref SystemState state)

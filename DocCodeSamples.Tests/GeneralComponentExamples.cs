@@ -1,6 +1,7 @@
 using Unity.Entities;
 using Unity.Transforms;
 using System;
+using Unity.Mathematics;
 using UnityEngine;
 
 namespace Doc.CodeSamples.Tests
@@ -14,7 +15,7 @@ namespace Doc.CodeSamples.Tests
             state.EntityManager.AddComponent<Rotation>(entity);
         }
 
-        }
+    }
     #endregion
 
     #region add-component-multiple-entities
@@ -40,6 +41,39 @@ namespace Doc.CodeSamples.Tests
         }
     }
     #endregion
+
+    #region set-component-single-entity
+    public partial struct SetComponentOnSingleEntitySystemExample : ISystem
+    {
+        public void OnCreate(ref SystemState state)
+        {
+            var entity = state.EntityManager.CreateEntity();
+            state.EntityManager.AddComponent<Rotation>(entity);
+            state.EntityManager.SetComponentData<Rotation>(entity, new Rotation { Value = quaternion.identity });
+        }
+    }
+    #endregion
+
+    #region set-component-system-entity
+    public partial struct SetComponentOnSystemEntitySystemExample : ISystem
+    {
+        public struct MyComponent : IComponentData
+        {
+            public int Value;
+        }
+        public void OnCreate(ref SystemState state)
+        {
+            // Add MyComponent to this system's entity.
+            state.EntityManager.AddComponentData(state.SystemHandle, new MyComponent());
+        }
+        public void OnUpdate(ref SystemState state)
+        {
+            // Modify the value of MyComponent on this system's entity.
+            state.EntityManager.SetComponentData(state.SystemHandle, new MyComponent{Value = 6});
+        }
+    }
+    #endregion
+
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
     #region managed-component-external-resource

@@ -1,10 +1,15 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 ﻿using NUnit.Framework;
+using Unity.Entities.Hybrid.Tests;
 using UnityEditor;
+using UnityEngine.LowLevel;
 
 namespace Unity.Entities.Editor.Tests
 {
     partial class SystemInspectorTests
     {
+        PlayerLoopSystem m_PrevPlayerLoop;
+        TestWithCustomDefaultGameObjectInjectionWorld m_CustomInjectionWorld;
         World m_World;
         SystemInspectorTestSystem m_SystemInspectorTestSystem;
         SystemScheduleTestSystem1 m_SystemInspectorTestSystem1;
@@ -32,7 +37,11 @@ namespace Unity.Entities.Editor.Tests
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {
-            m_World = new World("SystemInspectorTestWorld");
+            m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            m_CustomInjectionWorld.Setup();
+            DefaultWorldInitialization.Initialize("SystemInspectorTestWorld", false);
+            m_World = World.DefaultGameObjectInjectionWorld;
+
             m_SystemInspectorTestSystem = m_World.GetOrCreateSystemManaged<SystemInspectorTestSystem>();
             m_SystemInspectorTestSystem1 = m_World.GetOrCreateSystemManaged<SystemScheduleTestSystem1>();
             m_SystemInspectorTestSystem2 = m_World.GetOrCreateSystemManaged<SystemScheduleTestSystem2>();
@@ -49,7 +58,8 @@ namespace Unity.Entities.Editor.Tests
         [OneTimeTearDown]
         public void OneTimeTearDown()
         {
-            m_World.Dispose();
+            m_CustomInjectionWorld.TearDown();
+            PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
             if (EditorWindow.HasOpenInstances<SystemScheduleWindow>())
             {
                 EditorWindow.GetWindow<SystemScheduleWindow>().Close();

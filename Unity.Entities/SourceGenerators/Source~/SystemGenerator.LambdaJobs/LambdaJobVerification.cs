@@ -275,7 +275,7 @@ static class LambdaJobsVerification
             description.Success = false;
         }
 
-        var containingMethodSymbol = description.SystemDescription.SemanticModel.GetDeclaredSymbol(description.ContainingMethodOrAccessor);
+        var containingMethodSymbol = description.SystemDescription.SemanticModel.GetDeclaredSymbol(description.ContainingMethod);
         if (containingMethodSymbol is IMethodSymbol methodSymbol && methodSymbol.TypeArguments.Any())
         {
             LambdaJobsErrors.DC0054(description.SystemDescription, description.Location, methodSymbol.Name, description.LambdaJobKind);

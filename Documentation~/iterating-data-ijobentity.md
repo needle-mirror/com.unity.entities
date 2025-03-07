@@ -73,17 +73,6 @@ The following is a list of all the supported `Execute` parameters you can use in
 ||Mark the `int` with the attribute `[Unity.Entities.EntityIndexInChunk]` to get the current entity index in the current archetype chunk. You can add `EntityIndexInChunk` and `ChunkIndexInQuery` to get a unique identifier per entity.|
 ||Mark the `int` with the attribute `[Unity.Entities.EntityIndexInQuery]` to get the packed index of the query. This parameter internally uses `EntityQuery.CalculateBaseEntityIndexArray[Async]` which negatively affects performance.|
 
-## Comparison between IJobEntity and Entities.ForEach
-
-`IJobEntity` is similar to [`Entities.ForEach`](iterating-data-entities-foreach.md), but you can reuse `IJobEntity` throughout several systems, so you should use it over `Entities.ForEach` where possible. For example, this is an `Entities.ForEach` example:
-
-[!code-cs[BoidsForEach](../DocCodeSamples.Tests/JobEntityExamples.cs#BoidsForEach)]
-
-You can rewrite it as the following with `IJobEntity`:
-
-[!code-cs[Boids](../DocCodeSamples.Tests/JobEntityExamples.cs#Boids)]
-
-Also, `IJobEntity` takes much less time to compile than `Entities.ForEach`, so it's also recommended for that reason. 
 
 ## Additional resources
 

@@ -1,16 +1,21 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 using System;
 using System.Collections.Generic;
 using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Entities.Hybrid.Tests;
 using Unity.Entities.UI;
 using Unity.Transforms;
+using UnityEngine.LowLevel;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Tests
 {
     partial class ComponentInspectorTests
     {
+        PlayerLoopSystem m_PrevPlayerLoop;
+        TestWithCustomDefaultGameObjectInjectionWorld m_CustomInjectionWorld;
         World m_World;
         ComponentInspectorTestSystem m_ComponentInspectorTestSystem;
 
@@ -33,7 +38,11 @@ namespace Unity.Entities.Editor.Tests
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {
-            m_World = new World("ComponentInspectorTestWorld");
+            m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            m_CustomInjectionWorld.Setup();
+            DefaultWorldInitialization.Initialize("ComponentInspectorTestWorld", false);
+            m_World = World.DefaultGameObjectInjectionWorld;
+
             m_ComponentInspectorTestSystem = m_World.GetOrCreateSystemManaged<ComponentInspectorTestSystem>();
             m_World.GetOrCreateSystemManaged<SimulationSystemGroup>().AddSystemToUpdateList(m_ComponentInspectorTestSystem);
         }
@@ -41,7 +50,8 @@ namespace Unity.Entities.Editor.Tests
         [OneTimeTearDown]
         public void OneTimeTearDown()
         {
-            m_World.Dispose();
+            m_CustomInjectionWorld.TearDown();
+            PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
         }
 
         [Test]

@@ -564,7 +564,7 @@ namespace Unity.Entities.Tests
                 // This job is not written to support queries with enableable component types.
                 Assert.IsFalse(useEnabledMask);
 
-                var buffer = chunk.GetBufferAccessor(ref EcsIntElementTypeHandle);
+                var buffer = chunk.GetBufferAccessorRO(ref EcsIntElementTypeHandle);
                 *Count = buffer.Length;
             }
         }

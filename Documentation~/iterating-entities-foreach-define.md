@@ -1,5 +1,8 @@
 # Define and execute an Entities.ForEach lambda expression
 
+> [!WARNING]
+> Entities.ForEach is deprecated and will be removed in a future release. Use [`IJobEntity`](xref:Unity.Entities.IJobEntity) or [`SystemAPI.Query`](xref:Unity.Entities.SystemAPI.Query*) instead. 
+
 To use `Entities.ForEach`, you must pass it a lambda expression, which Unity uses to generate an [entity query](systems-entityquery.md) based on the lambda parameter types. When the generated job runs, Unity calls the lambda expression once for each entity that matches the query. `ForEachLambdaJobDescription` represents this generated job.
 
 When you define the [`Entities.ForEach`](xref:Unity.Entities.SystemBase.Entities) lambda expression, you can declare parameters that the [`SystemBase`](xref:Unity.Entities.SystemBase) class uses to pass in information about the current entity when it executes the method.

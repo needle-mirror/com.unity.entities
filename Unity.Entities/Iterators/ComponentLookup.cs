@@ -464,63 +464,118 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Gets a safe reference to the component data and a default RefRW (RefRW.IsValid == false).
-        /// /// </summary>
-        /// <param name="entity">The referenced entity</param>
-        /// <returns>Returns a safe reference to the component data and a default RefRW.</returns>
-        public RefRW<T> GetRefRWOptional(Entity entity)
-        {
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            AtomicSafetyHandle.CheckWriteAndThrow(m_Safety);
-#endif
-            if (!HasComponent(entity))
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                return new RefRW<T>(null, default);
-#else
-                return new RefRW<T>(null);
-#endif
-
-            if (m_IsZeroSized != 0)
-                return default;
-
-            var ecs = m_Access->EntityComponentStore;
-            void* ptr = ecs->GetComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new RefRW<T> (ptr, m_Safety);
-#else
-            return new RefRW<T> (ptr);
-#endif
-        }
-
-        /// <summary>
-        /// Gets a safe reference to the component data and
-        /// a default RefRO (RefRO.IsValid == false).
+        /// Attempts to get a safe reference to the component data, failing gracefully if the component isn't present.
         /// </summary>
-        /// <param name="entity">The referenced entity</param>
-        /// <returns>Returns a safe reference to the component data and a default RefRW.</returns>
-        public RefRO<T> GetRefROOptional(Entity entity)
+        /// <param name="entity">The target entity</param>
+        /// <param name="outRef">The output reference will be stored here. See remarks.</param>
+        /// <returns>Returns true if component <typeparamref name="T"/> exists on <paramref name="entity"/>, or false if it does not.</returns>
+        /// <remarks>
+        /// If <typeparamref name="T"/> is a zero-size component, <paramref name="outRef"/> will not contain a valid reference;
+        /// zero-size components do not have an address in memory. However, this function will still return true or false depending
+        /// on whether <paramref name="entity"/> has component <typeparamref name="T"/>.
+        /// </remarks>
+        public bool TryGetRefRO(Entity entity, out RefRO<T> outRef)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
 #endif
-            if (!HasComponent(entity))
-#if ENABLE_UNITY_COLLECTIONS_CHECKS
-                return new RefRO<T>(null, default);
-#else
-                return new RefRO<T>(null);
-#endif
-
-            if (m_IsZeroSized != 0)
-                return default;
-
             var ecs = m_Access->EntityComponentStore;
-            void* ptr = ecs->GetComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
+            if (Hint.Unlikely(!ecs->Exists(entity)))
+            {
+                outRef = default;
+                return false;
+            }
+            void *ptr = ecs->GetOptionalComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
+            if (ptr == null)
+            {
+                outRef = default;
+                return false;
+            }
+            // If T is zero-sized and present on the target entity, then ptr is non-null, but there's no data in the
+            // chunk to point to, so its value is basically garbage. We can not safely return it to the user, as even
+            // reading from it may be unsafe.
+            // The reference we return in this case must have a null _Data pointer, indicating that reading and
+            // writing its value is unsafe.
+            // However, we should still indicate that the component they're looking for was present, even if the caller
+            // can't do anything useful with the resulting reference.
+            outRef = Hint.Unlikely(m_IsZeroSized != 0) ? default
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            return new RefRO<T>(ptr, m_Safety);
+                : new RefRO<T>(ptr, m_Safety);
 #else
-            return new RefRO<T> (ptr);
+                : new RefRO<T>(ptr);
 #endif
+            return true;
+        }
+
+        /// <summary>
+        /// Attempts to get a safe reference to the component data, failing gracefully if the component isn't present.
+        /// </summary>
+        /// <param name="entity">The target entity</param>
+        /// <param name="outRef">The output reference will be stored here. See remarks.</param>
+        /// <returns>Returns true if component <typeparamref name="T"/> exists on <paramref name="entity"/>, or false if it does not.</returns>
+        /// <remarks>
+        /// If <typeparamref name="T"/> is a zero-size component, <paramref name="outRef"/> will not contain a valid reference;
+        /// zero-size components do not have an address in memory. However, this function will still return true or false depending
+        /// on whether <paramref name="entity"/> has component <typeparamref name="T"/>.
+        /// </remarks>
+        public bool TryGetRefRW(Entity entity, out RefRW<T> outRef)
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(m_Safety);
+#endif
+            var ecs = m_Access->EntityComponentStore;
+            if (Hint.Unlikely(!ecs->Exists(entity)))
+            {
+                outRef = default;
+                return false;
+            }
+            void *ptr = ecs->GetOptionalComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
+            if (ptr == null)
+            {
+                outRef = default;
+                return false;
+            }
+            // If T is zero-sized and present on the target entity, then ptr is non-null, but there's no data in the
+            // chunk to point to, so its value is basically garbage. We can not safely return it to the user, as even
+            // reading from it may be unsafe.
+            // The reference we return in this case must have a null _Data pointer, indicating that reading and
+            // writing its value is unsafe.
+            // However, we should still indicate that the component they're looking for was present, even if the caller
+            // can't do anything useful with the resulting reference.
+            outRef = Hint.Unlikely(m_IsZeroSized != 0) ? default
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                : new RefRW<T>(ptr, m_Safety);
+#else
+                : new RefRW<T>(ptr);
+#endif
+            return true;
+        }
+
+
+        /// <summary>
+        /// Obsolete. Use <see cref="TryGetRefRW"/> instead.
+        /// /// </summary>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns>Returns a safe reference to the component data, or an invalid reference if <paramref name="entity"/>
+        /// does not have component <typeparamref name="T"/>.</returns>
+        [Obsolete("This function should not be part of the public API, and will be removed in a future release.")]
+        public RefRW<T> GetRefRWOptional(Entity entity)
+        {
+            bool _ = TryGetRefRW(entity, out var outRef);
+            return outRef;
+        }
+
+        /// <summary>
+        /// Obsolete. Use <see cref="TryGetRefRO"/> instead.
+        /// </summary>
+        /// <param name="entity">The referenced entity</param>
+        /// <returns>Returns a safe reference to the component data, or an invalid reference if <paramref name="entity"/>
+        /// does not have component <typeparamref name="T"/>.</returns>
+        [Obsolete("This function was not intended to be in the public API, and it will be removed in a future release.")]
+        public RefRO<T> GetRefROOptional(Entity entity)
+        {
+            bool _ = TryGetRefRO(entity, out var outRef);
+            return outRef;
         }
 
         SafeBitRef MakeSafeBitRef(ulong* ptr, int offsetInBits)
@@ -558,7 +613,7 @@ namespace Unity.Entities
         /// <typeparam name="T2">The component type</typeparam>
         /// <param name="entity">The referenced entity</param>
         /// <returns>Returns a safe reference to the component enabled state. If the component
-        /// doesn't exist, it returns a default <see cref="EnabledRefRW{T}"/>.</returns>
+        /// doesn't exist, it returns an invalid <see cref="EnabledRefRW{T}"/>.</returns>
         public EnabledRefRW<T2> GetEnabledRefRWOptional<T2>(Entity entity)
             where T2 : unmanaged, IComponentData, IEnableableComponent
         {
@@ -613,7 +668,7 @@ namespace Unity.Entities
         /// <typeparam name="T2">The component type</typeparam>
         /// <param name="entity">The referenced entity</param>
         /// <returns> Returns a safe reference to the component enabled state.
-        /// If the component doesn't exist, returns a default <see cref="EnabledRefRO{T}"/>.</returns>
+        /// If the component doesn't exist, returns an invalid <see cref="EnabledRefRO{T}"/>.</returns>
         public EnabledRefRO<T2> GetEnabledRefROOptional<T2>(Entity entity)
             where T2 : unmanaged, IComponentData, IEnableableComponent
         {
@@ -629,7 +684,6 @@ namespace Unity.Entities
             var ptr = ecs->GetEnabledRawRO(entity, m_TypeIndex, ref m_Cache, out indexInBitField, out _);
             return new EnabledRefRO<T2>(MakeSafeBitRef(ptr, indexInBitField));
         }
-
         /// <summary> Obsolete. Use <see cref="GetEnabledRefROOptional{T}"/> instead.</summary>
         /// <typeparam name="T2">The component type</typeparam>
         /// <param name="entity">The referenced entity</param>

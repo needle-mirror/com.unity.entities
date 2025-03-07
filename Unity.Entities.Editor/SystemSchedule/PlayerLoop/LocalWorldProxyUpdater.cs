@@ -4,6 +4,7 @@ using System.Linq;
 using Unity.Assertions;
 using Unity.Profiling;
 using UnityEditor;
+using UnityEngine.LowLevel;
 
 namespace Unity.Entities.Editor
 {
@@ -84,30 +85,61 @@ namespace Unity.Entities.Editor
             UpdateFrameData();
         }
 
-        public void PopulateWorldProxy()
+        static void GatherRootSystemsRecursive(in World world, in PlayerLoopSystem playerLoopSystem, ref List<Type> rootSystemTypes)
         {
-            var rootTypes = new[]
+            if (ScriptBehaviourUpdateOrder.IsDelegateForWorldSystem(world, playerLoopSystem))
             {
-                typeof(InitializationSystemGroup),
-                typeof(SimulationSystemGroup),
-                typeof(PresentationSystemGroup)
-            };
+                rootSystemTypes.Add(playerLoopSystem.type);
+            }
+            if (playerLoopSystem.subSystemList != null)
+            {
+                foreach (var subsystem in playerLoopSystem.subSystemList)
+                {
+                    GatherRootSystemsRecursive(world, subsystem, ref rootSystemTypes);
+                }
+            }
+        }
 
+
+
+        public unsafe void PopulateWorldProxy()
+        {
+            // Gather all root system types from the current player loop, limiting the search to the current World.
+            var rootSystemTypes = new List<Type>();
+            GatherRootSystemsRecursive(m_LocalWorld, PlayerLoop.GetCurrentPlayerLoop(), ref rootSystemTypes);
+
+            // Register the root system types. Root system groups are pushed onto a work queue to process in a separate loop below.
             var workQueue = new Queue<GroupSystemInQueue>();
-
-            foreach (var rootType in rootTypes)
+            foreach (var rootType in rootSystemTypes)
             {
-                var sys = m_LocalWorld.GetExistingSystemManaged(rootType);
-                if (sys == null) // will happen in subset world
+                var sysHandle = m_LocalWorld.GetExistingSystem(rootType);
+                if (sysHandle == default) // will happen in subset world
                     continue;
-
-                var systemProxy = CreateSystemProxy(m_WorldProxy, sys.World, sys.World == m_LocalWorld);
-                m_WorldProxy.m_SystemData.Add(new ScheduledSystemData(sys, -1));
-
-                workQueue.Enqueue(new GroupSystemInQueue { group = (ComponentSystemGroup) sys, index = systemProxy.SystemIndex });
+                var systemTypeIndex = TypeManager.GetSystemTypeIndex(rootType);
+                if (systemTypeIndex.IsManaged)
+                {
+                    // managed system path
+                    var sysState = m_LocalWorld.Unmanaged.ResolveSystemStateChecked(sysHandle);
+                    var sysManaged = sysState->ManagedSystem;
+                    m_WorldProxy.m_SystemData.Add(new ScheduledSystemData(sysManaged, -1));
+                    if (systemTypeIndex.IsGroup)
+                    {
+                        // A root system always belong to the current world; that's where we just looked it up.
+                        var systemProxy = CreateSystemProxy(m_WorldProxy, m_LocalWorld, true);
+                        // Push group onto the queue to recursively process its contents below.
+                        workQueue.Enqueue(new GroupSystemInQueue { group = (ComponentSystemGroup)sysManaged, index = systemProxy.SystemIndex });
+                    }
+                }
+                else
+                {
+                    // unmanaged system path
+                    m_WorldProxy.m_SystemData.Add(new ScheduledSystemData(sysHandle, m_LocalWorld, -1));
+                    // Unmanaged systems can not currently be groups.
+                    UnityEngine.Assertions.Assert.IsFalse(systemTypeIndex.IsGroup, "This code path is not expecting unmanaged system groups");
+                }
             }
 
-            // Iterate through groups, making sure that all group children end up in sequential order in resulting list
+            // Recurse into system groups, making sure that all group children end up in sequential order in resulting list
             while (workQueue.Count > 0)
             {
                 var work = workQueue.Dequeue();
@@ -189,7 +221,7 @@ namespace Unity.Entities.Editor
                 m_WorldProxy.m_SystemData[i] = data;
             }
 
-            m_WorldProxy.m_RootSystems.AddRange(m_WorldProxy.m_AllSystems.Where(s => rootTypes.Any(t => s.TypeName == t.Name)));
+            m_WorldProxy.m_RootSystems.AddRange(m_WorldProxy.m_AllSystems.Where(s => rootSystemTypes.Any(t => s.TypeName == t.Name)));
 
             m_WorldProxy.OnGraphChange();
         }

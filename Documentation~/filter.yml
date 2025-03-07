@@ -95,3 +95,10 @@ apiRules:
   - exclude:
       uidRegex: ^Unity\.Entities\.Internal
       type: Namespace
+  - exclude:
+      uidRegex: ^Unity\.Entities\.WorldSystemFilterFlags
+      type: Enum
+  - exclude:
+      uidRegex: ^Unity\.Entities\.WorldSystemFilterAttribute
+      type: Class
+

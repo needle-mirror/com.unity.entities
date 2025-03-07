@@ -1,5 +1,8 @@
 # Filtering data
 
+> [!WARNING]
+> Entities.ForEach is deprecated and will be removed in a future release. Use [`IJobEntity`](xref:Unity.Entities.IJobEntity) or [`SystemAPI.Query`](xref:Unity.Entities.SystemAPI.Query*) instead. 
+
 You can filter the data in an `Entities.ForEach` expression, either by change, or by shared component. 
 
 ## Change filtering

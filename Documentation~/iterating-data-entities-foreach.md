@@ -4,6 +4,10 @@ uid: iterating-data-entities-foreach
 
 # Iterate over data with Entities.ForEach
 
+> [!WARNING]
+> Entities.ForEach is deprecated and will be removed in a future release. Use [`IJobEntity`](xref:Unity.Entities.IJobEntity) or [`SystemAPI.Query`](xref:Unity.Entities.SystemAPI.Query*) instead. 
+
+
 If you use the [`SystemBase`](xref:Unity.Entities.SystemBase) class to create your systems, you can use the [`Entities.ForEach`](xref:Unity.Entities.SystemBase.Entities) construction to define and execute algorithms over entities and their components. At compile time, Unity translates each `ForEach` call into a generated job.
 
 You pass `Entities.ForEach` a lambda expression, and Unity generates an [entity query](systems-entityquery.md) based on the lambda parameter types. When the generated job runs, Unity calls the lambda expression once for each entity that matches the query. `ForEachLambdaJobDescription` represents this generated job.

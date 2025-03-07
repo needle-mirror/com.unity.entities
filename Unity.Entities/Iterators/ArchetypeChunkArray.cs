@@ -1935,7 +1935,7 @@ namespace Unity.Entities
             if (Hint.Unlikely(typeSize != expectedTypeSize))
             {
                 var typeName = typeHandle.m_TypeIndex.ToFixedString();
-                throw new InvalidOperationException($"Dynamic chunk component type {typeName} (size = {typeSize}) size does not equal {expectedTypeSize}. Component size must match with expectedTypeSize.");
+                throw new InvalidOperationException($"Dynamic component type {typeName} (size = {typeSize}) size does not equal {expectedTypeSize}. Component size must match with expectedTypeSize.");
             }
         }
 
@@ -1945,7 +1945,7 @@ namespace Unity.Entities
             if (Hint.Unlikely(outTypeSize * outLength != byteLen))
             {
                 var typeName = typeHandle.m_TypeIndex.ToFixedString();
-                throw new InvalidOperationException($"Dynamic chunk component type {TypeManager.GetType(typeHandle.m_TypeIndex)} (array length {length}) and {typeof(T)} cannot be aliased due to size constraints. The size of the types and lengths involved must line up.");
+                throw new InvalidOperationException($"Dynamic component type {TypeManager.GetType(typeHandle.m_TypeIndex)} (array length {length}) and {typeof(T)} cannot be aliased due to size constraints. The size of the types and lengths involved must line up.");
             }
         }
 
@@ -1958,13 +1958,22 @@ namespace Unity.Entities
         /// <typeparam name="T">The target component type</typeparam>
         /// <returns>A NativeArray which aliases the chunk's component value array for type <typeparamref name="T"/>.
         /// The array does not own this data, and does not need to be disposed when it goes out of scope.</returns>
-        /// <exception cref="ArgumentException">Thrown if <typeparamref name="T"/> is an <see cref="IBufferElementData"/>. Use <see cref="ArchetypeChunk.GetBufferAccessor{T}"/> instead.</exception>
+        /// <exception cref="ArgumentException">Thrown if <typeparamref name="T"/> is an <see cref="IBufferElementData"/>,
+        /// or if <paramref name="typeHandle"/> is of a buffer type. Use <see cref="ArchetypeChunk.GetUntypedBufferAccessorReinterpret{T}"/> instead.</exception>
         /// <exception cref="InvalidOperationException">Thrown if <paramref name="expectedTypeSize"/> does not match the actual size of <typeparamref name="T"/>,
         /// or if the data may not be safely aliased due to size constraints.</exception>
         public readonly NativeArray<T> GetDynamicComponentDataArrayReinterpret<T>(ref DynamicComponentTypeHandle typeHandle, int expectedTypeSize)
             where T : struct
         {
             CheckZeroSizedGetDynamicComponentDataArrayReinterpret(typeHandle);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(typeHandle.m_TypeIndex.IsBuffer))
+            {
+                var typeName = typeHandle.m_TypeIndex.ToFixedString();
+                throw new ArgumentException($"ArchetypeChunk.GetDynamicComponentDataArrayReinterpret cannot be called for IBufferElementData {typeName}");
+            }
+#endif
+
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(typeHandle.m_Safety0);
 #endif
@@ -1980,14 +1989,6 @@ namespace Unity.Entities
 #endif
                 return emptyResult;
             }
-
-#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
-            if (Hint.Unlikely(archetype->Types[typeIndexInArchetype].IsBuffer))
-            {
-                var typeName = typeHandle.m_TypeIndex.ToFixedString();
-                throw new ArgumentException($"ArchetypeChunk.GetDynamicComponentDataArrayReinterpret cannot be called for IBufferElementData {typeName}");
-            }
-#endif
 
             var typeSize = archetype->SizeOfs[typeIndexInArchetype];
             var length = Count;
@@ -2012,6 +2013,77 @@ namespace Unity.Entities
 #endif
 
             return result;
+        }
+
+        /// <summary>
+        /// Construct a typed BufferAccessor view of a chunk's buffer component data from an untyped component handle.
+        /// </summary>
+        /// <param name="typeHandle">Buffer type handle for the target component type</param>
+        /// <param name="expectedElementTypeSize">The expected size (in bytes) of the target buffer component type. It is an error to
+        /// pass a size that does not match the target type's actual size.</param>
+        /// <typeparam name="T">The target buffer component type</typeparam>
+        /// <returns>A <see cref="BufferAccessor{T}"/> which aliases the chunk's component value array for type <typeparamref name="T"/>.</returns>
+        /// <exception cref="ArgumentException">Thrown if <paramref name="typeHandle"/> is not a handle to a buffer type.
+        /// For regular component types, use <see cref="ArchetypeChunk.GetDynamicComponentDataArrayReinterpret{T}(ref DynamicComponentTypeHandle,int)"/> instead.</exception>
+        /// <exception cref="InvalidOperationException">Thrown if <paramref name="expectedElementTypeSize"/> does not match the actual size of <typeparamref name="T"/>,
+        /// if the two buffer types have different <see cref="InternalBufferCapacityAttribute"/> values, or if the data may not be safely aliased due to size constraints.</exception>
+        public readonly BufferAccessor<T> GetUntypedBufferAccessorReinterpret<T>(ref DynamicComponentTypeHandle typeHandle, int expectedElementTypeSize)
+            where T : unmanaged, IBufferElementData
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(!typeHandle.m_TypeIndex.IsBuffer))
+            {
+                var handleTypeName = typeHandle.m_TypeIndex.ToFixedString();
+                throw new ArgumentException($"ArchetypeChunk.GetUntypedBufferAccessorReinterpret requires a handle to a buffer component, not {handleTypeName}");
+            }
+#endif
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            AtomicSafetyHandle.CheckReadAndThrow(typeHandle.m_Safety0);
+#endif
+            var archetype = m_EntityComponentStore->GetArchetype(m_Chunk);
+            var typeIndex = typeHandle.m_TypeIndex;
+            ChunkDataUtility.GetIndexInTypeArray(archetype, typeHandle.m_TypeIndex, ref typeHandle.m_TypeLookupCache);
+            var typeIndexInArchetype = typeHandle.m_TypeLookupCache;
+
+            var actualElementTypeSize = TypeManager.GetTypeInfo(typeHandle.m_TypeIndex).TypeSize;
+            CheckComponentSizeMatches(typeHandle, actualElementTypeSize, expectedElementTypeSize);
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            // If the internal buffer capacity of the src & target types don't match, we can't safely reinterpret one to the other.
+            int actualInternalBufferCapacity = archetype->BufferCapacities[typeIndexInArchetype];
+            int targetTypeInternalBufferCapacity = TypeManager.GetTypeInfo<T>().BufferCapacity;
+            if (Hint.Unlikely(actualInternalBufferCapacity != targetTypeInternalBufferCapacity))
+            {
+                var handleTypeName = typeHandle.m_TypeIndex.ToFixedString();
+                var targetTypeName = TypeManager.GetTypeIndex<T>().ToFixedString();
+                throw new InvalidOperationException($"ArchetypeChunk.GetUntypedBufferAccessorReinterpret: internal buffer capacity of handle type {handleTypeName} ({actualInternalBufferCapacity}) does not match capacity of target type {targetTypeName} ({targetTypeInternalBufferCapacity})");
+            }
+#endif
+
+            byte* ptr = (typeHandle.IsReadOnly)
+                ? ChunkDataUtility.GetComponentDataRO(m_Chunk, archetype, 0, typeIndexInArchetype)
+                : ChunkDataUtility.GetComponentDataRW(m_Chunk, archetype, 0, typeIndexInArchetype, typeHandle.GlobalSystemVersion);
+            if (Hint.Unlikely(ptr == null))
+            {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+                return new BufferAccessor<T>(null, 0, 0, true, typeHandle.m_Safety0, typeHandle.m_Safety1, 0);
+#else
+                return new BufferAccessor<T>(null, 0, 0, 0);
+#endif
+            }
+            int internalCapacity = archetype->BufferCapacities[typeIndexInArchetype];
+            var length = Count;
+            int stride = archetype->SizeOfs[typeIndexInArchetype];
+
+#if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
+            if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0) && !typeHandle.IsReadOnly)
+                JournalAddRecordGetBufferRW(ref typeHandle);
+#endif
+
+#if ENABLE_UNITY_COLLECTIONS_CHECKS
+            return new BufferAccessor<T>(ptr, length, stride, typeHandle.IsReadOnly, typeHandle.m_Safety0, typeHandle.m_Safety1, internalCapacity);
+#else
+            return new BufferAccessor<T>(ptr, length, stride, internalCapacity);
+#endif
         }
 
         //Method used by EntityBehaviour in motion
@@ -2113,14 +2185,56 @@ namespace Unity.Entities
         }
 
         /// <summary>
+        /// Provides read-only access to a chunk's array of component values for a specific buffer component type.
+        /// </summary>
+        /// <param name="bufferTypeHandle">The type handle for the target component type.</param>
+        /// <typeparam name="T">The target component type, which must inherit <see cref="IBufferElementData"/>.</typeparam>
+        /// <returns>An interface to this chunk's component values for type <typeparamref name="T"/></returns>
+        public readonly BufferAccessor<T> GetBufferAccessorRO<T>(ref BufferTypeHandle<T> bufferTypeHandle)
+            where T : unmanaged, IBufferElementData
+        {
+            return GetBufferAccessorInternal(ref bufferTypeHandle, true);
+        }
+
+        /// <summary>
+        /// Provides read/write access to a chunk's array of component values for a specific buffer component type.
+        /// </summary>
+        /// <param name="bufferTypeHandle">The type handle for the target component type. This handle must have been created with read-write access to <typeparamref name="T"/>.</param>
+        /// <typeparam name="T">The target component type, which must inherit <see cref="IBufferElementData"/>.</typeparam>
+        /// <exception cref="InvalidOperationException">If the provided type handle is read-only.</exception>
+        /// <returns>An interface to this chunk's component values for type <typeparamref name="T"/></returns>
+        public readonly BufferAccessor<T> GetBufferAccessorRW<T>(ref BufferTypeHandle<T> bufferTypeHandle)
+            where T : unmanaged, IBufferElementData
+        {
+            return GetBufferAccessorInternal(ref bufferTypeHandle, false);
+        }
+
+        /// <summary>
         /// Provides access to a chunk's array of component values for a specific buffer component type.
         /// </summary>
+        /// <remarks>
+        /// This method uses the <see cref="BufferTypeHandle{T}.IsReadOnly"/> property of <paramref name="bufferTypeHandle"/>
+        /// to determine whether the output <see cref="BufferAccessor{T}"/> should be read-only or read-write. To explicitly
+        /// request a specific access mode, use <see cref="GetBufferAccessorRO{T}"/> or <see cref="GetBufferAccessorRW{T}"/>.
+        /// </remarks>
         /// <param name="bufferTypeHandle">The type handle for the target component type.</param>
         /// <typeparam name="T">The target component type, which must inherit <see cref="IBufferElementData"/>.</typeparam>
         /// <returns>An interface to this chunk's component values for type <typeparamref name="T"/></returns>
         public readonly BufferAccessor<T> GetBufferAccessor<T>(ref BufferTypeHandle<T> bufferTypeHandle)
             where T : unmanaged, IBufferElementData
         {
+            return GetBufferAccessorInternal(ref bufferTypeHandle, bufferTypeHandle.IsReadOnly);
+        }
+
+        // Helper to implement GetBufferAccessor*()
+        readonly BufferAccessor<T> GetBufferAccessorInternal<T>(ref BufferTypeHandle<T> bufferTypeHandle, bool readOnly)
+            where T : unmanaged, IBufferElementData
+        {
+#if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
+            if (Hint.Unlikely(!readOnly && bufferTypeHandle.IsReadOnly))
+                throw new InvalidOperationException(
+                    "Can't use a read-only BufferTypeHandle to get a read-write BufferAccessor.");
+#endif
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
             AtomicSafetyHandle.CheckReadAndThrow(bufferTypeHandle.m_Safety0);
 #endif
@@ -2131,7 +2245,7 @@ namespace Unity.Entities
                 bufferTypeHandle.m_LookupCache.Update(m_EntityComponentStore->GetArchetype(m_Chunk), typeIndex);
             }
 
-            byte* ptr = (bufferTypeHandle.IsReadOnly)
+            byte* ptr = (readOnly)
                 ? ChunkDataUtility.GetOptionalComponentDataWithTypeRO(m_Chunk, archetype, 0, typeIndex,
                     ref bufferTypeHandle.m_LookupCache)
                 : ChunkDataUtility.GetOptionalComponentDataWithTypeRW(m_Chunk, archetype, 0, typeIndex,

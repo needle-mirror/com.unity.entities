@@ -96,11 +96,9 @@ public class LambdaJobsModule : ISystemModule
 
         foreach (var lambdaJobCandidate in candidatesGroupedBySystemType[systemDescription.SystemTypeSyntax])
         {
-            SyntaxNode containingMethod = lambdaJobCandidate.Node.AncestorOfKindOrDefault<MethodDeclarationSyntax>();
-            SyntaxNode containingAccessor = lambdaJobCandidate.Node.AncestorOfKindOrDefault<AccessorDeclarationSyntax>();
             var lambdaJobDescription =
                 new LambdaJobDescription(systemDescription, lambdaJobCandidate,
-                    containingMethod ?? containingAccessor,
+                    lambdaJobCandidate.Node.AncestorOfKind<MethodDeclarationSyntax>(),
                     lambdaJobDescriptions.Count);
 
             if (lambdaJobDescription.Burst.IsEnabled)
@@ -208,19 +206,17 @@ public class LambdaJobsModule : ISystemModule
 
         var originalNodeToReplacementCode = new Dictionary<SyntaxNode, string>();
 
-        // // Go through all methods or accessors containing descriptions and register syntax replacements with SystemGeneratorContext
-        foreach (var memberDeclarationSyntax in systemDescription.SystemTypeSyntax.DescendantNodes()
-                     .Where(node => node is MethodDeclarationSyntax or AccessorDeclarationSyntax))
+        // Go through all methods containing descriptions and register syntax replacements with SystemGeneratorContext
+        foreach (var methodDeclarationSyntax in systemDescription.SystemTypeSyntax.DescendantNodes().OfType<MethodDeclarationSyntax>())
         {
-            var lambdaJobDescriptionsInMember = lambdaJobDescriptions
-                .Where(desc => desc.ContainingMethodOrAccessor == memberDeclarationSyntax)
-                .ToArray();
+            var lambdaJobDescriptionsInMethods = lambdaJobDescriptions
+                .Where(desc => desc.ContainingMethod == methodDeclarationSyntax).ToArray();
 
-            if (!lambdaJobDescriptionsInMember.Any())
+            if (!lambdaJobDescriptionsInMethods.Any())
                 continue;
 
             // Replace original invocation expressions for scheduling with replacement syntax
-            foreach (var desc in lambdaJobDescriptionsInMember)
+            foreach (var desc in lambdaJobDescriptionsInMethods)
             {
                 systemDescription.CandidateNodes.Add(
                     desc.ContainingInvocationExpression,

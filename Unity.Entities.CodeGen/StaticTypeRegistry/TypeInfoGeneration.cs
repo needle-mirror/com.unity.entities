@@ -431,61 +431,6 @@ namespace Unity.Entities.CodeGen
             StoreTopOfStackToField(il, fieldRef, isStaticField);
         }
 
-        internal MethodDefinition InjectConstructComponentFunction(TypeGenInfoList typeGenInfoList)
-        {
-            var createComponentFn = new MethodDefinition(
-                "ConstructComponentFromBuffer",
-                MethodAttributes.Static | MethodAttributes.Public | MethodAttributes.HideBySig,
-                AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_ObjectDef));
-            GeneratedRegistryDef.Methods.Add(createComponentFn);
-
-            var srcPtrArg =
-                new ParameterDefinition("buffer",
-                    Mono.Cecil.ParameterAttributes.None,
-                    AssemblyDefinition.MainModule.ImportReference(runnerOfMe._voidStarRef));
-            createComponentFn.Parameters.Add(srcPtrArg);
-
-            var typeIndexNoFlagsArg = new ParameterDefinition("typeIndexNoFlags",
-                Mono.Cecil.ParameterAttributes.None,
-                AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_Int32Def));
-            createComponentFn.Parameters.Add(typeIndexNoFlagsArg);
-
-            createComponentFn.Body.InitLocals = true;
-            var il = createComponentFn.Body.GetILProcessor();
-
-            il.Emit(OpCodes.Ldarg, srcPtrArg);
-            var opBeforeSwitch = il.Create(OpCodes.Ldarg, typeIndexNoFlagsArg);
-            var listOfBranches = new List<Instruction>();
-            il.Append(opBeforeSwitch);
-
-            foreach (var typeInfo in typeGenInfoList)
-            {
-                if (typeInfo.TypeReference == null)
-                    continue;
-
-                var componentRef = AssemblyDefinition.MainModule.ImportReference(typeInfo.TypeReference);
-
-                var firstOp = Instruction.Create(OpCodes.Ldobj, componentRef);
-                listOfBranches.Add(firstOp);
-                il.Append(firstOp);
-                il.Emit(OpCodes.Box, componentRef);
-                il.Emit(OpCodes.Ret);
-            }
-
-            // Reverse order of what would appear in the executable
-            var defaultCaseOp = Instruction.Create(OpCodes.Ldstr, "FATAL: Tried to construct a type that is unknown to the StaticTypeRegistry");
-            il.InsertAfter(opBeforeSwitch, il.Create(OpCodes.Br, defaultCaseOp));
-            il.InsertAfter(opBeforeSwitch, il.Create(OpCodes.Switch, listOfBranches.ToArray()));
-
-            il.Append(defaultCaseOp);
-
-            var notSupportedExConstructor = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._System_NotSupportedExceptionDef).Resolve().GetConstructors()
-                .Single(c => c.Parameters.Count == 1 && c.Parameters[0].ParameterType.MetadataType == MetadataType.String);
-            il.Emit(OpCodes.Newobj, AssemblyDefinition.MainModule.ImportReference(notSupportedExConstructor));
-            il.Emit(OpCodes.Throw);
-            return createComponentFn;
-        }
-
         (MethodReference, MethodReference, MethodReference) InjectEqualityFunctions(TypeGenInfoList typeGenInfoList)
         {
             // Declares: static public bool Equals(object lhs, object rhs, int typeIndex)

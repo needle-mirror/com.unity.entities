@@ -1880,8 +1880,9 @@ namespace Unity.Entities
             var typeIndex = TypeManager.GetTypeIndex<T>();
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
             var archetype = chunk.Archetype.Archetype;
-            UnityEngine.Assertions.Assert.IsTrue(ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex) >= 0,
-                $"Component shared component type {typeIndex} not found on target chunk");
+            if (ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex) < 0)
+                UnityEngine.Debug.LogAssertion($"Component shared component type {typeIndex} not found on target chunk");
+
 #endif
 
 #if ENABLE_PROFILER

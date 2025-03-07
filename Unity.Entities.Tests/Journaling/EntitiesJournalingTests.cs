@@ -1,3 +1,4 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 // Uncomment this line only if you need to generate csv export.
 // Do not commit this line enabled, make sure to discard that change.
 //#define GENERATE_CSV_EXPORT

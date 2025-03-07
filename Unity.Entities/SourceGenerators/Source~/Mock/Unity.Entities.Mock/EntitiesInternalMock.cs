@@ -33,6 +33,22 @@ public static partial class InternalCompilerInterface
         where T : unmanaged, IBufferElementData
         => default;
 
+    public static RefRO<T> GetComponentRefRO<T>(ref ComponentLookup<T> componentLookup, Entity entity)
+        where T : unmanaged, IComponentData
+        => default;
+
+    public static RefRW<T> GetComponentRefRW<T>(ref ComponentLookup<T> componentLookup, Entity entity)
+        where T : unmanaged, IComponentData
+        => default;
+
+    public static RefRO<T> GetComponentRefROOptional<T>(ref ComponentLookup<T> componentLookup, Entity entity)
+        where T : unmanaged, IComponentData
+        => default;
+
+    public static RefRW<T> GetComponentRefRWOptional<T>(ref ComponentLookup<T> componentLookup, Entity entity)
+        where T : unmanaged, IComponentData
+        => default;
+
     public static RefRO<T> GetComponentROAfterCompletingDependency<T>(ref ComponentLookup<T> componentLookup, ref SystemState state,
         Entity entity) where T : unmanaged, IComponentData
         => default;

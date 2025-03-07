@@ -9,6 +9,7 @@ namespace Unity.Entities
     {
         static Type[] s_AspectTypes;
 
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
         internal static void InitializeAspects(bool ignoreTestAspects = true)
         {
             s_AspectTypes = ignoreTestAspects
@@ -18,6 +19,7 @@ namespace Unity.Entities
                 : GetTypesDerivedFrom(typeof(IAspect)).Where(t => t.Namespace != null
                                                                     && t.GetCustomAttribute<DisableGenerationAttribute>() == null).ToArray();
         }
+#pragma warning restore CS0618
 
         static void ShutdownAspects()
         {
@@ -64,10 +66,12 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="T">The managed <see cref="Type"/> that derives from <see cref="IAspect"/>.</typeparam>
         /// <returns>The type index of the managed <see cref="Type"/> that derives from <see cref="IAspect"/>.</returns>
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
         [ExcludeFromBurstCompatTesting("Takes managed type")]
         internal static int GetAspectTypeIndex<T>() where T : struct, IAspect
         {
             return GetAspectTypeIndex(typeof(T));
         }
+#pragma warning restore CS0618
     }
 }

@@ -1,5 +1,8 @@
 # Use entity command buffers in Entities.ForEach
 
+> [!WARNING]
+> Entities.ForEach is deprecated and will be removed in a future release. Use [`IJobEntity`](xref:Unity.Entities.IJobEntity) or [`SystemAPI.Query`](xref:Unity.Entities.SystemAPI.Query*) instead. 
+
 To use an entity command buffer (ECB) in the `Entities.ForEach` method, pass an `EntityCommandBuffer` parameter to the lambda expression. Only a small subset of `EntityCommandBuffer` methods are supported, and they have the `[SupportedInEntitiesForEach]` attribute:
 
 * `Entity Instantiate(Entity entity)`

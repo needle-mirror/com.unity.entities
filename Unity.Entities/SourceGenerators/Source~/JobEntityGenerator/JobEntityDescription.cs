@@ -583,42 +583,42 @@ public partial class JobEntityDescription : ISourceGeneratorDiagnosable
                 {
                     switch (attribute.Name)
                     {
-                        case SimpleNameSyntax { Identifier.ValueText: "WithDisabled" }:
+                        case SimpleNameSyntax { Identifier.ValueText: "WithDisabled" or "WithDisabledAttribute"}:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
                                     AddQueryInstanceFromAttribute(QueryDisabledTypes, argument, QueryType.Disabled, semanticModel, removeFromQueryAllIfFound: true);
                             break;
-                        case SimpleNameSyntax { Identifier.ValueText: "WithPresent" }:
+                        case SimpleNameSyntax { Identifier.ValueText: "WithPresent" or "WithPresentAttribute" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
                                     AddQueryInstanceFromAttribute(QueryPresentTypes, argument, QueryType.Present, semanticModel, removeFromQueryAllIfFound: true);
                             break;
-                        case SimpleNameSyntax { Identifier.ValueText: "WithAbsent" }:
+                        case SimpleNameSyntax { Identifier.ValueText: "WithAbsent" or "WithAbsentAttribute" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
                                     AddQueryInstanceFromAttribute(QueryAbsentTypes, argument, QueryType.Absent, semanticModel, removeFromQueryAllIfFound: false);
                             break;
-                        case SimpleNameSyntax { Identifier.ValueText: "WithAll" }:
+                        case SimpleNameSyntax { Identifier.ValueText: "WithAll" or "WithAllAttribute"}:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
                                     AddQueryInstanceFromAttribute(QueryAllTypes, argument, QueryType.All, semanticModel, removeFromQueryAllIfFound: false);
                             break;
-                        case SimpleNameSyntax { Identifier.ValueText: "WithNone" }:
+                        case SimpleNameSyntax { Identifier.ValueText: "WithNone" or "WithNoneAttribute" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
                                     AddQueryInstanceFromAttribute(QueryNoneTypes, argument, QueryType.None, semanticModel, removeFromQueryAllIfFound: false);
                             break;
-                        case SimpleNameSyntax { Identifier.ValueText: "WithAny" }:
+                        case SimpleNameSyntax { Identifier.ValueText: "WithAny" or "WithAnyAttribute" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
                                     AddQueryInstanceFromAttribute(QueryAnyTypes, argument, QueryType.Any, semanticModel, removeFromQueryAllIfFound: false);
                             break;
-                        case SimpleNameSyntax { Identifier.ValueText: "WithChangeFilter" }:
+                        case SimpleNameSyntax { Identifier.ValueText: "WithChangeFilter" or "WithChangeFilterAttribute" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
                                     AddQueryInstanceFromAttribute(QueryChangeFilterTypes, argument, QueryType.ChangeFilter, semanticModel, removeFromQueryAllIfFound: false);
                             break;
-                        case SimpleNameSyntax { Identifier.ValueText: "WithOptions" }:
+                        case SimpleNameSyntax { Identifier.ValueText: "WithOptions" or "WithOptionsAttribute" }:
                             if (attribute.ArgumentList != null)
                                 foreach (var argument in attribute.ArgumentList.Arguments)
                                     AddEntityQueryOption(argument.Expression);

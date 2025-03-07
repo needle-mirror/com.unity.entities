@@ -159,6 +159,20 @@ namespace Unity.Entities.CodeGen
                 for (int i = 0; i < attrList.Count; ++i)
                 {
                     var attr = attrList[i];
+                    var name = attr.AttributeType.Name;
+                    /*
+                     * Only include the attributes relevant to ECS. If users want other attributes, they can reflect themselves. 
+                     * Later, we can change this to return the SystemAttributeKind structs. 
+                     */
+                    if (name != nameof(DisableAutoCreationAttribute) &&
+                        name != nameof(UpdateAfterAttribute) &&
+                        name != nameof(UpdateBeforeAttribute) &&
+                        name != nameof(CreateAfterAttribute) &&
+                        name != nameof(CreateBeforeAttribute) &&
+                        name != nameof(UpdateInGroupAttribute) &&
+                        name != nameof(RequireMatchingQueriesForUpdateAttribute))
+                        continue;
+
 
                     // The stelem.ref will gobble up the array ref we need to return, so dupe it.
                     bc.Add(Instruction.Create(OpCodes.Dup));

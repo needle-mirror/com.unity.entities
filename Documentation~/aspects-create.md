@@ -1,5 +1,8 @@
 # Create an aspect
 
+> [!WARNING]  
+> Aspects are deprecated and will be removed in a future release. Use component access and query methods directly instead.
+
 To create an aspect, use the [`IAspect`](xref:Unity.Entities.IAspect) interface. You must declare an aspect as a readonly partial struct, and the struct must implement the `IAspect` interface:
 
 ```c#

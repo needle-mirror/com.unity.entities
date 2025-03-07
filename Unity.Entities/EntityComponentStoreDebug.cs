@@ -407,16 +407,28 @@ namespace Unity.Entities
 
             var componentTypeInfo = GetTypeInfo(componentType.TypeIndex);
             var componentInstanceSize = GetComponentArraySize(componentTypeInfo.SizeInChunk, 1);
-            var archetypeInstanceSize = archetype->InstanceSizeWithOverhead + componentInstanceSize;
-            var chunkDataSize = Chunk.kChunkBufferSize;
-            if (archetypeInstanceSize > chunkDataSize)
-                throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead} bytes. Attempting to add component '{componentType}' with size {componentInstanceSize} bytes. Maximum chunk size {chunkDataSize}.");
+            if (componentType.IsChunkComponent)
+            {
+                // If the component to add is a chunk component, we need to check against the target entity's MetaChunk archetype.
+                // The MetaChunkArchetype may not even exist yet, if this is the first chunk component being added; if so, for the purposes of this
+                // "component too large", check, treat the MetaChunkArchetype instance size as zero.
+                var archetypeInstanceSize = (archetype->MetaChunkArchetype == null) ? 0 : archetype->MetaChunkArchetype->InstanceSizeWithOverhead;
+                if (archetypeInstanceSize + componentInstanceSize > Chunk.kChunkBufferSize)
+                    throw new InvalidOperationException($"Meta-entity archetype component data is too large. Previous meta-entity archetype size per instance {archetypeInstanceSize} bytes. Attempting to add chunk component '{componentType}' with size {componentInstanceSize} bytes. Maximum chunk size {Chunk.kChunkBufferSize}.");
+            }
+            else
+            {
+                var archetypeInstanceSize = archetype->InstanceSizeWithOverhead;
+                if (archetypeInstanceSize + componentInstanceSize > Chunk.kChunkBufferSize)
+                    throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetypeInstanceSize} bytes. Attempting to add component '{componentType}' with size {componentInstanceSize} bytes. Maximum chunk size {Chunk.kChunkBufferSize}.");
+            }
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         public void AssertCanAddComponents(Archetype* archetype, in ComponentTypeSet componentTypeSet)
         {
             int totalComponentInstanceSize = 0;
+            int totalChunkComponentInstanceSize = 0;
             for (int i = 0; i < componentTypeSet.Length; i++)
             {
                 var type = componentTypeSet.GetComponentType(i);
@@ -425,17 +437,32 @@ namespace Unity.Entities
                     throw new ArgumentException("Cannot add Entity as a component.");
 
                 var componentTypeInfo = GetTypeInfo(type.TypeIndex);
-                totalComponentInstanceSize += GetComponentArraySize(componentTypeInfo.SizeInChunk, 1);
+                var componentInstanceSize = GetComponentArraySize(componentTypeInfo.SizeInChunk, 1);
+                if (type.IsChunkComponent)
+                    totalChunkComponentInstanceSize += componentInstanceSize;
+                else
+                    totalComponentInstanceSize += componentInstanceSize;
             }
 
             int numSharedComponents = componentTypeSet.m_masks.SharedComponents;
             if (numSharedComponents + archetype->NumSharedComponents > kMaxSharedComponentCount)
                 throw new InvalidOperationException($"Cannot add more than {kMaxSharedComponentCount} SharedComponent's to a single Archetype. Attempting to add types {AggregateComponentTypes(componentTypeSet)}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
 
-            var archetypeInstanceSize = archetype->InstanceSizeWithOverhead + totalComponentInstanceSize;
-            var chunkDataSize = Chunk.kChunkBufferSize;
-            if (archetypeInstanceSize > chunkDataSize)
-                throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead} bytes. Attempting to add multiple components ({AggregateComponentTypes(componentTypeSet)}) with a combined size {totalComponentInstanceSize} bytes. Maximum chunk size {chunkDataSize}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
+            if (totalChunkComponentInstanceSize > 0)
+            {
+                // If we're adding any chunk components, we need to check against the target entity's MetaChunk archetype.
+                // The MetaChunkArchetype may not even exist yet, if this is the first chunk component being added; if so, for the purposes of this
+                // "component too large", check, treat the MetaChunkArchetype instance size as zero.
+                var archetypeInstanceSize = (archetype->MetaChunkArchetype == null) ? 0 : archetype->MetaChunkArchetype->InstanceSizeWithOverhead;
+                if (archetypeInstanceSize + totalChunkComponentInstanceSize > Chunk.kChunkBufferSize)
+                    throw new InvalidOperationException($"Meta-entity archetype component data is too large. Previous meta-entity archetype size per instance {archetypeInstanceSize} bytes. Attempting to add multiple chunk components '{AggregateComponentTypes(componentTypeSet)}' with chunk component size of {totalChunkComponentInstanceSize} bytes. Maximum chunk size {Chunk.kChunkBufferSize}.");
+            }
+            if (totalComponentInstanceSize > 0)
+            {
+                var archetypeInstanceSize = archetype->InstanceSizeWithOverhead;
+                if (archetypeInstanceSize + totalComponentInstanceSize > Chunk.kChunkBufferSize)
+                    throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetypeInstanceSize} bytes. Attempting to add multiple components ({AggregateComponentTypes(componentTypeSet)}) with a combined size {totalComponentInstanceSize} bytes. Maximum chunk size {Chunk.kChunkBufferSize}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
+            }
         }
 
         static string AggregateComponentTypes(in ComponentTypeSet componentTypeSet)
@@ -479,7 +506,6 @@ namespace Unity.Entities
         {
             if (!Exists(entity))
                 throw new InvalidOperationException("The entity does not exist."  + AppendDestroyedEntityRecordError(entity));
-
             AssertCanAddComponent(GetArchetype(entity), componentType);
         }
 
@@ -508,7 +534,8 @@ namespace Unity.Entities
         public void AssertCanAddComponents(UnsafeMatchingArchetypePtrList archetypeList, in ComponentTypeSet componentTypeSet)
         {
             int newShared = 0;
-            int totalNewComponentSize = 0;
+            int totalComponentInstanceSize = 0;
+            int totalChunkComponentInstanceSize = 0;
             for (int i = 0; i < componentTypeSet.Length; i++)
             {
                 var componentType = componentTypeSet.GetComponentType(i);
@@ -516,7 +543,11 @@ namespace Unity.Entities
                     throw new ArgumentException("Cannot add Entity as a component.");
                 if (componentType.IsSharedComponent)
                     newShared++;
-                totalNewComponentSize += GetComponentArraySize(GetTypeInfo(componentType.TypeIndex).SizeInChunk, 1);
+                var componentInstanceSize = GetComponentArraySize(GetTypeInfo(componentType.TypeIndex).SizeInChunk, 1);
+                if (componentType.IsChunkComponent)
+                    totalChunkComponentInstanceSize += componentInstanceSize;
+                else
+                    totalComponentInstanceSize += componentInstanceSize;
             }
 
             int archetypeCount = archetypeList.Length;
@@ -526,8 +557,21 @@ namespace Unity.Entities
                 var archetype = ptrs[i]->Archetype;
                 if ((archetype->NumSharedComponents + newShared) > kMaxSharedComponentCount)
                     throw new InvalidOperationException($"Cannot add more than {kMaxSharedComponentCount} SharedComponent's to a single Archetype. Attempting to add types {AggregateComponentTypes(componentTypeSet)}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
-                if ((archetype->InstanceSizeWithOverhead + totalNewComponentSize) > Chunk.kChunkBufferSize)
-                    throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetype->InstanceSizeWithOverhead} bytes. Attempting to add components {AggregateComponentTypes(componentTypeSet)} with total size {totalNewComponentSize} bytes. Maximum chunk size {Chunk.kChunkBufferSize}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
+                if (totalChunkComponentInstanceSize > 0)
+                {
+                    // If we're adding any chunk components, we need to check against the target entity's MetaChunk archetype.
+                    // The MetaChunkArchetype may not even exist yet, if this is the first chunk component being added; if so, for the purposes of this
+                    // "component too large", check, treat the MetaChunkArchetype instance size as zero.
+                    var archetypeInstanceSize = (archetype->MetaChunkArchetype == null) ? 0 : archetype->MetaChunkArchetype->InstanceSizeWithOverhead;
+                    if (archetypeInstanceSize + totalChunkComponentInstanceSize > Chunk.kChunkBufferSize)
+                        throw new InvalidOperationException($"Meta-entity archetype component data is too large. Previous meta-entity archetype size per instance {archetypeInstanceSize} bytes. Attempting to add multiple chunk components '{AggregateComponentTypes(componentTypeSet)}' with chunk component size of {totalChunkComponentInstanceSize} bytes. Maximum chunk size {Chunk.kChunkBufferSize}.");
+                }
+                if (totalComponentInstanceSize > 0)
+                {
+                    var archetypeInstanceSize = archetype->InstanceSizeWithOverhead;
+                    if (archetypeInstanceSize + totalComponentInstanceSize > Chunk.kChunkBufferSize)
+                        throw new InvalidOperationException($"Entity archetype component data is too large. Previous archetype size per instance {archetypeInstanceSize} bytes. Attempting to add multiple components ({AggregateComponentTypes(componentTypeSet)}) with a combined size {totalComponentInstanceSize} bytes. Maximum chunk size {Chunk.kChunkBufferSize}. Archetype already contains types ({AggregateArchetypeComponentTypes(archetype)}).");
+                }
             }
         }
 
@@ -614,7 +658,7 @@ namespace Unity.Entities
 
                     ChunkEntityEnumerator enumerator = new ChunkEntityEnumerator(chunksToProcess[i].UseEnabledMask == 0 ? false : true, chunksToProcess[i].EnabledMask, chunksToProcess[i].ChunkEntityCount);
                     Entity* chunkEntities = (Entity*)chunksToProcess[i].Chunk.Buffer;
-                    var chunkLegBuffers = archetypeChunk.GetBufferAccessor(ref linkedGroupTypeHandle);
+                    var chunkLegBuffers = archetypeChunk.GetBufferAccessorRO(ref linkedGroupTypeHandle);
                     while (enumerator.NextEntityIndex(out int b))
                     {
                         var buffer = chunkLegBuffers[b];
@@ -623,7 +667,10 @@ namespace Unity.Entities
                         {
                             var referencedEntity = legEntities[e];
                             if (!Exists(referencedEntity))
-                                continue;
+                                continue; // destroyed entities in the LinkedEntityGroup are fine
+                            var referencedEntityArchetype = GetArchetype(referencedEntity);
+                            if (referencedEntityArchetype->CleanupResidueArchetype == referencedEntityArchetype)
+                                continue; // destroyed entities awaiting cleanup are fine
                             var referencedEntityInChunk = GetEntityInChunk(referencedEntity);
                             int sortedChunkIndex = sortedChunkPtrs.BinarySearch(referencedEntityInChunk.Chunk);
                             if (Hint.Likely(sortedChunkIndex >= 0))

@@ -53,6 +53,7 @@ namespace Unity.Entities.Editor
                 genType.enumValueIndex = (int)GenerationType;
                 property.serializedObject.ApplyModifiedProperties();
             });
+           objectField.AddToClassList(ObjectField.alignedFieldUssClassName);
             container.Add(objectField);
 
             return container;

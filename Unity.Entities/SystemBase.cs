@@ -298,6 +298,7 @@ namespace Unity.Entities
         /// [Burst FloatPrecision]: https://docs.unity3d.com/Packages/com.unity.burst@latest?subfolder=/api/Unity.Burst.FloatPrecision.html
         /// </remarks>
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        [Obsolete("Entities.ForEach is now deprecated.  Please use IJobEntity or SystemAPI.Query instead.")]
         protected internal ForEachLambdaJobDescription Entities => new ForEachLambdaJobDescription();
 
         /// <summary>
@@ -367,6 +368,7 @@ namespace Unity.Entities
         /// [IJob]: xref:Unity.Jobs.IJob
         /// </remarks>
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
+        [Obsolete("Job.WithCode is now deprecated.  Please use IJob instead.")]
         protected internal LambdaSingleJobDescription Job
         {
             get { return new LambdaSingleJobDescription(); }

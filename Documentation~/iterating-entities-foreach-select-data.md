@@ -1,5 +1,8 @@
 # Select and access data
 
+> [!WARNING]
+> Entities.ForEach is deprecated and will be removed in a future release. Use [`IJobEntity`](xref:Unity.Entities.IJobEntity) or [`SystemAPI.Query`](xref:Unity.Entities.SystemAPI.Query*) instead. 
+
 `Entities.ForEach` has its own mechanism to define the entity query that it uses to select the entities to process. The query automatically includes any components that you use as parameters of the lambda expression. 
 
 You can use the `WithAll`, `WithAny`, and `WithNone` clauses to further refine which entities `Entities.ForEach` selects. Refer to the [`SystemBase.Entities`](xref:Unity.Entities.SystemBase.Entities) API documentation for the complete list of query options. 

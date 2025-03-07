@@ -1,12 +1,16 @@
 using System.Linq;
 using NUnit.Framework;
 using Unity.Collections;
+using Unity.Entities.Hybrid.Tests;
+using UnityEngine.LowLevel;
 using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor.Tests
 {
     class QueryWithEntitiesViewTests
     {
+        PlayerLoopSystem m_PrevPlayerLoop;
+        TestWithCustomDefaultGameObjectInjectionWorld m_CustomInjectionWorld;
         World m_World;
         EntityQuery m_Query;
         TestSystemsForControls.SystemA m_SystemA;
@@ -16,7 +20,11 @@ namespace Unity.Entities.Editor.Tests
         [OneTimeSetUp]
         public void OneTimeSetUp()
         {
-            m_World = new World("QueryWithEntitiesTestWorld");
+            m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            m_CustomInjectionWorld.Setup();
+            DefaultWorldInitialization.Initialize("QueryWithEntitiesTestWorld", false);
+            m_World = World.DefaultGameObjectInjectionWorld;
+
             var group = m_World.GetOrCreateSystemManaged<SimulationSystemGroup>();
             m_SystemA = m_World.GetOrCreateSystemManaged<TestSystemsForControls.SystemA>();
             group.AddSystemToUpdateList(m_SystemA);
@@ -41,8 +49,10 @@ namespace Unity.Entities.Editor.Tests
         [OneTimeTearDown]
         public void OneTimeTearDown()
         {
-            m_World.Dispose();
             m_WorldProxyManager.Dispose();
+
+            m_CustomInjectionWorld.TearDown();
+            PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
         }
 
         [Test]

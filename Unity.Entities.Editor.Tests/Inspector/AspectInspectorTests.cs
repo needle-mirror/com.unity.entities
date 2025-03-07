@@ -1,3 +1,4 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 ﻿#pragma warning disable 649
 using System.Linq;
 using NUnit.Framework;

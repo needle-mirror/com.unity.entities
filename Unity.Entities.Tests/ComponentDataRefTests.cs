@@ -6,14 +6,17 @@ namespace Unity.Entities.Tests
     partial class ComponentDataRefTests : ECSTestsFixture
     {
         [Test]
-        public void TestDataRefFromEntity([Values]bool optional)
+        public void TestRefRWFromEntity([Values]bool optional)
         {
             var e = m_Manager.CreateEntity(typeof(EcsTestData));
             m_Manager.SetComponentData(e, new EcsTestData(1));
 
-            var testData = optional
-                ? EmptySystem.GetComponentLookup<EcsTestData>().GetRefRWOptional(e)
-                : EmptySystem.GetComponentLookup<EcsTestData>().GetRefRW(e);
+            RefRW<EcsTestData> testData = default;
+            var lookup = EmptySystem.GetComponentLookup<EcsTestData>();
+            if (optional)
+                Assert.IsTrue(lookup.TryGetRefRW(e, out testData));
+            else
+                testData = lookup.GetRefRW(e);
 
             testData.ValueRW.value = 5;
             Assert.AreEqual(5, testData.ValueRO.value);
@@ -23,36 +26,107 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity component data safety checks")]
-        public void TestMissingGetDataRef()
+        public void TestRefROFromEntity([Values]bool optional)
         {
-            var e = m_Manager.CreateEntity();
+            var e = m_Manager.CreateEntity(typeof(EcsTestData));
+            m_Manager.SetComponentData(e, new EcsTestData(1));
 
-            Assert.Throws<ArgumentException>(() => EmptySystem.GetComponentLookup<EcsTestData>().GetRefRW(e));
-            Assert.Throws<ArgumentException>(() => EmptySystem.GetComponentLookup<EcsTestData>().GetRefRW(Entity.Null));
+            RefRO<EcsTestData> testData = default;
+            var lookup = EmptySystem.GetComponentLookup<EcsTestData>(isReadOnly: true);
+            if (optional)
+                Assert.IsTrue(lookup.TryGetRefRO(e, out testData));
+            else
+                testData = lookup.GetRefRO(e);
+
+            Assert.AreEqual(1, testData.ValueRO.value);
+            Assert.AreEqual(1, m_Manager.GetComponentData<EcsTestData>(e).value);
+            Assert.IsTrue(testData.IsValid);
         }
 
-        // This test works in all managed player configs whether safety checks are enabled or not since accessing a null with throw
-        // however the error message will be different depending if safety checks are enabled or not
         [Test]
-        [IgnoreTest_IL2CPP("IL2CPP will not throw a null check when reading null and instead will crash.")]
-        public void TestOptionalMissing()
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity component data safety checks")]
+        public void GetRefRW_ComponentMissing()
         {
             var e = m_Manager.CreateEntity();
+            var lookup = EmptySystem.GetComponentLookup<EcsTestData>();
 
-            var missingData = EmptySystem.GetComponentLookup<EcsTestData>().GetRefRWOptional(e);
-            var missingData2 = EmptySystem.GetComponentLookup<EcsTestData>().GetRefRWOptional(Entity.Null);
+            Assert.Throws<ArgumentException>(() => lookup.GetRefRW(e));
+            Assert.Throws<ArgumentException>(() => lookup.GetRefRW(Entity.Null));
+            Assert.IsFalse(lookup.TryGetRefRW(e, out var ref1));
+            Assert.IsFalse(ref1.IsValid);
+        }
 
-            Assert.IsFalse(missingData.IsValid);
-            Assert.IsFalse(missingData2.IsValid);
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity component data safety checks")]
+        public void GetRefRO_ComponentMissing()
+        {
+            var e = m_Manager.CreateEntity();
+            var lookup = EmptySystem.GetComponentLookup<EcsTestData>(isReadOnly:true);
 
-            //NOTE: it would be better if we can throw a objectdisposedexception.
-            // But right now there is no simple way to constructing a safety handle that is invalid but not null.
-            Assert.Throws<NullReferenceException>(() => { missingData.ValueRW.value = 5; });
-            Assert.Throws<NullReferenceException>(() => { Debug.Log(missingData.ValueRO.value); });
+            Assert.Throws<ArgumentException>(() => lookup.GetRefRO(e));
+            Assert.Throws<ArgumentException>(() => lookup.GetRefRO(Entity.Null));
+            Assert.IsFalse(lookup.TryGetRefRO(e, out var ref1));
+            Assert.IsFalse(ref1.IsValid);
+        }
 
-            Assert.Throws<NullReferenceException>(() => { missingData2.ValueRW.value = 5; });
-            Assert.Throws<NullReferenceException>(() => { Debug.Log(missingData2.ValueRO.value); });
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity component data safety checks")]
+        public void GetRefRW_InvalidEntity()
+        {
+            var e1 = m_Manager.CreateEntity();
+            var e2 = m_Manager.CreateEntity();
+            m_Manager.DestroyEntity(e2);
+            var lookup = EmptySystem.GetComponentLookup<Simulate>();
+
+            Assert.Throws<ArgumentException>(() => lookup.GetRefRW(Entity.Null));
+            Assert.IsFalse(lookup.TryGetRefRW(Entity.Null, out var ref1));
+            Assert.IsFalse(ref1.IsValid);
+
+            Assert.Throws<ArgumentException>(() => lookup.GetRefRW(e2));
+            Assert.IsFalse(lookup.TryGetRefRW(e2, out var ref2));
+            Assert.IsFalse(ref2.IsValid);
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity component data safety checks")]
+        public void GetRefRO_InvalidEntity()
+        {
+            var e1 = m_Manager.CreateEntity();
+            var e2 = m_Manager.CreateEntity();
+            m_Manager.DestroyEntity(e2);
+            var lookup = EmptySystem.GetComponentLookup<Simulate>();
+
+            Assert.Throws<ArgumentException>(() => lookup.GetRefRO(Entity.Null));
+            Assert.IsFalse(lookup.TryGetRefRO(Entity.Null, out var ref1));
+            Assert.IsFalse(ref1.IsValid);
+
+            Assert.Throws<ArgumentException>(() => lookup.GetRefRO(e2));
+            Assert.IsFalse(lookup.TryGetRefRO(e2, out var ref2));
+            Assert.IsFalse(ref2.IsValid);
+        }
+
+        [Test]
+        public void TestZeroSizeGetRefRW()
+        {
+            var e = m_Manager.CreateEntity(typeof(EcsTestTag));
+            var lookup = EmptySystem.GetComponentLookup<EcsTestTag>();
+
+            var ref1 = lookup.GetRefRW(e);
+            Assert.IsFalse(ref1.IsValid);
+            Assert.IsTrue(lookup.TryGetRefRW(e, out var ref2));
+            Assert.IsFalse(ref2.IsValid);
+        }
+
+        [Test]
+        public void TestZeroSizeGetRefRO()
+        {
+            var e = m_Manager.CreateEntity(typeof(EcsTestTag));
+            var lookup = EmptySystem.GetComponentLookup<EcsTestTag>();
+
+            var ref1 = lookup.GetRefRO(e);
+            Assert.IsFalse(ref1.IsValid);
+            Assert.IsTrue(lookup.TryGetRefRO(e, out var ref2));
+            Assert.IsFalse(ref2.IsValid);
         }
     }
 }

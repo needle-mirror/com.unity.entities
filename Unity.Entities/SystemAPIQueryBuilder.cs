@@ -670,8 +670,10 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="TAspect">The aspect to add to the query</typeparam>
         /// <returns>The builder object that invoked this method.</returns>
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
         public SystemAPIQueryBuilder WithAspect<TAspect>()
             where TAspect : struct, IAspect, IAspectCreate<TAspect> => throw ThrowNotBuildException();
+#pragma warning restore CS0618
 
         /// <summary>
         /// Specify your own `EntityQueryOptions`.

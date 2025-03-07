@@ -10,48 +10,63 @@ namespace Unity.Entities
     {
         protected unsafe override void OnUpdate()
         {
-            Entities.WithNone<RetainBlobAssetBatchPtr>().WithoutBurst().WithStructuralChanges().ForEach((Entity e, BlobAssetOwner blobOwner, ref RetainBlobAssets retain) =>
+            foreach (var (blobOwner, entity) in
+                     SystemAPI.Query<BlobAssetOwner>()
+                         .WithAll<RetainBlobAssets>()
+                         .WithNone<RetainBlobAssetBatchPtr>().WithEntityAccess())
             {
                 BlobAssetBatch.Retain(blobOwner.BlobAssetBatchPtr);
-                EntityManager.AddComponentData(e, new RetainBlobAssetBatchPtr { BlobAssetBatchPtr = blobOwner.BlobAssetBatchPtr});
-            }).Run();
+                EntityManager.AddComponentData(entity, new RetainBlobAssetBatchPtr { BlobAssetBatchPtr = blobOwner.BlobAssetBatchPtr});
+            }
 
-            Entities.WithNone<BlobAssetOwner>().WithoutBurst().WithStructuralChanges().ForEach((Entity e, ref RetainBlobAssets retain, ref RetainBlobAssetBatchPtr retainPtr) =>
+            var retainBlobAssetBatchQuery = SystemAPI.QueryBuilder().WithNone<BlobAssetOwner>().WithAll<RetainBlobAssets>()
+                .WithAll<RetainBlobAssetBatchPtr>().Build();
+            var retainBlobAssetBatchEntities = retainBlobAssetBatchQuery.ToEntityArray(Allocator.Temp);
+            foreach (var entity in retainBlobAssetBatchEntities)
             {
-                if (retain.FramesToRetainBlobAssets-- <= 0)
+                var retainBlobAssets = EntityManager.GetComponentData<RetainBlobAssets>(entity);
+                if (retainBlobAssets.FramesToRetainBlobAssets-- <= 0)
                 {
-                    BlobAssetBatch.Release(retainPtr.BlobAssetBatchPtr);
-                    EntityManager.RemoveComponent<RetainBlobAssets>(e);
-                    EntityManager.RemoveComponent<RetainBlobAssetBatchPtr>(e);
+                    EntityManager.RemoveComponent<RetainBlobAssets>(entity);
+                    EntityManager.RemoveComponent<RetainBlobAssetBatchPtr>(entity);
                 }
-            }).Run();
+                else
+                    EntityManager.SetComponentData(entity, retainBlobAssets);
+            }
 
-            Entities.WithNone<BlobAssetOwner>().WithoutBurst().WithStructuralChanges().ForEach((Entity e, ref RetainBlobAssets retain, ref RetainBlobAssetPtr retainPtr) =>
+            var retainBlobAssetsQuery = SystemAPI.QueryBuilder().WithNone<BlobAssetOwner>().WithAll<RetainBlobAssets>()
+                .WithAll<RetainBlobAssetPtr>().Build();
+            var retainBlobAssetsEntities = retainBlobAssetsQuery.ToEntityArray(Allocator.Temp);
+            foreach (var entity in retainBlobAssetsEntities)
             {
-                if (retain.FramesToRetainBlobAssets-- <= 0)
+                var retainBlobAssets = EntityManager.GetComponentData<RetainBlobAssets>(entity);
+                var retainBlobAssetPtr = EntityManager.GetComponentData<RetainBlobAssetPtr>(entity);
+                if (retainBlobAssets.FramesToRetainBlobAssets-- <= 0)
                 {
-                    retainPtr.BlobAsset->Invalidate();
-                    Memory.Unmanaged.Free(retainPtr.BlobAsset, Allocator.Persistent);
-                    EntityManager.RemoveComponent<RetainBlobAssets>(e);
-                    EntityManager.RemoveComponent<RetainBlobAssetPtr>(e);
+                    retainBlobAssetPtr.BlobAsset->Invalidate();
+                    Memory.Unmanaged.Free(retainBlobAssetPtr.BlobAsset, Allocator.Persistent);
+                    EntityManager.RemoveComponent<RetainBlobAssets>(entity);
+                    EntityManager.RemoveComponent<RetainBlobAssetPtr>(entity);
                 }
-            }).Run();
+                else
+                    EntityManager.SetComponentData(entity, retainBlobAssets);
+            }
         }
 
         protected override unsafe void OnDestroy()
         {
-            Entities.ForEach((Entity e, ref RetainBlobAssets retain, ref RetainBlobAssetBatchPtr retainPtr) =>
+            foreach (var retainPtr in SystemAPI.Query<RefRO<RetainBlobAssetBatchPtr>>()
+                         .WithAll<RetainBlobAssets>())
             {
-                BlobAssetBatch.Release(retainPtr.BlobAssetBatchPtr);
-            }).Run();
+                BlobAssetBatch.Release(retainPtr.ValueRO.BlobAssetBatchPtr);
+            }
 
-            Entities.ForEach((Entity e, ref RetainBlobAssets retain, ref RetainBlobAssetPtr retainPtr) =>
+            foreach (var retainPtr in SystemAPI.Query<RefRO<RetainBlobAssetPtr>>()
+                         .WithAll<RetainBlobAssets>())
             {
-                retainPtr.BlobAsset->Invalidate();
-                Memory.Unmanaged.Free(retainPtr.BlobAsset, Allocator.Persistent);
-            }).Run();
+                retainPtr.ValueRO.BlobAsset->Invalidate();
+                Memory.Unmanaged.Free(retainPtr.ValueRO.BlobAsset, Allocator.Persistent);
+            }
         }
     }
 }
-
-

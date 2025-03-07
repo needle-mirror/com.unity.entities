@@ -7,7 +7,7 @@ using Unity.Entities.Content;
 using UnityEngine;
 using UnityEngine.TestTools;
 
-namespace Unity.Entities.Editor.Tests
+namespace Unity.Scenes.Editor.Tests
 {
     //will run until cancelled
     class NonCompletingDownloadOperation : ContentDownloadService.DownloadOperation

@@ -22,23 +22,20 @@ namespace Doc.CodeSamples.Tests
                 = World.DefaultGameObjectInjectionWorld.GetExistingSystemManaged<EndSimulationEntityCommandBufferSystem>();
         }
 
-        protected override void OnUpdate()
+        partial struct CreateEntitiesWithBuffersJob : IJobEntity
         {
-            // The command buffer to record commands,
-            // which are executed by the command buffer system later in the frame
-            EntityCommandBuffer.ParallelWriter commandBuffer
-                = CommandBufferSystem.CreateCommandBuffer().AsParallelWriter();
-            //The DataToSpawn component tells us how many entities with buffers to create
-            Entities.ForEach((Entity spawnEntity, int entityInQueryIndex, in DataToSpawn data) =>
+            public EntityCommandBuffer.ParallelWriter CommandBuffer;
+
+            void Execute(Entity spawnEntity, [ChunkIndexInQuery] int chunkIndex, in DataToSpawn data)
             {
                 for (int e = 0; e < data.EntityCount; e++)
                 {
                     //Create a new entity for the command buffer
-                    Entity newEntity = commandBuffer.CreateEntity(entityInQueryIndex);
+                    Entity newEntity = CommandBuffer.CreateEntity(chunkIndex);
 
                     //Create the dynamic buffer and add it to the new entity
                     DynamicBuffer<MyBufferElement> buffer =
-                        commandBuffer.AddBuffer<MyBufferElement>(entityInQueryIndex, newEntity);
+                        CommandBuffer.AddBuffer<MyBufferElement>(chunkIndex, newEntity);
 
                     //Reinterpret to plain int buffer
                     DynamicBuffer<int> intBuffer = buffer.Reinterpret<int>();
@@ -51,8 +48,20 @@ namespace Doc.CodeSamples.Tests
                 }
 
                 //Destroy the DataToSpawn entity since it has done its job
-                commandBuffer.DestroyEntity(entityInQueryIndex, spawnEntity);
-            }).ScheduleParallel();
+                CommandBuffer.DestroyEntity(chunkIndex, spawnEntity);
+            }
+        }
+
+        protected override void OnUpdate()
+        {
+            // The command buffer to record commands,
+            // which are executed by the command buffer system later in the frame
+            EntityCommandBuffer.ParallelWriter commandBuffer
+                = CommandBufferSystem.CreateCommandBuffer().AsParallelWriter();
+
+            new CreateEntitiesWithBuffersJob()
+                    { CommandBuffer = CommandBufferSystem.CreateCommandBuffer().AsParallelWriter() }
+                .ScheduleParallel();
 
             CommandBufferSystem.AddJobHandleForProducer(this.Dependency);
         }
@@ -201,13 +210,13 @@ namespace Doc.CodeSamples.Tests
         {
             var sum = 0;
 
-            Entities.ForEach((DynamicBuffer<MyBufferElement> buffer) =>
+            foreach (var buffer in SystemAPI.Query<DynamicBuffer<MyBufferElement>>())
             {
                 for (int i = 0; i < buffer.Length; i++)
                 {
                     sum += buffer[i].Value;
                 }
-            }).Run();
+            }
 
             Debug.Log("Sum of all buffers: " + sum);
         }
@@ -220,19 +229,17 @@ namespace Doc.CodeSamples.Tests
     [RequireMatchingQueriesForUpdate]
     public partial class DynamicBufferForEachSystem : SystemBase
     {
-        private EntityQuery query;
-
         //Sums the intermediate results into the final total
-        public struct SumResult : IJob
+        public struct SumResultJob : IJob
         {
-            [DeallocateOnJobCompletion] public NativeArray<int> sums;
+            [DeallocateOnJobCompletion] public NativeArray<int> Sum;
 
             public void Execute()
             {
                 int sum = 0;
-                for (int i = 0; i < sums.Length; i++)
+                for (int i = 0; i < Sum.Length; i++)
                 {
-                    sum += sums[i];
+                    sum += Sum[i];
                 }
 
                 //Note: Debug.Log is not burst-compatible
@@ -240,39 +247,37 @@ namespace Doc.CodeSamples.Tests
             }
         }
 
+        partial struct SumBuffersJob : IJobEntity
+        {
+            public NativeArray<int> Sums;
+
+            public void Execute([ChunkIndexInQuery] int sortKey, in DynamicBuffer<MyBufferElement> buffer)
+            {
+                for (int i = 0; i < buffer.Length; i++)
+                {
+                    Sums[sortKey] += buffer[i].Value;
+                }
+            }
+        }
+
         //Schedules the two jobs with a dependency between them
         protected override void OnUpdate()
         {
             //Create a native array to hold the intermediate sums
+            var query = SystemAPI.QueryBuilder().WithAll<MyBufferElement>().Build();
             int entitiesInQuery = query.CalculateEntityCount();
-            NativeArray<int> intermediateSums
-                = new NativeArray<int>(entitiesInQuery, Allocator.TempJob);
+            NativeArray<int> intermediateSums = new NativeArray<int>(entitiesInQuery, Allocator.TempJob);
 
-            //Schedule the first job to add all the buffer elements
-            Entities
-                .WithStoreEntityQueryInField(ref query)
-                .ForEach((int entityInQueryIndex, Entity entity, in DynamicBuffer<MyBufferElement> buffer) => {
-                    for (int i = 0; i < buffer.Length; i++)
-                    {
-                        intermediateSums[entityInQueryIndex] += buffer[i].Value;
-                    }
-                })
-                .ScheduleParallel();
+            var sumBuffersJob = new SumBuffersJob() { Sums = intermediateSums };
+            sumBuffersJob.ScheduleParallel();
 
             // Must use a NativeArray to get data out of a Job.WithCode when scheduled to run on a background thread
             NativeArray<int> sum = new NativeArray<int>(1, Allocator.TempJob);
+            var sumResultJob = new SumResultJob() { Sum = sum };
 
             //Schedule the second job, which depends on the first
-            Job
-                .WithDisposeOnCompletion(intermediateSums)
-                .WithCode(() =>
-                {
-                    for (int i = 0; i < intermediateSums.Length; i++)
-                    {
-                        sum[0] += intermediateSums[i];
-                    }
-                    //if we do not specify dependencies, the job depends on the Dependency property
-                }).Schedule();
+            //if we do not specify dependencies, the job depends on the Dependency property
+            sumResultJob.Schedule();
             // Likewise, if we don't return a JobHandle, the system adds the job to its Dependency property
 
             //sum[0] will contain the result after all the jobs have finished
@@ -305,7 +310,7 @@ namespace Doc.CodeSamples.Tests
             // Get a BufferTypeHandle representing dynamic buffer type ExampleBufferComponent from SystemBase.
             BufferTypeHandle<ExampleBufferComponent> myElementHandle = GetBufferTypeHandle<ExampleBufferComponent>();
             // Get a BufferAccessor from the chunk.
-            BufferAccessor<ExampleBufferComponent> buffers = chunk.GetBufferAccessor(ref myElementHandle);
+            BufferAccessor<ExampleBufferComponent> buffers = chunk.GetBufferAccessorRW(ref myElementHandle);
             // Iterate through all ExampleBufferComponent buffers of each entity in the chunk.
             for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)
             {
@@ -348,7 +353,7 @@ namespace Doc.CodeSamples.Tests
             {
                 //A buffer accessor is a list of all the buffers in the chunk
                 BufferAccessor<MyBufferElement> buffers
-                    = chunk.GetBufferAccessor(ref BufferTypeHandle);
+                    = chunk.GetBufferAccessorRO(ref BufferTypeHandle);
 
                 ChunkEntityEnumerator enumerator =
                     new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
@@ -428,19 +433,24 @@ namespace Doc.CodeSamples.Tests
 
     public partial class DynamicBufferExample : SystemBase
     {
-        protected override void OnUpdate()
+        partial struct DynamicBufferJob : IJobEntity
         {
-            float sum = 0;
-
-            Entities.ForEach((DynamicBuffer<FloatBufferElement> buffer) =>
+            public float Sum;
+            void Execute(DynamicBuffer<FloatBufferElement> buffer)
             {
                 for (int i = 0; i < buffer.Length; i++)
                 {
-                    sum += buffer[i].Value;
+                    Sum += buffer[i].Value;
                 }
-            }).Run();
+            }
+        }
 
-            Debug.Log("Sum of all buffers: " + sum);
+        protected override void OnUpdate()
+        {
+            var job = new DynamicBufferJob() { Sum = 0 };
+            job.Run();
+
+            Debug.Log("Sum of all buffers: " + job.Sum);
         }
     }
 
@@ -601,18 +611,23 @@ namespace Doc.CodeSamples.Tests
     [RequireMatchingQueriesForUpdate]
     public partial class ReinterpretExample : SystemBase
     {
-        protected override void OnUpdate()
+        partial struct ReinterpretJob : IJobEntity
         {
-            #region dynamicbuffer.reinterpret
-
-            Entities.ForEach((DynamicBuffer<FloatBufferElement> buffer) =>
+            void Execute(DynamicBuffer<FloatBufferElement> buffer)
             {
                 DynamicBuffer<float> floatBuffer = buffer.Reinterpret<float>();
                 for (int i = 0; i < floatBuffer.Length; i++)
                 {
                     floatBuffer[i] = i * 1.2f;
                 }
-            }).ScheduleParallel();
+            }
+        }
+
+        protected override void OnUpdate()
+        {
+            #region dynamicbuffer.reinterpret
+
+            new ReinterpretJob().ScheduleParallel();
 
             #endregion
         }
@@ -638,23 +653,23 @@ namespace Doc.CodeSamples.Tests
 
             // Record a command to add a MyElement dynamic buffer to an existing entity.
             // This doesn't fail if the target entity already contains the buffer component.
-            // The data of the returned DynamicBuffer is stored in the EntityCommandBuffer, 
-            // so changes to the returned buffer are also recorded changes. 
+            // The data of the returned DynamicBuffer is stored in the EntityCommandBuffer,
+            // so changes to the returned buffer are also recorded changes.
             DynamicBuffer<MyElement> myBuff = ecb.AddBuffer<MyElement>(e);
 
-            // After playback, the entity will have a MyElement buffer with 
+            // After playback, the entity will have a MyElement buffer with
             // Length 20 and these recorded values.
             myBuff.Length = 20;
             myBuff[0] = new MyElement { Value = 5 };
             myBuff[3] = new MyElement { Value = -9 };
 
-            // SetBuffer is like AddBuffer, but safety checks will throw an exception at playback if 
-            // the entity doesn't already have a MyElement buffer. 
+            // SetBuffer is like AddBuffer, but safety checks will throw an exception at playback if
+            // the entity doesn't already have a MyElement buffer.
             DynamicBuffer<MyElement> otherBuf = ecb.SetBuffer<MyElement>(otherEntity);
 
-            // Records a MyElement value to append to the buffer. Throws an exception at 
-            // playback if the entity doesn't already have a MyElement buffer. 
-            // ecb.AddComponent<MyElement>(otherEntity) is a safe way to ensure a buffer 
+            // Records a MyElement value to append to the buffer. Throws an exception at
+            // playback if the entity doesn't already have a MyElement buffer.
+            // ecb.AddBuffer<MyElement>(otherEntity) is a safe way to ensure a buffer
             // exists before appending to it.
             ecb.AppendToBuffer(otherEntity, new MyElement { Value = 12 });
         }
@@ -663,5 +678,5 @@ namespace Doc.CodeSamples.Tests
 
     }
 
-    
+
 }

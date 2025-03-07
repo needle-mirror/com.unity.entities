@@ -943,11 +943,20 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresCollectionChecks("Requires a check in TypeManager.BuildComponentType which is guarded by ENABLE_UNITY_COLLECTIONS_CHECKS")]
         public void BuildComponentType_ThrowsArgumentException_IfCalledAfterTypeManagerInitializationIsComplete()
         {
             Assert.Throws<InvalidOperationException>(
                 () => TypeManager.BuildComponentType(typeof(NonRegisteredComponentType), new TypeManager.BuildComponentCache())
             );
+        }
+
+        [Test]
+        public void BuildComponentType_DoesNotThrow_IfCalledAfterTypeManagerInitializationIsCompleteAndStaticsAreExplicitlyReset()
+        {
+            TypeManager.ShutdownSharedStatics();
+            TypeManager.BuildComponentType(typeof(NonRegisteredComponentType), new TypeManager.BuildComponentCache());
+            TypeManager.InitializeSharedStatics();
         }
 
         [DisableAutoTypeRegistration]
@@ -1029,24 +1038,26 @@ namespace Unity.Entities.Tests
 
         [TestCase(typeof(float), @"\b(not .*|in)valid\b", TestName = "Not valid component type")]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void BuildComponentType_ThrowsArgumentException_WithExpectedFailures(Type type, string keywordPattern)
         {
+            TypeManager.ShutdownSharedStatics();
             Assert.That(
                 () => TypeManager.BuildComponentType(type, new TypeManager.BuildComponentCache()),
                 Throws.ArgumentException.With.Message.Matches(keywordPattern)
             );
+            TypeManager.InitializeSharedStatics();
         }
 
         [TestCase(typeof(EmptyBufferComponent), TestName = "IBufferElementData types can be empty")]
         [TestCase(typeof(EmptySharedComponent), TestName = "ISharedComponentData types can be empty")]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void BuildComponentType_DoesNotThrow(Type type)
         {
             // This was briefly a fatal error in TypeManager initialization, but we decided to relax it;
             // empty components are pointless and wasteful, but not actively harmful.
+            TypeManager.ShutdownSharedStatics();
             Assert.DoesNotThrow(() => TypeManager.BuildComponentType(type, new TypeManager.BuildComponentCache()));
+            TypeManager.InitializeSharedStatics();
         }
 
         struct UnmanagedSharedComponent : ISharedComponentData
@@ -1120,9 +1131,9 @@ namespace Unity.Entities.Tests
         [TestCase(typeof(UnityEngine.Transform))]
         [TestCase(typeof(TypeManagerTests))]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void BuildComponentType_WithClass_WhenUnityEngineObjectTypeIsNull_ThrowsArgumentException(Type type)
         {
+            TypeManager.ShutdownSharedStatics();
             var componentType = TypeManager.UnityEngineObjectType;
             TypeManager.UnityEngineObjectType = null;
             try
@@ -1135,14 +1146,15 @@ namespace Unity.Entities.Tests
             finally
             {
                 TypeManager.UnityEngineObjectType = componentType;
+                TypeManager.InitializeSharedStatics();
             }
         }
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void BuildComponentType_WithNonComponent_WhenUnityEngineObjectTypeIsCorrect_ThrowsArgumentException()
         {
+            TypeManager.ShutdownSharedStatics();
             var componentType = TypeManager.UnityEngineObjectType;
             TypeManager.UnityEngineObjectType = typeof(UnityEngine.Component);
             try
@@ -1156,13 +1168,14 @@ namespace Unity.Entities.Tests
             finally
             {
                 TypeManager.UnityEngineObjectType = componentType;
+                TypeManager.InitializeSharedStatics();
             }
         }
 
         [Test]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void BuildComponentType_WithComponent_WhenUnityEngineObjectTypeIsCorrect_DoesNotThrowException()
         {
+            TypeManager.ShutdownSharedStatics();
             var componentType = TypeManager.UnityEngineObjectType;
             TypeManager.UnityEngineObjectType = typeof(UnityEngine.Component);
             try
@@ -1172,6 +1185,7 @@ namespace Unity.Entities.Tests
             finally
             {
                 TypeManager.UnityEngineObjectType = componentType;
+                TypeManager.InitializeSharedStatics();
             }
         }
 
@@ -1314,13 +1328,14 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TypeOverrideWorks_Unmanaged_InvalidTypesThrow()
         {
+            TypeManager.ShutdownSharedStatics();
             var cache = new TypeManager.BuildComponentCache();
             Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlobUnmanaged), cache); });
             Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesEntityUnmanaged), cache); });
             Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlobEntityUnmanaged), cache); });
+            TypeManager.InitializeSharedStatics();
         }
 
         [DisableAutoTypeRegistration]
@@ -1335,21 +1350,23 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestNativeContainersWorks()
         {
+            TypeManager.ShutdownSharedStatics();
             Assert.DoesNotThrow(
                 () => TypeManager.BuildComponentType(typeof(NativeContainerComponent), new TypeManager.BuildComponentCache()));
+            TypeManager.InitializeSharedStatics();
         }
 
         [Test]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestNestedNativeContainersDoesNotThrow()
         {
+            TypeManager.ShutdownSharedStatics();
             Assert.DoesNotThrow(() =>
             {
                 Assert.IsTrue(TypeManager.BuildComponentType(typeof(NestedNativeContainerComponent), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer);
             });
+            TypeManager.InitializeSharedStatics();
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -1446,7 +1463,52 @@ namespace Unity.Entities.Tests
             CircularReferenceB m_B3;
         }
 
+        internal class MyAttributeTakingArray : Attribute
+        {
+            internal MyAttributeTakingArray(int[] arg) { }
+
+        }
+
+        /* 
+         * These systems exist to make sure that if you put a weird
+         * attribute on your system, the ILPP / codegen situation will not
+         * blow up.
+         */
+        [MyAttributeTakingArray(new[] { 1, 2, 3 })]
+        partial struct ISystemWithFunkyAttribute: ISystem
+        {
+
+        }
+
+        [MyAttributeTakingArray(new[] { 1, 2, 3 })]
+        partial class SystemBaseWithFunkyAttribute :SystemBase
+        {
+            public SystemBaseWithFunkyAttribute() {
+
+                var attarr = new Attribute[2];
+                var y = new int[3];
+                y[0] = 5; y[1] = 6; y[2] = 7;
+                var x = new MyAttributeTakingArray(y);
+
+                attarr[0] = x;
+                attarr[1] = x;
+
+            }
+
+            protected override void OnUpdate()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+
         [Test]
+        public void TestTypeHashOfUnregisteredType()
+        {
+            Assert.DoesNotThrow(() => TypeHash.CalculateStableTypeHash(typeof(int)));
+        }
+
+        [Test] 
         public void TestTypeHashComponentWithCircularReference()
         {
             var cache = new Dictionary<Type, ulong>();
@@ -1585,31 +1647,34 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestArrayNativeContainersWorks()
         {
+            TypeManager.ShutdownSharedStatics();
             Assert.DoesNotThrow(
                 () => TypeManager.BuildComponentType(typeof(ArrayNativeContainerComponent), new TypeManager.BuildComponentCache()));
+            TypeManager.InitializeSharedStatics();
         }
 
         [Test]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestNestedArrayNativeContainersDoesNotThrow()
         {
+            TypeManager.ShutdownSharedStatics();
             Assert.DoesNotThrow(() =>
             {
                 Assert.IsTrue(TypeManager.BuildComponentType(typeof(NestedArrayNativeContainerComponent), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer);
             });
+            TypeManager.InitializeSharedStatics();
         }
 
         [Test]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TypeOverrideWorks_Managed_InvalidTypesThrow()
         {
+            TypeManager.ShutdownSharedStatics();
             TypeManager.BuildComponentCache cache = new TypeManager.BuildComponentCache();
             Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlob), cache); });
             Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesEntity), cache); });
             Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlobEntityUnityObject), cache); });
+            TypeManager.InitializeSharedStatics();
         }
 
         [Test]
@@ -1653,21 +1718,23 @@ namespace Unity.Entities.Tests
 
         [Test]
         [TestRequiresDotsDebugOrCollectionChecks("Test requires component type safety checks")]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestNestedNativeContainerCachingHandlesTypeWithValidCircularReference()
         {
+            TypeManager.ShutdownSharedStatics();
             Assert.DoesNotThrow(
                 () => TypeManager.BuildComponentType(typeof(ComponentWithValidCircularReference), new TypeManager.BuildComponentCache()));
+            TypeManager.InitializeSharedStatics();
         }
 
         [Test]
-        [Ignore("TypeManager.BuildComponentType cannot be called after type manager has completed initialization")]
         public void TestNestedNativeContainerCachingHandlesTypeWithValidCircularReference_StillDetectsNestedNativeContainers()
         {
+            TypeManager.ShutdownSharedStatics();
             Assert.DoesNotThrow(() =>
             {
                 Assert.IsTrue(TypeManager.BuildComponentType(typeof(ComponentWithValidCircularReferenceAndNestedNativeContainer), new TypeManager.BuildComponentCache()).TypeIndex.HasNativeContainer);
             });
+            TypeManager.InitializeSharedStatics();
         }
 #endif
     }

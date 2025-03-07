@@ -52,9 +52,14 @@ namespace Unity.Entities.Content
                 }
 
                 BuildContent(subSceneGuids, playerGuid, buildTarget, tmpBuildFolder);
-
+                var catalogPath = Path.Combine(tmpBuildFolder, RuntimeContentManager.RelativeCatalogPath);
+                RuntimeContentCatalog catalog = new RuntimeContentCatalog();
+                var archivePaths = new List<string>();
+                catalog.LoadCatalogData(catalogPath, s => { if(!s.Contains("000000000000000000")) archivePaths.Add(Path.Combine(tmpBuildFolder, RuntimeContentManager.k_ContentArchiveDirectory, s)); return s; }, s => s);
+                archivePaths.AddRange(Directory.GetFiles(Path.Combine(tmpBuildFolder, EntityScenesPaths.k_EntitySceneSubDir),"*.*", SearchOption.TopDirectoryOnly));
                 var publishFolder = Path.Combine(Path.GetDirectoryName(Application.dataPath), "Builds", $"{buildFolder}-RemoteContent");
-                PublishContent(tmpBuildFolder, publishFolder, f => new string[] { "all" });
+                archivePaths.Sort();
+                PublishContent(archivePaths, publishFolder, f => new string[] { "all" } );
             }
         }
 
@@ -96,16 +101,33 @@ namespace Unity.Entities.Content
         /// <returns>True if the publish process succeeds.</returns>
         public static bool PublishContent(string sourceFolder, string targetFolder, Func<string, IEnumerable<string>> contentSetFunc, bool deleteSrcContent = false)
         {
+            var files = Directory.GetFiles(sourceFolder, "*.*", SearchOption.AllDirectories);
+            Array.Sort(files);
+            return PublishContent(files, targetFolder, contentSetFunc, deleteSrcContent);
+        }
+
+        /// <summary>
+        /// Publish a folder of files.  This will copy or move files from the build folder to the target folder and rename them to the content hash.  Remote catalogs will also be created.
+        /// </summary>
+        /// <param name="files">The collection of files to publish.  This should be sorted before calling this method to ensure deterministic data.</param>
+        /// <param name="targetFolder">The target folder for the published data.  The structure is the same as the local cache, so this data can be directly installed on device to preload the cache.</param>
+        /// <param name="contentSetFunc">This will be called for each file as it is published.  The returned strings will define the content sets that the file will be a part of.  If null is returned, the content will stay in the source folder and will not be published.</param>
+        /// <param name="deleteSrcContent">If true, the src content files will be deleted from the build folder.  Ensure that a build is properly backed up before enabling this.</param>
+        /// <returns>True if the publish process succeeds.</returns>
+        public static bool PublishContent(IEnumerable<string> files, string targetFolder, Func<string, IEnumerable<string>> contentSetFunc, bool deleteSrcContent = false)
+        {
             try
             {
                 Directory.CreateDirectory(targetFolder);
-                var files = Directory.GetFiles(sourceFolder, "*.*", SearchOption.AllDirectories);
-                //sort files to ensure deterministic order
-                Array.Sort(files);
-                var entries = new List<(RemoteContentId, RemoteContentLocation, IEnumerable<string>)>(files.Length);
+                var entries = new List<(RemoteContentId, RemoteContentLocation, IEnumerable<string>)>();
                 foreach (var f in files)
                 {
-                    var relPath = f.Substring(sourceFolder.Length + 1);
+                    if (!File.Exists(f))
+                    {
+                        Debug.LogWarning($"Unable to publish file at path '{f}', skipping.");
+                        continue;
+                    }
+                    var relPath = Path.GetFileName(f);
                     var contentSets = contentSetFunc.Invoke(relPath);
                     if (contentSets == null)
                         continue;

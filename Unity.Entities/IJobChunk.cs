@@ -38,6 +38,7 @@ namespace Unity.Entities
     /// [chunks]: xref:concepts-archetypes#archetype-chunks
     /// </remarks>
     /// <seealso cref="JobChunkExtensions"/>
+    /// <seealso cref="IJobEntity"/>
     [JobProducerType(typeof(JobChunkExtensions.JobChunkProducer<>))]
     public interface IJobChunk
     {

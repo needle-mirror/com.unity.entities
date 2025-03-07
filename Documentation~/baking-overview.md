@@ -32,7 +32,7 @@ If the corresponding authoring scene's subscene is open then it triggers **live 
 
 ### Closed subscene
 
-If the If the corresponding authoring scene's subscene is closed, then Unity performs asynchronous baking in the background. It performs a full bake of the data in the authoring scene.
+If the corresponding authoring scene's subscene is closed, then Unity performs asynchronous baking in the background. It performs a full bake of the data in the authoring scene.
 
 ### Full baking
 

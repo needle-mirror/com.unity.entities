@@ -74,7 +74,7 @@ namespace Unity.Entities.Hybrid.Baking
         public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
         {
             Assert.IsFalse(useEnabledMask);
-            var legBuffer = chunk.GetBufferAccessor(ref LinkedEntityGroupBakingDataHandle);
+            var legBuffer = chunk.GetBufferAccessorRO(ref LinkedEntityGroupBakingDataHandle);
             var entities = chunk.GetNativeArray(Entities);
 
             for (int i = 0, chunkEntityCount = chunk.Count; i < chunkEntityCount; i++)

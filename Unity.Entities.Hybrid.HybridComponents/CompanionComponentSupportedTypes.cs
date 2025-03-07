@@ -35,8 +35,11 @@ namespace Unity.Entities.Conversion
             typeof(CapsuleCollider),
             typeof(MeshCollider),
 #endif
-#if HDRP_7_0_0_OR_NEWER || URP_7_0_0_OR_NEWER
-            typeof(DecalProjector),
+#if URP_7_0_0_OR_NEWER
+            typeof(UnityEngine.Rendering.Universal.DecalProjector),
+#endif
+#if HDRP_7_0_0_OR_NEWER
+            typeof(UnityEngine.Rendering.HighDefinition.DecalProjector),
 #endif
 #if HDRP_7_0_0_OR_NEWER
             typeof(HDAdditionalLightData),

@@ -13,7 +13,7 @@ namespace Unity.Entities
 
         /// <summary>
         /// An optional <see cref="JobHandle"/> that corresponds to the job currently using an ExclusiveEntityTransaction.
-        /// This job is completed when this EntityManager's <see cref="World"/> is destroyed.
+        /// This job is completed if this EntityManager's <see cref="World"/> is destroyed.
         /// </summary>
         public JobHandle ExclusiveEntityTransactionDependency
         {

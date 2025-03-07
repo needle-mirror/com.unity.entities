@@ -164,6 +164,8 @@ public static class AspectSyntaxFactory
             printer.PrintLine(@"/// A container type that provides access to instances of the enclosing Aspect type, indexed by <see cref=""Unity.Entities.Entity""/>.");
             printer.PrintLine(@"/// Equivalent to <see cref=""global::Unity.Entities.ComponentLookup{T}""/> but for aspect types.");
             printer.PrintLine(@"/// Constructed from an system state via its constructor.");
+            printer.PrintLine(@"/// </summary>");
+            printer.PrintLine(@"/// <remarks> Using this in an IJobEntity is not supported. </remarks>");
             printer.PrintBeginLine($"public struct Lookup : global::Unity.Entities.Internal.InternalCompilerInterface.IAspectLookup<{aspect.Name}>");
             {
                 printer.OpenScope();

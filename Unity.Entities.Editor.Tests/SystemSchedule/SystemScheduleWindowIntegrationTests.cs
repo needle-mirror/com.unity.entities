@@ -2,6 +2,7 @@ using System.Collections;
 using NUnit.Framework;
 using System.IO;
 using System.Linq;
+using Unity.Entities.Hybrid.Tests;
 using Unity.Scenes;
 using Unity.Scenes.Editor;
 using UnityEditor;
@@ -16,6 +17,8 @@ namespace Unity.Entities.Editor.Tests
 {
     partial class SystemScheduleWindowIntegrationTests
     {
+        PlayerLoopSystem m_PrevPlayerLoop;
+        TestWithCustomDefaultGameObjectInjectionWorld m_CustomInjectionWorld;
         World m_DefaultWorld;
         World m_TestWorld;
         ComponentSystemGroup m_TestSystemGroup;
@@ -79,7 +82,11 @@ namespace Unity.Entities.Editor.Tests
         [SetUp]
         public void SetUp()
         {
+            m_PrevPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            m_CustomInjectionWorld.Setup();
+            DefaultWorldInitialization.Initialize("Editor World", true);
             m_DefaultWorld = World.DefaultGameObjectInjectionWorld;
+
             CreateTestSystems(m_DefaultWorld);
             m_SystemScheduleWindow = !EditorApplication.isPlaying ? SystemScheduleTestUtilities.CreateSystemsWindow() : EditorWindow.GetWindow<SystemScheduleWindow>();
             m_SystemScheduleWindow.SelectedWorld = m_DefaultWorld;
@@ -89,24 +96,8 @@ namespace Unity.Entities.Editor.Tests
         [TearDown]
         public void TearDown()
         {
-            m_DefaultWorld = World.DefaultGameObjectInjectionWorld;
-
-            m_TestSystemGroup = m_DefaultWorld.GetOrCreateSystemManaged<SystemScheduleTestGroup>();
-            m_TestSystem1 = m_DefaultWorld.GetOrCreateSystemManaged<SystemScheduleTestSystem1>();
-            m_TestSystem2 = m_DefaultWorld.GetOrCreateSystemManaged<SystemScheduleTestSystem2>();
-
-            if (m_TestSystemGroup != null)
-            {
-                m_DefaultWorld.GetOrCreateSystemManaged<SimulationSystemGroup>().RemoveSystemFromUpdateList(m_TestSystemGroup);
-                m_DefaultWorld.GetOrCreateSystemManaged<SimulationSystemGroup>().SortSystems();
-                m_DefaultWorld.DestroySystemManaged(m_TestSystemGroup);
-            }
-
-            if (m_TestSystem1 != null)
-                m_DefaultWorld.DestroySystemManaged(m_TestSystem1);
-
-            if (m_TestSystem2 != null)
-                m_DefaultWorld.DestroySystemManaged(m_TestSystem2);
+            m_CustomInjectionWorld.TearDown();
+            PlayerLoop.SetPlayerLoop(m_PrevPlayerLoop);
 
             if (!EditorApplication.isPlaying)
                 SystemScheduleTestUtilities.DestroySystemsWindow(m_SystemScheduleWindow);
@@ -158,6 +149,26 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(result, Is.Not.Null);
             Assert.That(result.AllSystems.Any(s => s.NicifiedDisplayName.Equals("System Schedule Test System 1")), Is.True);
             Assert.That(result.AllSystems.Any(s => s.NicifiedDisplayName.Equals("System Schedule Test System 2")), Is.True);
+        }
+
+        [UnityTest]
+        public IEnumerator SystemScheduleWindow_NonStandardRootSystem_SearchForSystemName()
+        {
+            var rootSystemGroup = m_DefaultWorld.CreateSystemManaged<ManualCreationSystemGroup>();
+            var testPlayerLoop = PlayerLoop.GetCurrentPlayerLoop();
+            ScriptBehaviourUpdateOrder.AppendSystemToPlayerLoop(rootSystemGroup, ref testPlayerLoop,
+                typeof(UnityEngine.PlayerLoop.EarlyUpdate.XRUpdate)); // random player loop stage outside of where DOTS usually puts things
+            PlayerLoop.SetPlayerLoop(testPlayerLoop);
+
+            yield return new SystemScheduleTestUtilities.UpdateSystemGraph(typeof(ManualCreationSystemGroup));
+            m_SystemScheduleWindow.rootVisualElement.Q<SearchElement>().Search("ManualCreationSystemGroup");
+
+            var systemTreeView = m_SystemScheduleWindow.rootVisualElement.Q<SystemTreeView>();
+            Assert.That(systemTreeView.m_ListViewFilteredItems.Count, Is.EqualTo(1));
+            Assert.That(systemTreeView.m_ListViewFilteredItems.FirstOrDefault()?.Node.Name, Is.EqualTo("Manual Creation System Group"));
+
+            var result = m_SystemScheduleWindow.WorldProxyManager.GetWorldProxyForGivenWorld(m_DefaultWorld);
+            Assert.That(result, Is.Not.Null);
         }
 
         [Test]

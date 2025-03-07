@@ -398,6 +398,7 @@
         "Unity.Entities.WorldExtensions: SystemHandle AddSystem(World): empty <returns> tag",
         "Unity.Entities.WorldExtensions: SystemHandle GetOrCreateUnmanagedSystem(World, Type): empty <returns> tag",
         "Unity.Entities.DisableAutoCreationAttribute: mixed block and inline content in <remarks>; wrap inline content in <para>",
+        "Unity.Entities.DisableBootstrapOverridesAttribute: mixed block and inline content in <remarks>; wrap inline content in <para>",
         "Unity.Entities.WorldUnmanaged: T ResolveSystem(SystemHandle): empty <returns> tag"
       ]
     },

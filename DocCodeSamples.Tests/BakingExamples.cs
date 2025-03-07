@@ -166,10 +166,15 @@ namespace Doc.CodeSamples.Tests.Baking
     {
     #region TemporaryBakingType
 
+        public class TemporaryBakingDataAuthoring : MonoBehaviour
+        {
+            public float Value;
+        }
+
         [TemporaryBakingType]
         public struct TemporaryBakingData : IComponentData
         {
-            public float Mass;
+            public float TempValue;
         }
 
         public struct SomeComputedData : IComponentData
@@ -178,12 +183,12 @@ namespace Doc.CodeSamples.Tests.Baking
             public float ComputedValue;
         }
 
-        public class RigidBodyBaker : Baker<Rigidbody>
+        public class TemporaryDataBaker : Baker<TemporaryBakingDataAuthoring>
         {
-            public override void Bake(Rigidbody authoring)
+            public override void Bake(TemporaryBakingDataAuthoring authoring)
             {
                 var entity = GetEntity(TransformUsageFlags.Dynamic);
-                AddComponent(entity, new TemporaryBakingData{Mass = authoring.mass});
+                AddComponent(entity, new TemporaryBakingData{TempValue = authoring.Value});
 
                 // Even though we don't compute the data, we add the type from the Baker
                 AddComponent(entity, new SomeComputedData());
@@ -204,7 +209,7 @@ namespace Doc.CodeSamples.Tests.Baking
                 foreach (var (computedComponent, bakingData) in
                          SystemAPI.Query<RefRW<SomeComputedData>, RefRO<TemporaryBakingData>>())
                 {
-                    var mass = bakingData.ValueRO.Mass;
+                    var tempValue = bakingData.ValueRO.TempValue;
                     float result = 0;
                     // Do heavy computation here, which is taking advantage of Burst
                     // result = ...

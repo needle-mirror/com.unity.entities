@@ -10,9 +10,8 @@ You must use the [`OnUpdate`](xref:Unity.Entities.SystemBase.OnUpdate) system ev
 
 All system events run on the main thread. It's best practice to use the `OnUpdate` method to schedule jobs to perform most of the work. To schedule a job from a system, you can use one of the following mechanisms:
 
-* [`Entities.ForEach`](xref:Unity.Entities.SystemBase.Entities): Iterates over component data.
 * [`Job.WithCode`](xref:Unity.Entities.SystemBase.Job): Execute a lambda expression as a single, background job.
-* [`IJobEntity`](xref:Unity.Entities.IJobEntity): Iterates over component data in multiple systems.
+* [`IJobEntity`](xref:Unity.Entities.IJobEntity): Iterates over component data.
 * [`IJobChunk`](xref:Unity.Entities.IJobChunk): Iterates over data by [archetype chunk](concepts-archetypes.md#archetype-chunks).
 
 The following example illustrates using `Entities.ForEach` to implement a system that updates one component based on the value of another:
