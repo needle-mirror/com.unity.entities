@@ -1,5 +1,10 @@
 namespace Unity.Entities.Editor.Tests
 {
+    [DisableAutoCreation]
+    public partial class ManualCreationSystemGroup : ComponentSystemGroup
+    {
+    }
+
     [UpdateInGroup(typeof(SystemScheduleTestGroup))]
     [UpdateBefore(typeof(SystemScheduleTestSystem2))]
     partial class SystemScheduleTestSystem1 : SystemBase

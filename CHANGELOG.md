@@ -4,6 +4,35 @@ uid: changelog
 
 # Changelog
 
+
+## [1.3.14] - 2025-04-11
+
+* Updated the `com.unity.burst` dependency to version `1.8.19`
+* The minimum supported editor version is now 2022.3.20f1
+
+### Fixed
+
+* The debug checks in AddComponent methods to protect against exceeding the maximum size of a single entity now handle chunk components correctly.
+* Bug where Debug Breakpoints weren't hit correctly when you had comments in your ISystem/SystemBase code.
+* CompanionComponents no longer throw an error in LiveBaking when being updated.
+* Content update builds no longer grow larger with each build.
+* Fixed horizontal alignment of field values when viewing `WeakObjectReference` and `UnityObjectRef` instances in the Inspector.
+* Fixed Inspector not initializing when exiting PlayMode with Entity selected.
+* Added better URI checking for remote root and changes the failure fallback code to switch to streaming assets if there is not a local remote catalog file, which can happen when content delivery is enabled but not set up yet.
+* CalculateStableTypeHash now won't throw when called on non-component types.
+* Eliminated code size problems caused by ConstructComponentFromBuffer
+* Compile error when certain attributes are used on systems
+* Fix compile error due to an ambiguous reference to `DecalProjector` if both HDRP and URP packages are included in the same project.
+* The Systems window no longer throws an error if ECS systems are added to the player loop outside of the three default system groups.
+* `DestroyEntity(EntityQuery)` no longer throws if the query matches an entity with a `LinkedEntityGroup` containing a destroyed entity with a cleanup component.
+* The `WorldUpdateAllocator` available in Baking systems is now correctly rewound between baking World updates.
+* Fixed SystemAPIs called from property declarations not working correctly.
+* When the clone of a companion GameObject is instantiated (during Live Conversion) it is now placed inside the correct scene on instantiation.
+* Fixed: When the clone of a companion GameObject is instantiated (during Live Conversion) it is now placed inside the correct scene on instantiation.
+* Fixing SystemScheduleWindow test failure
+
+
+
 ## [1.3.10] - 2025-02-17
 
 ### Added
@@ -31,9 +60,6 @@ uid: changelog
 * CalculateStableTypeHash(typeof(T)) now agrees with TypeManager.GetTypeInfo(TypeManager.GetTypeIndex<T>()).StableTypeHash whenever possible.
 * ILPP errors on some systems marked [DisableAutoCreation]
 * Fixed a serious a issue in EntityQuery and archetype memory allocation, which could potentially return invalid addresses for these instances on 32-bit platforms.
-
-### Security
-
 
 
 ## [1.3.9] - 2025-01-16

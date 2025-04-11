@@ -146,6 +146,9 @@ namespace Unity.Entities.Tests.TestSystemAPI
 
         [Test]
         public void VariableInOnCreate() => World.CreateSystemManaged<TestSystemBaseSystem.VariableInOnCreateSystem>();
+
+        [Test]
+        public void SystemAPICallInPropertyDeclaration() => World.CreateSystemManaged<TestSystemBaseSystem.SystemAPICallInPropertyDeclarationSystem>();
         #endregion
     }
 
@@ -877,6 +880,36 @@ namespace Unity.Entities.Tests.TestSystemAPI
             protected override void OnCreate() {
                 var readOnly = true;
                 var lookup = GetComponentLookup<EcsTestData>(readOnly);
+            }
+
+            protected override void OnUpdate() {}
+        }
+
+        public partial class SystemAPICallInPropertyDeclarationSystem : SystemBase
+        {
+            public Entity PropertyExpressionBody => QueryBuilder().WithAll<EcsTestData>().Build().GetSingletonEntity();
+            public Entity PropertyGetter
+            {
+                get
+                {
+                    return QueryBuilder().WithAll<EcsTestData>().Build().GetSingletonEntity();
+                }
+                set
+                {
+                    throw new NotImplementedException();
+                }
+            }
+
+            protected override void OnCreate()
+            {
+                base.OnCreate();
+                var entity = EntityManager.CreateEntity();
+                EntityManager.AddComponentData(entity, new EcsTestData(10));
+
+                Assert.AreEqual(entity, PropertyExpressionBody);
+                Assert.AreEqual(entity, PropertyGetter);
+
+                EntityManager.DestroyEntity(entity);
             }
 
             protected override void OnUpdate() {}

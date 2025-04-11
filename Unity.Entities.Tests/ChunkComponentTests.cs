@@ -94,6 +94,78 @@ namespace Unity.Entities.Tests
             Assert.IsTrue(m_Manager.Debug.GetMetaChunkEntity(entity1) == default(Entity));
         }
 
+        // Adding both of these components to the same entity should fail; the resulting entity wouldn't fit in a 16KB chunk.
+        unsafe struct LargeComponent1 : IComponentData
+        {
+            public fixed byte Value[10*1024];
+        }
+        unsafe struct LargeComponent2 : IComponentData
+        {
+            public fixed byte Value[10*1024];
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test explicitly validates debug checks")]
+        public void AddChunkComponent_LargeComponent_Works([Values] bool existingMetaChunk)
+        {
+            var entity = m_Manager.CreateSingleton<LargeComponent1>();
+            if (existingMetaChunk)
+                m_Manager.AddChunkComponentData<EcsTestData2>(entity); // this creates a meta-chunk for the entity
+            // Adding a large regular component should fail
+            Assert.That(() => m_Manager.AddComponent<LargeComponent2>(entity),
+                Throws.InvalidOperationException.With.Message.Contains("data is too large."));
+            // Adding a large chunk component should work
+            Assert.DoesNotThrow(() => m_Manager.AddChunkComponentData<LargeComponent2>(entity));
+            // Adding a second large chunk component should now fail
+            Assert.That(() => m_Manager.AddChunkComponentData<LargeComponent1>(entity),
+                Throws.InvalidOperationException.With.Message.Contains("data is too large."));
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test explicitly validates debug checks")]
+        public void AddChunkComponents_LargeComponent_Works([Values] bool existingMetaChunk)
+        {
+            var entity = m_Manager.CreateEntity();
+            if (existingMetaChunk)
+                m_Manager.AddChunkComponentData<EcsTestData2>(entity); // this creates a meta-chunk for the entity
+            // Adding two large regular components at once should fail
+            var typeSet1 = new ComponentTypeSet(ComponentType.ReadWrite<LargeComponent1>(),
+                ComponentType.ReadWrite<LargeComponent2>());
+            Assert.That(() => m_Manager.AddComponent(entity, typeSet1),
+                Throws.InvalidOperationException.With.Message.Contains("data is too large."));
+            // Adding a large chunk component should work
+            var typeSet2 = new ComponentTypeSet(ComponentType.ReadWrite<LargeComponent1>(),
+                ComponentType.ChunkComponent<LargeComponent2>());
+            Assert.DoesNotThrow(() => m_Manager.AddComponent(entity, typeSet2));
+            // Adding a second large chunk component should now fail
+            var typeSet3 = new ComponentTypeSet(ComponentType.ChunkComponent<LargeComponent1>());
+            Assert.That(() => m_Manager.AddComponent(entity, typeSet3),
+                Throws.InvalidOperationException.With.Message.Contains("data is too large."));
+        }
+
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test explicitly validates debug checks")]
+        public void AddChunkComponentsToQuery_LargeComponent_Works([Values] bool existingMetaChunk)
+        {
+            var entity = m_Manager.CreateEntity(typeof(EcsTestData));
+            if (existingMetaChunk)
+                m_Manager.AddChunkComponentData<EcsTestData2>(entity); // this creates a meta-chunk for the entity
+            using var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestData>().Build(m_Manager);
+            // Adding two large regular components at once should fail
+            var typeSet1 = new ComponentTypeSet(ComponentType.ReadWrite<LargeComponent1>(),
+                ComponentType.ReadWrite<LargeComponent2>());
+            Assert.That(() => m_Manager.AddComponent(query, typeSet1),
+                Throws.InvalidOperationException.With.Message.Contains("data is too large."));
+            // Adding a large chunk component should work
+            var typeSet2 = new ComponentTypeSet(ComponentType.ReadWrite<LargeComponent1>(),
+                ComponentType.ChunkComponent<LargeComponent2>());
+            Assert.DoesNotThrow(() => m_Manager.AddComponent(query, typeSet2));
+            // Adding a second large chunk component should now fail
+            var typeSet3 = new ComponentTypeSet(ComponentType.ChunkComponent<LargeComponent1>());
+            Assert.That(() => m_Manager.AddComponent(query, typeSet3),
+                Throws.InvalidOperationException.With.Message.Contains("data is too large."));
+        }
+
         [Test]
         public void RemoveChunkComponent()
         {

@@ -132,8 +132,8 @@ namespace Unity.Entities
              */
             if (TypeManager.IsInitialized)
             {
-                var ti = TypeManager.GetTypeIndex(type);
-                if (ti != TypeIndex.Null)
+               
+                if (TypeManager.TryGetTypeIndex(type, out var ti))
                 {
                     var ret = TypeManager.GetTypeInfo(ti).StableTypeHash;
                     cache[type] = ret;

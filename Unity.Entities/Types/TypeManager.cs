@@ -1459,7 +1459,6 @@ namespace Unity.Entities
             s_AssemblyBoxedEqualsFn = new List<TypeRegistry.GetBoxedEqualsFn>();
             s_AssemblyBoxedEqualsPtrFn = new List<TypeRegistry.GetBoxedEqualsPtrFn>();
             s_AssemblyBoxedGetHashCodeFn = new List<TypeRegistry.BoxedGetHashCodeFn>();
-            s_AssemblyConstructComponentFromBufferFn = new List<TypeRegistry.ConstructComponentFromBufferFn>();
 #if UNITY_EDITOR
             // Synchronous Burst compilation takes forever, so in the editor don't waste time for
             // users who are trying to iterate and turn the option off while we generate type info
@@ -2340,7 +2339,6 @@ namespace Unity.Entities
         /// <returns>Boxed component instance</returns>
         public static unsafe object ConstructComponentFromBuffer(TypeIndex typeIndex, void* data)
         {
-#if !UNITY_DOTSRUNTIME
             var tinfo = GetTypeInfo(typeIndex);
             Type type = GetType(typeIndex);
             object obj = Activator.CreateInstance(type);
@@ -2353,9 +2351,6 @@ namespace Unity.Entities
             }
 
             return obj;
-#else
-            return ConstructComponentFromBuffer(data, typeIndex.Index);
-#endif
         }
 
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
@@ -3509,7 +3504,6 @@ namespace Unity.Entities
         static List<TypeRegistry.GetBoxedEqualsFn> s_AssemblyBoxedEqualsFn;
         static List<TypeRegistry.GetBoxedEqualsPtrFn> s_AssemblyBoxedEqualsPtrFn;
         static List<TypeRegistry.BoxedGetHashCodeFn> s_AssemblyBoxedGetHashCodeFn;
-        static List<TypeRegistry.ConstructComponentFromBufferFn> s_AssemblyConstructComponentFromBufferFn;
 
         internal static bool GetBoxedEquals(object lhs, object rhs, int typeIndexNoFlags)
         {
@@ -3550,19 +3544,6 @@ namespace Unity.Entities
             throw new ArgumentException("No function was generated for the provided type.");
         }
 
-        internal static object ConstructComponentFromBuffer(void* buffer, int typeIndexNoFlags)
-        {
-            int offset = 0;
-            for (int i = 0; i < s_TypeDelegateIndexRanges.Count; ++i)
-            {
-                if (typeIndexNoFlags < s_TypeDelegateIndexRanges[i])
-                    return s_AssemblyConstructComponentFromBufferFn[i](buffer, typeIndexNoFlags - offset);
-                offset = s_TypeDelegateIndexRanges[i];
-            }
-
-            throw new ArgumentException("No function was generated for the provided type.");
-        }
-
         static bool EntityBoxedEquals(object lhs, object rhs, int typeIndexNoFlags)
         {
             Assert.IsTrue(typeIndexNoFlags == 1);
@@ -3586,12 +3567,6 @@ namespace Unity.Entities
             return e0.GetHashCode();
         }
 
-        static object EntityConstructComponentFromBuffer(void* obj, int typeIndexNoFlags)
-        {
-            Assert.IsTrue(typeIndexNoFlags == 1);
-            return *(Entity*)obj;
-        }
-
         /// <summary>
         /// Registers, all at once, the type registry information generated for each assembly.
         /// </summary>
@@ -3604,7 +3579,6 @@ namespace Unity.Entities
             s_AssemblyBoxedEqualsFn.Add(EntityBoxedEquals);
             s_AssemblyBoxedEqualsPtrFn.Add(EntityBoxedEqualsPtr);
             s_AssemblyBoxedGetHashCodeFn.Add(EntityBoxedGetHashCode);
-            s_AssemblyConstructComponentFromBufferFn.Add(EntityConstructComponentFromBuffer);
 
             typesToReprocess = new List<Type>();
 
@@ -3713,7 +3687,6 @@ namespace Unity.Entities
                     s_AssemblyBoxedEqualsFn.Add(typeRegistry.BoxedEquals);
                     s_AssemblyBoxedEqualsPtrFn.Add(typeRegistry.BoxedEqualsPtr);
                     s_AssemblyBoxedGetHashCodeFn.Add(typeRegistry.BoxedGetHashCode);
-                    s_AssemblyConstructComponentFromBufferFn.Add(typeRegistry.ConstructComponentFromBuffer);
                 }
 
                 // Register system types
@@ -3806,14 +3779,12 @@ namespace Unity.Entities
         public delegate bool GetBoxedEqualsFn(object lhs, object rhs, int typeIndexNoFlags);
         public unsafe delegate bool GetBoxedEqualsPtrFn(object lhs, void* rhs, int typeIndexNoFlags);
         public delegate int BoxedGetHashCodeFn(object obj, int typeIndexNoFlags);
-        public unsafe delegate object ConstructComponentFromBufferFn(void* buffer, int typeIndexNoFlags);
         public unsafe delegate void SetSharedTypeIndicesFn(int* typeInfoArray, int count);
         public delegate Attribute[] GetSystemAttributesFn(Type system);
 
         public GetBoxedEqualsFn BoxedEquals;
         public GetBoxedEqualsPtrFn BoxedEqualsPtr;
         public BoxedGetHashCodeFn BoxedGetHashCode;
-        public ConstructComponentFromBufferFn ConstructComponentFromBuffer;
         public SetSharedTypeIndicesFn SetSharedTypeIndices;
         public GetSystemAttributesFn GetSystemAttributes;
 

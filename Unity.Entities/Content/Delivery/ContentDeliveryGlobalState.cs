@@ -1,7 +1,6 @@
 using System;
 using System.IO;
 using Unity.Collections;
-using Unity.Entities.Serialization;
 using UnityEngine;
 
 namespace Unity.Entities.Content
@@ -97,6 +96,27 @@ namespace Unity.Entities.Content
             }
         }
 
+        internal static bool IsValidURLRoot(string remoteUrlRoot)
+        {
+            if (string.IsNullOrEmpty(remoteUrlRoot))
+                return false;
+
+            if (!Uri.TryCreate(remoteUrlRoot, UriKind.Absolute, out var uri))
+            {
+                LogFunc?.Invoke($"Invalid uri used for remoteUrlRoot: '{remoteUrlRoot}'.");
+                return false;
+            }
+            if(uri.Scheme == Uri.UriSchemeHttps ||
+                uri.Scheme == Uri.UriSchemeHttp ||
+                uri.Scheme == Uri.UriSchemeFile ||
+                uri.Scheme == Uri.UriSchemeFtp)
+            {
+                return true;
+            }
+            LogFunc?.Invoke($"Uri scheme {uri.Scheme} is not supported with specified remoteUrlRoot: '{remoteUrlRoot}'.");
+            return false;
+        }
+
         /// <summary>
         /// Initialize the content delivery system.
         /// </summary>
@@ -106,7 +126,7 @@ namespace Unity.Entities.Content
         /// <param name="updateStateFunc">Callback action that will get called whenever the content update state changes.</param>
         public static void Initialize(string remoteUrlRoot, string cachePath, string initialContentSet, Action<ContentUpdateState> updateStateFunc)
         {
-            if (string.IsNullOrEmpty(remoteUrlRoot))
+            if (!IsValidURLRoot(remoteUrlRoot))
             {
                 contentUpdateState = ContentUpdateState.UsingContentFromStreamingAssets;
                 PathRemapFunc = p => $"{Application.streamingAssetsPath}/{p}";
@@ -298,13 +318,15 @@ namespace Unity.Entities.Content
                     LogFunc?.Invoke($"No connection, but catalog found at {catalogPathInStreamingAssets}.  Attempting to use streaming assets for content.");
                     return ContentUpdateState.UsingContentFromStreamingAssets;
                 }
-                else
+                var remoteCatalogPathInStreamingAssets = CreateCatalogLocationPath(Application.streamingAssetsPath);
+                if (!FileExists(remoteCatalogPathInStreamingAssets))
                 {
-                    LogFunc?.Invoke($"No connection, no cached data, no catalog found at {catalogPathInStreamingAssets}.  Content is not available.");
-                    return ContentUpdateState.NoContentAvailable;
+                    LogFunc?.Invoke($"No connection, no catalog found at {catalogPathInStreamingAssets}, but no remote catalog at {remoteCatalogPathInStreamingAssets}.  Attempting to use streaming assets for content.");
+                    return ContentUpdateState.UsingContentFromStreamingAssets;
                 }
+                LogFunc?.Invoke($"No connection, no cached data, no catalog found at {catalogPathInStreamingAssets}. Remote catalog found at {remoteCatalogPathInStreamingAssets}.  Content is not available.");
+                return ContentUpdateState.NoContentAvailable;
             }
         }
-
     }
 }

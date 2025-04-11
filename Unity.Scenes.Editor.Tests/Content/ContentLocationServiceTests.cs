@@ -2,8 +2,9 @@ using NUnit.Framework;
 using Unity.Entities.Content;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Collections;
+using Unity.Entities;
 
-namespace Unity.Entities.Editor.Tests
+namespace Unity.Scenes.Editor.Tests
 {
     
     [TestFixture]

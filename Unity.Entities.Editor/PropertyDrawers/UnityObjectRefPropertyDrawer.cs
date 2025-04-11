@@ -35,6 +35,7 @@ namespace Unity.Entities.Editor
                 instanceIdProperty.intValue = e.newValue.GetInstanceID();
                 property.serializedObject.ApplyModifiedProperties();
             });
+           objectField.AddToClassList(ObjectField.alignedFieldUssClassName);
             container.Add(objectField);
 
             return container;

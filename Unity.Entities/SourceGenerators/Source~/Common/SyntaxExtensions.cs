@@ -79,6 +79,15 @@ namespace Unity.Entities.SourceGen.Common
             return null;
         }
 
+        public static SyntaxNode GetMethodSymbolSourceSyntaxOrDefault(this SyntaxNode node)
+        {
+            foreach (var ancestor in node.Ancestors())
+                if (ancestor is MethodDeclarationSyntax or PropertyDeclarationSyntax or AccessorDeclarationSyntax)
+                    return ancestor;
+
+            return null;
+        }
+
         public static int GetLineNumber(this SyntaxNode node) => node.GetLocation().GetLineSpan().StartLinePosition.Line;
 
         public static string GetModifierString(this ParameterSyntax parameter)

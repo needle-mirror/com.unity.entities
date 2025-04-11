@@ -21,9 +21,13 @@ public class SubSceneNonDestructiveEditingTests
 
     static readonly string s_IntValuePath = nameof(TestComponentAuthoring.IntValue);
 
+    [SerializeField]
     string m_TempAssetDir;
 
+    [SerializeField]
     Scene m_MainScene;
+
+    [SerializeField]
     GameObject m_MainSceneGO;
 
     [OneTimeSetUp]
@@ -44,8 +48,8 @@ public class SubSceneNonDestructiveEditingTests
         AssetDatabase.DeleteAsset(m_TempAssetDir);
     }
 
-    [SetUp]
-    public void SetUp()
+    [UnitySetUp]
+    public IEnumerator SetUp()
     {
         // Create and save the main scene.
         m_MainScene = EditorSceneManager.NewScene(NewSceneSetup.EmptyScene);
@@ -63,6 +67,7 @@ public class SubSceneNonDestructiveEditingTests
         Assert.IsTrue(m_MainScene.isLoaded);
 
         AssetDatabase.Refresh();
+        yield return new RecompileScripts();
     }
 
     enum S

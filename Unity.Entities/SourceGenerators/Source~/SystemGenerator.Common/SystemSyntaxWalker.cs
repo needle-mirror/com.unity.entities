@@ -98,23 +98,36 @@ namespace Unity.Entities.SourceGen.SystemGenerator.Common
         {
             if (_statementsRequiringLineDirectives.Contains(node))
             {
+                SyntaxTrivia lastWhitespace = default;
+                var offset = 1;
                 foreach (var leadingTrivia in node.GetLeadingTrivia())
+                {
                     if (leadingTrivia.IsKind(SyntaxKind.WhitespaceTrivia))
-                        // Ensure proper indentation
-                        VisitTrivia(leadingTrivia);
+                        lastWhitespace = leadingTrivia;
+                    if (leadingTrivia.IsKind(SyntaxKind.EndOfLineTrivia))
+                        offset--;
+                }
+                _currentMethodAndPropertyWriter.Write(lastWhitespace.ToString());
 
                 // Append line directive
-                _currentMethodAndPropertyWriter.WriteLine($"{GetLineDirective(_systemDescription.OriginalFilePath)}");
+                var line = string.IsNullOrEmpty(_systemDescription.OriginalFilePath)
+                    ? ""
+                    : $"#line {node.GetLineNumber() +offset} \"{_systemDescription.OriginalFilePath}\"";
+                _currentMethodAndPropertyWriter.WriteLine(line);
             }
             base.Visit(node);
 
             // Write a `#line hidden` directive after the last statement in the method/property
             // to ensure that no further generated source receives additions sequence points.
             if (_statementsRequiringHiddenDirectives.Contains(node))
+            {
+                SyntaxTrivia lastWhitespace = default;
+                foreach (var leadingTrivia in node.GetLeadingTrivia())
+                    if (leadingTrivia.IsKind(SyntaxKind.WhitespaceTrivia))
+                        lastWhitespace = leadingTrivia;
+                _currentMethodAndPropertyWriter.Write(lastWhitespace.ToString());
                 _currentMethodAndPropertyWriter.WriteLine("#line hidden");
-
-            string GetLineDirective(string originalFilePath)
-                => string.IsNullOrEmpty(originalFilePath) ? "" : $"#line {node.GetLineNumber() + 1} \"{originalFilePath}\"";
+            }
         }
 
         public override void VisitExplicitInterfaceSpecifier(ExplicitInterfaceSpecifierSyntax node)

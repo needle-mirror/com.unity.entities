@@ -135,6 +135,9 @@ namespace Unity.Entities
 #endif
 #endif
 
+            var allocatorResetSystem = conversionWorld.GetOrCreateSystem<WorldUpdateAllocatorResetSystem>();
+            allocatorResetSystem.Update(conversionWorld.Unmanaged);
+
             using (s_PreBakingSystemGroup.Auto())
             {
                 var preGroup = conversionWorld.GetOrCreateSystemManaged<PreBakingSystemGroup>();

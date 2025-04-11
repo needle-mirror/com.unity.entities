@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.Linq;
 using System.Text;
 using Microsoft.CodeAnalysis;
+using Microsoft.CodeAnalysis.CSharp.Syntax;
 using Unity.Entities.SourceGen.SystemGenerator.Common;
 
 namespace Unity.Entities.SourceGen.Common
@@ -262,6 +263,15 @@ namespace Unity.Entities.SourceGen.Common
         }
 
         public static bool IsAspect(this ITypeSymbol typeSymbol) => typeSymbol.InheritsFromInterface("Unity.Entities.IAspect");
+
+        public static IMethodSymbol GetMethodSymbol(this SemanticModel semanticModel, SyntaxNode methodContainingNode)
+        {
+            var symbol = semanticModel.GetDeclaredSymbol(methodContainingNode);
+            if (symbol is IPropertySymbol propertySymbol)
+                return propertySymbol.GetMethod;
+
+            return symbol as IMethodSymbol;
+        }
 
         static string PrependGlobalIfMissing(this string typeOrNamespaceName) =>
             !typeOrNamespaceName.StartsWith("global::") ? $"global::{typeOrNamespaceName}" : typeOrNamespaceName;

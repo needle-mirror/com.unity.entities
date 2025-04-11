@@ -35,17 +35,15 @@ namespace Unity.Entities.Conversion
             typeof(CapsuleCollider),
             typeof(MeshCollider),
 #endif
-#if HDRP_7_0_0_OR_NEWER || URP_7_0_0_OR_NEWER
-            typeof(DecalProjector),
+#if URP_7_0_0_OR_NEWER
+            typeof(UnityEngine.Rendering.Universal.DecalProjector),
 #endif
 #if HDRP_7_0_0_OR_NEWER
+            typeof(UnityEngine.Rendering.HighDefinition.DecalProjector),
             typeof(HDAdditionalLightData),
             typeof(HDAdditionalReflectionData),
             typeof(PlanarReflectionProbe),
             typeof(LocalVolumetricFog),
-#if PROBEVOLUME_CONVERSION
-            typeof(ProbeVolume),
-#endif
 #endif
 #if URP_7_0_0_OR_NEWER
             typeof(UniversalAdditionalLightData),
@@ -58,6 +56,10 @@ namespace Unity.Entities.Conversion
 #if URP_7_0_0_OR_NEWER
             typeof(UniversalAdditionalCameraData),
 #endif
+#endif
+#if SRP_17_0_0_OR_NEWER
+            typeof(ProbeVolume),
+            typeof(ProbeVolumePerSceneData),
 #endif
         };
     }

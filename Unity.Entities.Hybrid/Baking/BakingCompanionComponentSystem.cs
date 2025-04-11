@@ -133,17 +133,32 @@ namespace Unity.Entities
 
                         var managedIndex = *(int*)(chunk.Buffer + (unityObjectTypeOffset + unityObjectTypeSizeOf * entityIndex));
                         var obj = (UnityEngine.Component)mcs.GetManagedComponent(managedIndex);
-                        var authoringGameObject = obj.gameObject;
-                        bool wasActive = authoringGameObject.activeSelf;
+                        // The first time this code is called the sourceGameObject is the authoring GameObject.
+                        // In further calls, this points to the previous companionGameObject
+                        var sourceGameObject = obj.gameObject;
 
                         try
                         {
-                            if(wasActive)
-                                authoringGameObject.SetActive(false);
+                            UnityEngine.SceneManagement.Scene companionScene;
+#if UNITY_EDITOR
+                            // We only move into the companion scene if we're currently doing live conversion.
+                            // Otherwise this is handled by de-serialisation.
+                            if (bakingSystem.IsLiveConversion())
+                            {
+                                companionScene = CompanionGameObjectUtility.GetCompanionScene(true);
+                            }
+                            else
+#endif
+                            {
+                                companionScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                            }
 
                             // Replicate the authoringGameObject, we then strip Components we don't care about
-                            var companionGameObject = UnityEngine.Object.Instantiate(authoringGameObject);
+                            var companionGameObject = UnityEngine.Object.Instantiate(sourceGameObject, companionScene) as GameObject;
+                            companionGameObject.SetActive(false);
+
                             #if UNITY_EDITOR
+                            CompanionGameObjectUtility.SetCompanionFlags(companionGameObject);
                             CompanionGameObjectUtility.SetCompanionName(entity, companionGameObject);
                             #endif
 
@@ -207,27 +222,13 @@ namespace Unity.Entities
                             if (!bakingSystem.IsLiveConversion())
                                 EntityManager.AddComponentObject(entity, new CompanionReference { Companion = UnityObjectRef<GameObject>.FromInstanceID(newInstanceID)});
 
-                            // We only move into the companion scene if we're currently doing live conversion.
-                            // Otherwise this is handled by de-serialisation.
-                            #if UNITY_EDITOR
-                            if (bakingSystem.IsLiveConversion())
-                            {
-                                CompanionGameObjectUtility.MoveToCompanionScene(companionGameObject, true);
-                            }
-                            #endif
-
                             // Can't detach children before instantiate because that won't work with a prefab
                             for (int child = companionGameObject.transform.childCount - 1; child >= 0; child -= 1)
                                 UnityEngine.Object.DestroyImmediate(companionGameObject.transform.GetChild(child).gameObject);
                         }
                         catch (System.Exception exception)
                         {
-                            Debug.LogException(exception, authoringGameObject);
-                        }
-                        finally
-                        {
-                            if (wasActive)
-                                authoringGameObject.SetActive(true);
+                            Debug.LogException(exception, sourceGameObject);
                         }
                     }
                 }

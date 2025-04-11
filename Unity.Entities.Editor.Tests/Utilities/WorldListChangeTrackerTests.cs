@@ -16,7 +16,9 @@ namespace Unity.Entities.Editor.Tests.Utilities
         [Test]
         public void DetectCreatedAndDestroyedWorld()
         {
-            Assert.That(m_Tracker.HasChanged(), Is.True);
+            // Ignore the first unpredictable result, as they may or may not be Worlds hanging around at this point.
+            bool _ = m_Tracker.HasChanged();
+
             Assert.That(m_Tracker.HasChanged(), Is.False);
             using (new World("test world", WorldFlags.None))
             {

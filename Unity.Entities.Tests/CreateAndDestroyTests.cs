@@ -1172,6 +1172,29 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test is making sure a debug check doesn't fire when it shouldn't")]
+        public void DestroyEntity_WithLinkedEntityGroup_CleanupComponentOnDestroyedChild_Works()
+        {
+            // Regression test for ECSB-1569
+            var root = m_Manager.CreateEntity(typeof(EcsTestTag));
+            var child = m_Manager.CreateEntity(typeof(EcsTestTag), typeof(EcsCleanupTag1));
+            m_Manager.SetName(root, "RootEntity");
+            m_Manager.SetName(child, "ChildEntity");
+            // For the purposes of this test, root and child aren't in a transform hierarchy;
+            // we just need to set up root's LinkedEntityGroup buffer as if they were.
+            var group = m_Manager.AddBuffer<LinkedEntityGroup>(root);
+            group.Add(root);
+            group.Add(child);
+            // Child won't immediately be fully destroyed, due to its cleanup component.
+            m_Manager.DestroyEntity(child);
+            // This query should only match the root, since the child has been destroyed (and all non-cleanup components have been removed)
+            var query = new EntityQueryBuilder(Allocator.Temp).WithAll<EcsTestTag>().Build(m_Manager);
+            Assert.AreEqual(1, query.CalculateEntityCount());
+            // Destroying the root through a query should not trigger any errors.
+            Assert.DoesNotThrow(() => m_Manager.DestroyEntity(query));
+        }
+
+        [Test]
         public void GetCreatedAndDestroyedEntities()
         {
             using (var state = new NativeList<int>(World.UpdateAllocator.ToAllocator))

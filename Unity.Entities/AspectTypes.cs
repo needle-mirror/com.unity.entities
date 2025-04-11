@@ -68,9 +68,13 @@ namespace Unity.Entities
 
     /// <summary>
     /// When used on an aspect's ComponentDataRef field, marks that component type as optional.
-    /// The DOTS source generator handles the generation of the query using this attribute.
-    /// A ComponentDataRef may also be marked read-only by using the attribute [Unity.Collections.ReadOnly]
     /// </summary>
+    /// <remarks>
+    /// The DOTS source generator handles the generation of the query using this attribute.
+    /// A ComponentDataRef may also be marked read-only by using the attribute [Unity.Collections.ReadOnly].
+    ///
+    /// This attribute is not intended to be used with <see cref="DynamicBuffer{T}"/> components.
+    /// </remarks>
     [AttributeUsage(AttributeTargets.Field)]
     public class OptionalAttribute : Attribute
     {

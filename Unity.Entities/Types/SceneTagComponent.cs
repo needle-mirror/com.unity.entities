@@ -236,12 +236,18 @@ namespace Unity.Entities
         /// </summary>
         DisableAutoLoad = 1,
         /// <summary>
-        /// Wait for the SubScene to be fully converted (only relevant for Editor and LiveLink) and its header loaded
+        /// Disable asynchronous importing, and wait for the SubScene to be fully converted (only relevant in-Editor) and its header loaded.
         /// </summary>
+        /// <remarks>
+        /// For fully synchronous scene loading, both <see cref="BlockOnImport"/> and <see cref="BlockOnStreamIn"/> must be set.
+        /// </remarks>
         BlockOnImport = 2,
         /// <summary>
         /// Disable asynchronous streaming, SubScene section will be fully loaded during the next update of the streaming system
         /// </summary>
+        /// <remarks>
+        /// For fully synchronous scene loading, both <see cref="BlockOnImport"/> and <see cref="BlockOnStreamIn"/> must be set.
+        /// </remarks>
         BlockOnStreamIn = 4,
         // TODO: Remove this RemovedAfter 2021-02-05 (DOTS-3380)
         // SceneLoadFlags.LoadAdditive is deprecated. Scenes loaded through the SceneSystem are always loaded Additively. This previously was only used when using LiveLink with GameObjects.

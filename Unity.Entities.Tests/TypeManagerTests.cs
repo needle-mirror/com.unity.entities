@@ -1446,7 +1446,52 @@ namespace Unity.Entities.Tests
             CircularReferenceB m_B3;
         }
 
+        internal class MyAttributeTakingArray : Attribute
+        {
+            internal MyAttributeTakingArray(int[] arg) { }
+
+        }
+
+        /* 
+         * These systems exist to make sure that if you put a weird
+         * attribute on your system, the ILPP / codegen situation will not
+         * blow up.
+         */
+        [MyAttributeTakingArray(new[] { 1, 2, 3 })]
+        partial struct ISystemWithFunkyAttribute: ISystem
+        {
+
+        }
+
+        [MyAttributeTakingArray(new[] { 1, 2, 3 })]
+        partial class SystemBaseWithFunkyAttribute :SystemBase
+        {
+            public SystemBaseWithFunkyAttribute() {
+
+                var attarr = new Attribute[2];
+                var y = new int[3];
+                y[0] = 5; y[1] = 6; y[2] = 7;
+                var x = new MyAttributeTakingArray(y);
+
+                attarr[0] = x;
+                attarr[1] = x;
+
+            }
+
+            protected override void OnUpdate()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+
         [Test]
+        public void TestTypeHashOfUnregisteredType()
+        {
+            Assert.DoesNotThrow(() => TypeHash.CalculateStableTypeHash(typeof(int)));
+        }
+
+        [Test] 
         public void TestTypeHashComponentWithCircularReference()
         {
             var cache = new Dictionary<Type, ulong>();

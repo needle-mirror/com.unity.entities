@@ -9,7 +9,7 @@ namespace Unity.Entities.Editor
         public readonly ulong SequenceNumber;
 
         /// <summary>
-        /// Handles for root system groups (init, sim, pres).
+        /// Handles for root systems. By default: init, sim, pres.
         /// </summary>
         internal List<SystemProxy> m_RootSystems;
 

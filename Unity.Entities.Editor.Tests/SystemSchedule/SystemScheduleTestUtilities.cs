@@ -45,23 +45,20 @@ namespace Unity.Entities.Editor.Tests
 
         static bool CheckIfTreeViewItemContainsSystem(SystemTreeViewItem item, string systemName, out SystemTreeViewItem outItem)
         {
-            if (item.children.Any())
+            var itemName = item.GetSystemName();
+            itemName = Regex.Replace(itemName, @"[(].*", string.Empty);
+            itemName = Regex.Replace(itemName, @"\s+", string.Empty, RegexOptions.IgnoreCase).Trim();
+
+            if (itemName.IndexOf(systemName, StringComparison.OrdinalIgnoreCase) >= 0)
             {
-                var itemName = item.GetSystemName();
-                itemName = Regex.Replace(itemName, @"[(].*", string.Empty);
-                itemName = Regex.Replace(itemName, @"\s+", string.Empty, RegexOptions.IgnoreCase).Trim();
+                outItem = item;
+                return true;
+            }
 
-                if (itemName.IndexOf(systemName, StringComparison.OrdinalIgnoreCase) >= 0)
-                {
-                    outItem = item;
+            foreach (var childItem in item.children)
+            {
+                if (CheckIfTreeViewItemContainsSystem(childItem as SystemTreeViewItem, systemName, out outItem))
                     return true;
-                }
-
-                foreach (var childItem in item.children)
-                {
-                    if (CheckIfTreeViewItemContainsSystem(childItem as SystemTreeViewItem, systemName, out outItem))
-                        return true;
-                }
             }
 
             outItem = null;
