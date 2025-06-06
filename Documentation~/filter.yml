@@ -101,4 +101,12 @@ apiRules:
   - exclude:
       uidRegex: ^Unity\.Entities\.WorldSystemFilterAttribute
       type: Class
-
+  - exclude:
+      uidRegex: ^Unity\.Entities\.CompanionGameObjectUpdateTransformSystem
+      type: Type
+  - exclude:
+      uidRegex: ^Unity\.Scenes\.Editor\.SubSceneInspectorUtility
+      type: Type
+  - exclude:
+      uidRegex: ^Unity\.Entities\.Editor\.ScriptTemplates
+      type: Type

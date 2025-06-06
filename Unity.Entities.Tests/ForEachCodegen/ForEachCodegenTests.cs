@@ -9,6 +9,9 @@ using Unity.Transforms;
 using UnityEngine;
 using Unity.Mathematics;
 using System.Linq;
+using Unity.Entities;
+
+[assembly: RegisterUnityEngineComponentType(typeof(Camera))]
 
 namespace Unity.Entities.Tests.ForEachCodegen
 {
@@ -398,7 +401,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void UnityEngineObjectAsLambdaParam()
         {
             var entity = m_Manager.CreateEntity();
-            m_Manager.AddComponent<ParticleSystem>(entity);
+            m_Manager.AddComponent<Light>(entity);
             TestSystem.UnityEngineObjectAsLambdaParam();
         }
 
@@ -406,7 +409,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
         public void UnityEngineObjectAsWithParam()
         {
             var entity = m_Manager.CreateEntity();
-            m_Manager.AddComponent<ParticleSystem>(entity);
+            m_Manager.AddComponent<Light>(entity);
             TestSystem.UnityEngineObjectAsWithParam();
         }
 
@@ -1229,7 +1232,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public void UnityEngineObjectAsLambdaParam()
             {
                 var count = 0;
-                Entities.WithoutBurst().ForEach((ParticleSystem ps) =>
+                Entities.WithoutBurst().ForEach((Light ps) =>
                 {
                     count++;
                 }).Run();
@@ -1239,7 +1242,7 @@ namespace Unity.Entities.Tests.ForEachCodegen
             public void UnityEngineObjectAsWithParam()
             {
                 var count = 0;
-                Entities.WithoutBurst().WithAll<ParticleSystem>().ForEach((Entity _) =>
+                Entities.WithoutBurst().WithAll<Light>().ForEach((Entity _) =>
                 {
                     count++;
                 }).Run();

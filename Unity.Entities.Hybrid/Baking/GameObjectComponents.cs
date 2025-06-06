@@ -1,4 +1,4 @@
-﻿using System.Collections.Generic;
+using System.Collections.Generic;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Entities.Conversion;
@@ -16,7 +16,7 @@ namespace Unity.Entities.Baking
         {
             public ComponentData(Component component)
             {
-                TypeIndex = TypeManager.GetTypeIndex(component.GetType());
+                TypeIndex = TypeManager.GetOrCreateTypeIndex(component.GetType());
                 InstanceID = component.GetInstanceID();
             }
 

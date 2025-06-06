@@ -14,7 +14,7 @@ namespace Doc.CodeSamples.Tests
     {
         public override void Bake(SpawnerAuthoring authoring)
         {
-            var entity = GetEntity(TransformUsageFlags.None);
+            var entity = GetEntity(TransformUsageFlags.Dynamic);
             AddComponent(entity, new Spawner
             {
                 // By default, each authoring GameObject turns into an Entity.

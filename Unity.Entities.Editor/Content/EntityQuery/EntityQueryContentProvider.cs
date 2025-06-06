@@ -133,7 +133,7 @@ namespace Unity.Entities.Editor
                 m_DisabledComponentTypes = new string[disabled.Length];
                 for (var i = 0; i < disabled.Length; ++i)
                 {
-                    if (!ComponentTypeAdapter.TrySerialize(none[i], out m_DisabledComponentTypes[i]))
+                    if (!ComponentTypeAdapter.TrySerialize(disabled[i], out m_DisabledComponentTypes[i]))
                         return;
                 }
 
@@ -141,7 +141,7 @@ namespace Unity.Entities.Editor
                 m_AbsentComponentTypes = new string[absent.Length];
                 for (var i = 0; i < absent.Length; ++i)
                 {
-                    if (!ComponentTypeAdapter.TrySerialize(none[i], out m_AbsentComponentTypes[i]))
+                    if (!ComponentTypeAdapter.TrySerialize(absent[i], out m_AbsentComponentTypes[i]))
                         return;
                 }
 

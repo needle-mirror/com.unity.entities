@@ -255,14 +255,45 @@ namespace Unity.Entities
         static Dictionary<Type, SystemTypeIndex> s_ManagedSystemTypeToIndex;
 
 
-        internal enum SystemAttributeKind
+        /// <summary>
+        /// An enum describing some important kinds of attributes that can be added to systems.
+        /// This is used in order to make some code paths burstable that refer to said attributes.
+        /// </summary>
+        public enum SystemAttributeKind
         {
+            /// <summary>
+            /// <see cref="UpdateBeforeAttribute"/>
+            /// </summary>
             UpdateBefore,
+
+            /// <summary>
+            /// <see cref="UpdateAfterAttribute"/>
+            /// </summary>
             UpdateAfter,
+
+            /// <summary>
+            /// <see cref="CreateBeforeAttribute"/>
+            /// </summary>
             CreateBefore,
+
+            /// <summary>
+            /// <see cref="CreateAfterAttribute"/>
+            /// </summary>
             CreateAfter,
+
+            /// <summary>
+            /// <see cref="DisableAutoCreationAttribute"/>
+            /// </summary>
             DisableAutoCreation,
+
+            /// <summary>
+            /// <see cref="UpdateInGroupAttribute"/>
+            /// </summary>
             UpdateInGroup,
+
+            /// <summary>
+            /// <see cref="RequireMatchingQueriesForUpdateAttribute"/>
+            /// </summary>
             RequireMatchingQueriesForUpdate
         }
 
@@ -309,13 +340,31 @@ namespace Unity.Entities
             }
         }
 
-        internal struct SystemAttribute
+        /// <summary>
+        /// A burstable representation of an attribute on a system,
+        /// assuming it's one of the kinds representable by <see cref="SystemAttributeKind"/>
+        /// </summary>
+        public struct SystemAttribute
         {
-            public const int kOrderFirstFlag = 1;
-            public const int kOrderLastFlag = 1 << 1;
-            public SystemAttributeKind Kind;
+            internal const int kOrderFirstFlag = 1;
+            internal const int kOrderLastFlag = 1 << 1;
+            internal SystemAttributeKind Kind;
+
+            /// <summary>
+            /// The SystemTypeIndex for the target system, if the attribute in question has a target system.
+            /// </summary>
             public SystemTypeIndex TargetSystemTypeIndex;
-            public int Flags;
+            internal int Flags;
+
+            /// <summary>
+            /// <see cref="UpdateInGroupAttribute.OrderFirst"/>
+            /// </summary>
+            public bool ShouldOrderFirst => Flags == kOrderFirstFlag;
+
+            /// <summary>
+            /// <see cref="UpdateInGroupAttribute.OrderLast"/>
+            /// </summary>
+            public bool ShouldOrderLast => Flags == kOrderLastFlag;
         }
 
         internal readonly struct SystemTypeInfo
@@ -1140,7 +1189,20 @@ namespace Unity.Entities
             return s_SystemTypeFlagsList[systemTypeIndex.Index];
         }
 
-        internal static NativeList<SystemAttribute> GetSystemAttributes(
+        /// <summary>
+        /// Obtains a list containing the SystemAttributes of a specific kind for a system.
+        /// This allows for burstable access to the attributes which were put on the system.
+        /// </summary>
+        /// <remarks>
+        /// This gets the same information as reflecting to get the attributes on the system
+        /// and filtering for a specific kind, except that it uses pre-generated information
+        /// and is burstable.
+        /// </remarks>
+        /// <param name="systemTypeIndex">The SystemTypeIndex for the system.</param>
+        /// <param name="kind">The SystemAttributeKind of attributes to gather.</param>
+        /// <param name="allocator">Allocator used to create the returned NativeList.</param>
+        /// <returns>A NativeList of SystemAttributes.</returns>
+        public static NativeList<SystemAttribute> GetSystemAttributes(
             SystemTypeIndex systemTypeIndex,
             SystemAttributeKind kind,
             Allocator allocator = Allocator.Temp)
@@ -1407,7 +1469,7 @@ namespace Unity.Entities
                 var systemType = typeRegistry.SystemTypes[i];
                 var typeName = typeRegistry.SystemTypeNames[i];
                 //size is not reliable because there are pointers in system types and we don't want to ban that
-                    
+
                 //var typeSize = typeRegistry.SystemTypeSizes[i];
                 var typeSize = typeof(ISystem).IsAssignableFrom(systemType) ? UnsafeUtility.SizeOf(systemType) : -1;
                 var typeHash = typeRegistry.SystemTypeHashes[i];

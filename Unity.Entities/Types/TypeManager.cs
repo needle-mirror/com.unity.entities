@@ -660,9 +660,9 @@ namespace Unity.Entities
         static List<Type>                               s_Types;
         static UnsafeList<UnsafeText>                   s_TypeNames;
         static UnsafeList<ulong>                        s_TypeFullNameHashes;
-        // This indirection is only needed for DOTS Runtime due to the way it incrementally fills per-assembly type info
-        static NativeArray<int>                         s_DescendantIndex;
-        static NativeArray<int>                         s_DescendantCounts;
+
+        //key is child, value is parent
+        static UnsafeParallelHashMap<TypeIndex, TypeIndex> s_DescendantMap;
 
         /// <summary>
         /// Used by codegen. Function pointer wrapper for unmanaged <seealso cref="ISharedComponentData"/> method overloads
@@ -943,7 +943,7 @@ namespace Unity.Entities
             public   readonly int           WeakAssetRefOffsetCount;
             internal readonly int           WeakAssetRefOffsetStartIndex;
 
-            public   readonly int           UnityObjectRefOffsetCount;
+            internal readonly int           UnityObjectRefOffsetCount;
             internal readonly int           UnityObjectRefOffsetStartIndex;
 
             /// <summary>
@@ -1111,6 +1111,11 @@ namespace Unity.Entities
             return GetUnityObjectRefOffsetsPointer() + typeInfo.UnityObjectRefOffsetStartIndex;
         }
 
+        internal static UnsafeParallelHashMapData* GetDescendantMapPointer()
+        {
+            return (UnsafeParallelHashMapData*)SharedDescendantMap.Ref.Data;
+        }
+
         internal static UnsafeParallelHashMapData* GetStableTypeHashMapPointer()
         {
             return (UnsafeParallelHashMapData*)SharedStableTypeHashes.Ref.Data;
@@ -1189,23 +1194,6 @@ namespace Unity.Entities
         internal static FastEquality.TypeInfo* GetFastEqualityTypeInfoPointer()
         {
             return (FastEquality.TypeInfo*) SharedFastEqualityTypeInfo.Ref.Data;
-        }
-
-        internal static int* GetDescendantCountPointer()
-        {
-            return (int*) SharedDescendantCounts.Ref.Data;
-        }
-
-        internal static int GetDescendantIndex(TypeIndex typeIndex)
-        {
-            var descendantIndex = typeIndex.Index;
-            descendantIndex = GetDescendantIndexPointer()[descendantIndex];
-            return descendantIndex;
-        }
-
-        internal static int* GetDescendantIndexPointer()
-        {
-            return (int*) SharedDescendantIndices.Ref.Data;
         }
 
         internal static ulong* GetFullTypeNameHashesPointer()
@@ -1369,10 +1357,20 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility]
         public static bool IsDescendantOf(TypeIndex typeIndex, TypeIndex baseTypeIndex)
         {
-            var descendantIndex = GetDescendantIndex(typeIndex);
-            var baseDescendantIndex = GetDescendantIndex(baseTypeIndex);
-            var baseTypeEnd = baseDescendantIndex + GetDescendantCountPointer()[baseDescendantIndex];
-            return descendantIndex >= baseDescendantIndex && descendantIndex <= baseTypeEnd;
+            UnsafeParallelHashMap<TypeIndex, TypeIndex> map = default;
+            map.m_Buffer = GetDescendantMapPointer();
+
+            var parent = typeIndex;
+            var iterationCount = 0;
+            while (parent != baseTypeIndex)
+            {
+                iterationCount++;
+                if (!map.TryGetValue(parent, out var newparent))
+                    break;
+                parent = newparent;
+            }
+
+            return parent == baseTypeIndex;
         }
 
         /// <summary>
@@ -1383,8 +1381,28 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new Type[] { typeof(Entity) })]
         public static int GetDescendantCount(TypeIndex typeIndex)
         {
-            var descendantIndex = GetDescendantIndex(typeIndex);
-            return GetDescendantCountPointer()[descendantIndex];
+            UnsafeParallelHashMap<TypeIndex, TypeIndex> map = default;
+            map.m_Buffer = GetDescendantMapPointer();
+            var overallCount = 0;
+            var keyarray = map.GetKeyArray(Allocator.Temp);
+            for (int i = 0; i < map.Count(); i++)
+            {
+                var startingIndex = keyarray[i];
+                var currentIndex = startingIndex;
+                var iterationCount = 0;
+                while (map.TryGetValue(currentIndex, out var parent))
+                {
+                    iterationCount++;
+                    if (parent == typeIndex)
+                    {
+                        overallCount++;
+                        break;
+                    }
+                    currentIndex = parent;
+                }
+            }
+
+            return overallCount;
         }
 
         /// <summary>
@@ -1395,8 +1413,27 @@ namespace Unity.Entities
         [GenerateTestsForBurstCompatibility]
         public static bool HasDescendants(TypeIndex baseTypeIndex)
         {
-            var descendantIndex = GetDescendantIndex(baseTypeIndex);
-            return GetDescendantCountPointer()[descendantIndex] > 0;
+            UnsafeParallelHashMap<TypeIndex, TypeIndex> map = default;
+            map.m_Buffer = GetDescendantMapPointer();
+            var keyarray = map.GetKeyArray(Allocator.Temp);
+            for (int i = 0; i < map.Count(); i++)
+            {
+                var currentIndex = keyarray[i];
+                var iterationCount = 0;
+
+                while (map.TryGetValue(currentIndex, out var parent))
+                {
+                    iterationCount++;
+
+                    if (parent == baseTypeIndex)
+                    {
+                        return true;
+                    }
+                    currentIndex = parent;
+                }
+            }
+
+            return false;
         }
 
         /// <summary>
@@ -1421,7 +1458,7 @@ namespace Unity.Entities
         }
 
         [ExcludeFromBurstCompatTesting("Takes a managed Type")]
-        private static void AddTypeInfoToTables(Type type, TypeInfo typeInfo, string typeName, int descendantCount)
+        private static void AddTypeInfoToTables(Type type, TypeInfo typeInfo, string typeName)
         {
             if (!s_StableTypeHashToTypeIndex.TryAdd(typeInfo.StableTypeHash, typeInfo.TypeIndex))
             {
@@ -1430,7 +1467,7 @@ namespace Unity.Entities
             }
 
             s_TypeInfos[typeInfo.TypeIndex.Index] = typeInfo;
-            s_DescendantCounts[typeInfo.TypeIndex.Index] = descendantCount;
+
             s_Types.Add(type);
 
             var unsafeName = new UnsafeText(Encoding.UTF8.GetByteCount(typeName), Allocator.Persistent);
@@ -1503,15 +1540,14 @@ namespace Unity.Entities
 
                 s_TypeCount = 0;
                 s_TypeInfos = new NativeArray<TypeInfo>(MaximumTypesCount, Allocator.Persistent);
-                s_DescendantIndex = new NativeArray<int>(MaximumTypesCount, Allocator.Persistent);
-                s_DescendantCounts = new NativeArray<int>(MaximumTypesCount, Allocator.Persistent);
+                s_DescendantMap = new UnsafeParallelHashMap<TypeIndex, TypeIndex> (MaximumTypesCount, Allocator.Persistent);
                 s_StableTypeHashToTypeIndex = new UnsafeParallelHashMap<ulong, TypeIndex>(MaximumTypesCount, Allocator.Persistent);
                 s_EntityOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
                 s_BlobAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
                 s_WeakAssetRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
                 s_UnityObjectRefOffsetList = new NativeList<EntityOffsetInfo>(Allocator.Persistent);
                 s_WriteGroupList = new NativeList<TypeIndex>(Allocator.Persistent);
-                s_FastEqualityTypeInfoList = new NativeList<FastEquality.TypeInfo>(Allocator.Persistent);
+                s_FastEqualityTypeInfoList = new NativeList<FastEquality.TypeInfo>(MaximumTypesCount, Allocator.Persistent);
                 s_Types = new List<Type>();
                 s_TypeNames = new UnsafeList<UnsafeText>(MaximumTypesCount, Allocator.Persistent);
                 s_TypeFullNameHashes = new UnsafeList<ulong>(MaximumTypesCount, Allocator.Persistent);
@@ -1570,8 +1606,7 @@ namespace Unity.Entities
 #endif
             Shared_SharedComponentData_FnPtrs.Ref.Data = new IntPtr(s_SharedComponent_FunctionPointers.Ptr);
             SharedTypeInfos.Ref.Data = new IntPtr(s_TypeInfos.GetUnsafePtr());
-            SharedDescendantIndices.Ref.Data = new IntPtr(s_DescendantIndex.GetUnsafePtr());
-            SharedDescendantCounts.Ref.Data = new IntPtr(s_DescendantCounts.GetUnsafePtr());
+            SharedDescendantMap.Ref.Data = new IntPtr(s_DescendantMap.m_Buffer);
             SharedEntityOffsetInfos.Ref.Data = new IntPtr(s_EntityOffsetList.GetUnsafePtr());
             SharedBlobAssetRefOffsets.Ref.Data = new IntPtr(s_BlobAssetRefOffsetList.GetUnsafePtr());
             SharedWeakAssetRefOffsets.Ref.Data = new IntPtr(s_WeakAssetRefOffsetList.GetUnsafePtr());
@@ -1599,8 +1634,7 @@ namespace Unity.Entities
 #endif
             Shared_SharedComponentData_FnPtrs.Ref.Data = default;
             SharedTypeInfos.Ref.Data = default;
-            SharedDescendantIndices.Ref.Data = default;
-            SharedDescendantCounts.Ref.Data = default;
+            SharedDescendantMap.Ref.Data = default;
             SharedEntityOffsetInfos.Ref.Data = default;
             SharedBlobAssetRefOffsets.Ref.Data = default;
             SharedWeakAssetRefOffsets.Ref.Data = default;
@@ -1626,7 +1660,7 @@ namespace Unity.Entities
                     0L, 0L,  -1, 0, 0, 0,
                     TypeManager.MaximumChunkCapacity, 0, -1, false, 0,
                     -1, 0, -1, false, 0, -1, 0, 0L),
-                "null", 0);
+                "null");
 
             // Push Entity TypeInfo
             var entityTypeIndex = new TypeIndex { Value = 1 };
@@ -1648,7 +1682,7 @@ namespace Unity.Entities
                     TypeManager.MaximumChunkCapacity, 0, -1, false, 0,
                     -1, 0, -1, false, 0, -1, UnsafeUtility.SizeOf<Entity>(),
                     bloomFilterMask:0L),
-                "Unity.Entities.Entity", 0);
+                "Unity.Entities.Entity");
 
             SharedTypeIndex<Entity>.Ref.Data = entityTypeIndex;
         }
@@ -1695,8 +1729,7 @@ namespace Unity.Entities
         static void DisposeNative()
         {
             s_TypeInfos.Dispose();
-            s_DescendantIndex.Dispose();
-            s_DescendantCounts.Dispose();
+            s_DescendantMap.Dispose();
             s_StableTypeHashToTypeIndex.Dispose();
             s_EntityOffsetList.Dispose();
             s_BlobAssetRefOffsetList.Dispose();
@@ -1775,7 +1808,9 @@ namespace Unity.Entities
         [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
         static void BurstException<T>()
         {
-            throw new ArgumentException($"Unknown Type:`{typeof(T)}` All ComponentType must be known at compile time & be successfully registered. For generic components, each concrete type must be registered with [RegisterGenericComponentType].");
+            throw new ArgumentException($"Unknown Type:`{typeof(T)}` All Entities component types must be registered with the TypeManager. " +
+                $"For generic components and UnityEngine components, register with [RegisterGenericComponentType] and [RegisterUnityEngineComponentType] respectively. " +
+                $"For component types known only at runtime, register with TypeManager.GetOrCreateTypeIndex().");
         }
 
         static void ManagedException(Type type)
@@ -1788,7 +1823,9 @@ namespace Unity.Entities
             // Otherwise it wasn't registered at all
             else
 #endif
-            throw new ArgumentException($"Unknown Type:`{(type == null ? "null" : type)}` All ComponentType must be known at compile time. For generic components, each concrete type must be registered with [RegisterGenericComponentType].");
+            throw new ArgumentException($"Unknown Type:`{(type == null ? "null" : type)}` All Entities component types must be registered with the TypeManager. " +
+                $"For generic components and UnityEngine components, register with [RegisterGenericComponentType] and [RegisterUnityEngineComponentType] respectively. " +
+                $"For component types known only at runtime, register with TypeManager.GetOrCreateTypeIndex().");
         }
 
         /// <summary>
@@ -2528,13 +2565,21 @@ namespace Unity.Entities
                 || typeof(IBufferElementData).IsAssignableFrom(type);
         }
 
+        static bool IsSupportedUnityEngineObjectType(Type type)
+        {
+            if (!UnityEngineObjectType.IsAssignableFrom(type))
+                return false;
+            if (type.ContainsGenericParameters)
+                return false;
+            if (type.IsAbstract && !typeof(Component).IsAssignableFrom(type))
+                return false;
+            return true;
+        }
+
         static void AddUnityEngineObjectTypeToListIfSupported(HashSet<Type> componentTypeSet, Type type)
         {
-            if (type.ContainsGenericParameters)
-                return;
-            if (type.IsAbstract && !typeof(Component).IsAssignableFrom(type))
-                return;
-            componentTypeSet.Add(type);
+            if (IsSupportedUnityEngineObjectType(type))
+                componentTypeSet.Add(type);
         }
 
         static bool IsInstantiableComponentType(Type type)
@@ -2582,36 +2627,32 @@ namespace Unity.Entities
                 var combinedComponentTypeSet = new HashSet<Type>();
                 var assemblies = AppDomain.CurrentDomain.GetAssemblies();
 
-                // Inject types needed for Hybrid
-
                 UnityEngineObjectType = typeof(UnityEngine.Object);
+
+#if DISABLE_TYPEMANAGER_ILPP
 
                 foreach (var assembly in assemblies)
                 {
                     IsAssemblyReferencingEntitiesOrUnityEngine(assembly, out var isAssemblyReferencingEntities,
                         out var isAssemblyReferencingUnityEngine);
 
-#if !DISABLE_TYPEMANAGER_ILPP
-                    var isAssemblyRelevant = !isAssemblyReferencingEntities && isAssemblyReferencingUnityEngine;
-#else
                     var isAssemblyRelevant = isAssemblyReferencingEntities || isAssemblyReferencingUnityEngine;
-#endif
 
                     if (!isAssemblyRelevant)
                         continue;
 
+
+
                     var assemblyTypes = assembly.GetTypes();
-                    // Register UnityEngine types (Hybrid)
+
                     if (isAssemblyReferencingUnityEngine)
                     {
                         foreach (var type in assemblyTypes)
                         {
-                            if (UnityEngineObjectType.IsAssignableFrom(type))
-                                AddUnityEngineObjectTypeToListIfSupported(combinedComponentTypeSet, type);
+                            AddUnityEngineObjectTypeToListIfSupported(combinedComponentTypeSet, type);
                         }
                     }
 
-#if DISABLE_TYPEMANAGER_ILPP
                     // Register ComponentData types
                     if (isAssemblyReferencingEntities)
                     {
@@ -2630,14 +2671,26 @@ namespace Unity.Entities
                         if (IsSupportedComponentType(type))
                             combinedComponentTypeSet.Add(type);
                     }
+
+                    // Register UnityEngine components
+                    foreach (var unityEngineType in assembly.GetCustomAttributes<RegisterUnityEngineComponentTypeAttribute>())
+                    {
+                        var type = unityEngineType.ConcreteType;
+
+                        if (IsSupportedComponentType(type))
+                            combinedComponentTypeSet.Add(type);
+                    }
+            }
 #endif
-                }
+
 
                 var componentTypeCount = combinedComponentTypeSet.Count;
 
-                //Types to process by reflection include unity engine types and types
+                //Types to process by reflection include types
                 //that have variable size based on bitness and so will have wrong
                 //info on 32 bit platforms.
+
+
                 var typesToProcessByReflection = combinedComponentTypeSet.ToList();
 
                 var indexByType = new Dictionary<Type, int>();
@@ -2689,12 +2742,12 @@ namespace Unity.Entities
                  * now that type indices have been built, we can use them as keys in our hash map
                  */
                 GatherSharedComponentMethods(s_ManagedTypeToIndex);
-
+                 
                 foreach (var typeNode in typeTreeNodes)
                 {
-                    var typeIndex = GetTypeIndex(typeNode.Type).Index;
-                    s_DescendantCounts[typeNode.IndexInTypeArray] = descendantCountByType[typeNode.Type];
-                    s_DescendantIndex[typeIndex] = typeNode.IndexInTypeArray;
+                    var typeIndex = GetTypeIndex(typeNode.Type);
+                    if (typeNode.Parent != null)
+                        s_DescendantMap[typeIndex] = GetTypeIndex(typeNode.Parent.Type);
                 }
 
                 var end = Time.unscaledTime;
@@ -2836,9 +2889,7 @@ namespace Unity.Entities
                     if (expectedTypeIndex != typeIndexNoFlags)
                         throw new InvalidOperationException($"ComponentType.TypeIndex does not match precalculated index for {type}. Expected: {expectedTypeIndex:x8} Actual: {typeIndexNoFlags:x8}");
 
-                    var descendantCount = descendantCountByType[type];
-
-                    AddTypeInfoToTables(type, typeInfo, type.FullName, descendantCount);
+                    AddTypeInfoToTables(type, typeInfo, type.FullName);
                     expectedTypeIndex += 1;
                 }
                 catch (Exception e)
@@ -3144,6 +3195,49 @@ namespace Unity.Entities
                 t.GetFields((BindingFlags)0x34).All(fi => IsZeroSizeStruct(fi.FieldType));
         }
 
+        internal static TypeIndex GetOrCreateTypeIndexUnsafe(Type type)
+        {
+            var typeInfo = BuildComponentType(type, null);
+            AddTypeInfoToTables(type, typeInfo, type.FullName);
+            var ret = GetTypeIndex(type);
+
+            if (typeof(UnityEngine.Object).IsAssignableFrom(type.BaseType))
+            {
+                if (!TryGetTypeIndex(type.BaseType, out var parentIndex))
+                {
+                    s_DescendantMap[ret] = GetOrCreateTypeIndexUnsafe(type.BaseType);
+                }
+                else
+                {
+                    s_DescendantMap[ret] = parentIndex;
+                }
+            }
+
+            return ret;
+        }
+
+        internal static TypeIndex GetOrCreateTypeIndex(Type type)
+        {
+
+            var hadit = TryGetTypeIndex(type, out var ret);
+            if (!hadit)
+            {
+                if (IsSupportedUnityEngineObjectType(type))
+                {
+                    //we do not actually want to shut down shared statics, since
+                    //adding a unityengine object will never cause anything to reallocate. 
+                    ret = GetOrCreateTypeIndexUnsafe(type);
+                }
+                else
+                {
+                    // this will throw, which is what we want in this case. 
+                    return GetTypeIndex(type);
+                }
+
+            }
+            return ret;
+        }
+
         private static ulong ComputeBloomFilterMask(ulong typeHash)
         {
             // This function effectively computes k different hashes from the input typeHash to a single bit in the output
@@ -3174,11 +3268,12 @@ namespace Unity.Entities
         internal static TypeInfo BuildComponentType(Type type, TypeIndex[] writeGroups, BuildComponentCache caches)
         {
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
-            if (!AtomicSafetyHandle.IsDefaultValue(SharedSafetyHandle.Ref.Data))
+            if (!AtomicSafetyHandle.IsDefaultValue(SharedSafetyHandle.Ref.Data) &&
+                (UnityEngineObjectType == null || !UnityEngineObjectType.IsAssignableFrom(type)))
             {
                 // Adding stuff to the native lists whose pointers are cached by Burst statics cause undefined behavior.
                 throw new InvalidOperationException(
-                    $"Cannot call {nameof(BuildComponentType)} when the shared statics are initialized. Please ensure types are built before the type manager initialization completes, or wrap this call in a {nameof(ShutdownSharedStatics)} / {nameof(InitializeSharedStatics)} pair.");
+                    $"Cannot call {nameof(BuildComponentType)} on {type} when the shared statics are initialized. Please ensure types are built before the type manager initialization completes, or wrap this call in a {nameof(ShutdownSharedStatics)} / {nameof(InitializeSharedStatics)} pair.");
             }
 #endif
 
@@ -3430,15 +3525,9 @@ namespace Unity.Entities
         {
             public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedTypeInfos>();
         }
-
-        private struct SharedDescendantIndices
+        private struct SharedDescendantMap
         {
-            public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedDescendantIndices>();
-        }
-
-        private struct SharedDescendantCounts
-        {
-            public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedDescendantCounts>();
+            public static readonly SharedStatic<IntPtr> Ref = SharedStatic<IntPtr>.GetOrCreate<TypeManagerKeyContext, SharedDescendantMap>();
         }
         private struct SharedEntityOffsetInfos
         {
@@ -3675,7 +3764,10 @@ namespace Unity.Entities
                         componentTypeSet.Add(pTypeInfo->Type);
 
                         SharedTypeIndex.Get(type) = pTypeInfo->TypeIndex;
-                        s_ManagedTypeToIndex.TryAdd(type, pTypeInfo->TypeIndex);
+                        if (!s_ManagedTypeToIndex.TryAdd(type, pTypeInfo->TypeIndex))
+                        {
+                            s_ManagedTypeToIndex[type] = pTypeInfo->TypeIndex;
+                        }
 
                         AddFastEqualityInfo(type, pTypeInfo->Category == TypeCategory.UnityEngineObject);//, caches.FastEqualityLayoutInfoCache);
 

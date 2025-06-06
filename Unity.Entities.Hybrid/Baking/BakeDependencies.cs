@@ -506,7 +506,7 @@ namespace Unity.Entities.Baking
                     AddObjectReference(referencedInstanceID);
 
                     var obj = Resources.InstanceIDToObject(referencedInstanceID);
-                    var objTypeId = TypeManager.GetTypeIndex(referencedObject.GetType());
+                    var objTypeId = TypeManager.GetOrCreateTypeIndex(referencedObject.GetType());
                     AddObjectExist(new ObjectExistDependency { InstanceID = referencedInstanceID, exists = (obj != null), Type = objTypeId });
 
 #if UNITY_EDITOR

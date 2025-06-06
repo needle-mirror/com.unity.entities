@@ -83,8 +83,45 @@ namespace Unity.Entities.Editor.Tests
             var entityView = entityViews.FirstOrDefault();
             Assert.That(entityView, Is.Not.Null);
 #if !DOTS_DISABLE_DEBUG_NAMES
-            Assert.That(entityView.Q<Label>(className: UssClasses.EntityView.EntityName).text, Is.EqualTo("QueryWithEntitiesView_Entity0"));
+            Assert.That(entityView.Q<Label>(className: UssClasses.EntityView.EntityNameEntity).text, Is.EqualTo("QueryWithEntitiesView_Entity0"));
 #endif
+        }
+
+        struct QueryTestTag : IComponentData {}
+
+        [Test]
+        public void QueryWithEntitiesView_DisplaysPrefabsAsPrefabs()
+        {
+            var entity0 = m_World.EntityManager.CreateEntity(typeof(Simulate), typeof(QueryTestTag), typeof(Prefab));
+            var entity1 = m_World.EntityManager.CreateEntity(typeof(Simulate), typeof(QueryTestTag));
+
+            try
+            {
+                var query = new EntityQueryBuilder(Allocator.Temp)
+                    .WithAll<Simulate, QueryTestTag>()
+                    .WithOptions(EntityQueryOptions.IncludePrefab)
+                    .Build(m_World.EntityManager);
+                var data = new QueryWithEntitiesViewData(m_World, query);
+                var el = new QueryWithEntitiesView(data);
+                el.Update();
+
+                var entityViews = el.Query<EntityView>().ToList();
+                Assume.That(entityViews.Count, Is.EqualTo(2));
+
+                var view0 = entityViews[0];
+                var view1 = entityViews[1];
+
+                Assert.That(view0.Q<VisualElement>(className: UssClasses.EntityView.EntityIconPrefab), Is.Not.Null);
+                Assert.That(view1.Q<VisualElement>(className: UssClasses.EntityView.EntityIconEntity), Is.Not.Null);
+
+                Assert.That(view0.Q<Label>(className: UssClasses.EntityView.EntityNamePrefab), Is.Not.Null);
+                Assert.That(view1.Q<Label>(className: UssClasses.EntityView.EntityNameEntity), Is.Not.Null);
+            }
+            finally
+            {
+                m_World.EntityManager.DestroyEntity(entity0);
+                m_World.EntityManager.DestroyEntity(entity1);
+            }
         }
     }
 }

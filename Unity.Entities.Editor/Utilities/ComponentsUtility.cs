@@ -13,9 +13,13 @@ namespace Unity.Entities.Editor
         {
             // TODO(ECSB-387): This method does not support queries with >1 query descriptions, each of which should be represented individually.
             var desc = query.GetEntityQueryDescs()[0];
-            return desc.All.Concat(desc.Any)
+            return desc.All
+                .Concat(desc.Any)
                 .Select(t => new ComponentViewData(t.GetManagedType(), TypeUtility.GetTypeDisplayName(t.GetManagedType()), t.AccessModeType, GetComponentKind(t)))
                 .Concat(desc.None.Select(t => new ComponentViewData(t.GetManagedType(), TypeUtility.GetTypeDisplayName(t.GetManagedType()), ComponentType.AccessMode.Exclude, GetComponentKind(t))))
+                .Concat(desc.Disabled.Select(t => new ComponentViewData(t.GetManagedType(), TypeUtility.GetTypeDisplayName(t.GetManagedType()), ComponentType.AccessMode.ReadWrite, GetComponentKind(t), ComponentViewData.QueryOptions.Disabled)))
+                .Concat(desc.Present.Select(t => new ComponentViewData(t.GetManagedType(), TypeUtility.GetTypeDisplayName(t.GetManagedType()), ComponentType.AccessMode.ReadWrite, GetComponentKind(t), ComponentViewData.QueryOptions.Present)))
+                .Concat(desc.Absent.Select(t => new ComponentViewData(t.GetManagedType(), TypeUtility.GetTypeDisplayName(t.GetManagedType()), ComponentType.AccessMode.ReadWrite, GetComponentKind(t), ComponentViewData.QueryOptions.Absent)))
                 .OrderBy(x => x);
         }
 

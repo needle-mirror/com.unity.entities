@@ -1,4 +1,5 @@
 * [Entities package](index.md)
+  * [What's new](whats-new.md)
 * [Upgrade guide](upgrade-guide.md)
 * [Get started](getting-started.md)
   * [Installation](getting-started-installation.md)
@@ -43,7 +44,6 @@
         * [Create a dynamic buffer component](components-buffer-create.md)
         * [Set the capacity of a dynamic buffer](components-buffer-set-capacity.md)
         * [Access dynamic buffers in a chunk](components-buffer-get-all-in-chunk.md)
-        * [Reuse a dynamic buffer for multiple entities](components-buffer-reuse.md)
         * [Access dynamic buffers from jobs](components-buffer-jobs.md)
         * [Modify dynamic buffers with an entity command buffer](components-buffer-command-buffer.md)
         * [Reinterpret a dynamic buffer](components-buffer-reinterpret.md)

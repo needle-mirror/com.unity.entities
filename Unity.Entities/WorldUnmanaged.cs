@@ -649,6 +649,25 @@ namespace Unity.Entities
             }
         }
 
+        /// <summary>
+        /// Retrieves the SystemHandle for the system of the specified SystemTypeIndex, creating the system if it does not already exist.
+        /// The system in question must be unmanaed, i.e. be an unmanaged struct implementing ISystem. 
+        /// </summary>
+        /// <param name="t">The SystemTypeIndex of the desired system.</param>
+        /// <returns>A SystemHandle.</returns>
+        /// <remarks>In the case that the specified system is created, the system's OnCreate will be called automatically.</remarks>
+        [ExcludeFromBurstCompatTesting("Uses managed World")]
+        public SystemHandle GetOrCreateUnmanagedSystem(SystemTypeIndex t)
+        {
+            if (t.IsManaged)
+            {
+                throw new ArgumentException("The provided SystemTypeIndex targets a managed system.");
+            }
+
+            return GetOrCreateUnmanagedSystem(t, true);
+
+        }
+
         [ExcludeFromBurstCompatTesting("Uses managed World")]
         internal SystemHandle GetOrCreateUnmanagedSystem(SystemTypeIndex t, bool callOnCreate = true)
         {
@@ -666,6 +685,22 @@ namespace Unity.Entities
         internal SystemHandle CreateUnmanagedSystem(Type t, bool callOnCreate)
         {
             return CreateUnmanagedSystem(TypeManager.GetSystemTypeIndex(t), callOnCreate);
+        }
+
+        /// <summary>
+        /// Creates an unmanaged system with the specified SystemTypeIndex and returns its SystemHandle.
+        /// </summary>
+        /// <param name="t">The target SystemTypeIndex for the new system.</param>
+        /// <returns>A SystemHandle.</returns>
+        /// <remarks>In the case that the specified system is created, the system's OnCreate will be called automatically.</remarks>
+        public SystemHandle CreateUnmanagedSystem(SystemTypeIndex t)
+        {
+            if (t.IsManaged)
+            {
+                throw new ArgumentException("The provided SystemTypeIndex targets a managed system.");
+            }
+
+            return CreateUnmanagedSystem(t, true);
         }
 
         internal SystemHandle CreateUnmanagedSystem(SystemTypeIndex t, bool callOnCreate)
@@ -1072,6 +1107,9 @@ namespace Unity.Entities
         /// update.  Therefore user should not cache the world update allocator. </remarks>
         public ref RewindableAllocator UpdateAllocator => ref GetImpl().DoubleUpdateAllocators->Allocator;
 
+        /// <summary>
+        /// Manually update the double update allocators.  This switches to the other allocator and rewinds the newly switched allocator.
+        /// </summary>
         public void ResetUpdateAllocator()
         {
             GetImpl().DoubleUpdateAllocators->Update();
@@ -1176,6 +1214,18 @@ namespace Unity.Entities
             }
 
             return null;
+        }
+
+        /// <summary>
+        /// Gets the SystemTypeIndex for the system corresponding to the provided SystemHandle.
+        /// </summary>
+        /// <param name="SystemHandle">The SystemHandle</param>
+        /// <returns>A SystemTypeIndex</returns>
+        /// <exception cref="InvalidOperationException">Thrown if the system handle could not be resolved to a SystemTypeIndex.</exception>
+        public SystemTypeIndex GetSystemTypeIndex(SystemHandle SystemHandle)
+        {
+            SystemState* s = ResolveSystemStateChecked(SystemHandle);
+            return s->m_SystemTypeIndex;
         }
 
         /// <summary>

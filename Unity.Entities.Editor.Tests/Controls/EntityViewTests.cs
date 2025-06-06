@@ -22,8 +22,8 @@ namespace Unity.Entities.Editor.Tests
             var entityView1 = new EntityView(new EntityViewData(world, entities[1]));
             Assert.That(entityView0.Q<VisualElement>(className: UssClasses.EntityView.GoTo), Is.Not.Null);
             Assert.That(entityView1.Q<VisualElement>(className: UssClasses.EntityView.GoTo), Is.Not.Null);
-            Assert.That(entityView0.Q<Label>(className: UssClasses.EntityView.EntityName).text, Is.EqualTo("EntityViewTest_Entity0"));
-            Assert.That(entityView1.Q<Label>(className: UssClasses.EntityView.EntityName).text, Is.EqualTo("EntityViewTest_Entity1"));
+            Assert.That(entityView0.Q<Label>(className: UssClasses.EntityView.EntityNameEntity).text, Is.EqualTo("EntityViewTest_Entity0"));
+            Assert.That(entityView1.Q<Label>(className: UssClasses.EntityView.EntityNameEntity).text, Is.EqualTo("EntityViewTest_Entity1"));
         }
     }
 }

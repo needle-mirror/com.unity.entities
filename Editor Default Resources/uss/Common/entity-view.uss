@@ -12,7 +12,7 @@
     padding: 3px;
 }
 
-.entity-view__icon {
+.entity-view__icon-entity {
     width: 16px;
     height: 16px;
     margin-right: 3px;
@@ -21,7 +21,16 @@
     background-image: var(--entity-icon);
 }
 
-.entity-view__name {
+.entity-view__icon-prefab {
+    width: 16px;
+    height: 16px;
+    margin-right: 3px;
+    flex-shrink: 0;
+    flex-grow: 0;
+    background-image: var(--prefab-entity-icon);
+}
+
+.entity-view__name-entity {
     margin: 0;
     padding: 0;
     flex-grow: 1;
@@ -29,6 +38,17 @@
     min-width: 0;
     overflow: hidden;
     text-overflow: ellipsis;
+}
+
+.entity-view__name-prefab {
+    margin: 0;
+    padding: 0;
+    flex-grow: 1;
+    flex-shrink: 1;
+    min-width: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    color: var(--prefab-font-color);
 }
 
 .entity-view__goto {

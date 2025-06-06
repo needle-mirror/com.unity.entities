@@ -105,7 +105,10 @@ namespace Unity.Entities.Editor
         public static class EntityView
         {
             const string k_Base = "entity-view";
-            public const string EntityName = k_Base + "__name";
+            public const string EntityNameEntity = k_Base + "__name-entity";
+            public const string EntityNamePrefab = k_Base + "__name-prefab";
+            public const string EntityIconEntity = k_Base + "__icon-entity";
+            public const string EntityIconPrefab = k_Base + "__icon-prefab";
             public const string GoTo = k_Base + "__goto";
         }
 

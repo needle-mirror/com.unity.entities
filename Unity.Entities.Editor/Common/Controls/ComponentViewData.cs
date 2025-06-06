@@ -8,13 +8,15 @@ namespace Unity.Entities.Editor
         public readonly string Name;
         public readonly ComponentType.AccessMode AccessMode;
         public readonly ComponentKind Kind;
+        public readonly QueryOptions QueryOption;
 
-        public ComponentViewData(Type inComponentType, string name, ComponentType.AccessMode accessMode, ComponentKind componentKind)
+        public ComponentViewData(Type inComponentType, string name, ComponentType.AccessMode accessMode, ComponentKind componentKind, QueryOptions queryOption = QueryOptions.Default)
         {
             InComponentType = inComponentType;
             Name = name;
             AccessMode = accessMode;
             Kind = componentKind;
+            QueryOption = queryOption;
         }
 
         public int CompareTo(ComponentViewData other)
@@ -45,6 +47,14 @@ namespace Unity.Entities.Editor
             Shared = 3,
             Chunk = 4,
             Managed = 5
+        }
+
+        internal enum QueryOptions : byte
+        {
+            Default = 0,
+            Disabled = 1,
+            Present = 2,
+            Absent = 3,
         }
     }
 }

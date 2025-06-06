@@ -34,7 +34,7 @@ namespace Unity.Entities
     {
         /// <summary>
         /// Called at the beginning of every chunk iteration in the <see cref="IJobEntity"/>.
-        /// It also tells whether or not to run `Execute` on the current <see cref="IJobEntity"/>.
+        /// It also tells whether or not to run `Execute` on the current chunk/>.
         /// </summary>
         /// <remarks>
         /// Note that the <paramref name="chunkEnabledMask"/> value passed to this function is also used to determine

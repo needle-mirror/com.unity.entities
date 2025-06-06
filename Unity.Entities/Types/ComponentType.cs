@@ -496,6 +496,10 @@ namespace Unity.Entities
         [ExcludeFromBurstCompatTesting("Takes managed object")]
         public override bool Equals(object obj) => obj is ComponentType type && type == this;
 
+        /// <summary>
+        /// A hash used for comparisons.
+        /// </summary>
+        /// <returns>A unique hash code.</returns>
         public override int GetHashCode()
         {
             unchecked

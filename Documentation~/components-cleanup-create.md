@@ -32,6 +32,15 @@ To perform cleanup for entities of a specific archetype:
       1. Perform the appropriate cleanup work for the entities.
       1. Remove the relevant cleanup component(s) from the entities.
 
+Example system which adds the cleanup component:
+[!code-cs[Add a cleanup Component](../DocCodeSamples.Tests/CreateComponentExamples.cs#add-cleanup)]
+
+Example system which destroys entities that have the tag component:
+[!code-cs[Destroy Entity with tag Component](../DocCodeSamples.Tests/CreateComponentExamples.cs#destroy-entity)]
+
+Example system which removes the cleanup component:
+[!code-cs[Remove the cleanup Component](../DocCodeSamples.Tests/CreateComponentExamples.cs#remove-cleanup)]
+
 ## Additional resources
 
 * [Tag components](components-tag.md)

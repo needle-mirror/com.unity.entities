@@ -96,7 +96,7 @@ namespace Unity.Entities
     /// [ComponentSystemBase.GetEntityQuery]: xref:Unity.Entities.ComponentSystemBase.GetEntityQuery*
     /// [ComponentSystemBase.RequireForUpdate]: xref:Unity.Entities.ComponentSystemBase.RequireForUpdate*
     /// [Entities.ForEach]: xref:iterating-data-entities-foreach
-    /// [Job.WithCode]: xref:iterating-data-entities-foreach
+    /// [Job.WithCode]: xref:Unity.Entities.SystemBase.Job
     /// </remarks>
     [RequireDerived]
     public unsafe abstract partial class SystemBase : ComponentSystemBase
@@ -145,7 +145,7 @@ namespace Unity.Entities
         /// [JobHandle]: https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.html
         /// [JobHandle.CombineDependencies]: https://docs.unity3d.com/ScriptReference/Unity.Jobs.JobHandle.CombineDependencies.html
         /// [Entities.ForEach]: xref:iterating-data-entities-foreach
-        /// [Job.WithCode]: xref:job-with-code
+        /// [Job.WithCode]: xref:Unity.Entities.SystemBase.Job
         /// </remarks>
         [DebuggerBrowsable(DebuggerBrowsableState.Never)]
         protected JobHandle Dependency { get => CheckedState()->Dependency; set => CheckedState()->Dependency = value; }
@@ -302,7 +302,7 @@ namespace Unity.Entities
         protected internal ForEachLambdaJobDescription Entities => new ForEachLambdaJobDescription();
 
         /// <summary>
-        /// Provides a mechanism for defining and executing an [IJob].
+        /// Provides a mechanism for defining and executing an IJob instance.
         /// </summary>
         /// <remarks>
         /// The Jobs property provides a convenient mechanism for implementing single jobs. Unity uses a compiler

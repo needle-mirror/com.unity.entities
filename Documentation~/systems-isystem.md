@@ -46,7 +46,7 @@ There are several callback methods within `ISystem` that Unity invokes at variou
 
 The following diagram illustrates a system's event order:
 
-![](images/SystemEventOrder.png)
+![A diagram depicting a system's event order: OnCreate, OnStartRunning, OnUpdate, OnStopRunning, and OnDestroy.](images/SystemEventOrder.png)
 
 A parent [system group's](systems-update-order.md) `OnUpdate` method triggers the `OnUpdate` methods of all the systems in its group. For more information about how systems update, see [Update order of systems](systems-update-order.md#update-order-of-systems). 
 

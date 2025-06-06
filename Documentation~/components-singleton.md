@@ -11,24 +11,8 @@ The Entities package contains several APIs you can use to work with singleton co
 |**Namespace**|**Method**|
 |---|---|
 |**[EntityManager](xref:Unity.Entities.EntityManager)**|[CreateSingleton](xref:Unity.Entities.EntityManager.CreateSingleton*)|
-|**[EntityQuery](xref:Unity.Entities.EntityQuery)**|[GetSingletonEntity](xref:Unity.Entities.EntityQuery.GetSingletonEntity)|
-||[GetSingleton](xref:Unity.Entities.EntityQuery.GetSingleton*)|
-||[GetSingletonRW](xref:Unity.Entities.EntityQuery.GetSingletonRW*)|
-||[TryGetSingleton](xref:Unity.Entities.EntityQuery.TryGetSingleton*)|
-||[HasSingleton](xref:Unity.Entities.EntityQuery.HasSingleton*)|
-||[TryGetSingletonBuffer](xref:Unity.Entities.EntityQuery.TryGetSingletonBuffer*)|
-||[TryGetSingletonEntity](xref:Unity.Entities.EntityQuery.TryGetSingletonEntity*)|
-||[GetSingletonBuffer](xref:Unity.Entities.EntityQuery.GetSingletonBuffer*)| 
-||[SetSingleton](xref:Unity.Entities.EntityQuery.SetSingleton*)|
-|**[SystemAPI](xref:Unity.Entities.SystemAPI)**|[GetSingletonEntity](xref:Unity.Entities.SystemAPI.GetSingletonEntity*)|
-||[GetSingleton](xref:Unity.Entities.SystemAPI.GetSingleton*)|
-||[GetSingletonRW](xref:Unity.Entities.SystemAPI.GetSingletonRW*)|
-||[TryGetSingleton](xref:Unity.Entities.SystemAPI.TryGetSingleton*)|
-||[HasSingleton](xref:Unity.Entities.SystemAPI.HasSingleton*)|
-||[TryGetSingletonBuffer](xref:Unity.Entities.SystemAPI.TryGetSingletonBuffer*)|
-||[TryGetSingletonEntity](xref:Unity.Entities.SystemAPI.TryGetSingletonEntity*)|
-||[GetSingletonBuffer](xref:Unity.Entities.SystemAPI.GetSingletonBuffer*)|
-||[SetSingleton](xref:Unity.Entities.SystemAPI.SetSingleton*)|
+|**[EntityQuery](xref:Unity.Entities.EntityQuery)**|<ul><li>[GetSingletonEntity](xref:Unity.Entities.EntityQuery.GetSingletonEntity)</li><li>[GetSingleton](xref:Unity.Entities.EntityQuery.GetSingleton*)</li><li>[GetSingletonRW](xref:Unity.Entities.EntityQuery.GetSingletonRW*)</li><li>[TryGetSingleton](xref:Unity.Entities.EntityQuery.TryGetSingleton*)</li><li>[HasSingleton](xref:Unity.Entities.EntityQuery.HasSingleton*)</li><li>[TryGetSingletonBuffer](xref:Unity.Entities.EntityQuery.TryGetSingletonBuffer*)</li><li>[TryGetSingletonEntity](xref:Unity.Entities.EntityQuery.TryGetSingletonEntity*)</li><li>[GetSingletonBuffer](xref:Unity.Entities.EntityQuery.GetSingletonBuffer*)</li><li>[SetSingleton](xref:Unity.Entities.EntityQuery.SetSingleton*)</li></ul>|
+|**[SystemAPI](xref:Unity.Entities.SystemAPI)**|<ul><li>[GetSingletonEntity](xref:Unity.Entities.SystemAPI.GetSingletonEntity*)</li><li>[GetSingleton](xref:Unity.Entities.SystemAPI.GetSingleton*)</li><li>[GetSingletonRW](xref:Unity.Entities.SystemAPI.GetSingletonRW*)</li><li>[TryGetSingleton](xref:Unity.Entities.SystemAPI.TryGetSingleton*)</li><li>[HasSingleton](xref:Unity.Entities.SystemAPI.HasSingleton*)</li><li>[TryGetSingletonBuffer](xref:Unity.Entities.SystemAPI.TryGetSingletonBuffer*)</li><li>[TryGetSingletonEntity](xref:Unity.Entities.SystemAPI.TryGetSingletonEntity*)</li><li>[GetSingletonBuffer](xref:Unity.Entities.SystemAPI.GetSingletonBuffer*)</li><li>[SetSingleton](xref:Unity.Entities.SystemAPI.SetSingleton*)</li></ul>|
 
 It's useful to use the singleton component APIs in situations where you know that there's only one instance of a component. For example, if you have a single-player application and only need one instance of a `PlayerController` component, you can use the singleton APIs to simplify your code. Additionally, in server-based architecture, client-side implementations typically track timestamps for their instance only, so the singleton APIs are convenient and simplify a lot of hand written code.
 

@@ -22,7 +22,7 @@ Use [`SystemAPI.GetBuffer`](xref:Unity.Entities.SystemAPI.GetBuffer*):<br/><br/>
 <code class="lang-c#">
 int childCount(ref SystemState state, Entity e)
 {
-  return SystemAPI.GetBuffer<Child>(e).Length;
+  return SystemAPI.GetBuffer&ltChild&gt(e).Length;
 }
 </code>
 </pre>
@@ -41,7 +41,7 @@ Use the Mathematics package [`normalize`](https://docs.unity3d.com/Packages/com.
 <code class="lang-c#">
 float3 forward(ref SystemState state, Entity e)
 {
-  return math.normalize(SystemAPI.GetComponent<LocalToWorld>(e).Forward);
+  return math.normalize(SystemAPI.GetComponent&ltLocalToWorld&gt(e).Forward);
 }
 </code>
 </pre>
@@ -60,7 +60,7 @@ Use [`LocalTransform.Position`](xref:Unity.Transforms.LocalTransform.Position):<
 <code class="lang-c#">
 float3 localPosition(ref SystemState state, Entity e)
 {
-  return SystemAPI.GetComponent<LocalTransform>(e).Position;
+  return SystemAPI.GetComponent&ltLocalTransform&gt(e).Position;
 }
 </code>
 </pre>
@@ -80,7 +80,7 @@ Use [`LocalTransform.Rotation`](xref:Unity.Transforms.LocalTransform.Rotation):<
 <code class="lang-c#">
 quaternion localRotation(ref SystemState state, Entity e)
 {
-  return SystemAPI.GetComponent<LocalTransform>(e).Rotation;
+  return SystemAPI.GetComponent&ltLocalTransform&gt(e).Rotation;
 }
 </code>
 </pre>
@@ -101,12 +101,12 @@ Use [`LocalTransform.Scale`](xref:Unity.Transforms.LocalTransform.Scale) and [`P
 <code class="lang-c#">
 float3 localScale(ref SystemState state, Entity e)
 {
-  float scale = SystemAPI.GetComponent<LocalTransform>(e).Scale;
-  if ( SystemAPI.HasComponent<PostTransformMatrix>(e))
+  float scale = SystemAPI.GetComponent&ltLocalTransform&gt(e).Scale;
+  if ( SystemAPI.HasComponent&ltPostTransformMatrix&gt(e))
   {
     // If PostTransformMatrix contains skew, returned value will be inexact,
     // and diverge from GameObjects.
-    float4x4 ptm = SystemAPI.GetComponent<PostTransformMatrix>(e).Value;
+    float4x4 ptm = SystemAPI.GetComponent&ltPostTransformMatrix&gt(e).Value;
     float lx = math.length(ptm.c0.xyz);
     float ly = math.length(ptm.c1.xyz);
     float lz = math.length(ptm.c2.xyz);
@@ -136,7 +136,7 @@ Use [`LocalToWorld.Value`](xref:Unity.Transforms.LocalToWorld.Value):<br/><br/>
 <code class="lang-c#">
 float4x4 localToWorldMatrix(ref SystemState state, Entity e)
 {
-  return SystemAPI.GetComponent<LocalToWorld>(e).Value;
+  return SystemAPI.GetComponent&ltLocalToWorld&gt(e).Value;
 }
 </code>
 </pre>
@@ -159,7 +159,7 @@ float3 lossyScale(ref SystemState state, Entity e)
 {
   // If LocalToWorld contains skew, returned value will be inexact,
   // and diverge from GameObjects.
-  float4x4 l2w = SystemAPI.GetComponent<LocalToWorld>(e).Value;
+  float4x4 l2w = SystemAPI.GetComponent&ltLocalToWorld&gt(e).Value;
   float lx = math.length(l2w.c0.xyz);
   float ly = math.length(l2w.c1.xyz);
   float lz = math.length(l2w.c2.xyz);
@@ -184,7 +184,7 @@ Use [`Parent.Value`](xref:Unity.Transforms.Parent.Value):<br/><br/>
 <code class="lang-c#">
 Entity parent(ref SystemState state, Entity e)
 {
-  return SystemAPI.GetComponent<Parent>(e).Value;
+  return SystemAPI.GetComponent&ltParent&gt(e).Value;
 }
 </code>
 </pre>
@@ -205,7 +205,7 @@ Use [`LocalToWorld.Position`](xref:Unity.Transforms.LocalToWorld.Position):<br/>
 <code class="lang-c#">
 float3 position(ref SystemState state, Entity e)
 {
-  return SystemAPI.GetComponent<LocalToWorld>(e).Position;
+  return SystemAPI.GetComponent&ltLocalToWorld&gt(e).Position;
 }
 </code>
 </pre>
@@ -226,7 +226,7 @@ Use the Mathematics package [`normalize`](https://docs.unity3d.com/Packages/com.
 <code class="lang-c#">
 float3 right(ref SystemState state, Entity e)
 {
-  return math.normalize(SystemAPI.GetComponent<LocalToWorld>(e).Right);
+  return math.normalize(SystemAPI.GetComponent&ltLocalToWorld&gt(e).Right);
 }
 </code>
 </pre>
@@ -247,9 +247,9 @@ Use [`Parent.Value`](xref:Unity.Transforms.Parent.Value):<br/><br/>
 <code class="lang-c#">
 Entity root(ref SystemState state, Entity e)
 {
-  while (SystemAPI.HasComponent<Parent>(e))
+  while (SystemAPI.HasComponent&ltParent&gt(e))
   {
-    e = SystemAPI.GetComponent<Parent>(e).Value;
+    e = SystemAPI.GetComponent&ltParent&gt(e).Value;
   }
   return e;
 }
@@ -272,7 +272,7 @@ Use [`LocalToWorld.Value`](xref:Unity.Transforms.LocalToWorld.Value):<br/><br/>
 <code class="lang-c#">
 quaternion rotation(ref SystemState state, Entity e)
 {
-  return SystemAPI.GetComponent<LocalToWorld>(e).Value.Rotation();
+  return SystemAPI.GetComponent&ltLocalToWorld&gt(e).Value.Rotation();
 }
 </code>
 </pre>
@@ -293,7 +293,7 @@ Use the Mathematics package [`normalize`](https://docs.unity3d.com/Packages/com.
 <code class="lang-c#">
 float3 up(ref SystemState state, Entity e)
 {
-  return math.normalize(SystemAPI.GetComponent<LocalToWorld>(e).Up);
+  return math.normalize(SystemAPI.GetComponent&ltLocalToWorld&gt(e).Up);
 }
 </code>
 </pre>
@@ -314,7 +314,7 @@ Use the Mathematics package [`inverse`](https://docs.unity3d.com/Packages/com.un
 <code class="lang-c#">
 float4x4 worldToLocalMatrix(ref SystemState state, Entity e)
 {
-  return math.inverse(SystemAPI.GetComponent<LocalToWorld>(e).Value);
+  return math.inverse(SystemAPI.GetComponent&ltLocalToWorld&gt(e).Value);
 }
 </code>
 </pre>
@@ -355,9 +355,9 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 void DetachChildren(ref SystemState state, Entity e)
 {
-  DynamicBuffer<Child> buffer = SystemAPI.GetBuffer<Child>(e);
-  state.EntityManager.RemoveComponent(buffer.AsNativeArray().Reinterpret<Entity>(),
-                                      ComponentType.ReadWrite<Parent>());
+  DynamicBuffer&ltChild&gt buffer = SystemAPI.GetBuffer&ltChild&gtt(e);
+  state.EntityManager.RemoveComponent(buffer.AsNativeArray().Reinterpret&ltEntity&gt(),
+                                      ComponentType.ReadWrite&ltParent&gt());
 }
 </code>
 </pre>
@@ -378,7 +378,7 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 Child child(ref SystemState state, Entity e, int index)
 {
-  return SystemAPI.GetBuffer<Child>(e)[index];
+  return SystemAPI.GetBuffer&ltChild&gt(e)[index];
 }
 </code>
 </pre>
@@ -399,7 +399,7 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 void GetLocalPositionAndRotation(ref SystemState state, Entity e, out float3 localPosition, out quaternion localRotation)
 {
-  LocalTransform transform = SystemAPI.GetComponent<LocalTransform>(e);
+  LocalTransform transform = SystemAPI.GetComponent&ltLocalTransform&gt(e);
   localPosition = transform.Position;
   localRotation = transform.Rotation;
 }
@@ -422,7 +422,7 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 void GetPositionAndRotation(ref SystemState state, Entity e, out float3 position, out quaternion rotation)
 {
-  LocalToWorld l2w = SystemAPI.GetComponent<LocalToWorld>(e);
+  LocalToWorld l2w = SystemAPI.GetComponent&ltLocalToWorld&gt(e);
   position = l2w.Value.Translation();
   rotation = l2w.Value.Rotation();
 }
@@ -445,7 +445,7 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 float3 InverseTransformDirection(ref SystemState state, Entity e, float3 direction)
 {
-  LocalToWorld l2w = SystemAPI.GetComponent<LocalToWorld>(e);
+  LocalToWorld l2w = SystemAPI.GetComponent&ltLocalToWorld&gt(e);
   return math.inverse(l2w.Value).TransformDirection(direction);
 }
 </code>
@@ -467,7 +467,7 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 float3 InverseTransformPoint(ref SystemState state, Entity e, float3 position)
 {
-  LocalToWorld l2w = SystemAPI.GetComponent<LocalToWorld>(e);
+  LocalToWorld l2w = SystemAPI.GetComponent&ltLocalToWorld&gt(e);
   return math.inverse(l2w.Value).TransformPoint(worldPoint);
 }
 </code>
@@ -489,7 +489,7 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 float3 InverseTransformVector(ref SystemState state, Entity e, float3 vector)
 {
-  return math.inverse(SystemAPI.GetComponent<LocalToWorld>(e).Value)
+  return math.inverse(SystemAPI.GetComponent&ltLocalToWorld&gt(e).Value)
          .TransformDirection(vector);
 }
 </code>
@@ -511,8 +511,8 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 bool IsChildOf(ref SystemState state, Entity e, Entity parent)
 {
-  return SystemAPI.HasComponent<Parent>(e)
-         && SystemAPI.GetComponent<Parent>(e).Value == parent;
+  return SystemAPI.HasComponent&ltParent&gt(e)
+         && SystemAPI.GetComponent&ltParent&gt(e).Value == parent;
 }
 </code>
 </pre>
@@ -533,13 +533,13 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 void LookAt(ref SystemState state, Entity e, float3 target, float3 worldUp)
 {
-  if (SystemAPI.HasComponent<Parent>(e))
+  if (SystemAPI.HasComponent&ltParent&gt(e))
   {
-    Entity parent = SystemAPI.GetComponent<Parent>(e).Value;
-    float4x4 parentL2W = SystemAPI.GetComponent<LocalToWorld>(parent).Value;
+    Entity parent = SystemAPI.GetComponent&ltParent&gt(e).Value;
+    float4x4 parentL2W = SystemAPI.GetComponent&ltLocalToWorld&gt(parent).Value;
     target = math.inverse(parentL2W).TransformPoint(target);
   }
-  LocalTransform transform = SystemAPI.GetComponent<LocalTransform>(e);
+  LocalTransform transform = SystemAPI.GetComponent&ltLocalTransform&gt(e);
   quaternion rotation = quaternion.LookRotationSafe(target, worldUp);
   SystemAPI.SetComponent(e, transform.WithRotation(rotation));
 }
@@ -564,7 +564,7 @@ With `Space.Self`, or if the entity has no parent:<br/><br/>
 <code class="lang-c#">
 public void Rotate(ref SystemState state, Entity e, quaternion rotation)
 {
-  LocalTransform transform = SystemAPI.GetComponent<LocalTransform>(e);
+  LocalTransform transform = SystemAPI.GetComponent&ltLocalTransform&gt(e);
   rotation = math.mul(rotation, transform.Rotation);
   SystemAPI.SetComponent(e, transform.WithRotation(rotation));
 }
@@ -577,13 +577,13 @@ With `Space.World`, and the entity may have a parent:<br/><br/>
 <code class="lang-c#">
 void Rotate(ref SystemState state, Entity e, quaternion rotation)
 {
-  if (SystemAPI.HasComponent<Parent>(e))
+  if (SystemAPI.HasComponent&ltParent&gt(e))
   {
-    Entity parent = SystemAPI.GetComponent<Parent>(e).Value;
-    float4x4 parentL2W = SystemAPI.GetComponent<LocalToWorld>(parent).Value;
+    Entity parent = SystemAPI.GetComponent&ltParent&gt(e).Value;
+    float4x4 parentL2W = SystemAPI.GetComponent&ltLocalToWorld&gt(parent).Value;
     rotation = math.inverse(parentL2W).TransformRotation(rotation);
   }
-  LocalTransform transform = SystemAPI.GetComponent<LocalTransform>(e);
+  LocalTransform transform = SystemAPI.GetComponent&ltLocalTransform&gt(e);
   rotation = math.mul(rotation, transform.Rotation);
   SystemAPI.SetComponent(e, transform.WithRotation(rotation));
 }
@@ -607,15 +607,15 @@ Use the following:<br/><br/>
 public void RotateAround(ref SystemState state, Entity e, float3 point, float3 axis, float angle)
 {
   // Note: axis should be of unit length
-  if (SystemAPI.HasComponent<Parent>(e))
+  if (SystemAPI.HasComponent&ltParent&gt(e))
   {
-    Entity parent = SystemAPI.GetComponent<Parent>(e).Value;
-    float4x4 parentL2W = SystemAPI.GetComponent<LocalToWorld>(parent).Value;
+    Entity parent = SystemAPI.GetComponent&ltParent&gt(e).Value;
+    float4x4 parentL2W = SystemAPI.GetComponent&ltLocalToWorld&gt(parent).Value;
     float4x4 invParentL2W = math.inverse(parentL2W);
     point = invParentL2W.TransformPoint(point);
     axis = invParentL2W.TransformDirection(axis);
   }
-  var transform = SystemAPI.GetComponent<LocalTransform>(e);
+  var transform = SystemAPI.GetComponent&ltLocalTransform&gt(e);
   var q = quaternion.AxisAngle(axis, angle);
   transform.Position = point + math.mul(q, transform.Position - point);
   transform.Rotation = math.mul(q, transform.Rotation);
@@ -672,8 +672,8 @@ With `worldPositionStays`:<br/><br/>
 <code class="lang-c#">
 void SetParent(ref SystemState state, Entity e, Entity parent)
 {
-  float4x4 childL2W = SystemAPI.GetComponent<LocalToWorld>(e).Value;
-  float4x4 parentL2W = SystemAPI.GetComponent<LocalToWorld>(parent).Value;
+  float4x4 childL2W = SystemAPI.GetComponent&ltLocalToWorld&gt(e).Value;
+  float4x4 parentL2W = SystemAPI.GetComponent&ltLocalToWorld&gt(parent).Value;
   float4x4 temp = math.mul(math.inverse(parentL2W), childL2W);
 
   SystemAPI.SetComponent(e, new Parent { Value = parent});
@@ -709,10 +709,10 @@ If the entity has a parent:<br/><br/>
 <code class="lang-c#">
 void SetPositionAndRotationB(ref SystemState state, Entity e, float3 position, quaternion rotation)
 {
-  if (SystemAPI.HasComponent<Parent>(e))
+  if (SystemAPI.HasComponent&ltParent&gt(e))
   {
-    Entity parent = SystemAPI.GetComponent<Parent>(e).Value;
-    float4x4 parentL2W = SystemAPI.GetComponent<LocalToWorld>(parent).Value;
+    Entity parent = SystemAPI.GetComponent&ltParent&gt(e).Value;
+    float4x4 parentL2W = SystemAPI.GetComponent&ltLocalToWorld&gt(parent).Value;
     float4x4 invParentL2W = math.inverse(parentL2W);
     position = invParentL2W.TransformPoint(position);
     rotation = invParentL2W.TransformRotation(rotation);
@@ -738,7 +738,7 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 float3 TransformDirection(ref SystemState state, Entity e, float3 direction)
 {
-  float3 temp = SystemAPI.GetComponent<LocalToWorld>(e).Value.TransformDirection(direction);
+  float3 temp = SystemAPI.GetComponent&ltLocalToWorld&gt(e).Value.TransformDirection(direction);
   return temp * (math.length(direction) / math.length(temp));
 }
 </code>
@@ -760,7 +760,7 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 float3 TransformPoint(ref SystemState state, Entity e, float3 position)
 {
-  return SystemAPI.GetComponent<LocalToWorld>(e).Value.TransformPoint(position);
+  return SystemAPI.GetComponent&ltLocalToWorld&gt(e).Value.TransformPoint(position);
 }
 </code>
 </pre>
@@ -781,7 +781,7 @@ Use the following:<br/><br/>
 <code class="lang-c#">
 float3 TransformVector(ref SystemState state, Entity e, float3 vector)
 {
-  return SystemAPI.GetComponent<LocalToWorld>(e).Value.TransformDirection(vector);
+  return SystemAPI.GetComponent&ltLocalToWorld&gt(e).Value.TransformDirection(vector);
 }
 </code>
 </pre>
@@ -802,7 +802,7 @@ With `Space.Self`, or if the entity has no parent:<br/><br/>
 <code class="lang-c#">
 void Translate(ref SystemState state, Entity e, float3 translation)
 {
-  SystemAPI.GetComponentRW<LocalTransform>(e, false).ValueRW.Position += translation;
+  SystemAPI.GetComponentRW&ltLocalTransform&gt(e, false).ValueRW.Position += translation;
 }
 </code>
 </pre>
@@ -813,13 +813,13 @@ With `Space.World`, and the entity may have a parent:<br/><br/>
 <code class="lang-c#">
 void Translate(ref SystemState state, Entity e, float3 translation)
 {
-  if (SystemAPI.HasComponent<Parent>(e))
+  if (SystemAPI.HasComponent&ltParent&gt(e))
   {
-    Entity parent = SystemAPI.GetComponent<Parent>(e).Value;
-    float4x4 parentL2W = SystemAPI.GetComponent<LocalToWorld>(parent).Value;
+    Entity parent = SystemAPI.GetComponent&ltParent&gt(e).Value;
+    float4x4 parentL2W = SystemAPI.GetComponent&ltLocalToWorld&gt(parent).Value;
     translation = math.inverse(parentL2W).TransformDirection(translation);
   }
-  SystemAPI.GetComponentRW<LocalTransform>(e, false).ValueRW.Position += translation;
+  SystemAPI.GetComponentRW&ltLocalTransform&gt(e, false).ValueRW.Position += translation;
 }
 </code>
 </pre>

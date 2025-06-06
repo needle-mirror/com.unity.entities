@@ -12,7 +12,7 @@ You can use the [Archetypes window](editor-archetypes-window.md) to inspect all 
 
 The Archetypes window also displays the chunk capacity, which is the number of entities that fit in a single chunk. It also displays the number of chunks an archetype allocated, how many entities are being hosted, and how many entities fit in the unused space. A maximum of 128 entities can fit in a chunk, so the chunk capacity will never be higher.
 
-![](images/editor-archetypes-window.png)<br/>_Archetypes window with an archetype selected_
+![Archetypes window with an archetype selected](images/editor-archetypes-window.png)<br/>_Archetypes window with an archetype selected_
 
 You can use this information to check for different cases of chunk fragmentation. First, you can filter by archetypes that have a high number of chunks to find possible cases of chunk fragmentation. Then, you can categorize those cases according to the rest of the states:
 
@@ -48,7 +48,7 @@ Sometimes, alternatives like [chunk components](components-chunk.md) can be usef
 
 Another cause of chunk fragmentation is prefabs. You can instantiate prefab entities to dynamically create new entities at runtime, but the prefabs themselves aren’t the same as the entities which are instantiated from them. Prefab entities have a [`Prefab`](xref:Unity.Entities.Prefab) component which causes [entity queries](systems-entityquery-intro.md) to implicitly ignore them. In the following image, the archetype has most of its space unused. The presence of the `Prefab` component in the list makes it a prefab archetype.
 
-![](images/archetype-chunks-prefab.png)<br/>_Archetypes window with an archetype selected_
+![Archetypes window with an archetype selected](images/archetype-chunks-prefab.png)<br/>_Archetypes window with an archetype selected_
 
 The `EntityManager` strips this component from the new copies during instantiation, meaning that [systems](systems-intro.md) operate on the instanced entities but leave the original prefab alone. This means that prefabs have a different archetype to the entities they instantiate, and if you load several prefabs with different archetypes, each prefab occupies its own 16 KiB chunk. The memory overheads of these prefabs can add up quickly, so if for example you’re making a procedurally generated game that uses lots of different prefabs, make sure you know how many prefabs are loaded into memory at any one time.
 

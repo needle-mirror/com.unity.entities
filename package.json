@@ -1,12 +1,12 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.4.0-exp.2",
+  "version": "1.4.0-pre.3",
   "unity": "2022.3",
-  "unityRelease": "11f1",
+  "unityRelease": "20f1",
   "dependencies": {
-    "com.unity.burst": "1.8.19",
-    "com.unity.collections": "2.6.0-exp.2",
+    "com.unity.burst": "1.8.21",
+    "com.unity.collections": "2.6.0-pre.3",
     "com.unity.mathematics": "1.3.2",
     "com.unity.nuget.mono-cecil": "1.11.5",
     "com.unity.profiling.core": "1.0.2",
@@ -27,15 +27,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Added\n\n* Added `ComponentLookup.TryGetRefRW()` and `ComponentLookup.TryGetRefRO()` methods, to safely ask for references to components which may not be present on the target entity.\n* DisableBootstrapOverridesAttribute can be used on types or assemblies with `ICustomBootstrap` to prevent them from being the used bootstrap.\n* Missing API documentation has been added for IAspect.Lookup\n* RemoteContentCatalogBuildUtility.PublishContent method with enumerable file list as input instead of a directory name.  This allows for creating the update with only the files included in the catalog instead of just copying everything in the folder, which can lead to unwanted files getting included.\n* New `ArchetypeChunk.GetBufferAccessorRO<T>()` and `ArchetypeChunk.GetBufferAccessorRW<T>()` methods allow users to request a specific access mode to a chunk's buffer component data, potentially avoiding an unnecessary write dependency when asking for read-only access through a read-write type handle.\n* New `ArchetypeChunk.GetUntypedBufferAccessorReinterpret<T>(ref DynamicComponentTypeHandle, int expectedSize)` method allows creating a typed `BufferAccessor` from an untyped component handle. The source and destination buffer types must be safely aliasable in memory, including both the element size and internal buffer capacity.\n\n### Changed\n\n* Updated the `com.unity.burst` dependency to version `1.8.19`\n* Entities.ForEach marked as obsolete.  In order to consolidate our API and improve iteration time, we have decided to remove Entities.ForEach in a future major release of Entities. The two replacement APIs for Entities.ForEach are IJobEntity and SystemAPI.Query. Both Entities.ForEach and Aspects will remain supported in 1.x packages of Entities.\n* IAspect marked as obsolete.  In order to consolidate our API and improve iteration time, we have decided to remove Aspects in a future major release of Entities. Component and EntityQuery APIs should be used directly in the future instead of Aspects.  Both Entities.ForEach and Aspects will remain supported in 1.x packages of Entities.\n\n### Deprecated\n\n* Deprecated `ComponentLookup.GetRefRWOptional()` and `ComponentLookup.GetRefROOptional()`. These methods should only be used to implement the `[Optional]` attribute in Aspect source generation, and should never have been part of the package's public API. User code should prefer the new `TryGetRefRO()` and `TryGetRefRW()` methods.\n\n### Fixed\n\n* Optimized usage of `IEntitiesPlayerSettings.GetFilterSettings()` by hoisting getting `BakingSystemFilterSettings` out of loops.\n* The debug checks in AddComponent methods to protect against exceeding the maximum size of a single entity now handle chunk components correctly.\n* Bug where Debug Breakpoints weren't hit correctly when you had comments in your ISystem/SystemBase code.\n* InvalidOperationException when Exclusive Entity Transaction was pending while creating Entity Remap Array\n* Slight performance improvement on SetSharedComponentManaged.\n* fixed compile error when an IJobEntity is inside a namespace which contains conditional using statements\n* No longer get an SGICE002 when typing incomplete/invalid typeargs e.g. SystemAPI.Query<RefRW<>>\n* Failure to add IJobEntity Attributes like WithAll, WithOptions etc when using full attribute name e.g. WithAllAttribute\n* Failure to query for the right component when using generic component with copy semantic e.g. `SystemAPI.Query<Holder<int>>` would query `int` instead of `Holder<int>`\n* CompanionComponents no longer throw an error in LiveBaking when being updated.\n* Fixed horizontal alignment of field values when viewing `WeakObjectReference` and `UnityObjectRef` instances in the Inspector.\n* a memory leak was reported from the EntitiesComponentStore upon entering playmode a second time from the editor if at least one entity was created with the custom bootstrap disabled (`UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP`, `UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_RUNTIME_WORLD` or `UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP_EDITOR_WORLD`). The leak has been addressed an"
+    "changelog": "### Added\n\n* The SystemTypeIndex associated with a SystemHandle can now be retrieved. Furthermore, multiple methods, which allow for better system access, have been added.\n* Disabled, Present, Absent and None components on queries in the System inspector.\n* Dependency tab in the System inspector, which shows the components a system depends on.\n* Prefabs now stand out as prefabs in the query window.\n\n### Changed\n\n* ChunkEntityEnumerator performance has been improved in every case except when running with useEnabledMask = false on Mono where it got about twice as slow. If this is problematic, use a for loop instead in this particular case.\n* Updated Burst dependency to version 1.8.21\n\n### Fixed\n\n* `ComponentLookup.TryGetRefRW<T>()` now correctly updates the change version for type `T` in the target chunk.\n* Now you can use fully specified generic components as parameter in an IJobEntity.Execute\n* Now you can use conditional using statements in the middle of other using statements when you have a source file containing an IJobEntity\n* Multiple issues in the entities documentation has been fixed.\n* FastEquality returned incorrect results for nested structs.\n* Referencing a UnityEngine.Component in a UnityObjectRef, no longer causes build errors.\n* When the clone of a companion GameObject is instantiated (during Live Conversion) it is now placed inside the correct scene on instantiation.\n* `SystemAPI.Query` no longer generates duplicate component references if `.WithChangeFilter<T>()` is used in with `.WithDisabled<T>()` or `.WithPresent<T>()`.\n* Removed a broken link to the SystemInstance structure in the package documentation.\n* TypeManager.Initialize is much faster due to lazily registering companion component types."
   },
   "upmCi": {
-    "footprint": "f5694e00b2a8b4df8dfb09e3cb352d1d6d44acff"
+    "footprint": "4b183da93f63540ce1079e41b95f0ef5edb53681"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.4/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "1c507bcdc4eaebca77bc8a6d4eac199cdcbb391e"
+    "revision": "1d68bdee543beb5e992946669847cdae6fd48d36"
   }
 }

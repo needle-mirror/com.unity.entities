@@ -5,7 +5,7 @@ The Archetypes window displays how much allocated and unused memory ECS has allo
 To open the Archetypes window, go to **Window &gt; Entities &gt; Archetypes**.
 
 
-![](images/editor-archetypes-window.png)<br/>_Archetypes window with an archetype selected_
+![Archetypes window with an archetype selected](images/editor-archetypes-window.png)<br/>_Archetypes window with an archetype selected_
 
 To see more information about an archetype, click to select it. The information appears in the panel on the right. 
 

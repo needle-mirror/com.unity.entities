@@ -302,7 +302,7 @@ namespace Unity.Entities
         /// </remarks>
         IgnoreComponentEnabledState = 8,
         /// <summary>
-        /// The query does not exclude the special <see cref="SystemInstance"/> component.
+        /// The query does not exclude the SystemInstance component, which is a component attached to Entities belonging to systems.
         /// </summary>
         IncludeSystems = 16,
         /// <summary>

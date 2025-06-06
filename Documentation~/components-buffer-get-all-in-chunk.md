@@ -10,5 +10,4 @@ The following code sample shows how to access every dynamic buffer of a type in 
 
 ## Additional resources
 
-* [Reuse a dynamic buffer for multiple entities](components-buffer-reuse.md)
 * [Modify dynamic buffers with an `EntityCommandBuffer`](components-buffer-command-buffer.md)

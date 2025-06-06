@@ -353,7 +353,7 @@ namespace Unity.Entities.CodeGen
 
             // For any found generic components, validate the user has registered the closed form with the assembly
             var genericComponents = AssemblyDefinition.CustomAttributes
-                .Where(ca => ca.AttributeType.Name == "RegisterGenericComponentTypeAttribute")
+                .Where(ca => ca.AttributeType.Name == "RegisterGenericComponentTypeAttribute" || ca.AttributeType.Name == "RegisterUnityEngineComponentTypeAttribute")
                 .Select(ca => ca.ConstructorArguments.First().Value as TypeReference)
                 .Distinct();
             foreach (var genericComponent in genericComponents)
@@ -363,7 +363,7 @@ namespace Unity.Entities.CodeGen
                     components.Add(genericComponent);
                 }
                 else
-                    throw new Exception($"Unable to register component type {genericComponent} specified with RegisterGenericComponentType.");
+                    throw new Exception($"Unable to register component type {genericComponent} specified with RegisterGenericComponentType or RegisterUnityEngineComponentType.");
             }
 
             if (invalidAutoSystems.Any())

@@ -24,19 +24,17 @@ It's recommended to run code on the main thread in the following situations:
 * When you're manipulating a tiny amount of data that no other jobs operate on, so you don't generate any sync points, and the job scheduling overhead is therefore larger than any speedup from parallelism.
 * When you're doing something that can only be done on the main thread, like [structural changes](concepts-structural-changes.md), interactions with GameObject-based code, or calling core Unity engine APIs that are main-thread-only.
 
-If one of these situations applies, avoid the job system entirely by using an idiomatic `foreach`. This approach still has some CPU overhead because the job dependency system waits for dependencies of other jobs that run on other threads to prevent introducing a race condition.
+If one of these situations applies, avoid the job system entirely by using an idiomatic `foreach`. If you run the job on the main thread, it has some CPU overhead that an idiomatic `foreach` does not because the job dependency system has some guards against race conditions that are unnecessary when running directly on the main thread.
 
 ## Configure job worker count
 
-You can configure the number of worker threads that your application uses with [`JobUtility.JobWorkerCount`](xref:Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount). Set `JobUtility.JobWorkerCount` so that your application uses enough worker threads to perform the work it requires without introducing CPU bottlenecks, but not so many worker threads that they spend a lot of time idle. Reducing the number of worker threads reduces job overhead because there are fewer jobs scheduled by `ScheduleParallel`, but increases the amount of work that each job does.
+You can configure the number of worker threads that your application uses with [`JobUtility.JobWorkerCount`](xref:Unity.Jobs.LowLevel.Unsafe.JobsUtility.JobWorkerCount). Set `JobUtility.JobWorkerCount` so that your application uses enough worker threads to perform the work it requires without introducing CPU bottlenecks, but not so many worker threads that they spend a lot of time idle. Reducing the number of worker threads can reduce job overhead at times; however, in successive releases of the Unity engine (including patch releases), we continue to make changes to the underlying C++ job system to improve performance and reduce job overhead in a variety of situations. That means that as you upgrade to new versions of Unity, you may see lower amounts of job overhead in some cases on some platforms, and that may change your best choice for worker count, batch size, and other variables. Experimentation on target hardware is the best way to optimize this number. 
 
 ## Measuring scheduling changes
 
 To test the changes you make, [use the Profiler to collect data](xref:um-profiler-collect-data) and then check the [CPU Usage Profiler module's Timeline view](xref:um-profiler-cpu) to find out where the worker threads in your project spend time.
 
-You can also use native profiling tools such as Instruments to check if the CPU spends more time scheduling the job than it takes to execute it. If the system only schedules jobs but its marker is bigger than the job's marker, then you might have scheduling overhead issues. In the following screenshot, the time spent in `MatrixPreviousInitializationSystem` was only scheduling time because its the only operation this system does. The time took to execute the job was bigger, so the system doesn't have any scheduling overhead issues.
-
-![](images/instruments-capture.png)
+You can also use native profiling tools such as Instruments, Windows Performance Recorder, Superluminal, and others to compare the amount of time it takes to schedule jobs to the amount of time they take to execute, and how much parallelism is enabled by each system and job.
  
 ## Additional resources
 

@@ -8,6 +8,9 @@ namespace Unity.Entities.Editor
         static readonly string k_ReadOnly = L10n.Tr("Read");
         static readonly string k_ReadWrite = L10n.Tr("Read & Write");
         static readonly string k_Exclude = L10n.Tr("Exclude");
+        static readonly string k_Disabled = L10n.Tr("Disabled");
+        static readonly string k_Present = L10n.Tr("Present");
+        static readonly string k_Absent = L10n.Tr("Absent");
 
         ComponentViewData m_Data;
         readonly Label m_ComponentName;
@@ -43,13 +46,26 @@ namespace Unity.Entities.Editor
             m_Data = data;
             m_ComponentName.text = data.Name;
 
-            m_AccessMode.text = data.AccessMode switch
+            if (data.QueryOption != ComponentViewData.QueryOptions.Default)
             {
-                ComponentType.AccessMode.ReadOnly => k_ReadOnly,
-                ComponentType.AccessMode.ReadWrite => k_ReadWrite,
-                ComponentType.AccessMode.Exclude => k_Exclude,
-                _ => string.Empty
-            };
+                m_AccessMode.text = data.QueryOption switch
+                {
+                    ComponentViewData.QueryOptions.Disabled => k_Disabled,
+                    ComponentViewData.QueryOptions.Present => k_Present,
+                    ComponentViewData.QueryOptions.Absent => k_Absent,
+                    _ => string.Empty
+                };
+            }
+            else
+            {
+                m_AccessMode.text = data.AccessMode switch
+                {
+                    ComponentType.AccessMode.ReadOnly => k_ReadOnly,
+                    ComponentType.AccessMode.ReadWrite => k_ReadWrite,
+                    ComponentType.AccessMode.Exclude => k_Exclude,
+                    _ => string.Empty
+                };
+            }
         }
 
         static string GetClassForKind(ComponentViewData.ComponentKind kind) => kind switch

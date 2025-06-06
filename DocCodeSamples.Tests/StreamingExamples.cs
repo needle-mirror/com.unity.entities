@@ -226,7 +226,7 @@ public class SceneLoaderAuthoring : MonoBehaviour
 
 #region sceneloading_instancing3
 
-    [UpdateInGroup(typeof(ProcessAfterLoadGroup))]
+    [WorldSystemFilter(WorldSystemFilterFlags.ProcessAfterLoad)]
     public partial struct PostprocessSystem : ISystem
     {
         private EntityQuery offsetQuery;

@@ -21,6 +21,7 @@ If you want full manual control of bootstrapping, use these defines to  disable 
 * `#UNITY_DISABLE_AUTOMATIC_SYSTEM_BOOTSTRAP`: Disables generation of both default worlds.
 
 Your code is then responsible for creating your worlds and systems, plus inserting updates of your worlds into the Unity scriptable [PlayerLoop](xref:UnityEngine.LowLevel.PlayerLoop).
+For more information on how to manage systems in multiple worlds, refer to [Manage systems in multiple worlds](systems-icustombootstrap.md).
 
 Unity uses [`WorldFlags`](xref:Unity.Entities.WorldFlags) to create specialized worlds in the Editor.
 

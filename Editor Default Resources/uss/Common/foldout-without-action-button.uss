@@ -25,6 +25,7 @@
 
 .foldout-without-action-button__count {
     margin-right: 3px;
+    margin-left: 3px;
     min-width: 0;
     -unity-font-style: normal;
     color: var(--section-count-color);

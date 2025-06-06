@@ -68,10 +68,7 @@ The following is a list of all the supported `Execute` parameters you can use in
 |`Entity`| Gets the current entity. This is a value copy only, so don't mark with `ref` or `in`.|
 |`DynamicBuffer<T>`| Gets the `DynamicBuffer`. Mark with `ref` for read-write access and `in` for read-only access.|
 |`IAspect`| Gets the Aspect. Aspects act as references so you can't assign them. However, you can use `ref` and value-copy to mark it as read-write, and `in` for read-only access.|
-|`int`| There are three supported ints:|
-|| Mark the `int` with the attribute `[Unity.Entities.ChunkIndexInQuery]` to get the current archetype chunk index in a query.  |
-||Mark the `int` with the attribute `[Unity.Entities.EntityIndexInChunk]` to get the current entity index in the current archetype chunk. You can add `EntityIndexInChunk` and `ChunkIndexInQuery` to get a unique identifier per entity.|
-||Mark the `int` with the attribute `[Unity.Entities.EntityIndexInQuery]` to get the packed index of the query. This parameter internally uses `EntityQuery.CalculateBaseEntityIndexArray[Async]` which negatively affects performance.|
+|`int`| There are three supported ints:<ul><li> Mark the `int` with the attribute `[Unity.Entities.ChunkIndexInQuery]` to get the current archetype chunk index in a query.</li><li>Mark the `int` with the attribute `[Unity.Entities.EntityIndexInChunk]` to get the current entity index in the current archetype chunk. You can add `EntityIndexInChunk` and `ChunkIndexInQuery` to get a unique identifier per entity.</li><li>Mark the `int` with the attribute `[Unity.Entities.EntityIndexInQuery]` to get the packed index of the query. This parameter internally uses `EntityQuery.CalculateBaseEntityIndexArray[Async]` which negatively affects performance.</li></ul>|
 
 
 ## Additional resources

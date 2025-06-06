@@ -1,3 +1,4 @@
+using System;
 using System.Runtime.CompilerServices;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
@@ -13,11 +14,8 @@ namespace Unity.Entities
     [GenerateTestsForBurstCompatibility]
     public struct ChunkEntityEnumerator
     {
-        private int Iter;
-        private ulong mask64_0;
-        private ulong mask64_1;
-        private readonly bool UseEnabledMask;
-        private readonly int ChunkEntityCount;
+        ulong mask64_0;
+        ulong mask64_1;
 
         /// <summary>
         /// Construct a new instance.
@@ -29,71 +27,51 @@ namespace Unity.Entities
         /// this chunk should be included in the iteration. This mask is ignored if <paramref name="useEnabledMask"/>
         /// is false. You can pass this value directly from the argument provided to <see cref="IJobChunk.Execute"/>.</param>
         /// <param name="chunkEntityCount">The number of entities in the chunk.</param>
+        [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public ChunkEntityEnumerator(bool useEnabledMask, v128 chunkEnabledMask, int chunkEntityCount)
         {
-            UseEnabledMask = useEnabledMask;
-            Iter = 0;
-            ChunkEntityCount = chunkEntityCount;
-            mask64_0 = chunkEnabledMask.ULong0;
-            mask64_1 = chunkEnabledMask.ULong1;
+            mask64_0 = useEnabledMask ? chunkEnabledMask.ULong0 : ~0ul;
+            mask64_1 = useEnabledMask ? chunkEnabledMask.ULong1 : ~0ul;
+
+            if (chunkEntityCount < 128)
+            {
+                if (chunkEntityCount < 64)
+                {
+                    mask64_0 &= ~(~0ul << chunkEntityCount);
+                    mask64_1 = 0;
+                }
+                else
+                {
+                    mask64_1 &= ~(~0ul << (chunkEntityCount - 64));
+                }
+            }
         }
 
         /// <summary>
-        /// Iterates through the given <see cref="ArchetypeChunk"/>, retrieving the index of the next available entity.
-        /// This function will pass over any entities whose components implement <see cref="IEnableableComponent"/> and
-        /// are currently disabled.
+        /// Iterates through the given <see cref="ArchetypeChunk"/>, retrieving the index of the next available entity
+        /// as defined by the mask info provided to the constructor.
         /// </summary>
-        /// <param name="nextIndex">The index of the next available entity in the ArchetypeChunk. when the function
-        /// returns false, this result is undefined. </param>
-        /// <returns>whether or not there is another available index within the ArchetypeChunk,
-        /// based on the last available iteration</returns>
+        /// <param name="nextIndex">The index of the next available entity in the ArchetypeChunk,
+        /// or -1 when the function returns false.</param>
+        /// <returns>Whether the iteration should continue.</returns>
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
         public bool NextEntityIndex(out int nextIndex)
         {
-            if (!UseEnabledMask)
+            if (mask64_0 != 0)
             {
-                nextIndex = Iter;
-                Iter++;
-                return Iter <= ChunkEntityCount;
+                nextIndex = math.tzcnt(mask64_0);
+                mask64_0 &= mask64_0 - 1;
+                return true;
             }
 
-
-            return NextEntityEnabledMask(out nextIndex);
-        }
-
-        [MethodImpl(MethodImplOptions.AggressiveInlining)]
-        internal bool NextEntityEnabledMask(out int nextIndex)
-        {
-            int count = math.min(64,ChunkEntityCount);
-            while(Iter < count)
+            if (mask64_1 != 0)
             {
-                if ((mask64_0 & 1) != 0)
-                {
-                    nextIndex = Iter;
-                    Iter++;
-                    mask64_0 >>= 1;
-                    return true;
-                }
-
-                mask64_0 >>= 1;
-                Iter++;
+                nextIndex = math.tzcnt(mask64_1) + 64;
+                mask64_1 &= mask64_1 - 1;
+                return true;
             }
 
-            while(Iter < ChunkEntityCount)
-            {
-                if ((mask64_1 & 1) != 0)
-                {
-                    nextIndex = Iter;
-                    Iter++;
-                    mask64_1 >>= 1;
-                    return true;
-                }
-
-                mask64_1 >>= 1;
-                Iter++;
-            }
-
-            nextIndex = Iter;
+            nextIndex = -1;
             return false;
         }
     }

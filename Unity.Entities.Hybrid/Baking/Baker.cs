@@ -169,7 +169,7 @@ namespace Unity.Entities
         {
             gameObject.GetComponents<T>(components);
 
-            _State.Dependencies->DependOnGetComponents(gameObject.GetInstanceID(), TypeManager.GetTypeIndex<T>(), components, BakeDependencies.GetComponentDependencyType.GetComponent);
+            _State.Dependencies->DependOnGetComponents(gameObject.GetInstanceID(), TypeManager.GetOrCreateTypeIndex(typeof(T)), components, BakeDependencies.GetComponentDependencyType.GetComponent);
 
             foreach (var component in components)
             {
@@ -263,7 +263,7 @@ namespace Unity.Entities
         {
             var component = gameObject.GetComponentInParent<T>(kDefaultIncludeInactive);
 
-            _State.Dependencies->DependOnGetComponent(gameObject.GetInstanceID(), TypeManager.GetTypeIndex<T>(), component != null ? component.GetInstanceID() : 0, BakeDependencies.GetComponentDependencyType.GetComponentInParent);
+            _State.Dependencies->DependOnGetComponent(gameObject.GetInstanceID(), TypeManager.GetOrCreateTypeIndex(typeof(T)), component != null ? component.GetInstanceID() : 0, BakeDependencies.GetComponentDependencyType.GetComponentInParent);
 
             // Transform component takes an implicit dependency on the entire parent hierarchy
             // since transform.position and friends returns a value calculated from all parents

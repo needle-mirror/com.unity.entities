@@ -4,6 +4,35 @@ uid: changelog
 
 # Changelog
 
+## [1.4.0-pre.3] - 2025-06-06
+
+### Added
+
+* The SystemTypeIndex associated with a SystemHandle can now be retrieved. Furthermore, multiple methods, which allow for better system access, have been added.
+* Disabled, Present, Absent and None components on queries in the System inspector.
+* Dependency tab in the System inspector, which shows the components a system depends on.
+* Prefabs now stand out as prefabs in the query window.
+
+### Changed
+
+* ChunkEntityEnumerator performance has been improved in every case except when running with useEnabledMask = false on Mono where it got about twice as slow. If this is problematic, use a for loop instead in this particular case.
+* Updated Burst dependency to version 1.8.21
+
+### Fixed
+
+* `ComponentLookup.TryGetRefRW<T>()` now correctly updates the change version for type `T` in the target chunk.
+* Now you can use fully specified generic components as parameter in an IJobEntity.Execute
+* Now you can use conditional using statements in the middle of other using statements when you have a source file containing an IJobEntity
+* Multiple issues in the entities documentation has been fixed.
+* FastEquality returned incorrect results for nested structs.
+* Referencing a UnityEngine.Component in a UnityObjectRef, no longer causes build errors.
+* When the clone of a companion GameObject is instantiated (during Live Conversion) it is now placed inside the correct scene on instantiation.
+* `SystemAPI.Query` no longer generates duplicate component references if `.WithChangeFilter<T>()` is used in with `.WithDisabled<T>()` or `.WithPresent<T>()`.
+* Removed a broken link to the SystemInstance structure in the package documentation.
+* TypeManager.Initialize is much faster due to lazily registering companion component types.
+
+
+
 ## [1.4.0-exp.2] - 2025-03-07
 
 ### Added
@@ -49,6 +78,33 @@ uid: changelog
 * Eliminated code size problems caused by ConstructComponentFromBuffer
 * Compile error when certain attributes are used on systems
 * The `WorldUpdateAllocator` available in Baking systems is now correctly rewound between baking World updates.
+
+
+## [1.3.14] - 2025-04-11
+
+* Updated the `com.unity.burst` dependency to version `1.8.19`
+* The minimum supported editor version is now 2022.3.20f1
+
+### Fixed
+
+* The debug checks in AddComponent methods to protect against exceeding the maximum size of a single entity now handle chunk components correctly.
+* Bug where Debug Breakpoints weren't hit correctly when you had comments in your ISystem/SystemBase code.
+* CompanionComponents no longer throw an error in LiveBaking when being updated.
+* Content update builds no longer grow larger with each build.
+* Fixed horizontal alignment of field values when viewing `WeakObjectReference` and `UnityObjectRef` instances in the Inspector.
+* Fixed Inspector not initializing when exiting PlayMode with Entity selected.
+* Added better URI checking for remote root and changes the failure fallback code to switch to streaming assets if there is not a local remote catalog file, which can happen when content delivery is enabled but not set up yet.
+* CalculateStableTypeHash now won't throw when called on non-component types.
+* Eliminated code size problems caused by ConstructComponentFromBuffer
+* Compile error when certain attributes are used on systems
+* Fix compile error due to an ambiguous reference to `DecalProjector` if both HDRP and URP packages are included in the same project.
+* The Systems window no longer throws an error if ECS systems are added to the player loop outside of the three default system groups.
+* `DestroyEntity(EntityQuery)` no longer throws if the query matches an entity with a `LinkedEntityGroup` containing a destroyed entity with a cleanup component.
+* The `WorldUpdateAllocator` available in Baking systems is now correctly rewound between baking World updates.
+* Fixed SystemAPIs called from property declarations not working correctly.
+* When the clone of a companion GameObject is instantiated (during Live Conversion) it is now placed inside the correct scene on instantiation.
+* Fixed: When the clone of a companion GameObject is instantiated (during Live Conversion) it is now placed inside the correct scene on instantiation.
+* Fixing SystemScheduleWindow test failure
 
 
 ## [1.3.10] - 2025-02-17

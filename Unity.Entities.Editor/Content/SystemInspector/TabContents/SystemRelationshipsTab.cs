@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    class SystemRelationships : ITabContent
+    class SystemRelationshipsTab : ITabContent
     {
         public string TabName { get; } = L10n.Tr("Relationships");
 
@@ -19,14 +19,14 @@ namespace Unity.Entities.Editor
 
         public void OnTabVisibilityChanged(bool isVisible) => m_IsVisible = isVisible;
 
-        public SystemRelationships(SystemEntities entities, SystemDependencies systemDependencies)
+        public SystemRelationshipsTab(SystemEntities entities, SystemDependencies systemDependencies)
         {
             m_Entities = entities;
             m_SystemDependencies = systemDependencies;
         }
 
         [UsedImplicitly]
-        class SystemEntitiesInspector : PropertyInspector<SystemRelationships>
+        class SystemEntitiesInspector : PropertyInspector<SystemRelationshipsTab>
         {
             static readonly string k_SystemDependenciesSection = L10n.Tr("Scheduling Constraints");
 

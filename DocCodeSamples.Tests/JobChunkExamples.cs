@@ -113,12 +113,14 @@ namespace Doc.CodeSamples.Tests
             }
 
             #region chunk-has-component
-            // If entity has Rotation and LocalToWorld components,
+
+            // If the chunk contains Rotation and LocalToWorld components,
             // slerp to align to the velocity vector
-            NativeArray<Rotation> rotations = chunk.GetNativeArray(ref RotationTypeHandle);
-            NativeArray<LocalToWorld> transforms = chunk.GetNativeArray(ref LocalToWorldTypeHandle);
-            if (rotations.IsCreated && transforms.IsCreated)
+            if (chunk.Has<Rotation>() && chunk.Has<LocalToWorld>())
             {
+                NativeArray<Rotation> rotations = chunk.GetNativeArray(ref RotationTypeHandle);
+                NativeArray<LocalToWorld> transforms = chunk.GetNativeArray(ref LocalToWorldTypeHandle);
+
                 // By putting the loop inside the check for the
                 // optional components, we can check once per batch
                 // rather than once per entity.
@@ -190,9 +192,9 @@ namespace Doc.CodeSamples.Tests
     [BurstCompile]
     struct UpdateOnChangeJob : IJobChunk
     {
-        public ComponentTypeHandle<InputA> InputATypeHandle;
-        public ComponentTypeHandle<InputB> InputBTypeHandle;
-        [ReadOnly] public ComponentTypeHandle<Output> OutputTypeHandle;
+        [ReadOnly] public ComponentTypeHandle<InputA> InputATypeHandle;
+        [ReadOnly] public ComponentTypeHandle<InputB> InputBTypeHandle;
+        public ComponentTypeHandle<Output> OutputTypeHandle;
         public uint LastSystemVersion;
 
         [BurstCompile]

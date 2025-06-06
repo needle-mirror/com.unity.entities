@@ -89,6 +89,7 @@ namespace Unity.Entities.Editor.Tests
 
             CreateTestSystems(m_DefaultWorld);
             m_SystemScheduleWindow = !EditorApplication.isPlaying ? SystemScheduleTestUtilities.CreateSystemsWindow() : EditorWindow.GetWindow<SystemScheduleWindow>();
+            m_SystemScheduleWindow.WorldProxyManager.RebuildWorldProxyForGivenWorld(m_DefaultWorld);
             m_SystemScheduleWindow.SelectedWorld = m_DefaultWorld;
             m_WorldProxy = m_SystemScheduleWindow.WorldProxyManager.GetWorldProxyForGivenWorld(m_DefaultWorld);
         }

@@ -72,13 +72,10 @@ namespace Unity.Scenes
                 for (int i = 0; i != objRefs.Array.Length; i++)
                 {
                     var obj = objRefs.Array[i];
-                    if (obj != null && obj is GameObject gameObject)
+                    if (obj != null && (obj is GameObject gameObject && gameObject.scene.IsValid()))
                     {
-                        if (gameObject.scene.IsValid())
-                        {
-                            // Add companion entry, this allows us to differentiate Prefab references and Companion Objects at runtime deserialization
-                            companionObjectIndices.Add(i);
-                        }
+                        // Add companion entry, this allows us to differentiate Prefab references and Companion Objects at runtime deserialization
+                        companionObjectIndices.Add(i);
                     }
                 }
 
@@ -142,9 +139,12 @@ namespace Unity.Scenes
             {
                 if (objectReferences[i] is UnityEngine.Component component)
                 {
-                    var newGameObjectIndex = sourceInstanceIDToNewIndex[component.gameObject.GetInstanceID()];
-                    var newGameObject = newGameObjectsArray[newGameObjectIndex];
-                    objectReferences[i] = newGameObject.GetComponent(component.GetType());
+                    if (sourceInstanceIDToNewIndex.TryGetValue(component.gameObject.GetInstanceID(),
+                            out var newGameObjectIndex))
+                    {
+                        var newGameObject = newGameObjectsArray[newGameObjectIndex];
+                        objectReferences[i] = newGameObject.GetComponent(component.GetType());
+                    }
                 }
             }
             UnityEngine.SceneManagement.SceneManager.MoveGameObjectsToScene(newGameObjects, scene);

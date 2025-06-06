@@ -19,45 +19,45 @@ To see the full entities hierarchy in both Edit mode and Play mode, enable real-
 
 ### Authoring data mode
 
-In Authoring data mode, the Entities Hierarchy window displays a white ![](images/editor-authoring-mode-dark.png) or gray ![](images/editor-authoring-mode-light.png) circle in its top right corner. In this mode, you can see the following in the Entities Hierarchy window:
+In Authoring data mode, the Entities Hierarchy window displays a white ![Authoring data mode - a circle](images/editor-authoring-mode-dark.png) or gray ![Authoring data mode - a circle](images/editor-authoring-mode-light.png) circle in its top right corner. In this mode, the following information is available in the Entities Hierarchy window:
 
-||**In Edit mode**|**In Play mode**|
+|**Sub Scene status**|**In Edit mode**|**In Play mode**|
 |---|---|---|
-|**Outside a Sub Scene**| - GameObjects</br> - Prefab instances| Nothing is displayed because the original GameObjects outside Sub Scenes no longer exist and are now in their runtime state.|
-|**Inside a Sub Scene, if open**|- GameObjects</br>- Prefab instances| - GameObjects</br>- Prefab instances |
+|**Outside a Sub Scene**| <ul><li>GameObjects</li><li>Prefab instances</li></ul>| Nothing is displayed because the original GameObjects outside Sub Scenes no longer exist and are now in their runtime state.|
+|**Inside a Sub Scene, if open**|<ul><li>GameObjects</li><li>Prefab instances</li></ul>| <ul><li>GameObjects</li><li>Prefab instances</li></ul> |
 |**Inside a Sub Scene, if closed**| Read-only entities| Read-only entities|
 
 >[!NOTE]
 >Even in Play mode, Prefab instances aren't unpacked inside Sub Scenes. The Sub Scene and the GameObjects within act as if they're still in Edit mode and you can make changes to them without losing those changes when exiting Play mode.
 
-![](images/editor-hierarchy-authoring-mode.png)<br/>_Entities Hierarchy window in Authoring data mode. Edit mode (Left), Play mode (Right)._
+![Entities Hierarchy window in Authoring data mode. Edit mode (Left), Play mode (Right).](images/editor-hierarchy-authoring-mode.png)<br/>_Entities Hierarchy window in Authoring data mode. Edit mode (Left), Play mode (Right)._
 
 ### Runtime data mode
 
-In Runtime data mode, the Entities Hierarchy window displays an orange ![](images/editor-runtime-mode-dark.png) or red ![](images/editor-runtime-mode-light.png) circle in its top right corner. In this mode, you can see the following in the Entities Hierarchy window:
+In Runtime data mode, the Entities Hierarchy window displays an orange ![Runtime data mode icon - an orange circle.](images/editor-runtime-mode-dark.png) or red ![Runtime data mode icon - a red circle.](images/editor-runtime-mode-light.png) circle in its top right corner. In this mode, you can see the following in the Entities Hierarchy window:
 
-||**In Edit mode and Play mode**|
+|**Sub Scene status**|**In Edit mode and Play mode**|
 |---|---|
-|**Outside a Sub Scene**| - GameObjects as their runtime state.</br>- Entities created outside the Baking process, and outside Sub Scenes, like WorldTime.|
+|**Outside a Sub Scene**| <ul><li>GameObjects as their runtime state.</li><li>Entities created outside the Baking process, and outside Sub Scenes, like WorldTime.</li></ul>|
 |**Inside Sub Scenes**| Only entities.|
 
-Everything marked with an orange or red vertical bar relates to runtime data.
+Everything marked with an orange or red vertical bar relates to runtime data. Furthermore, a <img src="images/entity-prefab-icon.png" width="15"/> indicates that it is an entity prefab, and a ![](images/editor-entity-icon.png) with blue text, indicates that this is an instance of an entity prefab. 
 
-![](images/editor-hierarchy-runtime-mode.png)<br/>_Entities Hierarchy window in Runtime data mode_
+![Entities Hierarchy window in Runtime data mode](images/editor-hierarchy-runtime-mode.png)<br/>_Entities Hierarchy window in Runtime data mode_
 
 
 ### Mixed data mode
 
-In Mixed data mode, the Entities Hierarchy window displays a white and orange ![](images/editor-mixed-mode-dark.png) or gray and red ![](images/editor-mixed-mode-light.png) circle in its top right corner. This mode is available only when you enter Play mode. In this mode, you can see the following in the Entities Hierarchy window:
+In Mixed data mode, the Entities Hierarchy window displays a white and orange ![Mixed data mode icon - an orange circle surrounded by a white circle.](images/editor-mixed-mode-dark.png) or gray and red ![Mixed data mode icon - a red circle surrounded by a grey circle.](images/editor-mixed-mode-light.png) circle in its top right corner. This mode is available only when you enter Play mode. In this mode, the following information is available in the Entities Hierarchy window:
 
-||**In Play mode**|
+|**Sub Scene status**|**In Play mode**|
 |---|---|
-|**Outside a Sub Scene**| - GameObjects in their runtime state.</br>- Entities created outside the baking process, and outside Sub Scenes, like WorldTime.|
-|**Inside Sub Scenes**| - GameObjects in their authoring form</br>- Prefab instances.</br>- Entities that Unity created in the Sub Scene at runtime, and have no corresponding authoring GameObjects. |
+|**Outside a Sub Scene**| <ul><li>GameObjects in their runtime state.</li><li>Entities created outside the baking process, and outside Sub Scenes, like WorldTime.</li></ul>|
+|**Inside Sub Scenes**| <ul><li>GameObjects in their authoring form</li><li> Prefab instances.</li><li> Entities that Unity created in the Sub Scene at runtime, and have no corresponding authoring GameObjects.</li></ul> |
 
 Everything marked with an orange or red vertical bar relates to runtime data.
 
-![](images/editor-hierarchy-mixed-mode.png)<br/>_Entities Hierarchy window in Mixed data mode_
+![Entities Hierarchy window in Mixed data mode](images/editor-hierarchy-mixed-mode.png)<br/>_Entities Hierarchy window in Mixed data mode_
 
 ## Additional resources
 

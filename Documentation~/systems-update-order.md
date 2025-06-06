@@ -42,9 +42,9 @@ Because everything in a group's update list updates together, the global order o
 
 In the Editor, you can use the Systems window (**Window &gt; Entities &gt; Systems**) to see the full list of system groups in your application, and their ordering:
 
-![](images/editor-system-window.png)<br/>_Systems window showing hierarchical ordering of system updates_
+![Systems window showing hierarchical ordering of system updates](images/editor-system-window.png)<br/>_Systems window showing hierarchical ordering of system updates_
 
-For more information, see the [Systems window](editor-systems-window.md) documentation.
+For more information, refer to the [Systems window](editor-systems-window.md) documentation.
 
 ## Default system groups
 

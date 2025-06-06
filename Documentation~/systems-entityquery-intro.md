@@ -14,4 +14,4 @@ The entity and component arrays that `EntityQuery` returns are parallel. This me
 
 ## Queries in the Editor
 
-In the Editor, the following icon represents a query: ![](images/editor-query-icon.png) . You’ll see this when you use the specific [Entities windows and Inspectors](editor-workflows.md). You can also use the [Query window](editor-query-window.md) to see the Components and Entities that match the selected query.
+In the Editor, the following icon represents a query: ![Query icon - a hexagon with an arrow inside.](images/editor-query-icon.png) . You’ll see this when you use the specific [Entities windows and Inspectors](editor-workflows.md). You can also use the [Query window](editor-query-window.md) to see the Components and Entities that match the selected query.

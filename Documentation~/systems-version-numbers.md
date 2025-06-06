@@ -8,7 +8,7 @@ This page outlines all the different version numbers ECS uses, and the condition
 
 All version numbers are 32-bit signed integers. They always increase unless they wrap around: signed integer overflow is a defined behavior in C#. This means that to compare version numbers, you should use the equality (`==`) or inequality (`!=`) operator, not relational operators.
 
-For example, rather than directly using `>` to compare versions, to check if `VersionB` is more recent than `VersionA` use the following:
+For example, the correct way to check if `VersionB` is more recent than `VersionA` is to use the following:
 
 ```c#
 bool VersionBIsMoreRecent = (VersionB - VersionA) > 0;
@@ -18,7 +18,7 @@ There is no guarantee how much a version number increases by.
 
 ## Entity version numbers
 
-An `EntityId` contains an index and a version number. Because ECS recycles indices, it increases the version number in [`EntityManager`](xref:Unity.Entities.EntityManager) every time the entity it destroys an entity. If there's a mismatch in the version numbers when an `EntityId` is looked up in `EntityManager`, it means that the entity referred to doesn’t exist anymore.
+An `EntityId` contains an index and a version number. Because ECS recycles indices, it increases the version number in [`EntityManager`](xref:Unity.Entities.EntityManager) every time it destroys an entity. If there's a mismatch in the version numbers when an `EntityId` is looked up in `EntityManager`, it means that the entity referred to doesn’t exist anymore.
 
 For example, before you fetch the position of the enemy that a unit is tracking via an `EntityId`, you can call `ComponentDataFromEntity.Exists`. This uses the version number to check if the entity still exists.
 

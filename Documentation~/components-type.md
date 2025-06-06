@@ -20,11 +20,11 @@ In the Editor, the following icons represent the different types of components. 
 
 | **Icon**                                 | **Component type**   |
 | ---------------------------------------- | -------------------- |
-| ![](images/editor-managed-component.png) | A managed component. |
-| ![](images/editor-shared-component.png)  | A shared component.  |
-| ![](images/editor-tag-component.png)     | A tag component.     |
-| ![](images/editor-buffer-component.png)  | A buffer component.  |
-| ![](images/editor-chunk-component.png)   | A chunk component.   |
+| ![Managed component icon - a puzzle piece with curled brackets.](images/editor-managed-component.png) | A managed component. |
+| ![Shared component icon - a puzzle piece with share symbol.](images/editor-shared-component.png)  | A shared component.  |
+| ![Tag component icon - a puzzle piece with tag.](images/editor-tag-component.png)     | A tag component.     |
+| ![Buffer component icon - a puzzle piece with square brackets.](images/editor-buffer-component.png)  | A buffer component.  |
+| ![Chunk component icon - a puzzle piece with three squares.](images/editor-chunk-component.png)   | A chunk component.   |
 
 > [!NOTE]
 > Unity uses a generic component icon for component types not in the list.

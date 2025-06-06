@@ -57,10 +57,10 @@ namespace Unity.Entities.SourceGen.Common
             var baseDeclaration = GetBaseDeclaration(originalSyntax);
             var usings = originalSyntax.SyntaxTree.GetCompilationUnitRoot(cancellationToken).Usings;
 
+            int numberOfNotClosedIfDirectives = 0;
             foreach (var @using in usings)
                 if (@using.ContainsDirectives)
                 {
-                    int numberOfNotClosedIfDirectives = 0;
                     foreach (var token in @using.ChildTokens())
                     foreach (var trivia in token.LeadingTrivia)
                         if (trivia.IsDirective)
@@ -70,8 +70,8 @@ namespace Unity.Entities.SourceGen.Common
                             else if (trivia.IsKind(SyntaxKind.EndIfDirectiveTrivia))
                                 numberOfNotClosedIfDirectives--;
                         }
-                    baseDeclaration.end.Insert(0, Environment.NewLine+"#endif", numberOfNotClosedIfDirectives);
                 }
+            baseDeclaration.end.Insert(0, Environment.NewLine+"#endif", numberOfNotClosedIfDirectives);
 
             syntaxTreeSourceBuilder.WriteLine(usings.ToFullString());
             syntaxTreeSourceBuilder.Write(baseDeclaration.start);

@@ -308,13 +308,13 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(archetype);
 
             Assert.That(() => { m_Manager.AddComponent<int>(entity); },
-                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+                Throws.ArgumentException.With.Message.Contains("All Entities component types must be registered with the TypeManager."));
             Assert.That(() => { m_Manager.RemoveComponent<int>(entity); },
-                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+                Throws.ArgumentException.With.Message.Contains("All Entities component types must be registered with the TypeManager."));
             Assert.That(() => { m_Manager.AddComponent(entity, typeof(int)); },
-                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+                Throws.ArgumentException.With.Message.Contains("All Entities component types must be registered with the TypeManager."));
             Assert.That(() => { m_Manager.RemoveComponent(entity, typeof(int)); },
-                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+                Throws.ArgumentException.With.Message.Contains("All Entities component types must be registered with the TypeManager."));
         }
 
         [Test]
@@ -324,13 +324,13 @@ namespace Unity.Entities.Tests
             var entity = m_Manager.CreateEntity(archetype);
 
             Assert.That(() => { m_Manager.AddComponent<EcsTestNonComponent>(entity); },
-                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+                Throws.ArgumentException.With.Message.Contains("All Entities component types must be registered with the TypeManager."));
             Assert.That(() => { m_Manager.RemoveComponent<EcsTestNonComponent>(entity); },
-                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+                Throws.ArgumentException.With.Message.Contains("All Entities component types must be registered with the TypeManager."));
             Assert.That(() => { m_Manager.AddComponent(entity, typeof(EcsTestNonComponent)); },
-                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+                Throws.ArgumentException.With.Message.Contains("All Entities component types must be registered with the TypeManager."));
             Assert.That(() => { m_Manager.RemoveComponent(entity, typeof(EcsTestNonComponent)); },
-                Throws.ArgumentException.With.Message.Contains("All ComponentType must be known at compile time."));
+                Throws.ArgumentException.With.Message.Contains("All Entities component types must be registered with the TypeManager."));
         }
 
         [Test]

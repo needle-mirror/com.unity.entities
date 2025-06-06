@@ -10,6 +10,8 @@ For example:
 
 [!code-cs[conversion](../DocCodeSamples.Tests/EntityCommandBuffers.cs#ecb_from_ecbsystem)]
 
+In the case of a `SystemBase` system, the unmanaged world can be accessed like this: `World.Unmanaged`.
+
 >[!IMPORTANT] 
 >Don't manually play back or dispose of an `EntityCommandBuffer` that you've created with an `EntityCommandBufferSystem`. The `EntityCommandBufferSystem` does both for you when it runs.
 

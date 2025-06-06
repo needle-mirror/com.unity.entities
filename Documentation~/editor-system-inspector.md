@@ -1,15 +1,15 @@
 # System Inspector reference
 
-When you select a system in the Editor, the [Inspector](https://docs.unity3d.com/Manual/UsingTheInspector.html) displays its information in two tabs:
+When you select a system in the Unity Editor, the [Inspector](https://docs.unity3d.com/Manual/UsingTheInspector.html) displays its information in two tabs:
 
 * **Queries:** Displays the [queries](systems-entityquery.md) that the selected system runs, and the list of components related to that query.
 * **Relationships:** Displays the entities that the system matches, plus any scheduling constraints that the system has. 
 
-![](images/editor-system-inspectors.png)<br/>_Systems Inspector - Queries (Left), Relationships (Right)_
+![Systems Inspector - Queries (Left), Relationships (Right)](images/editor-system-inspectors.png)<br/>_Systems Inspector - Queries (Left), Relationships (Right)_
 
 ## Queries tab
 
-The Queries tab displays the queries that the selected system runs, plus their components. This view also displays the system’s access rights to the components (**Read** or **Read & Write**). Click on the icon to the right of a component name (![](images/editor-go-to.png)), to change the selection to that component. Unity also opens the [Component Inspector](editor-component-inspector.md) where possible.
+The Queries tab displays the queries that the selected system runs, plus their components. This view also displays the system's access rights to the components (**Read** or **Read & Write**). Click on the icon to the right of a component name (![Go to icon - a square with an arrow pointing diagonally top right.](images/editor-go-to.png)), to change the selection to that component. Unity also opens the [Component Inspector](editor-component-inspector.md) where possible.
 
 ## Relationships tab
 

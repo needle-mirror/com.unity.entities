@@ -36,7 +36,7 @@ The [`SubScene`](xref:Unity.Scenes.SubScene) component has two modes, which depe
 * In the Hierarchy window, enable or disable the checkbox next to the subscene's name. 
 * Select a subscene, and the Inspector, under **Open SubScenes** select **Open/Close**.
 
-![](images/SubsceneCheckBox.png)<br/>_Hierarchy window with checkbox next to the subscene's name highlighted_
+![Hierarchy window with checkbox next to the subscene's name highlighted](images/SubsceneCheckBox.png)<br/>_Hierarchy window with checkbox next to the subscene's name highlighted_
 
 When a subscene is open, the following happens:
 

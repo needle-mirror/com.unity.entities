@@ -2,7 +2,7 @@
 
 A **system** provides the logic that transforms [component](concepts-components.md) data from its current state to its next state. For example, a system might update the positions of all moving entities by their velocity multiplied by the time interval since the previous update. 
 
-![](images/entities-concepts.png)<br/>_A system with logic that determines the position of entities._
+![A conceptual diagram, with Entity A and B sharing the same components of Speed, Direction, Position, and Renderer, plus Entity C having just Speed, Direction, and Position. Entity A and B share and archetype. A system in the middle of the diagram manipulates the Position, Speed, and Direction components.](images/entities-concepts.png)<br/>_A system with logic that determines the position of entities._
 
 A system runs on the main thread once per frame. Systems are organized into a hierarchy of system groups that you can use to organize the order that systems should update in.
 
@@ -41,10 +41,10 @@ In the Editor, the following icons represent the different types of Systems. You
 
 |**Icon**|**Represents**|
 |---|---|
-|![](images/editor-system-group.png)| A system group|
-|![](images/editor-system.png)| A system|
-|![](images/editor-system-start-step.png)| An entity command buffer system set to execute at the beginning of a system group with the [OrderFirst](xref:Unity.Entities.UpdateInGroupAttribute.OrderFirst) argument.|
-|![](images/editor-system-end-step.png)| An entity command buffer system set to execute at the end of a system group with the [OrderLast](xref:Unity.Entities.UpdateInGroupAttribute.OrderLast) argument.|
+|![System group icon - a folder.](images/editor-system-group.png)| A system group|
+|![System icon - two arrows formed into a hexagon.](images/editor-system.png)| A system|
+|![Beginning entity command buffer icon - an arrow pointing forward.](images/editor-system-start-step.png)| An entity command buffer system set to execute at the beginning of a system group with the [`OrderFirst`](xref:Unity.Entities.UpdateInGroupAttribute.OrderFirst) argument.|
+|![Ending entity command buffer icon - an arrow pointing backwards.](images/editor-system-end-step.png)| An entity command buffer system set to execute at the end of a system group with the [`OrderLast`](xref:Unity.Entities.UpdateInGroupAttribute.OrderLast) argument.|
 
 ## Additional resources
 

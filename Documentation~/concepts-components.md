@@ -2,7 +2,7 @@
 
 In the Entity Component System (ECS) architecture, **components** contain [entity](concepts-entities.md) data that [systems](concepts-systems.md) can read or write. 
 
-![](images/entities-concepts.png)</br>_Example components are Speed, Direction, Position, and Renderer._
+![A conceptual diagram, with Entity A and B sharing the same components of Speed, Direction, Position, and Renderer, plus Entity C having just Speed, Direction, and Position. Entity A and B share and archetype. A system in the middle of the diagram manipulates the Position, Speed, and Direction components.](images/entities-concepts.png)</br>_Example components are Speed, Direction, Position, and Renderer._
 
 Use the [`IComponentData`](xref:Unity.Entities.IComponentData) interface, which has no methods, to mark a struct as a component type. This component type can only contain unmanaged data, and they can contain methods, but it's best practice for them to just be pure data. If you want to create a managed component, you define this as a class. For more information, refer to [Managed components](components-managed.md).
 

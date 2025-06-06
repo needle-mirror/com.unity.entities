@@ -19,11 +19,11 @@ In the Editor, scene sections are only applied when the subscenes [are closed](c
 
 You can see the details of the scene's section and its GUID in the Editor, in the [Component Inspector](editor-component-inspector.md).
 
-![](images/SceneSectionInspector.png)<br/>_Scene Section component in the Editor inspector_
+![Scene Section component in the Editor inspector](images/SceneSectionInspector.png)<br/>_Scene Section component in the Editor inspector_
 
 When the [`SubScene`](xref:Unity.Scenes.SubScene) component [is closed](conversion-subscenes.md#subscene-component), the Inspector lists the sections present in that subscene. Section 0 always appears first in the list (without a section index). 
 
-![](images/scene_section.png)<br/>_Inspector displaying ConvertedScene with the default value, and another ConvertedScene with an index of 123_
+![Inspector displaying ConvertedScene with the default value, and another ConvertedScene with an index of 123](images/scene_section.png)<br/>_Inspector displaying ConvertedScene with the default value, and another ConvertedScene with an index of 123_
 
 ## References across sections
 

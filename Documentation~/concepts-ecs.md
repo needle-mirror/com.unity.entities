@@ -4,7 +4,7 @@ The Entities package uses the entity component system (ECS) architecture to orga
 
 The following diagram illustrates how entities, components, and systems work together:
 
-![](images/entities-concepts.png)
+![A conceptual diagram, with Entity A and B sharing the same components of Speed, Direction, Position, and Renderer, plus Entity C having just Speed, Direction, and Position. Entity A and B share an archetype. A system in the middle of the diagram manipulates the Position, Speed, and Direction components.](images/entities-concepts.png)
 
 In this diagram, a [system](concepts-systems.md) reads Speed and Direction [components](concepts-components.md), multiplies them and then updates the corresponding Position components.
 

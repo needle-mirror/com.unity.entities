@@ -1,3 +1,4 @@
+using Unity.Burst.Intrinsics;
 using Unity.Entities;
 using Unity.Collections;
 
@@ -41,10 +42,8 @@ namespace Doc.CodeSamples.Tests
     #region enableable-health-example
     public partial struct EnableableHealthSystem : ISystem
     {
-
         public void OnUpdate(ref SystemState system)
         {
-
             Entity e1 = system.EntityManager.CreateEntity(typeof(Health), typeof(Translation));
             Entity e2 = system.EntityManager.CreateEntity(typeof(Health), typeof(Translation));
 
@@ -70,10 +69,59 @@ namespace Doc.CodeSamples.Tests
 
             // the returned array includes the Translations of both entities
             var translationsAll = queryIgnoreEnableable.ToComponentDataArray<Translation>(Allocator.Temp);
-
         }
+    }
+    #endregion
 
+    public struct AliveTag : IComponentData, IEnableableComponent
+    {
+    }
 
+    #region enableable-idiomaticforeach-example
+    public partial struct EnableAliveFromHealthSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState system)
+        {
+            foreach (var (health, aliveEnabled) in SystemAPI.Query<RefRO<Health>, EnabledRefRW<AliveTag>>())
+            {
+                // Disable the AliveTag component based on the Health component value.
+                if (health.ValueRO.Value <= 0)
+                    aliveEnabled.ValueRW = false;
+            }
+        }
+    }
+    #endregion
+
+    #region enableable-ijobentity-example
+    public partial struct EnableAliveFromHealthJob : IJobEntity
+    {
+        void Execute(in Health health, EnabledRefRW<AliveTag> aliveEnabled)
+        {
+            // Disable the AliveTag component based on the Health component value.
+            if (health.Value <= 0)
+                aliveEnabled.ValueRW = false;
+        }
+    }
+    #endregion
+
+    #region enableable-ijobchunk-example
+    public struct EnableAliveFromHealthChunkJob : IJobChunk
+    {
+        [ReadOnly] public ComponentTypeHandle<Health> HealthTypeHandle;
+        public ComponentTypeHandle<AliveTag> AliveTagTypeHandle;
+
+        public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+        {
+            NativeArray<Health> chunkHealthValues = chunk.GetNativeArray(ref HealthTypeHandle);
+            EnabledMask chunkAliveEnabledMask = chunk.GetEnabledMask(ref AliveTagTypeHandle);
+            ChunkEntityEnumerator enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
+            while(enumerator.NextEntityIndex(out var i))
+            {
+                // Disable the AliveTag component based on the Health component value.
+                if (chunkHealthValues[i].Value <= 0)
+                    chunkAliveEnabledMask[i] = false;
+            }
+        }
     }
     #endregion
 }

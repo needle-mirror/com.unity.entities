@@ -322,6 +322,7 @@ namespace Unity.Entities
         /// have that component. The type T must implement the <see cref="IEnableableComponent"/> interface.
         /// </summary>
         /// <exception cref="ArgumentException">The <see cref="Entity"/> does not exist.</exception>
+        /// <exception cref="ArgumentException">A component with type T has not been added to the entity.</exception>
         /// <param name="entity">The entity whose component should be checked.</param>
         /// <returns>True if the specified component is enabled, or false if it is disabled.</returns>
         /// <seealso cref="SetComponentEnabled(Entity, bool)"/>
@@ -529,7 +530,7 @@ namespace Unity.Entities
                 outRef = default;
                 return false;
             }
-            void *ptr = ecs->GetOptionalComponentDataWithTypeRO(entity, m_TypeIndex, ref m_Cache);
+            void *ptr = ecs->GetOptionalComponentDataWithTypeRW(entity, m_TypeIndex, m_GlobalSystemVersion, ref m_Cache);
             if (ptr == null)
             {
                 outRef = default;

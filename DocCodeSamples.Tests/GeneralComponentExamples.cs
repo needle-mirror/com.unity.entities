@@ -54,6 +54,20 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
 
+    #region get-component-single-entity
+     public partial struct GetComponentOnSingleEntitySystemExample : ISystem
+    {
+        public void OnCreate(ref SystemState state)
+        {
+            var entity = state.EntityManager.CreateEntity();
+            state.EntityManager.AddComponent<Rotation>(entity);
+
+            // Get the Rotation component
+            var rotationComponent = state.EntityManager.GetComponentData<Rotation>(entity);
+        }
+    }
+    #endregion
+
     #region set-component-system-entity
     public partial struct SetComponentOnSystemEntitySystemExample : ISystem
     {

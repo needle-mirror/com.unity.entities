@@ -69,7 +69,7 @@ namespace Unity.Entities.Editor.Tests
         [Test]
         public void SystemInspector_QueriesTab_MatchingQueries()
         {
-            var systemQueriesTab = new SystemQueries(m_World, new SystemProxy(m_SystemInspectorTestSystem, m_WorldProxy));
+            var systemQueriesTab = new SystemQueriesTab(m_World, new SystemProxy(m_SystemInspectorTestSystem, m_WorldProxy));
 
             Assert.That(systemQueriesTab.QueriesFromSystem.Length, Is.EqualTo(2));
             // TODO(ECSB-387): Queries can have multiple descriptions
@@ -121,6 +121,23 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(updateBeforeSystemListViewDataList.Count, Is.EqualTo(0));
             Assert.That(updateAfterSystemListViewDataList.Count, Is.EqualTo(1));
             Assert.That(updateAfterSystemListViewDataList[0].Equals(new SystemDependencyViewData(new SystemProxy(m_SystemInspectorTestSystem2, m_WorldProxy), "System Schedule Test System 2")), Is.True);
+        }
+
+        [Test]
+        public void SystemInspector_DependenciesTab_MatchingComponents()
+        {
+            var systemDependenciesTab = new SystemDependenciesTab(new SystemProxy(m_SystemInspectorTestSystem, m_WorldProxy));
+
+            using var readingComponents = PooledList<ComponentViewData>.Make();
+            using var writingComponents = PooledList<ComponentViewData>.Make();
+            systemDependenciesTab.SystemProxy.FillListWithJobDependencyForReadingSystems(readingComponents);
+            systemDependenciesTab.SystemProxy.FillListWithJobDependencyForWritingSystems(writingComponents);
+
+            Assume.That(readingComponents.List.Count, Is.EqualTo(1));
+            Assume.That(writingComponents.List.Count, Is.EqualTo(1));
+
+            Assert.That(readingComponents.List[0].InComponentType, Is.EqualTo(typeof(SystemScheduleTestData2)));
+            Assert.That(writingComponents.List[0].InComponentType, Is.EqualTo(typeof(SystemScheduleTestData1)));
         }
     }
 }

@@ -143,7 +143,19 @@ namespace Unity.Entities
             return m_Manager.GetComponentData<T>(entity);
         }
 
-        /// <inheritdoc cref="Unity.Entities.EntityManager.SetComponentData{T}(Entity,T)"/>
+        /// <summary>
+        /// Sets the value of a component of an entity.
+        /// </summary>
+        /// <remarks>
+        /// The target entity must exist, and it must have the target component.
+        /// </remarks>
+        /// <example>
+        /// <code lang="csharp" source="../../DocCodeSamples.Tests/GeneralComponentExamples.cs" region="set-component-single-entity" title="SetComponentData Example"/>
+        /// </example>
+        /// <param name="entity">The entity whose <typeparamref name="T"/> component should be modified.</param>
+        /// <param name="componentData">The value to assign to <paramref name="entity"/>'s <typeparamref name="T"/> component.</param>
+        /// <typeparam name="T">The component type.</typeparam>
+        /// <exception cref="ArgumentException">Thrown if the component type has no fields.</exception>
         public void SetComponentData<T>(Entity entity, T componentData) where T : unmanaged, IComponentData
         {
             m_Manager.SetComponentData(entity, componentData);

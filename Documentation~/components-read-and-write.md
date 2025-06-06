@@ -6,6 +6,7 @@ After you add Components to entities, your systems can access, read from, and wr
 
 Sometimes you might want to read or write a single component of one entity at a time. To do this, on the main thread, you can make the `EntityManager` to read or write a component value of an individual entity. The `EntityManager` keeps a lookup table to quickly find each entity's chunk and index within the chunk.
 
+[!code-cs[Access a component](../DocCodeSamples.Tests/GeneralComponentExamples.cs#get-component-single-entity)]
 ## Access multiple components
 
 For most work, you'll want to read or write the components of all entities in a chunk or set of chunks:

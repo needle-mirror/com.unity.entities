@@ -23,20 +23,35 @@ You can also use the [`InternalBufferCapacity`](xref:Unity.Entities.InternalBuff
 [Structural changes](concepts-structural-changes.md) might destroy or move the array referenced by a dynamic buffer which means that any handle to a dynamic buffer becomes invalid after a structural change. You must reacquire dynamic buffers after any structural changes. For example:
 
 ```c#
-public void DynamicBufferExample(Entity e)
+public partial struct DynamicBufferExampleSystem : ISystem
 {
-    // Acquires a dynamic buffer of type MyElement.
-    DynamicBuffer<MyElement> myBuff = EntityManager.GetBuffer<MyElement>(e);
+    EntityQuery m_BufferEntityQuery;
+    
+    public void OnCreate(ref SystemState state)
+    {
+        m_BufferEntityQuery = SystemAPI.QueryBuilder().WithAll<MyElement>().Build();
+    }
 
-    // This structural change invalidates the previously acquired DynamicBuffer.
-    EntityManager.CreateEntity();
+    public void OnUpdate(ref SystemState state)
+    {
+        // Acquires entities with the desired buffer.
+        var entities = m_BufferEntityQuery.ToEntityArray(Allocator.Persistent);
+        if(entities.Length == 0) return;
 
-    // A safety check will throw an exception on any read or write actions on the buffer.
-    var x = myBuff[0];
+        // Acquires a dynamic buffer of type MyElement from the first entity in the array.
+        DynamicBuffer<MyElement> myBuff = state.EntityManager.GetBuffer<MyElement>(entities[0]);
 
-    // Reacquires the dynamic buffer after the above structural changes.
-    myBuff = EntityManager.GetBuffer<MyElement>(e);
-    var y = myBuff[0];
+        // This structural change invalidates the previously acquired DynamicBuffer.
+        state.EntityManager.CreateEntity();
+
+        // A safety check will throw an exception on any read or write actions on the buffer.
+        var x = myBuff[0];
+
+        // Reacquires the dynamic buffer after the above structural changes.
+        myBuff = state.EntityManager.GetBuffer<MyElement>(entities[0]);
+        var y = myBuff[0];
+    }
+
 }
 ```
 ## Comparison to native containers in components

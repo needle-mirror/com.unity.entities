@@ -1,13 +1,16 @@
 # Entities package
 
-The Entities package is part of Unity's Data-Oriented Technology Stack (DOTS). It provides a data-oriented implementation of the Entity Component System (ECS) architecture. It provides core APIs and workflows to implement entities, components, and systems in your project.
+The Entities package is part of Unity's Data-Oriented Technology Stack (DOTS). It provides a data-oriented implementation of the Entity Component System (ECS) architecture. 
 
-To get the best possible performance, you can use the Entities package alongside the [Burst compiler](https://docs.unity3d.com/Packages/com.unity.burst@latest), [job system](xref:um-job-system), and [Collections package](https://docs.unity3d.com/Packages/com.unity.collections@latest). For a full list of ECS-related packages, refer to [ECS packages](ecs-packages.md).
+For a full list of ECS-related packages, refer to [ECS packages](ecs-packages.md). It is not common to use the Entities package by itself; usually, a combination of Entities Graphics, Unity Physics, and/or Netcode for Entities is used. 
 
-![](images/entities-splash-image.png)
+See the [ECS Samples](https://github.com/Unity-Technologies/EntityComponentSystemSamples) for introductory material, including tutorials, samples, and videos.
+
+![Entities windows in the Unity Editor](images/entities-splash-image.png)
 
 | **Topic**                       | **Description**                  |
 | :------------------------------ | :------------------------------- |
+| **[What's new](whats-new.md)**| What's new in the latest version of Entities.|
 | **[Upgrade guide](upgrade-guide.md)**| Upgrade to the latest version of Entities.|
 | **[Get started](getting-started.md)** | Tutorials and installation information to get started using Entities. |
 | **[Entity component system concepts](concepts-intro.md)** | Use the entity component system architecture to organize code.|
@@ -23,6 +26,5 @@ To get the best possible performance, you can use the Entities package alongside
 
 * [Getting started](getting-started.md)
 * [Upgrade guide](upgrade-guide.md)
-* [What's new](whats-new.md)
 * [Entity component system concepts](concepts-intro.md)
 * [ECS workflow tutorial](ecs-workflow-tutorial.md)

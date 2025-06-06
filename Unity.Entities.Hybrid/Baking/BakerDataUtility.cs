@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using Unity.Profiling;
 using UnityEditor;
 using System.Reflection;
+
 #if UNITY_EDITOR
 using Unity.Entities.Build;
 #endif
@@ -146,7 +147,9 @@ namespace Unity.Entities
                 compatibleComponentCount += types.Count;
                 foreach (var compatibleType in types)
                 {
-                    if (TypeManager.TryGetTypeIndex(compatibleType, out var typeIndex))
+                    if (compatibleType.ContainsGenericParameters) continue;
+
+                    var typeIndex = TypeManager.GetOrCreateTypeIndex(compatibleType);
                     {
                         AddBaker(type, baker, typeIndex, compatibleComponentCount);
                     }
@@ -172,10 +175,8 @@ namespace Unity.Entities
 #endif
             }
             // Try find with the authoring type in the TypeManager
-            if (TypeManager.TryGetTypeIndex(authoringType, out var authoringTypeIndex))
-            {
-                AddBaker(type, baker, authoringTypeIndex, compatibleComponentCount);
-            }
+            var authoringTypeIndex = TypeManager.GetOrCreateTypeIndex(authoringType);
+            AddBaker(type, baker, authoringTypeIndex, compatibleComponentCount);
         }
 
         static void AddBaker(Type type, IBaker baker, TypeIndex typeIndex, int compatibleComponentCount)

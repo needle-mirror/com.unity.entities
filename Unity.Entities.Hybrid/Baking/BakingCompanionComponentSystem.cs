@@ -139,12 +139,26 @@ namespace Unity.Entities
 
                         try
                         {
+                            UnityEngine.SceneManagement.Scene companionScene;
+#if UNITY_EDITOR
+                            // We only move into the companion scene if we're currently doing live conversion.
+                            // Otherwise this is handled by de-serialisation.
+                            if (bakingSystem.IsLiveConversion())
+                            {
+                                companionScene = CompanionGameObjectUtility.GetCompanionScene(true);
+                            }
+                            else
+#endif
+                            {
+                                companionScene = UnityEngine.SceneManagement.SceneManager.GetActiveScene();
+                            }
 
                             // Replicate the authoringGameObject, we then strip Components we don't care about
-                            var companionGameObject = UnityEngine.Object.Instantiate(sourceGameObject);
+                            var companionGameObject = UnityEngine.Object.Instantiate(sourceGameObject, companionScene) as GameObject;
                             companionGameObject.SetActive(false);
 
                             #if UNITY_EDITOR
+                            CompanionGameObjectUtility.SetCompanionFlags(companionGameObject);
                             CompanionGameObjectUtility.SetCompanionName(entity, companionGameObject);
                             #endif
 
@@ -207,15 +221,6 @@ namespace Unity.Entities
                             // We only add the CompanionReference in a serialised Bake, as this doesn't play nice with EntityDiffer
                             if (!bakingSystem.IsLiveConversion())
                                 EntityManager.AddComponentObject(entity, new CompanionReference { Companion = UnityObjectRef<GameObject>.FromInstanceID(newInstanceID)});
-
-                            // We only move into the companion scene if we're currently doing live conversion.
-                            // Otherwise this is handled by de-serialisation.
-                            #if UNITY_EDITOR
-                            if (bakingSystem.IsLiveConversion())
-                            {
-                                CompanionGameObjectUtility.MoveToCompanionScene(companionGameObject, true);
-                            }
-                            #endif
 
                             // Can't detach children before instantiate because that won't work with a prefab
                             for (int child = companionGameObject.transform.childCount - 1; child >= 0; child -= 1)

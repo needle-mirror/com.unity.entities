@@ -32,6 +32,72 @@ namespace Doc.CodeSamples.Tests
     }
     #endregion
 
+    #region add-cleanup
+    public partial struct AddCleanupSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState state)
+        {
+            var ecb = new EntityCommandBuffer(state.WorldUpdateAllocator);
+
+            foreach (var (tag, entity) in SystemAPI.Query<ExampleTagComponent>().WithEntityAccess())
+            {
+                // Add the cleanup component to all entities with the tag component.
+                ecb.AddComponent<ExampleCleanupComponent>(entity);
+            }
+            ecb.Playback(state.EntityManager);
+            ecb.Dispose();
+
+            state.Enabled = false;
+        }
+    }
+    #endregion
+
+    #region destroy-entity
+    [UpdateAfter(typeof(AddCleanupSystem))]
+    public partial struct DestructionSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState state)
+        {
+            var ecb = new EntityCommandBuffer(state.WorldUpdateAllocator);
+
+            foreach (var (tag, entity) in SystemAPI.Query<ExampleTagComponent>().WithAll<ExampleCleanupComponent>().WithEntityAccess())
+            {
+                // Destroy the Entity, which means all components, except for the cleanup component, gets removed.
+                ecb.DestroyEntity(entity);
+            }
+            ecb.Playback(state.EntityManager);
+            ecb.Dispose();
+
+            state.Enabled = false;
+        }
+    }
+    #endregion
+
+    #region remove-cleanup
+    [UpdateAfter(typeof(DestructionSystem))]
+    public partial struct CleanupSystem : ISystem
+    {
+        public void OnUpdate(ref SystemState state)
+        {
+            var ecb = new EntityCommandBuffer(state.WorldUpdateAllocator);
+
+            foreach (var (cleanup, entity) in SystemAPI.Query<ExampleCleanupComponent>().WithNone<ExampleTagComponent>().WithEntityAccess())
+            {
+                // Perform cleanup ...
+
+                // Remove Cleanup Component. This triggers the destruction of the Entity.
+                ecb.RemoveComponent<ExampleCleanupComponent>(entity);
+            }
+            ecb.Playback(state.EntityManager);
+            ecb.Dispose();
+
+            state.Enabled = false;
+        }
+    }
+
+
+    #endregion
+
     #region tag
     public struct ExampleTagComponent : IComponentData
     {

@@ -31,7 +31,7 @@ namespace Doc.CodeSamples.Tests
             {
                 // Spawns a new entity and positions it at the spawner.
                 Entity newEntity = state.EntityManager.Instantiate(spawner.ValueRO.Prefab);
-                // LocalPosition.FromPosition returns a Transform initialized with the given position.
+                // LocalTransform.FromPosition returns a Transform initialized with the given position.
                 state.EntityManager.SetComponentData(newEntity, LocalTransform.FromPosition(spawner.ValueRO.SpawnPosition));
 
                 // Resets the next spawn time.

@@ -9,7 +9,7 @@ using UnityEngine.UIElements;
 
 namespace Unity.Entities.Editor
 {
-    class SystemQueries : ITabContent
+    class SystemQueriesTab : ITabContent
     {
         public string TabName { get; } = L10n.Tr("Queries");
 
@@ -20,7 +20,7 @@ namespace Unity.Entities.Editor
         [CreateProperty, HideInInspector, DontSerialize]
         public int Count => QueriesFromSystem.Length;
 
-        public SystemQueries(World world, SystemProxy systemProxy)
+        public SystemQueriesTab(World world, SystemProxy systemProxy)
         {
             World = world;
             SystemProxy = systemProxy;
@@ -51,7 +51,7 @@ namespace Unity.Entities.Editor
     }
 
     [UsedImplicitly]
-    class SystemQueriesInspector : PropertyInspector<SystemQueries>
+    class SystemQueriesInspector : PropertyInspector<SystemQueriesTab>
     {
         public override VisualElement Build()
         {

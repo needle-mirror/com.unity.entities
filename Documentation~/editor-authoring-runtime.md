@@ -2,9 +2,9 @@
 
 The [Entities Hierarchy window](editor-hierarchy-window.md) and the [Entity inspector](editor-entity-inspector.md) has the following modes which represent the kind of data that you control:
 
-* **Authoring mode**: Contains data that's version controlled (for example, assets, scene GameObjects). Represented by a white ![](images/editor-authoring-mode-dark.png) or gray ![](images/editor-authoring-mode-light.png) circle in the Editor.
-* **Runtime mode**: Contains data that the runtime uses and modifies. For example, the data or state Unity destroys when you exit Play mode. Represented by an orange ![](images/editor-runtime-mode-dark.png) or red ![](images/editor-runtime-mode-light.png) circle in the Editor.
-* **Mixed mode**: Represents a view that can see both runtime and authoring data, but authoring data takes precedent. Represented by a white and orange ![](images/editor-mixed-mode-dark.png) or gray and red ![](images/editor-mixed-mode-light.png) circle in the Editor.
+* **Authoring mode**: Contains data that's version controlled (for example, assets, scene GameObjects). Represented by a white ![Authoring mode icon - a circle](images/editor-authoring-mode-dark.png) or gray ![Authoring mode icon - a circle](images/editor-authoring-mode-light.png) circle in the Editor.
+* **Runtime mode**: Contains data that the runtime uses and modifies. For example, the data or state Unity destroys when you exit Play mode. Represented by an orange ![Runtime mode icon - an orange circle.](images/editor-runtime-mode-dark.png) or red ![Runtime mode icon - a red circle.](images/editor-runtime-mode-light.png) circle in the Editor.
+* **Mixed mode**: Represents a view that can see both runtime and authoring data, but authoring data takes precedent. Represented by a white and orange ![Mixed mode icon - an orange circle surrounded by a white circle.](images/editor-mixed-mode-dark.png) or gray and red ![Mixed mode icon - a red circle surrounded by a grey circle.](images/editor-mixed-mode-light.png) circle in the Editor.
 
 It's useful to be able to switch between data modes while in Play mode and Edit mode, so that you can make permanent changes to your application without having to enter or exit Play mode. For example, you could make changes to a level's geometry while in Play mode and save it while remaining in Play mode. 
 
@@ -19,7 +19,7 @@ The Hierarchy and Inspector windows highlight all runtime data that Unity destro
 
 This highlight makes it easier to see which data doesn't persist between modes.
 
-![](images/editor-data-modes.png)<br/>_Entities Hierarchy window and Inspector with data modes highlighted. Clockwise, from top left, Entities Hierarchy in Runtime data mode, Inspector in Authoring data mode, and Entities Hierarchy in Mixed data mode. Addionally, Data that Unity destroys when you exit Play mode has an orange or red vertical bar._
+![Entities Hierarchy window and Inspector with data modes highlighted. Clockwise, from top left, Entities Hierarchy in Runtime data mode, Inspector in Authoring data mode, and Entities Hierarchy in Mixed data mode. Additionally, Data that Unity destroys when you exit Play mode has an orange or red vertical bar](images/editor-data-modes.png)<br/>_Entities Hierarchy window and Inspector with data modes highlighted. Clockwise, from top left, Entities Hierarchy in Runtime data mode, Inspector in Authoring data mode, and Entities Hierarchy in Mixed data mode. Additionally, Data that Unity destroys when you exit Play mode has an orange or red vertical bar._
 
 ## Default behavior
 

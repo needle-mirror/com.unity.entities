@@ -14,7 +14,7 @@ To open the Profiler window, go to **Window &gt; Analysis &gt; Profiler**. By de
 
 You can [profile your application](xref:um-profiler-profiling-applications) in Play mode, or a development build of your application on a target device. You can also profile the Unity Editor itself, to discover how much overhead it has, and to profile Conversion code, which runs in Edit mode. 
 
-![](images/profiler-entities-structural.png)<br/>_Profiler window with the Entities Profiler modules displayed_
+![Profiler window with the Entities Profiler modules displayed](images/profiler-entities-structural.png)<br/>_Profiler window with the Entities Profiler modules displayed_
 
 ## Additional resources
 

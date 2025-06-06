@@ -30,6 +30,6 @@ There are several callback methods within `SystemBase` that Unity invokes at var
 
 The following diagram illustrates a system's event order:
 
-![](images/SystemEventOrder.png)
+![A diagram depicting a system's event order: OnCreate, OnStartRunning, OnUpdate, OnStopRunning, and OnDestroy.](images/SystemEventOrder.png)
 
 A parent [system group's](concepts-systems.md#system-groups) `OnUpdate` method triggers the `OnUpdate` methods of all the systems in its group. For more information about how systems update, see [Update order of systems](systems-update-order.md). 

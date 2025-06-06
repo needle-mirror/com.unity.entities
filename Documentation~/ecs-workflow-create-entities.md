@@ -26,7 +26,7 @@ Each task is a prerequisite for the subsequent tasks.
 3. Create or source a [Prefab](xref:Prefabs) to spawn.
 4. Select the **Spawner** GameObject and, in the Inspector, assign the Prefab to the **Prefab** property and set **Spawn Rate** to **2**.
 5. Open the [Entities Hierarchy window](editor-hierarchy-window.md) and set the [data mode](editor-hierarchy-window.md#data-modes) to either runtime or mixed. These data modes both display the entities that the baking system generates from the authoring GameObjects.
-6. In the Entities Hierarchy window, select the Spawner entity. The Entities Hierarchy window displays both GameObjects and entities. To distinguish between the two, entities are indicated by a hexagon icon (![](images/entity-icon.png)).
+6. In the Entities Hierarchy window, select the Spawner entity. The Entities Hierarchy window displays both GameObjects and entities. To distinguish between the two, entities are indicated by a hexagon icon (![Entity icon - a hexagon](images/entity-icon.png)).
 7. In the [Inspector](editor-entity-inspector.md) for the Spawner entity, open the Entity Baking Preview. This displays the attached Spawner component and the component values that the baker set.
 
 [!code-cs[The spawner Baker](../DocCodeSamples.Tests/SpawnerBakerExample.cs#example)]

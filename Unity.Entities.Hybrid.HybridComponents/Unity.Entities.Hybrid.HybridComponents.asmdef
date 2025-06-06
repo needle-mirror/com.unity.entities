@@ -65,6 +65,11 @@
             "name": "com.unity.modules.particlesystem",
             "expression": "1.0.0",
             "define": "PARTICLE_SYSTEM_MODULE"
+        },
+        {
+          "name": "com.unity.render-pipelines.core",
+          "expression": "16.9.9",
+          "define": "SRP_17_0_0_OR_NEWER"
         }
     ],
     "noEngineReferences": false

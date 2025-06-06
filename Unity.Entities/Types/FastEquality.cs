@@ -242,7 +242,7 @@ namespace Unity.Entities
             return new NativeArray<LayoutInfo>(layoutInfo.ToArray(), Allocator.Persistent);
         }
 
-        private static List<LayoutInfo> FindFields(Type type, Dictionary<Type, List<LayoutInfo>> cache, int parentOffset = 0, int fixedSizeArrayLength = 1)
+        private static List<LayoutInfo> FindFields(Type type, Dictionary<Type, List<LayoutInfo>> cache,int fixedSizeArrayLength = 1)
         {
             if (cache.TryGetValue(type, out var cachedInfo))
                 return cachedInfo;
@@ -254,20 +254,19 @@ namespace Unity.Entities
                 throw new ArgumentException($"{type} is not allowed: only concrete, fully-closed types are supported");
 
             var result = new List<LayoutInfo>();
-            result.Add(new LayoutInfo { Size = 0, Offset = 0 });
-
-            int nextExpectedPackedOffset = parentOffset;
             var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
+
             foreach (var field in fields)
             {
-                int fieldOffset = parentOffset + UnsafeUtility.GetFieldOffset(field);
-                if (nextExpectedPackedOffset != fieldOffset)
+                int fieldOffset = UnsafeUtility.GetFieldOffset(field);
+
+                // If the fields are not tightly packed, make a new start (size is updated below)
+                if (result.Count == 0 || result[^1].Offset + result[^1].Size != fieldOffset)
                     result.Add(new LayoutInfo { Size = 0, Offset = (ushort)fieldOffset });
 
                 if (field.FieldType.IsPrimitive || field.FieldType.IsPointer)
                 {
-                    int sizeOf = -1;
-
+                    int sizeOf;
                     if (field.FieldType.IsPointer)
                         sizeOf = UnsafeUtility.SizeOf<IntPtr>();
                     else
@@ -282,8 +281,6 @@ namespace Unity.Entities
                     var layoutInfo = result[lastIndex];
                     layoutInfo.Size += (ushort)sizeOf;
                     result[lastIndex] = layoutInfo;
-
-                    nextExpectedPackedOffset = fieldOffset + sizeOf;
                 }
                 else
                 {
@@ -292,19 +289,23 @@ namespace Unity.Entities
                     if (fixedAttr != null)
                         fixedSizeArrayLength = fixedAttr.Length;
 
-                    var structInfos = FindFields(field.FieldType, cache, fieldOffset, fixedSizeArrayLength);
+                    var structInfos = FindFields(field.FieldType, cache, fixedSizeArrayLength);
                     cache.TryAdd(field.FieldType, structInfos);
 
-                    if (structInfos.Count == 1)
+                    if (structInfos.Count >= 1)
                     {
                         // We are tightly packed thus far, so only extend the size of our last contiguous run
-                        var layoutInfo = result[0];
+                        var lastIndex = result.Count - 1;
+                        var layoutInfo = result[lastIndex];
                         layoutInfo.Size += structInfos[0].Size;
-                        result[0] = layoutInfo;
-                    }
-                    else
-                    {
-                        result.AddRange(structInfos);
+                        result[lastIndex] = layoutInfo;
+
+                        for (int i = 1; i < structInfos.Count; i++)
+                        {
+                            var structInfo = structInfos[i];
+                            structInfo.Offset += (ushort) fieldOffset;
+                            result.Add(structInfo);
+                        }
                     }
                 }
             }

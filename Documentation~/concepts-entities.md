@@ -2,7 +2,7 @@
 
 An entity represents something discrete in your program that has its own set of data, such as a character, visual effect, UI element, or even something abstract like a network transaction. An entity is similar to an unmanaged lightweight [GameObject](https://docs.unity3d.com/Manual/class-GameObject.html), which represents specific elements of your program. However, an entity acts as an ID which associates individual unique [components](concepts-components.md) together, rather than containing any code or serving as a container for its associated components.
 
-![](images/entities-concepts.png)<br/>_Discrete entities labelled Entity A, B, and C._
+![A conceptual diagram, with Entity A and B sharing the same components of Speed, Direction, Position, and Renderer, plus Entity C having just Speed, Direction, and Position. Entity A and B share an archetype. A system in the middle of the diagram manipulates the Position, Speed, and Direction components.](images/entities-concepts.png)<br/>_Discrete entities labelled Entity A, B, and C._
 
 Collections of entities are stored in a [`World`](xref:Unity.Entities.World), where a world's [`EntityManager`](xref:Unity.Entities.EntityManager) manages all the entities in the world. `EntityManager` contains methods that you can use to create, destroy, and modify the entities within that world. These include the following common methods:
 
@@ -23,7 +23,7 @@ An entity doesn't have a type, but you can categorize entities by the types of c
 
 ## Entities in the Editor
 
-In the Editor, the following icon represents an Entity: ![](images/editor-entity-icon.png) . You’ll see this when you use the specific [Entities windows and Inspectors](editor-workflows.md).
+In the Editor, the following icon represents an Entity: ![Entity icon - a hexagon.](images/editor-entity-icon.png) . You’ll see this when you use the specific [Entities windows and Inspectors](editor-workflows.md).
 
 ## Additional resources
 

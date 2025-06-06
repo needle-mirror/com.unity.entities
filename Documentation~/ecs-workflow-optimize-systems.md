@@ -29,6 +29,8 @@ Each task is a prerequisite for the subsequent tasks.
 
 [!code-cs[The optimized spawner system](../DocCodeSamples.Tests/SpawnerSystemOptimizedExample.cs#example)]
 
+Note that the `BeginSimulationEntityCommandBufferSystem` is used to create the entity command buffer. This is a system which runs at the start of the `SimulationSystemGroup`, and it ensures that the entity command buffer is played back at the end of the Update phase of the player loop. For more information on default system groups see [System groups](systems-update-order.md).
+
 ## Additional resources
 
 - [Understand the ECS workflow](ecs-workflow-intro.md)

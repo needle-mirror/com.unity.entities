@@ -149,6 +149,44 @@ namespace Unity.Entities.Editor
             return hash;
         }
 
+        public void FillListWithJobDependencyForReadingSystems(List<ComponentViewData> dependencies)
+        {
+            if (World == null || !World.IsCreated || !Valid)
+                return;
+
+            var ptr = StatePointer;
+            if (ptr != null && ptr->m_JobDependencyForReadingSystems.Length > 0)
+            {
+                var jobDependencies = ptr->m_JobDependencyForReadingSystems;
+                for (var i = 0; i < jobDependencies.Length; i++)
+                {
+                    var componentType = ComponentType.FromTypeIndex(jobDependencies[i]);
+                    var type = componentType.GetManagedType();
+                    var name = TypeUtility.GetTypeDisplayName(type);
+                    dependencies.Add(new ComponentViewData(type, name, ComponentType.AccessMode.ReadOnly, ComponentsUtility.GetComponentKind(componentType)));
+                }
+            }
+        }
+
+        public void FillListWithJobDependencyForWritingSystems(List<ComponentViewData> dependencies)
+        {
+            if (World == null || !World.IsCreated || !Valid)
+                return;
+
+            var ptr = StatePointer;
+            if (ptr != null && ptr->m_JobDependencyForWritingSystems.Length > 0)
+            {
+                var jobDependencies = ptr->m_JobDependencyForWritingSystems;
+                for (var i = 0; i < jobDependencies.Length; i++)
+                {
+                    var componentType = ComponentType.FromTypeIndex(jobDependencies[i]);
+                    var type = componentType.GetManagedType();
+                    var name = TypeUtility.GetTypeDisplayName(type);
+                    dependencies.Add(new ComponentViewData(type, name, ComponentType.AccessMode.ReadWrite, ComponentsUtility.GetComponentKind(componentType)));
+                }
+            }
+        }
+
         public override bool Equals(object obj)
         {
             if (obj is SystemProxy sel)

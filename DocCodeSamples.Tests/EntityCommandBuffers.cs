@@ -238,7 +238,7 @@ namespace Doc.CodeSamples.Tests
             {
                 #region ecb_from_ecbsystem
 
-                // ... in a system
+                // ... in a system.
 
                 // Assume an EntityCommandBufferSystem exists named FooECBSystem.
                 // This call to GetSingleton automatically registers the job so that

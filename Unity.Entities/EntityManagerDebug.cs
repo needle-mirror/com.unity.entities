@@ -242,6 +242,9 @@ namespace Unity.Entities
                 }
             }
 
+            /// <summary>
+            /// The highest entity index of all the entities in the EntityManager
+            /// </summary>
             public int HighestIndexEntity
             {
                 get

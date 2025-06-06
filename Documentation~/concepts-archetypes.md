@@ -6,7 +6,7 @@ uid: concepts-archetypes
 
 An archetype is a unique identifier for all the [entities](concepts-entities.md) in a [world](concepts-worlds.md) that have the same unique combination of [component](concepts-components.md) types. For example, in the following diagram, all the entities in a world that have the components `Speed`, `Direction`, `Position`, and `Renderer` and no others share the archetype labelled `X`. All the entities that have component types `Speed`, `Direction`, and `Position` and no others share a different archetype labelled `Y`. 
 
-![](images/entities-concepts.png)
+![A conceptual diagram, with Entity A and B sharing the same components of Speed, Direction, Position, and Renderer, plus Entity C having just Speed, Direction, and Position. Entity A and B share and archetype. A system in the middle of the diagram manipulates the Position, Speed, and Direction components.](images/entities-concepts.png)
 
 When you add or remove component types from an entity, the world's [`EntityManager`](xref:Unity.Entities.EntityManager) moves the entity to the appropriate archetype. For example, if an entity has the components types `Speed`, `Direction`, and `Position` and you remove the `Speed` component, the `EntityManager` moves the entity to the archetype that has components `Direction` and `Position`. If no such archetype exists, the `EntityManager` creates it. 
 
@@ -34,7 +34,7 @@ For information on how to manage chunk memory, refer to [Managing chunk allocati
 
 The [Archetypes window](editor-archetypes-window.md) lists the archetypes of all the worlds in your project and it shows the amount of allocated and unused memory of each archetype.
 
-In the Editor, the following icon represents an Archetype: ![](images/editor-archetype-icon.png) . 
+In the Editor, the following icon represents an Archetype: ![Archetype icon - a hexagon with lines intersecting it.](images/editor-archetype-icon.png) . 
 
 ## Additional resources
 

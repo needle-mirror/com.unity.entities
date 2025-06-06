@@ -214,7 +214,7 @@ namespace Unity.Entities
         // TODO : this is a temporary workaround for the use of EntityCapacity in remapping
         // NOTE : this only accounts for entities which are actually stored in chunks,
         // not the ones which are merely referenced by chunks (aka external references)
-        public int HighestEntityIndex()
+        internal int HighestEntityIndex()
         {
             int maxIndex = 0;
             EndExclusiveEntityTransaction();
@@ -3431,7 +3431,10 @@ namespace Unity.Entities
             access->ManagedComponentStore.PrepareForDeserialize();
         }
 #else
-        // TODO - this function should be marked as deprecated, it doesn't do anymore the kind of reinitialization it was supposed to do.
+        /// <summary>
+        /// DestroyAndResetAllEntities is deprecated and will be removed in a future release. Instead, manually destroy entities, or the whole world.
+        /// </summary>
+        [Obsolete("DestroyAndResetAllEntities has been deprecated; manually destroy entities, or destroy the whole world instead.", false)]
         public void DestroyAndResetAllEntities()
         {
             DestroyEntity(UniversalQueryWithSystems);
@@ -3814,6 +3817,7 @@ namespace Unity.Entities
             }
         }
 
+#if ENTITY_STORE_V1
         /// <summary>
         /// Copies all entities from srcEntityManager and replaces all entities in this EntityManager
         /// </summary>
@@ -3825,7 +3829,6 @@ namespace Unity.Entities
         /// </remarks>
         /// <param name="srcEntityManager">The EntityManager to copy from</param>
         [Obsolete("This function only works in a narrow set of circumstances and has semantics that differ from a regular copy.", false)]
-#if ENTITY_STORE_V1
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
         public void CopyAndReplaceEntitiesFrom(EntityManager srcEntityManager)
         {
@@ -3855,6 +3858,18 @@ namespace Unity.Entities
             }
         }
 #else
+        /// <summary>
+        /// Copies all entities from srcEntityManager and replaces all entities in this EntityManager
+        /// </summary>
+        /// <remarks>
+        /// Guarantees that the chunk layout and order of the entities will match exactly, thus this method can be used for deterministic rollback.
+        /// This feature is not complete and only supports a subset of the EntityManager features at the moment:
+        /// * Currently it copies all CleanupComponents (They should not be copied)
+        /// * Currently does not support class based components
+        /// </remarks>
+        /// <param name="srcEntityManager">The EntityManager to copy from</param>
+        /// <param name="remap">Array of source versions and terget entities to perform remapping</param>
+        [Obsolete("This function only works in a narrow set of circumstances and has semantics that differ from a regular copy.", false)]
         [ExcludeFromBurstCompatTesting("Accesses managed component store")]
         public void CopyAndReplaceEntitiesFrom(EntityManager srcEntityManager, NativeArray<EntityRemapUtility.EntityRemapInfo> remap = default)
         {
