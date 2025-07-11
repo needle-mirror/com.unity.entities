@@ -217,37 +217,6 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Specifies if a System.Type has any <see cref="Entity"/> or <see cref="BlobAssetReferenceData"/> references in its hierarchy.
-        /// </summary>
-        /// <remarks>
-        /// This enum is returned by <see cref="EntityRemapUtility.HasEntityReferencesManaged"/>
-        /// which recursively traverses a System.Type and its fields to find entity or blob asset references.
-        ///
-        /// In some cases Unity cannot find all the Entity/Blob references within a type.
-        /// For example, if the type is polymorphic and non-sealed, or if the type hierarchy is deep, making it too expensive
-        /// to be worth inspecting it exhaustively. In this cases, the value <see cref="HasRefResult.MayHaveRef"/> specifies that
-        /// although no actual reference was found,
-        /// the type cannot be treated as a type which definitely does not have any references during serialization.
-        /// </remarks>
-        public enum HasRefResult
-        {
-            /// <summary>The System.Type does not have any References within the entire hierarchy.</summary>
-            NoRef = 0,
-            /// <summary>
-            /// The System.Type might have References.
-            /// </summary>
-            /// <remarks>
-            /// Cases where we can't say with certainty if the type contains any references include
-            /// if there is a polymorphic non-sealed type, or if the type hierarchy is deeper than the maximum specified recursion depth.
-            ///
-            /// This value can be handled while validating the data for serialization.
-            /// </remarks>
-            MayHaveRef = 1,
-            /// <summary>The System.Type has a reference that was directly seen by the function.</summary>
-            HasRef = 2
-        }
-
-        /// <summary>
         /// Reports whether an Entity blob has any <see cref="Entity"/> or <see cref="BlobAssetReferenceData"/> references.
         /// </summary>
         public struct EntityBlobRefResult
@@ -255,16 +224,16 @@ namespace Unity.Entities
             /// <summary>
             /// Specifies if there are any <see cref="Entity"/> references.
             /// </summary>
-            public HasRefResult HasEntityRef;
+            public bool HasEntityRef;
             /// <summary>
             /// Specifies if there are any <see cref="BlobAssetReferenceData"/> references.
             /// </summary>
-            public HasRefResult HasBlobRef;
+            public bool HasBlobRef;
 
             /// <summary>
             /// Specifies if there are any <see cref="UnityObjectRef{T}"/> references.
             /// </summary>
-            public HasRefResult HasUnityObjectRef;
+            public bool HasUnityObjectRef;
 
             /// <summary>
             /// Initializes and returns an instance of EntityBlobRefResult.
@@ -272,7 +241,7 @@ namespace Unity.Entities
             /// <param name="hasEntityRef">Specifies if there are any <see cref="Entity"/> references.</param>
             /// <param name="hasBlobRef">Specifies if there are any <see cref="BlobAssetReferenceData"/> references.</param>
             /// <param name="hasUnityObjectRef">Specifies if there are any <see cref="UnityObjectRef{T}"/> references.</param>
-            public EntityBlobRefResult(HasRefResult hasEntityRef, HasRefResult hasBlobRef, HasRefResult hasUnityObjectRef)
+            public EntityBlobRefResult(bool hasEntityRef, bool hasBlobRef, bool hasUnityObjectRef)
             {
                 this.HasEntityRef = hasEntityRef;
                 this.HasBlobRef = hasBlobRef;
@@ -281,7 +250,7 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// Checks if a type has any <see cref="Entity"/> or <see cref="BlobAssetReferenceData"/> references.
+        /// Checks if a type has any <see cref="Entity"/>, <see cref="BlobAssetReferenceData"/> or <see cref="UnityObjectRef{T}"/> references.
         /// </summary>
         /// <param name="type">The type to inspect.</param>
         /// <param name="hasEntityReferences">Specifies if the type has any <see cref="Entity"/> references.</param>
@@ -289,29 +258,47 @@ namespace Unity.Entities
         /// <param name="hasUnityObjectReferences">Specifies if the type has any <see cref="UnityObjectRef{T}"/> references.</param>
         /// <param name="cache">Map of type to <see cref="EntityBlobRefResult"/> used to accelerate the type recursion.</param>
         /// <param name="maxDepth">The maximum depth for the recursion.</param>
-        public static void HasEntityReferencesManaged(Type type, out HasRefResult hasEntityReferences, out HasRefResult hasBlobReferences, out HasRefResult hasUnityObjectReferences, Dictionary<Type,EntityBlobRefResult> cache = null, int maxDepth = 128)
+        public static void HasReferencesManaged(Type type, out bool hasEntityReferences, out bool hasBlobReferences, out bool hasUnityObjectReferences, Dictionary<Type,EntityBlobRefResult> cache = null, int maxDepth = 128)
         {
-            hasEntityReferences = HasRefResult.NoRef;
-            hasBlobReferences = HasRefResult.NoRef;
-            hasUnityObjectReferences = HasRefResult.NoRef;
-
             if (cache == null)
                 cache = new Dictionary<Type, EntityBlobRefResult>();
 
-            ProcessEntityOrBlobReferencesRecursiveManaged(type, ref hasEntityReferences, ref hasBlobReferences, ref hasUnityObjectReferences, 0, ref cache, maxDepth);
+            ProcessReferencesRecursiveManaged(type, out hasEntityReferences, out hasBlobReferences, out hasUnityObjectReferences, 0, ref cache, maxDepth);
         }
 
-
-        static void ProcessEntityOrBlobReferencesRecursiveManaged(Type type, ref HasRefResult hasEntityReferences, ref HasRefResult hasBlobReferences, ref HasRefResult hasUnityObjectReferences, int depth, ref Dictionary<Type,EntityBlobRefResult> cache, int maxDepth = 10)
+        /*
+         * copied and translated for reflection in TypeInfoGeneration.cs
+         */
+        static void ProcessReferencesRecursiveManaged(Type type, out bool hasEntityReferences, out bool hasBlobReferences, out bool hasUnityObjectReferences, int depth, ref Dictionary<Type,EntityBlobRefResult> cache, int maxDepth = 10)
         {
+            hasEntityReferences = false;
+            hasBlobReferences = false;
+            hasUnityObjectReferences = false;
+
+           var forceReference = type.GetCustomAttribute<TypeManager.ForceReferenceAttribute>(true);
+           if (forceReference != null)
+           {
+               hasEntityReferences = forceReference.HasEntityReferences;
+               hasBlobReferences = forceReference.HasBlobReferences;
+               hasUnityObjectReferences = forceReference.HasUnityObjectReferences;
+
+               // If we know for certain that all references are present, we can early out on the search
+               if(forceReference.HasBlobReferences && forceReference.HasEntityReferences && forceReference.HasUnityObjectReferences)
+                   return;
+           }
+
+           // If we are certain that there will be no reference of any type, we can early out
+           var typeOverrides = type.GetCustomAttribute<TypeManager.TypeOverridesAttribute>(true);
+           if (typeOverrides != null && typeOverrides.HasNoBlobReferences && typeOverrides.HasNoEntityReferences && typeOverrides.HasNoUnityObjectReferences)
+               return;
 
             // Avoid deep / infinite recursion
             if (depth > maxDepth)
             {
-                hasEntityReferences = HasRefResult.MayHaveRef;
-                hasBlobReferences = HasRefResult.MayHaveRef;
-                hasUnityObjectReferences = HasRefResult.MayHaveRef;
-
+                Debug.LogWarning(
+                    $"The max depth is reached on searching for nested Entity References, Blob References or Unity Object References " +
+                    $"It will ignore any Entity, Blob or Unity Object References. If you are certain that there is any of these types " +
+                    $"somewhere in the nesting structure, please add the [{nameof(TypeManager.ForceReferenceAttribute)}] attribute to the type.");
                 return;
             }
 
@@ -325,15 +312,10 @@ namespace Unity.Entities
                 return;
             }
 
-
-            HasRefResult localHasEntityRefs = HasRefResult.NoRef;
-            HasRefResult localHasBlobRefs = HasRefResult.NoRef;
-            HasRefResult localHasUnityObjectRefs = HasRefResult.NoRef;
-
             var fields = type.GetFields(BindingFlags.Instance | BindingFlags.NonPublic | BindingFlags.Public);
             foreach (var field in fields)
             {
-                if (localHasEntityRefs > 0 && localHasBlobRefs > 0 && localHasUnityObjectRefs > 0)
+                if (hasEntityReferences && hasBlobReferences && hasUnityObjectReferences)
                 {
                     break;
                 }
@@ -356,45 +338,37 @@ namespace Unity.Entities
                 }
                 else if (fieldType == typeof(Entity))
                 {
-                    localHasEntityRefs = HasRefResult.HasRef;
+                    hasEntityReferences = true;
                 }
                 else if (type == typeof(BlobAssetReferenceData))
                 {
-                    localHasBlobRefs = HasRefResult.HasRef;
+                    hasBlobReferences = true;
                 }
                 else if (fieldType == typeof(UntypedUnityObjectRef))
                 {
-                    localHasUnityObjectRefs = HasRefResult.HasRef;
+                    hasUnityObjectReferences = true;
                 }
                 else if (fieldType.IsValueType || fieldType.IsSealed)
                 {
-                    HasRefResult recursiveHasEntityRefs = HasRefResult.NoRef;
-                    HasRefResult recursiveHasBlobRefs = HasRefResult.NoRef;
-                    HasRefResult recursiveHasUnityObjectRefs = HasRefResult.NoRef;
+                    ProcessReferencesRecursiveManaged(fieldType, out var recursiveHasEntityRefs,
+                        out var recursiveHasBlobRefs, out var recursiveHasUnityObjectRefs, depth + 1, ref cache, maxDepth);
 
-                    ProcessEntityOrBlobReferencesRecursiveManaged(fieldType, ref recursiveHasEntityRefs,
-                        ref recursiveHasBlobRefs, ref recursiveHasUnityObjectRefs, depth + 1, ref cache, maxDepth);
-
-                    localHasEntityRefs = localHasEntityRefs > recursiveHasEntityRefs ? localHasEntityRefs : recursiveHasEntityRefs;
-                    localHasBlobRefs = localHasBlobRefs > recursiveHasBlobRefs ? localHasBlobRefs : recursiveHasBlobRefs;
-                    localHasUnityObjectRefs = localHasUnityObjectRefs > recursiveHasUnityObjectRefs ? localHasUnityObjectRefs : recursiveHasUnityObjectRefs;
+                    hasEntityReferences |= recursiveHasEntityRefs;
+                    hasBlobReferences |= recursiveHasBlobRefs;
+                    hasUnityObjectReferences |= recursiveHasUnityObjectRefs;
                 }
                 // It is not possible to determine if there are entity references in a polymorphic non-sealed class type
                 else
                 {
-                    localHasEntityRefs = HasRefResult.MayHaveRef;
-                    localHasBlobRefs = HasRefResult.MayHaveRef;
-                    localHasUnityObjectRefs = HasRefResult.MayHaveRef;
+                    Debug.LogWarning(
+                        $"We can't determine if there are references in a polymorphic non-sealed class type in the TypeManager. " +
+                        $"It will ignore any Entity, Blob or Unity Object References. If you are certain that there is any of these types " +
+                        $"somewhere in the nesting structure, please add the [{nameof(TypeManager.ForceReferenceAttribute)}] attribute to the type.");
                 }
             }
 
             if(!cache.ContainsKey(type))
-                cache[type] = new EntityBlobRefResult(localHasEntityRefs, localHasBlobRefs, localHasUnityObjectRefs);
-
-            //Definitely seen a reference takes precedence over maybe, which is more cautious than being sure of no refs
-            hasEntityReferences = hasEntityReferences > localHasEntityRefs ?  hasEntityReferences : localHasEntityRefs;
-            hasBlobReferences = hasBlobReferences > localHasBlobRefs ?  hasBlobReferences : localHasBlobRefs;
-            hasUnityObjectReferences = hasUnityObjectReferences > localHasUnityObjectRefs ?  hasUnityObjectReferences : localHasUnityObjectRefs;
+                cache[type] = new EntityBlobRefResult(hasEntityReferences, hasBlobReferences, hasUnityObjectReferences);
 
         }
 

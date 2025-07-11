@@ -70,7 +70,7 @@ namespace Unity.Entities.Tests
             public UnityObjectRef<UnityEngine.Object> UnityObjectRef;
         }
 
-        [TypeManager.TypeOverrides(hasNoBlobReferences:true, hasNoEntityReferences:true, hasNoUnityObjectReferences:true, allowForcedNoReferences:true)]
+        [TypeManager.TypeOverrides(hasNoBlobReferences:true, hasNoEntityReferences:true, hasNoUnityObjectReferences:true)]
         struct StructWithUnityObjectRefOverride : IComponentData
         {
             public UnityObjectRef<UnityEngine.Object> UnityObjectRef;

@@ -13,8 +13,11 @@ namespace Unity.Entities.Content
     [Serializable]
     public struct WeakObjectReference<TObject> : IEquatable<WeakObjectReference<TObject>> where TObject : UnityEngine.Object
     {
+        /// <summary>
+        /// The reference id.
+        /// </summary>
         [SerializeField]
-        internal UntypedWeakReferenceId Id;
+        public UntypedWeakReferenceId Id;
 
         /// <summary>
         /// Returns true if the reference has a valid id.  In the editor, additional checks for the correct GenerationType and the existence of the referenced asset are performed.

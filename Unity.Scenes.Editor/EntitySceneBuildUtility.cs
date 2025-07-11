@@ -252,6 +252,10 @@ namespace Unity.Scenes.Editor
 
                         if (BlobAssetReference<BlobArray<UntypedWeakReferenceId>>.TryRead(artifactPath, 1, out var weakAssets))
                         {
+#if ENABLE_CONTENT_BUILD_DIAGNOSTICS
+                            Debug.Log($"{weakAssets.Value.Length} weak asset refs loaded for scene {sceneGuid}.");
+#endif
+
                             for (int j = 0; j < weakAssets.Value.Length; ++j)
                             {
                                 var id = weakAssets.Value[j];
@@ -399,180 +403,6 @@ namespace Unity.Scenes.Editor
 
             blob.AllocateString(ref root.SceneName, sceneMetaData.Value.SceneName.ToString());
             EditorEntityScenes.WriteHeader(outPath, ref root, sectionDataArray, blob);
-        }
-
-        internal static SectionDependencyInfo CreateDependencyInfo(ObjectIdentifier[] objectIds, BuildTarget target, UnityEditor.Build.Player.TypeDB scriptInfo)
-        {
-            //TODO: cache this dependency data
-            var dependencies = ContentBuildInterface.GetPlayerDependenciesForObjects(objectIds, target, scriptInfo);
-            var depTypes = ContentBuildInterface.GetTypeForObjects(dependencies);
-            var paths = dependencies.Select(i => AssetDatabaseCompatibility.GuidToPath(i.guid)).ToArray();
-            return new SectionDependencyInfo() { Dependencies = dependencies, Paths = paths, Types = depTypes };
-        }
-
-        internal struct SectionDependencyInfo
-        {
-            public ObjectIdentifier[] Dependencies;
-            public Type[] Types;
-            public string[] Paths;
-        }
-
-        static ReturnCode ExtractDuplicateObjects(IBuildParameters parameters, Dictionary<SceneSection, SectionDependencyInfo> dependencyInpuData, BundleExplictObjectLayout layout, HashSet<string> bundleNames, Dictionary<Hash128, Dictionary<SceneSection, List<Hash128>>> result)
-        {
-            var bundleLayout = new Dictionary<Hash128, List<ObjectIdentifier>>();
-            CreateAssetLayoutData(dependencyInpuData, result, bundleLayout);
-            ExtractExplicitBundleLayout(bundleLayout, layout, bundleNames);
-            return ReturnCode.Success;
-        }
-
-        static void ExtractExplicitBundleLayout(Dictionary<Hash128, List<ObjectIdentifier>> bundleLayout, BundleExplictObjectLayout layout, HashSet<string> bundleNames)
-        {
-            foreach (var sectionIter in bundleLayout)
-            {
-                var bundleName = $"{sectionIter.Key}.bundle";
-                foreach (var i in sectionIter.Value)
-                {
-                    try
-                    { layout.ExplicitObjectLocation.Add(i, bundleName); }
-                    catch { Debug.LogError($"Trying to add bundle: '{bundleName}' current value '{layout.ExplicitObjectLocation[i]}' object type '{ContentBuildInterface.GetTypeForObject(i).Name}'"); };
-                }
-                bundleNames.Add(bundleName);
-            }
-        }
-
-        /// <summary>
-        /// Create bundle layout and depedendency data for subscene bundles
-        /// </summary>
-        /// <param name="dependencyInputData">Mapping of SceneSection to dependency info for that section.</param>
-        /// <param name="dependencyResult">Mapping of subscene id to mapping of section to bundle ids</param>
-        /// <param name="bundleLayoutResult">Mapping of bundle ids to included objects</param>
-        internal static void CreateAssetLayoutData(Dictionary<SceneSection, SectionDependencyInfo> dependencyInputData, Dictionary<Hash128, Dictionary<SceneSection, List<Hash128>>> dependencyResult, Dictionary<Hash128, List<ObjectIdentifier>> bundleLayoutResult)
-        {
-            var sw = new System.Diagnostics.Stopwatch();
-            sw.Start();
-
-            if (!ValidateInput(dependencyInputData, out var error))
-            {
-                Debug.Log(error);
-                return;
-            }
-
-            var depToSections = new Dictionary<ObjectIdentifier, List<SceneSection>>();
-            //for each subscene, collect all dependencies and map them to the scenes they are referenced by.
-            //also create a mapping from the subscene to all of its depedencies
-            foreach (var sectionIter in dependencyInputData)
-            {
-                foreach (var dependency in sectionIter.Value.Dependencies)
-                {
-                    // Built In Resources we reference directly
-                    if (dependency.guid == GUIDHelper.UnityBuiltinResources)
-                        continue;
-
-                    if (!depToSections.TryGetValue(dependency, out List<SceneSection> sectionList))
-                    {
-                        sectionList = new List<SceneSection>();
-                        depToSections.Add(dependency, sectionList);
-                    }
-                    sectionList.Add(sectionIter.Key);
-                }
-            }
-
-            //convert each list of scenes into a hash
-            var objToSectionUsageHash = new Dictionary<ObjectIdentifier, Hash128>();
-            foreach (var objIter in depToSections)
-            {
-                if (objIter.Value.Count <= 1)
-                    continue;
-
-                objToSectionUsageHash.Add(objIter.Key, HashingMethods.Calculate(objIter.Value).ToHash128());
-            }
-
-            if (objToSectionUsageHash.Count > 0)
-            {
-                //create mapping from scene hash to included dependencies
-                foreach (var objIter in objToSectionUsageHash)
-                {
-                    if (!bundleLayoutResult.TryGetValue(objIter.Value, out var ids))
-                        bundleLayoutResult.Add(objIter.Value, ids = new List<ObjectIdentifier>());
-                    ids.Add(objIter.Key);
-                }
-
-                foreach (var sectionIter in dependencyInputData)
-                {
-                    var bundleHashes = new HashSet<Hash128>();
-                    foreach (var dep in dependencyInputData[sectionIter.Key].Dependencies)
-                        if (objToSectionUsageHash.TryGetValue(dep, out var sceneHash))
-                            bundleHashes.Add(sceneHash);
-                    if (!dependencyResult.TryGetValue(sectionIter.Key.SceneGUID, out var sectionMap))
-                        dependencyResult.Add(sectionIter.Key.SceneGUID, sectionMap = new Dictionary<SceneSection, List<Hash128>>());
-                    sectionMap[sectionIter.Key] = bundleHashes.ToList();
-                }
-            }
-
-            sw.Stop();
-            Console.WriteLine($"CreateAssetLayoutData time: {sw.Elapsed}");
-        }
-
-        internal static bool ValidateInput(Dictionary<SceneSection, SectionDependencyInfo> dependencyInputData, out string firstError)
-        {
-            firstError = null;
-            if (dependencyInputData == null)
-            {
-                firstError = "NULL dependencyInputData.";
-                return false;
-            }
-            foreach (var sec in dependencyInputData)
-            {
-                if (!sec.Key.SceneGUID.IsValid)
-                {
-                    firstError = "Invalid scene guid for section.";
-                    return false;
-                }
-                if (sec.Key.Section < 0)
-                {
-                    firstError = $"Scene {sec.Key.SceneGUID} - Invalid section index {sec.Key.Section}.";
-                    return false;
-                }
-                if (sec.Value.Dependencies == null)
-                {
-                    firstError = $"Scene {sec.Key.SceneGUID} - null Dependencies.";
-                    return false;
-                }
-                if (sec.Value.Paths == null)
-                {
-                    firstError = $"Scene {sec.Key.SceneGUID} - null Paths.";
-                    return false;
-                }
-                if (sec.Value.Types == null)
-                {
-                    firstError = $"Scene {sec.Key.SceneGUID} - null Types.";
-                    return false;
-                }
-                if (sec.Value.Dependencies.Length != sec.Value.Paths.Length || sec.Value.Dependencies.Length != sec.Value.Types.Length)
-                {
-                    firstError = $"Scene {sec.Key.SceneGUID} - Data length mismatch: Dependencies: {sec.Value.Dependencies.Length}, Types: {sec.Value.Types.Length}, Paths: {sec.Value.Paths.Length}.";
-                    return false;
-                }
-                for (int i = 0; i < sec.Value.Dependencies.Length; i++)
-                {
-                    if (sec.Value.Dependencies[i].guid.Empty())
-                    {
-                        firstError = $"Scene {sec.Key.SceneGUID} - Dependencies[{i}] has invalid GUID, path='{sec.Value.Paths[i]}'.";
-                        return false;
-                    }
-                    if (sec.Value.Types[i] == null)
-                    {
-                        firstError = $"Scene {sec.Key.SceneGUID} - Types[{i}] is NULL, path='{sec.Value.Paths[i]}'.";
-                        return false;
-                    }
-                    if (string.IsNullOrEmpty(sec.Value.Paths[i]))
-                    {
-                        firstError = $"Scene {sec.Key.SceneGUID} - Paths[{i}] is NULL or empty.";
-                        return false;
-                    }
-                }
-            }
-            return true;
         }
 
         internal class UpdateBundlePacking : IBuildTask
@@ -727,9 +557,10 @@ namespace Unity.Scenes.Editor
         {
             public UntypedWeakReferenceId refId;
             public AsyncOperation loadingOperation;
-            public bool IsDone => loadingOperation.isDone;
+            public bool IsDone => forceLoadedObjects != null || loadingOperation.isDone;
 
-            public bool IsValid => loadingOperation != null;
+            public bool IsValid => loadingOperation != null || forceLoadedObjects != null;
+            Object[] forceLoadedObjects;
 
             public LoadState(UntypedWeakReferenceId id)
             {
@@ -768,18 +599,62 @@ namespace Unity.Scenes.Editor
                 if (IsDone)
                     return true;
                 if (refId.GenerationType == WeakReferenceGenerationType.SubSceneObjectReferences)
-                    return (loadingOperation as UnityEditorInternal.LoadFileAndForgetOperation).Result != null;
+                {
+                    var loadOp = loadingOperation as UnityEditorInternal.LoadFileAndForgetOperation;
+                    if (loadOp == null)
+                        return false;
+                    if (loadOp.isDone)
+                        return true;
+
+                    //async op is not going to finish here, just revert to the sync version
+                    loadingOperation = null;
+                    AssetDatabaseCompatibility.GetArtifactPaths(refId.GlobalId.AssetGUID, out var artifactPaths);
+                    var loadPath = EntityScenesPaths.GetLoadPathFromArtifactPaths(artifactPaths, EntityScenesPaths.PathType.EntitiesUnityObjectReferences, (int)refId.GlobalId.SceneObjectIdentifier0);
+                    forceLoadedObjects = UnityEditorInternal.InternalEditorUtility.LoadSerializedFileAndForget(loadPath);
+                    return forceLoadedObjects != null;
+                }
                 else
-                    return (loadingOperation as AssetDatabaseLoadOperation).LoadedObject != null;
+                {
+                    var loadOp = loadingOperation as AssetDatabaseLoadOperation;
+                    if (loadOp == null)
+                        return false;
+                    if (loadOp.isDone)
+                        return true;
+                    //async op is not going to finish here, just revert to the sync version
+                    loadingOperation = null;
+                    forceLoadedObjects = AssetDatabase.LoadAllAssetsAtPath(AssetDatabase.GUIDToAssetPath(refId.GlobalId.AssetGUID));
+                    return forceLoadedObjects != null;
+                }
             }
 
             public object GetResult()
             {
-                if (loadingOperation == null)
-                    return null;
-                if (refId.GenerationType == WeakReferenceGenerationType.SubSceneObjectReferences)
-                    return (loadingOperation as UnityEditorInternal.LoadFileAndForgetOperation).Result;
-                return (loadingOperation as AssetDatabaseLoadOperation).LoadedObject;
+                if (loadingOperation != null)
+                {
+                    if (refId.GenerationType == WeakReferenceGenerationType.SubSceneObjectReferences)
+                        return (loadingOperation as UnityEditorInternal.LoadFileAndForgetOperation).Result;
+                    return (loadingOperation as AssetDatabaseLoadOperation).LoadedObject;
+                }
+                else if (forceLoadedObjects != null)
+                {
+                    //For subscenes, there will only be a single object of type ReferencedUnityObjects
+                    if (refId.GenerationType == WeakReferenceGenerationType.SubSceneObjectReferences)
+                    {
+                        for (int i = 0; i < forceLoadedObjects.Length; i++)
+                            if (forceLoadedObjects[i] is ReferencedUnityObjects refUniytObjs)
+                                return refUniytObjs;
+                        Debug.LogWarning($"Unable to find ReferencedUnityObjects for subscene {refId.GlobalId.AssetGUID}");
+                        return null;
+                    }
+
+                    //for normal assets, use the LFID to determine the correct object to return
+                    foreach (var o in forceLoadedObjects)
+                    {
+                        if(AssetDatabase.TryGetGUIDAndLocalFileIdentifier(o, out string _, out long lfid) && lfid == refId.GlobalId.SceneObjectIdentifier0)
+                            return o;
+                    }
+                }
+                return null;
             }
 
             internal void Unload()

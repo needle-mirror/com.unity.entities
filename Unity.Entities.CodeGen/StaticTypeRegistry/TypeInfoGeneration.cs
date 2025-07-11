@@ -8,6 +8,8 @@ using System.Collections.Generic;
 using System.Linq;
 using MethodAttributes = Mono.Cecil.MethodAttributes;
 using TypeGenInfoList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.TypeGenInfo>;
+using SystemList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.SystemTypeGenInfo>;
+
 using Unity.Cecil.Awesome;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
@@ -25,12 +27,6 @@ namespace Unity.Entities.CodeGen
 {
     internal partial class StaticTypeRegistryPostProcessor : EntitiesILPostProcessor
     {
-        public enum HasRefResult
-        {
-            NoRef = 0,
-            MayHaveRef = 1,
-            HasRef = 2
-        }
 
 	//These are automatically filled in from the actual values in the engine
         public static int MaximumTypesCount;
@@ -169,7 +165,26 @@ namespace Unity.Entities.CodeGen
             internal bool MightHaveUnityObjectReferences;
         }
 
+        internal struct SystemAttributeWithTypeReference
+        {
+            public SystemAttributeKind Kind;
+            public TypeReference TargetSystemType;
+            public int Flags;
+        }
+
+        internal struct SystemTypeGenInfo
+        {
+            public TypeReference TypeReference;
+            public int Size;
+            public long Hash;
+            public int TypeFlags;
+            public WorldSystemFilterFlags FilterFlags;
+            public HashSet<SystemAttributeWithTypeReference> Attributes;
+        }
+
         int m_TotalTypeCount;
+        int m_TotalSystemCount;
+        int m_TotalSystemAttributeCount;
         int m_TotalEntityOffsetCount;
         int m_TotalBlobAssetRefOffsetCount;
         int m_TotalWeakAssetRefOffsetCount;
@@ -263,6 +278,8 @@ namespace Unity.Entities.CodeGen
             StoreTopOfStackToField(il, fieldRef, isStaticField);
         }
 
+
+
         /// <summary>
         ///  Populates the registry's SystemTypeSizes array for all System types in typeIndex order.
         ///  Currently sets 0 for size of managed systems.
@@ -326,6 +343,38 @@ namespace Unity.Entities.CodeGen
 
             StoreTopOfStackToField(il, fieldRef, isStaticField);
         }
+
+        internal unsafe byte[] GenerateSystemTypeInfoBlobArray(SystemList typeGenInfoList)
+        {
+            var systemTypeInfoSize = sizeof(SystemTypeInfo);
+            var blob = new byte[systemTypeInfoSize * typeGenInfoList.Count];
+            if (typeGenInfoList.Count == 0)
+                return blob;
+
+            var attributesSoFar = 0;
+
+            fixed (byte* pData = &blob[0])
+            {
+                for (int i = 0; i < typeGenInfoList.Count; i++)
+                {
+                    var typeGenInfo = typeGenInfoList[i];
+                    var typeInfo = new SystemTypeInfo
+                    {
+                        TypeIndex = i,
+                        FilterFlags = typeGenInfo.FilterFlags,
+                        TypeFlags = typeGenInfo.TypeFlags,
+                        SystemAttributeCount = typeGenInfo.Attributes.Count,
+                        SystemAttributeStartIndex = attributesSoFar,
+
+                    };
+                    attributesSoFar += typeGenInfo.Attributes.Count;
+                    *((SystemTypeInfo*)pData + i) = typeInfo;
+                }
+            }
+
+            return blob;
+        }
+
 
         /// <summary>
         /// Populates the registry's TypeInfo array in typeIndex order.
@@ -1141,24 +1190,18 @@ namespace Unity.Entities.CodeGen
 
         /*
          * copied and translated from reflection from EntityRemapUtility.cs
-	     * 
-
          */
         public void HasEntityReferencesManaged(
             TypeReference type,
-            out HasRefResult hasEntityReferences,
-            out HasRefResult hasBlobReferences,
-            out HasRefResult hasUnityObjReferences,
-            out HasRefResult hasWeakAssetReferences,
+            out bool hasEntityReferences,
+            out bool hasBlobReferences,
+            out bool hasUnityObjReferences,
+            out bool hasWeakAssetReferences,
             int maxDepth = 128)
         {
-            hasEntityReferences = HasRefResult.NoRef;
-            hasBlobReferences = HasRefResult.NoRef;
-            hasUnityObjReferences = HasRefResult.NoRef;
-            hasWeakAssetReferences = HasRefResult.NoRef;
             try
             {
-                ProcessEntityOrBlobReferencesRecursiveManaged(type, ref hasEntityReferences, ref hasBlobReferences, ref hasUnityObjReferences, ref hasWeakAssetReferences, 0, maxDepth);
+                ProcessReferencesRecursiveManaged(type, out hasEntityReferences, out hasBlobReferences, out hasUnityObjReferences, out hasWeakAssetReferences, 0, maxDepth);
             }
             catch (Exception e)
             {
@@ -1169,36 +1212,50 @@ namespace Unity.Entities.CodeGen
         /*
          * copied and translated from reflection from EntityRemapUtility.cs
          */
-        void ProcessEntityOrBlobReferencesRecursiveManaged(
+        void ProcessReferencesRecursiveManaged(
             TypeReference type,
-            ref HasRefResult hasEntityReferences,
-            ref HasRefResult hasBlobReferences,
-            ref HasRefResult hasUnityObjReferences,
-            ref HasRefResult hasWeakAssetReferences,
+            out bool hasEntityReferences,
+            out bool hasBlobReferences,
+            out bool hasUnityObjReferences,
+            out bool hasWeakAssetReferences,
             int depth,
             int maxDepth = 10)
         {
+            hasEntityReferences = false;
+            hasBlobReferences = false;
+            hasUnityObjReferences = false;
+            hasWeakAssetReferences = false;
+
             //we don't follow pointers for patching anyway, so don't follow them for looking for
             //entity or blob references either
             if (type.IsPointer)
                 return;
 
+            var typeDef = type.Resolve();
+
+            // If the type explicitly overrides entity/blob reference attributes account for that now
+            if (typeDef.CustomAttributes.Count > 0)
+            {
+                // Force true
+                var forceReference = typeDef.CustomAttributes.FirstOrDefault(ca =>
+                    ca.Constructor.DeclaringType.Name == "ForceReferenceAttribute");
+
+                if (forceReference != null)
+                {
+                    hasEntityReferences = (bool) forceReference.ConstructorArguments[0].Value;
+                    hasBlobReferences = (bool) forceReference.ConstructorArguments[1].Value;
+                    hasUnityObjReferences = (bool) forceReference.ConstructorArguments[2].Value;
+                }
+            }
+
             // Avoid deep / infinite recursion
             if (depth > maxDepth)
             {
-                hasEntityReferences = HasRefResult.MayHaveRef;
-                hasBlobReferences = HasRefResult.MayHaveRef;
-                hasUnityObjReferences = HasRefResult.MayHaveRef;
-                hasWeakAssetReferences = HasRefResult.MayHaveRef;
+                // The max depth is reached on searching for nested Entity References, Blob References or Unity Object References
+                // It will ignore any Entity, Blob or Unity Object References. If you are certain that there is any of these types
+                // somewhere in the nesting structure, please add the [{nameof(TypeManager.ForceReferenceSearchAttribute)}] attribute to the type.
                 return;
             }
-
-            var typeDef = type.Resolve();
-
-            var localHasEntityRefs = HasRefResult.NoRef;
-            var localHasBlobRefs = HasRefResult.NoRef;
-            var localHasUnityObjRefs = HasRefResult.NoRef;
-            var localHasWeakAssetRefs = HasRefResult.NoRef;
 
             var fields = typeDef.Fields.Where(f=>!f.IsStatic);
 
@@ -1207,7 +1264,7 @@ namespace Unity.Entities.CodeGen
             foreach (var f in fields)
             {
                 var field = typeResolver.Resolve(f);
-                if (localHasEntityRefs > 0 && localHasBlobRefs > 0)
+                if (hasEntityReferences && hasBlobReferences && hasUnityObjReferences && hasWeakAssetReferences)
                 {
                     break;
                 }
@@ -1217,12 +1274,11 @@ namespace Unity.Entities.CodeGen
                 var fieldRef = typeResolver.Resolve(field.FieldType);
                 var fieldType = fieldRef.Resolve();
 
-
                 // Get underlying type for Array or List
                 if (fieldRef.IsArray)
                 {
                     fieldRef = ((TypeSpecification)fieldRef).ElementType;
-                   
+
                 }
                 else if (fieldRef is GenericInstanceType ginst)
                 {
@@ -1247,56 +1303,43 @@ namespace Unity.Entities.CodeGen
                 }
                 else if (TypeReferenceEqualityComparer.AreEqual(fieldType, runnerOfMe._EntityDef))
                 {
-                    localHasEntityRefs = HasRefResult.HasRef;
+                    hasEntityReferences = true;
                 }
                 else if (TypeReferenceEqualityComparer.AreEqual(fieldType, runnerOfMe._BlobAssetReferenceDataDef))
                 {
-                    localHasBlobRefs = HasRefResult.HasRef;
+                    hasBlobReferences = true;
                 }
                 else if (TypeReferenceEqualityComparer.AreEqual(fieldType, runnerOfMe._UntypedUnityObjectRefDef))
                 {
-                    localHasUnityObjRefs = HasRefResult.HasRef;
+                    hasUnityObjReferences = true;
                 }
                 else if (TypeReferenceEqualityComparer.AreEqual(fieldType, runnerOfMe._UntypedWeakReferenceIdDef))
                 {
-                    localHasWeakAssetRefs = HasRefResult.HasRef;
+                    hasWeakAssetReferences = true;
                 }
                 else if (fieldType.IsValueType || fieldType.IsSealed)
                 {
-                    var recursiveHasEntityRefs = HasRefResult.NoRef;
-                    var recursiveHasBlobRefs = HasRefResult.NoRef;
-                    var recursiveHasUnityObjRefs = HasRefResult.NoRef;
-                    var recursiveHasWeakAssetRefs = HasRefResult.NoRef;
-
-                    ProcessEntityOrBlobReferencesRecursiveManaged(
+                    ProcessReferencesRecursiveManaged(
                         fieldRef,
-                        ref recursiveHasEntityRefs,
-                        ref recursiveHasBlobRefs,
-                        ref recursiveHasUnityObjRefs,
-                        ref recursiveHasWeakAssetRefs,
+                        out var recursiveHasEntityRefs,
+                        out var recursiveHasBlobRefs,
+                        out var recursiveHasUnityObjRefs,
+                        out var recursiveHasWeakAssetRefs,
                         depth + 1,
                         maxDepth);
 
-                    localHasEntityRefs = localHasEntityRefs > recursiveHasEntityRefs ? localHasEntityRefs : recursiveHasEntityRefs;
-                    localHasBlobRefs = localHasBlobRefs > recursiveHasBlobRefs ? localHasBlobRefs : recursiveHasBlobRefs;
-                    localHasUnityObjRefs = localHasUnityObjRefs > recursiveHasUnityObjRefs ? localHasUnityObjRefs : recursiveHasUnityObjRefs;
-                    localHasWeakAssetRefs = localHasWeakAssetRefs > recursiveHasWeakAssetRefs ? localHasWeakAssetRefs : recursiveHasWeakAssetRefs;
+                    hasEntityReferences |= recursiveHasEntityRefs;
+                    hasBlobReferences |= recursiveHasBlobRefs;
+                    hasUnityObjReferences |= recursiveHasUnityObjRefs;
+                    hasWeakAssetReferences |= recursiveHasWeakAssetRefs;
                 }
-                // It is not possible to determine if there are entity references in a polymorphic non-sealed class type
                 else
                 {
-                    localHasEntityRefs = HasRefResult.MayHaveRef;
-                    localHasBlobRefs = HasRefResult.MayHaveRef;
-                    localHasUnityObjRefs = HasRefResult.MayHaveRef;
-                    localHasWeakAssetRefs = HasRefResult.MayHaveRef;
+                    // We can't determine if there are references in a polymorphic non-sealed class type in the TypeManager.
+                    // It will ignore any Entity, Blob or Unity Object References. If you are certain that there is any of these types
+                    // somewhere in the nesting structure, please add the [{nameof(TypeManager.ForceReferenceSearchAttribute)}] attribute to the type.
                 }
             }
-
-            //Definitely seen a reference takes precedence over maybe, which is more cautious than being sure of no refs
-            hasEntityReferences = hasEntityReferences > localHasEntityRefs ? hasEntityReferences : localHasEntityRefs;
-            hasBlobReferences = hasBlobReferences > localHasBlobRefs ? hasBlobReferences : localHasBlobRefs;
-            hasUnityObjReferences = hasUnityObjReferences > localHasUnityObjRefs ? hasUnityObjReferences : localHasUnityObjRefs;
-            hasWeakAssetReferences = hasWeakAssetReferences > localHasWeakAssetRefs ? hasWeakAssetReferences : localHasWeakAssetRefs;
         }
 
         /*
@@ -1343,7 +1386,7 @@ namespace Unity.Entities.CodeGen
             }
         }
         /*
-         * this is inefficient: it traverses through the type twice, once inside IsManagedType, and once in ThrowOnWhatever. 
+         * this is inefficient: it traverses through the type twice, once inside IsManagedType, and once in ThrowOnWhatever.
          */
         internal void CheckIsAllowedAsComponentData(TypeReference type, string baseTypeDesc)
         {
@@ -1414,7 +1457,7 @@ namespace Unity.Entities.CodeGen
             var unityObjectRefOffsets = new List<int>();
 
             //xxx don't use a string
-            var maxCapacityAttribute = typeDef.CustomAttributes.FirstOrDefault(a => a.AttributeType.Name == "MaximumChunkCapacityAttribute"); 
+            var maxCapacityAttribute = typeDef.CustomAttributes.FirstOrDefault(a => a.AttributeType.Name == "MaximumChunkCapacityAttribute");
             if (typeDef.CustomAttributes.Count > 0)
             {
                 var maxChunkCapacityAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == "MaximumChunkCapacityAttribute");
@@ -1484,10 +1527,10 @@ namespace Unity.Entities.CodeGen
                 sizeInChunk = sizeof(int);
                 HasEntityReferencesManaged(typeRef, out var entityRefResult, out var blobRefResult, out var unityObjRefResult, out var weakAssetRefResult);
 
-                hasEntityReferences = entityRefResult > 0;
-                hasBlobReferences = blobRefResult > 0;
-                hasUnityObjectReferences = unityObjRefResult > 0;
-                hasWeakAssetReferences = weakAssetRefResult > 0;
+                hasEntityReferences = entityRefResult;
+                hasBlobReferences = blobRefResult;
+                hasUnityObjectReferences = unityObjRefResult;
+                hasWeakAssetReferences = weakAssetRefResult;
             }
 #endif
             else if (typeDef.TypeImplements(runnerOfMe._IBufferElementDataDef))
@@ -1499,7 +1542,7 @@ namespace Unity.Entities.CodeGen
 
                 var alignAndSize = TypeUtilsInstance.AlignAndSizeOfType(typeRef, 64);
                 valueTypeSize = alignAndSize.size;
-		
+
                 alignmentInBytes = CalculateAlignmentInChunk(valueTypeSize);
 
                 elementSize = valueTypeSize;
@@ -1553,13 +1596,13 @@ namespace Unity.Entities.CodeGen
 
                 if (isManaged)
                 {
-                    HasEntityReferencesManaged(typeRef, out var entityRefResult, out var blobRefResult, out var unityObjRefResult, out var weakAssetRefResult);//, caches.HasEntityOrBlobAssetReferenceCache);
+                    HasEntityReferencesManaged(typeRef, out _, out var blobRefResult, out var unityObjRefResult, out var weakAssetRefResult);//, caches.HasEntityOrBlobAssetReferenceCache);
 
                     // Managed shared components explicitly do not allow patching of entity references
                     hasEntityReferences = false;
-                    hasBlobReferences = blobRefResult > 0;
-                    hasUnityObjectReferences = unityObjRefResult > 0;
-                    hasWeakAssetReferences = weakAssetRefResult > 0;
+                    hasBlobReferences = blobRefResult;
+                    hasUnityObjectReferences = unityObjRefResult;
+                    hasWeakAssetReferences = weakAssetRefResult;
                 }
                 else
                 {
@@ -1606,40 +1649,17 @@ namespace Unity.Entities.CodeGen
 
                 if (hasOverrideAttribute)
                 {
-                    var allowForcedNoReferences = overrideAttribute.ConstructorArguments.Count == 3 || (bool)overrideAttribute.ConstructorArguments[3].Value;
                     if ((bool)overrideAttribute.ConstructorArguments[0].Value)
                     {
-                        if (!allowForcedNoReferences && hasEntityReferences)
-                        {
-                            throw new ArgumentException(
-                                $"Component type '{typeDef.FullName}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
-                                $"Entity references, however the type does in fact contain a (potentially nested) Entity reference. " +
-                                $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
-                        }
-                        else
-                        {
-                            hasEntityReferences = false;
-                        }
+                        hasEntityReferences = false;
                     }
                     if ((bool)overrideAttribute.ConstructorArguments[1].Value)
                     {
-                        if (!allowForcedNoReferences && hasBlobReferences)
-                            throw new ArgumentException(
-                                $"Component type '{typeDef.FullName}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
-                                $"BlobAssetReferences, however the type does in fact contain a (potentially nested) BlobAssetReference. " +
-                                $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
-                        else 
-                            hasBlobReferences = false;
+                        hasBlobReferences = false;
                     }
                     if ((bool)overrideAttribute.ConstructorArguments[2].Value)
                     {
-                        if (!allowForcedNoReferences && hasUnityObjectReferences)
-                            throw new ArgumentException(
-                                $"Component type '{typeDef.FullName}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
-                                $"UnityObjectRef<T>, however the type does in fact contain a (potentially nested) UnityObjectRef<T>. " +
-                                $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
-                        else
-                            hasUnityObjectReferences = false;
+                        hasUnityObjectReferences = false;
                     }
                 }
             }
@@ -1690,7 +1710,7 @@ namespace Unity.Entities.CodeGen
                 else if (c.AttributeType.Name == "BakingTypeAttribute")
                     isBakingOnlyType = true;
             }
-            var isIEquatable = typeDef.TypeImplements(AssemblyDefinition.MainModule.ImportReference(typeof(IEquatable<>))); 
+            var isIEquatable = typeDef.TypeImplements(AssemblyDefinition.MainModule.ImportReference(typeof(IEquatable<>)));
 
             if (sizeInChunk == 0)
                 typeIndex |= ZeroSizeInChunkTypeFlag;
@@ -1735,7 +1755,7 @@ namespace Unity.Entities.CodeGen
                 typeIndex |= IsNotChunkSerializableTypeFlag;
 
 
-            /* note: typegeninfo has the actual list of offsets for all the kinds of offsets, 
+            /* note: typegeninfo has the actual list of offsets for all the kinds of offsets,
              * whereas typeinfo just has indices into the giant array, because typeinfo is global
              * and typegeninfo is local
             */

@@ -43,7 +43,7 @@ namespace Unity.Entities
             m_BlobAssetStore = blobAssetStore;
             m_ToCompute = new NativeParallelHashMap<Hash128, TS>(initialCapacity, allocator);
             m_Computed = new NativeParallelHashMap<Hash128, BlobAssetReference<TB>>(initialCapacity, allocator);
-            m_BlobAssetStoreTypeHash = BlobAssetStore.ComputeTypeHash(typeof(TB));
+            m_BlobAssetStoreTypeHash = BlobAssetStore.ComputeTypeHash<TB>();
         }
 
         /// <summary>

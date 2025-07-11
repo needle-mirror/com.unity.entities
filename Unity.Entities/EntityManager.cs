@@ -3499,8 +3499,9 @@ namespace Unity.Entities
         /// and <see cref="Prefab"/> components are removed from the clone.
         ///
         /// If the source entity was converted from a prefab and thus has a <see cref="LinkedEntityGroup"/> component,
-        /// the entire group is cloned as a new set of entities. Entity references on components that are being cloned to entities inside
-        /// the set are remapped to the instantiated entities.
+        /// the entire group is cloned as a new set of entities.
+        /// Components that are being cloned and contain references to entities that are also being cloned
+        /// are properly remapped to the newly instantiated entities.
         /// **Important:** This method creates a sync point, which means that the EntityManager waits for all
         /// currently running jobs to complete before creating the entity. No additional jobs can start before
         /// the method is finished. A sync point can cause a drop in performance because the ECS framework might not

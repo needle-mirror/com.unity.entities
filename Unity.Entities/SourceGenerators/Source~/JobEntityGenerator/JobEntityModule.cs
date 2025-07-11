@@ -39,7 +39,7 @@ public partial class JobEntityModule : ISystemModule
     {
         if (node is InvocationExpressionSyntax { Expression: MemberAccessExpressionSyntax memberAccessExpressionSyntax }
             && memberAccessExpressionSyntax.Kind() == SyntaxKind.SimpleMemberAccessExpression
-            && memberAccessExpressionSyntax.Expression is IdentifierNameSyntax or ObjectCreationExpressionSyntax)
+            && memberAccessExpressionSyntax.Expression is IdentifierNameSyntax or ObjectCreationExpressionSyntax or InvocationExpressionSyntax)
         {
             var schedulingMethodName = memberAccessExpressionSyntax.Name.Identifier.ValueText;
 

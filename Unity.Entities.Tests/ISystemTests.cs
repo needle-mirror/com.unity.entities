@@ -367,16 +367,25 @@ namespace Unity.Entities.Tests
 
                 var sysRefAnotherAssemblyTestType1 = world.CreateSystem<MyGenericISystem_FromAnotherAssembly<TypeManagerTests.TestType1>>();
 
-                group.AddSystemToUpdateList(sysRefFloat);
+                group.AddSystemToUpdateList(sysRefAnotherAssemblyTestType1);
 
                 Assert.That(world.EntityManager
                                 .CreateEntityQuery(ComponentType.ReadWrite<MySentinelGenericComponent_FromAnotherAssembly<TypeManagerTests.TestType1>>())
                                 .CalculateEntityCount() ==
                             1);
 
+                var sysRefAnotherEmptyAssemblyTestType = world.CreateSystem<MyGenericISystem_FromAnotherAssembly<InAnotherEmptyAssembly.TestType>>();
+
+                group.AddSystemToUpdateList(sysRefAnotherEmptyAssemblyTestType);
+
+                Assert.That(world.EntityManager
+                                .CreateEntityQuery(ComponentType.ReadWrite<MySentinelGenericComponent_FromAnotherAssembly<InAnotherEmptyAssembly.TestType>>())
+                                .CalculateEntityCount() ==
+                            1);
+
                 var sysRefNested = world.CreateSystem<MyGenericNestingType<float>.MyNestedGenericISystem>();
 
-                group.AddSystemToUpdateList(sysRefFloat);
+                group.AddSystemToUpdateList(sysRefNested);
 
                 Assert.That(world.EntityManager
                                 .CreateEntityQuery(ComponentType.ReadWrite<MySentinelGenericComponent_FromAnotherAssembly<MyGenericNestingType<float>.MyNestedGenericISystem>>())

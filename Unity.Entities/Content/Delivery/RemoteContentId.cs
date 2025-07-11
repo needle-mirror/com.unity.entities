@@ -57,5 +57,14 @@ namespace Unity.Entities.Content
         /// </summary>
         /// <returns>The path to the hash code.</returns>
         public override int GetHashCode() => Hash.GetHashCode();
+
+        /// <summary>
+        /// Convert this id to a string.  
+        /// </summary>
+        /// <returns>The string valud of the id in the format of {Name}:{Hash}.</returns>
+        public override string ToString()
+        {
+            return $"{Name}:{Hash}";
+        }
     }
 }

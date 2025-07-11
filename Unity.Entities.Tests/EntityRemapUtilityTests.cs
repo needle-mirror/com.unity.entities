@@ -124,57 +124,57 @@ namespace Unity.Entities.Tests
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         // Test uses class component types
         [Test]
-        public void HasEntityReferencesManaged_Basic()
+        public void HasReferencesManaged_Basic()
         {
             //shallow types with no recursion
 
             //primitive
-            EntityRemapUtility.HasEntityReferencesManaged(typeof(string),out var entRef, out var blobRef, out var unityObjectRef);
+            EntityRemapUtility.HasReferencesManaged(typeof(string),out var entRef, out var blobRef, out var unityObjectRef);
 
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, entRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, unityObjectRef);
+            Assert.IsFalse(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsFalse(unityObjectRef);
 
-            EntityRemapUtility.HasEntityReferencesManaged(typeof(System.Int32),out entRef, out blobRef, out unityObjectRef);
+            EntityRemapUtility.HasReferencesManaged(typeof(System.Int32),out entRef, out blobRef, out unityObjectRef);
 
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, entRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, unityObjectRef);
+            Assert.IsFalse(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsFalse(unityObjectRef);
 
             //blob only
-            EntityRemapUtility.HasEntityReferencesManaged(typeof(TypeManagerTests.TypeOverridesBlob),out entRef, out blobRef, out unityObjectRef);
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.TypeOverridesBlob),out entRef, out blobRef, out unityObjectRef);
 
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, entRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, unityObjectRef);
+            Assert.IsFalse(entRef);
+            Assert.IsTrue(blobRef);
+            Assert.IsFalse(unityObjectRef);
 
             //entity only
-            EntityRemapUtility.HasEntityReferencesManaged(typeof(TypeManagerTests.TypeOverridesEntity),out entRef, out blobRef, out unityObjectRef);
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.TypeOverridesEntity),out entRef, out blobRef, out unityObjectRef);
 
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, unityObjectRef);
+            Assert.IsTrue(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsFalse(unityObjectRef);
 
-            //blob and entity and unityobjref
-            EntityRemapUtility.HasEntityReferencesManaged(typeof(TypeManagerTests.TypeOverridesBlobEntityUnityObject),out entRef, out blobRef, out unityObjectRef);
+            //blob and entity and unityobjref - Will early out because all three are known to be false, so actually returns false
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.TypeOverridesBlobEntityUnityObject),out entRef, out blobRef, out unityObjectRef);
 
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, unityObjectRef);
+            Assert.IsFalse(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsFalse(unityObjectRef);
 
             // entity ref in class with managed strings
-            EntityRemapUtility.HasEntityReferencesManaged(typeof(TypeManagerTests.TestEntityInClassWithManagedFields),out entRef, out blobRef, out unityObjectRef);
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.TestEntityInClassWithManagedFields),out entRef, out blobRef, out unityObjectRef);
 
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, unityObjectRef);
+            Assert.IsTrue(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsFalse(unityObjectRef);
 
             // blob asset ref in class with managed strings
-            EntityRemapUtility.HasEntityReferencesManaged(typeof(TypeManagerTests.TestBlobRefInClassWithManagedFields),out entRef, out blobRef, out unityObjectRef);
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.TestBlobRefInClassWithManagedFields),out entRef, out blobRef, out unityObjectRef);
 
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, entRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, unityObjectRef);
+            Assert.IsFalse(entRef);
+            Assert.IsTrue(blobRef);
+            Assert.IsFalse(unityObjectRef);
         }
 
         public sealed class RecursionA3: IComponentData
@@ -220,27 +220,81 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void HasEntityReferencesManaged_Recursion()
+        public void HasReferencesManaged_Recursion()
         {
-            EntityRemapUtility.HasEntityReferencesManaged(typeof(RecursionA2),out var entRef, out var blobRef, out var unityObjectRef);
+            EntityRemapUtility.HasReferencesManaged(typeof(RecursionA2),out var entRef, out var blobRef, out var unityObjectRef);
 
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, unityObjectRef);
+            Assert.IsTrue(entRef);
+            Assert.IsTrue(blobRef);
+            Assert.IsTrue(unityObjectRef);
 
-            EntityRemapUtility.HasEntityReferencesManaged(typeof(RecursionA3),out  entRef, out  blobRef, out unityObjectRef);
+            EntityRemapUtility.HasReferencesManaged(typeof(RecursionA3),out  entRef, out  blobRef, out unityObjectRef);
 
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, blobRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, unityObjectRef);
+            Assert.IsTrue(entRef);
+            Assert.IsTrue(blobRef);
+            Assert.IsTrue(unityObjectRef);
 
-            EntityRemapUtility.HasEntityReferencesManaged(typeof(EcsTestManagedDataEntity),out  entRef, out  blobRef, out unityObjectRef);
+            EntityRemapUtility.HasReferencesManaged(typeof(EcsTestManagedDataEntity),out  entRef, out  blobRef, out unityObjectRef);
 
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.HasRef, entRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, blobRef);
-            Assert.AreEqual(EntityRemapUtility.HasRefResult.NoRef, unityObjectRef);
+            Assert.IsTrue(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsFalse(unityObjectRef);
 
+            // Has nested entity, force override true for entity
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.ForceReferenceSearchEntity),out entRef, out blobRef, out unityObjectRef);
 
+            Assert.IsTrue(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsFalse(unityObjectRef);
+
+            // Has nested blob, force override true for blob
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.ForceReferenceSearchBlob),out entRef, out blobRef, out unityObjectRef);
+
+            Assert.IsFalse(entRef);
+            Assert.IsTrue(blobRef);
+            Assert.IsFalse(unityObjectRef);
+
+            // Has nested unityobjref, force override true for unityobjref
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.ForceReferenceSearchUnityObjectRef),out entRef, out blobRef, out unityObjectRef);
+
+            Assert.IsFalse(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsTrue(unityObjectRef);
+
+            // Has no nested entity, force override true for entity
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.ForceReferenceSearchNoEntity),out entRef, out blobRef, out unityObjectRef);
+
+            Assert.IsTrue(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsFalse(unityObjectRef);
+
+            // Has no nested blob, force override true for blob
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.ForceReferenceSearchNoBlob),out entRef, out blobRef, out unityObjectRef);
+
+            Assert.IsFalse(entRef);
+            Assert.IsTrue(blobRef);
+            Assert.IsFalse(unityObjectRef);
+
+            // Has no nested unityobjref, force override true for unityobjref
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.ForceReferenceSearchNoUnityObjectRef),out entRef, out blobRef, out unityObjectRef);
+
+            Assert.IsFalse(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsTrue(unityObjectRef);
+
+            // Has no nested refs, force override true for all ref types
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.ForceReferenceSearchNoRefs),out entRef, out blobRef, out unityObjectRef);
+
+            Assert.IsTrue(entRef);
+            Assert.IsTrue(blobRef);
+            Assert.IsTrue(unityObjectRef);
+
+            // Has references, but are beyond the maxDepth, should mark as not having any references
+            EntityRemapUtility.HasReferencesManaged(typeof(TypeManagerTests.EntityBlobAndUnityObjectRef),out entRef, out blobRef, out unityObjectRef, null, 0);
+
+            Assert.IsFalse(entRef);
+            Assert.IsFalse(blobRef);
+            Assert.IsFalse(unityObjectRef);
         }
 #endif // !UNITY_DISABLE_MANAGED_COMPONENTS
 

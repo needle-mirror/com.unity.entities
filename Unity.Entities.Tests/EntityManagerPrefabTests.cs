@@ -260,6 +260,41 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
+        public void InstantiateSingleEntity_AlwaysRemapsReferences([Values] bool withLinkedEntityGroup)
+        {
+            var archetype = m_Manager.CreateArchetype(typeof(EcsTestDataEntity), typeof(EcsTestDataEntity2));
+            var entity = m_Manager.CreateEntity(archetype);
+            var unrelated = m_Manager.CreateEntity();
+            m_Manager.SetComponentData(entity, new EcsTestDataEntity { value1 = entity });
+            m_Manager.SetComponentData(entity, new EcsTestDataEntity2 { value1 = entity, value2 = unrelated });
+
+            if (withLinkedEntityGroup)
+            {
+                m_Manager.AddBuffer<LinkedEntityGroup>(entity).Add(entity);
+            }
+
+            var instance = m_Manager.Instantiate(entity);
+            Assert.AreEqual(instance, m_Manager.GetComponentData<EcsTestDataEntity>(instance).value1);
+            Assert.AreEqual(instance, m_Manager.GetComponentData<EcsTestDataEntity2>(instance).value1);
+            Assert.AreEqual(unrelated, m_Manager.GetComponentData<EcsTestDataEntity2>(instance).value2);
+
+            // At time of writing, ECB return placeholder entities for creation and instantiation
+            // So this little dance is required to get the proper instance out of the ECB
+            var deferredEntityReferenceForECB = m_Manager.CreateEntity();
+
+            var ecb = new EntityCommandBuffer(Allocator.Temp);
+            var ecbInstance = ecb.Instantiate(entity);
+            ecb.AddComponent(deferredEntityReferenceForECB, new EcsTestDataEntity{ value1 = ecbInstance});
+            ecb.Playback(m_Manager);
+
+            ecbInstance = m_Manager.GetComponentData<EcsTestDataEntity>(deferredEntityReferenceForECB).value1;
+
+            Assert.AreEqual(ecbInstance, m_Manager.GetComponentData<EcsTestDataEntity>(ecbInstance).value1);
+            Assert.AreEqual(ecbInstance, m_Manager.GetComponentData<EcsTestDataEntity2>(ecbInstance).value1);
+            Assert.AreEqual(unrelated, m_Manager.GetComponentData<EcsTestDataEntity2>(ecbInstance).value2);
+        }
+
+        [Test]
         public void InstantiateLinkedGroup_ManagedComponents()
         {
             var external = m_Manager.CreateEntity();

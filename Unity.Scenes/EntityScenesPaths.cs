@@ -44,9 +44,9 @@ namespace Unity.Scenes
         internal static string FullPathForFile(string rootPath, string relPath)
         {
 #if ENABLE_CONTENT_DELIVERY
-            if(Entities.Content.ContentDeliveryGlobalState.PathRemapFunc == null)
+            if(Entities.Content.ContentDeliveryGlobalState.PathRemapFuncWithFileCheck == null)
                 return $"{rootPath}/{relPath}";
-            return Entities.Content.ContentDeliveryGlobalState.PathRemapFunc(relPath);
+            return Entities.Content.ContentDeliveryGlobalState.PathRemapFuncWithFileCheck(relPath, true);
 #else
             return $"{rootPath}/{relPath}";
 #endif

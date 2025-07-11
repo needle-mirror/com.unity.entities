@@ -12,7 +12,7 @@ namespace Unity.Entities.Tests
         public WeakObjectReference<Material> matRef;
     }
 
-    public struct WeakMaterialRefComponent : ISharedComponentData
+    public struct WeakMaterialRefComponent : IComponentData
     {
         public WeakObjectReference<Material> materialRef;
         public WeakObjectSceneReference sceneRef;
@@ -24,7 +24,7 @@ namespace Unity.Entities.Tests
         {
             // This test shouldn't require transform components
             var entity = GetEntity(TransformUsageFlags.None);
-            AddSharedComponentManaged(entity, new WeakMaterialRefComponent() { materialRef = authoring.matRef, sceneRef = authoring.sceneRef });
+            AddComponent(entity, new WeakMaterialRefComponent { sceneRef = authoring.sceneRef, materialRef = authoring.matRef });
         }
     }
 }

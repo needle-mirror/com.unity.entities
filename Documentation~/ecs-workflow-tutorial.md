@@ -1,12 +1,14 @@
-# ECS workflow tutorial
+# ECS workflow examples
 
-Explore Unity's entity component system (ECS) workflow and understand the combination of technologies and packages that work together to deliver a data-oriented approach to coding in Unity.
+Explore Unity's Entity Component System (ECS) workflows and understand a data-oriented approach to coding in Unity.
 
 | **Topic** | **Description** |
-| ---| ---|
-| [Understand the ECS workflow](ecs-workflow-intro.md) | Understand the workflow to create content for an ECS application. |
-| [Spawner example](ecs-workflow-example.md)            | Apply the ECS workflow through an example.                  |
+| --- | --- |
+| [Introduction to the ECS workflow](ecs-workflow-intro.md) | Understand the workflow to create content for an ECS application. |
+| [Starter ECS workflow](ecs-workflow-example-starter.md) | Learn a starter ECS workflow. |
+| [Authoring and baking workflow](ecs-workflow-example-authoring-baking.md) | Learn the ECS authoring and baking workflow. |
+| [Prefab instantiation workflow](ecs-workflow-example-prefab-instantiation.md) | Learn how to instantiate prefabs in ECS. |
 
 ## Additional resources
 
-* [ECS tutorials](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master)
+* [ECS sample project](https://github.com/Unity-Technologies/EntityComponentSystemSamples/tree/master)

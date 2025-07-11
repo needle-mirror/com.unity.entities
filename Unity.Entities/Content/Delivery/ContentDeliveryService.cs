@@ -143,15 +143,50 @@ namespace Unity.Entities.Content
         /// </summary>
         /// <param name="originalPath">The original content path, relative to the streaming assets folder.</param>
         /// <returns>The remapped path in the local cache.  If the content is not already in the cache, the original path is returned.</returns>
+        [Obsolete("Use the version of this method that takes a parameter for checking device for file existence.")]
         public string RemapContentPath(string originalPath)
         {
-            var id = new RemoteContentId(originalPath);
-            var status = ProcessDownload(id);
-            ContentDeliveryGlobalState.LogFunc?.Invoke($"RemapContentPath id [{id.Name},{id.Hash}] with relative path {originalPath}, new path ={status.DownloadStatus.LocalPath}");
+            return RemapContentPath(originalPath, false);
+        }
 
-            if (status.State != DeliveryState.ContentDownloaded)
+        /// <summary>
+        /// Remaps the orignal content path to the path of the content in the local cache.
+        /// </summary>
+        /// <param name="originalPath">The original content path, relative to the streaming assets folder.</param>
+        /// <param name="requireFileOnDevice">If true, the remapped path will be checked to exist before returning.  If the file does not exist, the original path will be returned instead.</param>
+        /// <returns>The remapped path in the local cache. If requireFileOnDevice is false, this will return the cached path even if it has not been downloaded yet.</returns>
+        public string RemapContentPath(string originalPath, bool requireFileOnDevice)
+        {
+            var id = new RemoteContentId(originalPath);
+            var locStatus = ResolveLocation(id);
+            if (locStatus.State != ContentLocationService.ResolvingState.Complete)
+            {
+                //if the resolve fails, it means that the remote catalog did not load or does not contain an entry for this path.
+                ContentDeliveryGlobalState.LogFunc?.Invoke($"RemapContentPath id [{id.Name},{id.Hash}] with relative path {originalPath} - failed to resolve id to a RemoteLocation.");
                 return originalPath;
-            return status.DownloadStatus.LocalPath.ToString();
+            }
+            var dlSvc = GetDownloadServiceForLocation(locStatus.Location);
+            if (dlSvc == null)
+            {
+                ContentDeliveryGlobalState.LogFunc?.Invoke($"RemapContentPath id [{id.Name},{id.Hash}] with relative path {originalPath} - failed to find a download service for the resolved location.");
+                return originalPath;
+            }
+
+            var cachePath = dlSvc.ComputeCachePath(locStatus.Location);
+            if(string.IsNullOrEmpty(cachePath))
+            {
+                ContentDeliveryGlobalState.LogFunc?.Invoke($"RemapContentPath id [{id.Name},{id.Hash}] with relative path {originalPath} - failed to compute local cache path.");
+                return originalPath;
+            }
+
+            //check for the remapped path on device before returning it, but only if needed.  The local catalog uses this method to remap local archive paths to the cache and they do not need to be on device for this.
+            if (requireFileOnDevice && !ContentDeliveryGlobalState.FileExists(cachePath))
+            {
+                ContentDeliveryGlobalState.LogFunc?.Invoke($"RemapContentPath id [{id.Name},{id.Hash}] with relative path {originalPath} - local cache path {cachePath} does not exist.");
+                return originalPath;
+            }
+            ContentDeliveryGlobalState.LogFunc?.Invoke($"RemapContentPath id [{id.Name},{id.Hash}] with relative path {originalPath}, new path = {cachePath}");
+            return cachePath;
         }
 
         /// <summary>

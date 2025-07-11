@@ -181,6 +181,8 @@ namespace Unity.Entities
 
         public void InstantiateEntities(Entity srcEntity, Entity* outputEntities, int instanceCount)
         {
+            AssertEntityExists(srcEntity);
+
             if (HasComponent(srcEntity, m_LinkedGroupType, out _))
             {
                 var header = (BufferHeader*)GetComponentDataWithTypeRO(srcEntity, m_LinkedGroupType);
@@ -191,7 +193,7 @@ namespace Unity.Entities
             }
             else
             {
-                InstantiateEntitiesOne(srcEntity, outputEntities, instanceCount, null, 0, true);
+                InstantiateEntitiesGroup(&srcEntity, 1, outputEntities, true, instanceCount, true);
             }
         }
 

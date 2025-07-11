@@ -469,8 +469,7 @@ namespace Unity.Entities
                     SameHashDifferentAddressBlobAssets = sameHashDifferentAddressBlobAssets
                 }.Run();
 
-
-                var toDelete = new NativeList<BlobAssetPtr>(Allocator.TempJob);
+                var toDelete = new NativeList<BlobAssetPtr>(Allocator.Temp);
 
                 for (var i = 0; i < destroyedBlobAssets.Length; i++)
                 {
@@ -491,7 +490,11 @@ namespace Unity.Entities
                     }
                 }
 
-
+                foreach (var blobAssetPtr in toDelete)
+                {
+                    remap.Remove(blobAssetPtr);
+                }
+                toDelete.Clear();
 
                 {
                     var deferredAdd = new NativeArray<(BlobAssetPtr key, BlobAssetPtr value)>(sameHashDifferentAddressBlobAssets.Length, Allocator.Temp);
@@ -518,7 +521,6 @@ namespace Unity.Entities
                     {
                         remap.Remove(blobAssetPtr);
                     }
-                    toDelete.Dispose();
 
                     for (int i = 0; i < deferredAddCount; i++)
                     {

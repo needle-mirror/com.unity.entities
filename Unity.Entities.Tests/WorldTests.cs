@@ -512,5 +512,27 @@ namespace Unity.Entities.Tests
             UnityEngine.Assertions.Assert.AreEqual(0, managedWithRefCount.RefCount);
         }
 #endif
+
+        partial class BaseSystem : SystemBase { protected override void OnUpdate(){ } }
+        partial class DerivedSystem : BaseSystem { protected override void OnUpdate(){ } }
+
+        [Test]
+        public void AddTypeLookupInternal_DerivedAndBaseRegistrationOrder_Works()
+        {
+            using var world = new World("WorldX");
+            // 1. Add Derived type first
+            world.AddTypeLookupInternal(typeof(DerivedSystem), new DerivedSystem());
+            world.AddTypeLookupInternal(typeof(BaseSystem), new BaseSystem());
+            Assert.AreEqual(typeof(DerivedSystem), world.m_SystemLookup[typeof(DerivedSystem)].GetType());
+            Assert.AreEqual(typeof(BaseSystem), world.m_SystemLookup[typeof(BaseSystem)].GetType());
+
+            world.m_SystemLookup.Clear();
+
+            // 2. Add Base type first
+            world.AddTypeLookupInternal(typeof(BaseSystem), new BaseSystem());
+            world.AddTypeLookupInternal(typeof(DerivedSystem), new DerivedSystem());
+            Assert.AreEqual(typeof(DerivedSystem), world.m_SystemLookup[typeof(DerivedSystem)].GetType());
+            Assert.AreEqual(typeof(BaseSystem), world.m_SystemLookup[typeof(BaseSystem)].GetType());
+        }
     }
 }

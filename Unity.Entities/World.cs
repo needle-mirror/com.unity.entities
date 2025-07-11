@@ -431,12 +431,22 @@ namespace Unity.Entities
             return null;
         }
 
-        void AddTypeLookupInternal(Type type, ComponentSystemBase system)
+        internal void AddTypeLookupInternal(Type type, ComponentSystemBase system)
         {
             while (type != typeof(ComponentSystemBase))
             {
-                if (!m_SystemLookup.ContainsKey(type))
+                // Due to the order of registration, a derived type instance may already be registered to this base type key.
+                // If the existing system's actual type doesn't match 'type', overwrite it with the correct instance.
+                if (m_SystemLookup.TryGetValue(type, out var existingSystem))
+                {
+                    var existingSystemType = existingSystem.GetType();
+                    if (existingSystemType != type && existingSystemType != system.GetType())
+                        m_SystemLookup[type] = system;
+                }
+                else
+                {
                     m_SystemLookup.Add(type, system);
+                }
 
                 type = type.BaseType;
             }
@@ -1238,8 +1248,11 @@ namespace Unity.Entities
                     }
                     else
                     {
+                        // If AddSystem_Add_Internal is called for the derived type first,
+                        // the base type lookup can return that derived instance.
+                        // Hence, we check that the actual type matches the expected type.
                         var system = GetExistingSystemInternal(type);
-                        if (system != null)
+                        if (system != null && system.GetType() == TypeManager.GetSystemType(type))
                         {
                             handle = system.SystemHandle;
                             continue;

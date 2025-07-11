@@ -134,6 +134,7 @@ namespace Unity.Entities
                 if (blobAssets[i].Hash != hash)
                     continue;
 
+                blobAssets[i].Header->Invalidate();
                 Memory.Unmanaged.Free(blobAssets[i].Header, m_Allocator);
                 m_BlobAssets->RemoveAtSwapBack(i);
                 return;
@@ -148,6 +149,7 @@ namespace Unity.Entities
             {
                 if (!usedBlobAssets.ContainsKey(blobAssets[i].Hash))
                 {
+                    blobAssets[i].Header->Invalidate();
                     Memory.Unmanaged.Free(blobAssets[i].Header, m_Allocator);
                     m_BlobAssets->RemoveAtSwapBack(i--);
                 }

@@ -45,6 +45,7 @@ namespace Unity.Entities.Content
 
         static void RemoveFromEditorLoop()
         {
+            ContentDeliveryGlobalState.Cleanup();
             UnityEditor.EditorApplication.update -= Update;
         }
 #else
@@ -59,6 +60,7 @@ namespace Unity.Entities.Content
 #endif
         static void RemoveFromPlayerLoop()
         {
+            ContentDeliveryGlobalState.Cleanup();
             ScriptBehaviourUpdateOrder.RemoveFromCurrentPlayerLoop(Update);
         }
 
@@ -117,6 +119,7 @@ namespace Unity.Entities.Content
                 if (TryGetAppArg("contentSet", ref initialContentSet))
                     ContentDeliveryGlobalState.LogFunc?.Invoke($"Overwrote contentSet '{initialContentSet}'");
             }
+            ContentDeliveryGlobalState.LogFunc?.Invoke($"RuntimeContentSystem.Initialize({remoteUrlRoot}, {localCachePath}, {initialContentSet})");
 
             if (string.IsNullOrEmpty(remoteUrlRoot))
             {
@@ -125,13 +128,13 @@ namespace Unity.Entities.Content
                     ContentDeliveryGlobalState.Initialize("", localCachePath, null, s =>
                     {
                         if (s >= ContentDeliveryGlobalState.ContentUpdateState.ContentReady)
-                            LoadCatalogFunc(ContentDeliveryGlobalState.PathRemapFunc);
+                            LoadCatalogFunc(ContentDeliveryGlobalState.PathRemapFuncWithFileCheck);
                     });
                 }
                 else
                 {
                     //even though ENABLE_CONTENT_DELIVERY is enabled, still allow the local catalog to be used without checking for updates.
-                    LoadCatalogFunc(ContentDeliveryGlobalState.PathRemapFunc = p => $"{Application.streamingAssetsPath}/{p}");
+                    LoadCatalogFunc(ContentDeliveryGlobalState.PathRemapFuncWithFileCheck = (p,d) => $"{Application.streamingAssetsPath}/{p}");
                 }
             }
             else
@@ -143,22 +146,30 @@ namespace Unity.Entities.Content
                 ContentDeliveryGlobalState.Initialize(remoteUrlRoot, localCachePath, initialContentSet, s =>
                 {
                     if (s >= ContentDeliveryGlobalState.ContentUpdateState.ContentReady)
-                        LoadCatalogFunc(ContentDeliveryGlobalState.PathRemapFunc);
+                        LoadCatalogFunc(ContentDeliveryGlobalState.PathRemapFuncWithFileCheck);
                 });
             }
 
 #else
-            LoadCatalogFunc(p => $"{Application.streamingAssetsPath}/{p}");
+            LoadCatalogFunc((p,d) => $"{Application.streamingAssetsPath}/{p}");
 #endif
         }
 
-        static void LoadCatalogFunc(Func<string, string> remapFunc)
+        static void LoadCatalogFunc(Func<string, bool, string> remapFunc)
         {
-            var catalogPath = remapFunc(RuntimeContentManager.RelativeCatalogPath);
+            var catalogPath = remapFunc(RuntimeContentManager.RelativeCatalogPath, true);
+            ContentDeliveryGlobalState.LogFunc?.Invoke($"RuntimeContentSystem.LoadCatalogFunc({catalogPath})");
+
             if (ContentDeliveryGlobalState.FileExists(catalogPath))
+            {
                 RuntimeContentManager.LoadLocalCatalogData(catalogPath,
                     RuntimeContentManager.DefaultContentFileNameFunc,
-                    p => remapFunc(RuntimeContentManager.DefaultArchivePathFunc(p)));
+                    p => remapFunc(RuntimeContentManager.DefaultArchivePathFunc(p), false));
+            }
+            else
+            {
+                ContentDeliveryGlobalState.LogFunc?.Invoke($"{catalogPath} does not exist.");
+            }
         }
 
         static bool TryGetAppArg(string name, ref string value)

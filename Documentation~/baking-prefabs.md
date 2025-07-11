@@ -14,11 +14,11 @@ You can use an entity prefabs in a similar way to GameObject prefabs, because th
 
 To ensure that prefabs are baked and available in the entity scene, you must register them to a [baker](baking-baker-overview.md). This makes sure that there is a dependency on the prefab object, and that the prefab is baked and receives the proper components. When you reference the entity prefab in a component, Unity serializes the content into the subscene that uses it.
 
-[!code-cs[PrefabInSubScene](../DocCodeSamples.Tests/BakingPrefabExamples.cs#PrefabInSubScene)]
+[!code-cs[EntityPrefabInSubScene](../DocCodeSamples.Tests/BakingPrefabExamples.cs#EntityPrefabInSubScene)]
 
 Alternatively, to reference the entity prefab during baking, use the [`EntityPrefabReference`](xref:Unity.Entities.Serialization.EntityPrefabReference) struct. This serializes the ECS content of the prefab into a separate entity scene file that can be loaded at runtime before using the prefab. This prevents Unity from duplicating the entity prefab in every subscene that it's used in.
 
-[!code-cs[PrefabReferenceInSubScene](../DocCodeSamples.Tests/BakingPrefabExamples.cs#PrefabReferenceInSubScene)]
+[!code-cs[EntityPrefabReferenceInSubScene](../DocCodeSamples.Tests/BakingPrefabExamples.cs#EntityPrefabReferenceInSubScene)]
 
 ## Instantiate prefabs
 

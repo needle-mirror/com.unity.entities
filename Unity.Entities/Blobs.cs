@@ -152,8 +152,23 @@ namespace Unity.Entities
     {
         public readonly BlobAssetHeader* Header;
         public void* Data => Header + 1;
-        public int Length => Header->Length;
-        public ulong Hash => Header->Hash;
+        public int Length
+        {
+            get
+            {
+                Validate();
+                return Header->Length;
+            }
+        }
+
+        public ulong Hash
+        {
+            get
+            {
+                Validate();
+                return Header->Hash;
+            }
+        }
 
         public BlobAssetPtr(BlobAssetHeader* header)
             => Header = header;
@@ -165,6 +180,12 @@ namespace Unity.Entities
         {
             BlobAssetHeader* onStack = Header;
             return (int)math.hash(&onStack, sizeof(BlobAssetHeader*));
+        }
+
+        [Conditional("ENABLE_UNITY_COLLECTIONS_CHECKS"), Conditional("UNITY_DOTS_DEBUG")]
+        void Validate()
+        {
+            new BlobAssetReferenceData{ m_Ptr = (byte*)(Header + 1) }.ValidateNotNull();
         }
     }
 

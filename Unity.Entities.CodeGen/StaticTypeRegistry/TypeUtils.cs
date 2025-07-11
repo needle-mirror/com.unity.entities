@@ -524,10 +524,14 @@ namespace Unity.Entities.CodeGen
             //Console.WriteLine($"Type {valuetype}");
             var typeResolver = TypeResolver.For(valuetype);
             var typeDef = valuetype.Resolve();
+
+            var instanceFieldCount = 0;
             foreach (var fs in typeDef.Fields)
             {
                 if (fs.IsStatic)
                     continue;
+
+                instanceFieldCount++;
 
                 var fieldType = typeResolver.Resolve(fs.FieldType);
 
@@ -545,13 +549,13 @@ namespace Unity.Entities.CodeGen
                  * We tryadd here because if you have a generic component like UnityObjectRef<Mesh> and another one UnityObjectRef<Material>,
                  * the fields on those two will resolve to the same FieldReference (or at least the Unity.Cecil.Awesome FieldReferenceComparer
                  * can't tell them apart), and it'll yell at you. But it'll always resolve to the same alignandsize, so it's fine. I think.
-		 * Also, we can't literally TryAdd because TryAdd is in netstandard 2.1, and we have to do 2.0 because
-		 * visual studio sucks and can't run anything higher when running tasks in msbuild inside it.
+		         * Also, we can't literally TryAdd because TryAdd is in netstandard 2.1, and we have to do 2.0 because
+		         * visual studio sucks and can't run anything higher when running tasks in msbuild inside it.
                  */
 
-		var key = typeResolver.Resolve(fs);
-		if (!StructFieldAlignment[bits].ContainsKey(key))
-		    StructFieldAlignment[bits].Add(key, new AlignAndSize(sz.align, sz.size, size));
+		        var key = typeResolver.Resolve(fs);
+		        if (!StructFieldAlignment[bits].ContainsKey(key))
+		            StructFieldAlignment[bits].Add(key, new AlignAndSize(sz.align, sz.size, size));
 
                 int offset = fs.Offset;
                 if (offset >= 0)
@@ -577,7 +581,7 @@ namespace Unity.Entities.CodeGen
                 size = typeDef.PackingSize;
 
             ValueTypeAlignment[bits].Remove(valuetype);
-            ValueTypeAlignment[bits].Add(valuetype, new AlignAndSize(highestFieldAlignment, size, 0, typeDef.Fields.Count == 0));
+            ValueTypeAlignment[bits].Add(valuetype, new AlignAndSize(highestFieldAlignment, size, 0, instanceFieldCount == 0));
             //Console.WriteLine($"ValueType: {valuetype.Name} ({valuetype.GetType()}) - alignment {highestFieldAlignment} sz {size}");
             ValueTypeIsComplex[bits].Add(valuetype, isComplex);
         }

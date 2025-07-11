@@ -15,7 +15,6 @@ See the [ECS Samples](https://github.com/Unity-Technologies/EntityComponentSyste
 | **[Get started](getting-started.md)** | Tutorials and installation information to get started using Entities. |
 | **[Entity component system concepts](concepts-intro.md)** | Use the entity component system architecture to organize code.|
 | **[Programming in Entities](programming-entities.md)** | Organize your code into systems to manage entities and components in your project. |
-| **[Programming in Entities](programming-entities.md)** | Organize your code into systems to manage entities and components in your project. |
 | **[Convert data](conversion-intro.md)**|Change GameObject data to ECS data with baking.|
 | **[Content management](content-management.md)**|Interface with content archives in your project.|
 | **[Entities Unity Editor reference](editor-workflows.md)**| Reference for Entities-specific Unity Editor windows.|

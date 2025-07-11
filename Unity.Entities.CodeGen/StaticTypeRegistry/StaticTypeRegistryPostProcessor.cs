@@ -10,7 +10,8 @@ using MethodAttributes = Mono.Cecil.MethodAttributes;
 using TypeAttributes = Mono.Cecil.TypeAttributes;
 using FieldAttributes = Mono.Cecil.FieldAttributes;
 using TypeGenInfoList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.TypeGenInfo>;
-using SystemList = System.Collections.Generic.List<Mono.Cecil.TypeReference>;
+using SystemList = System.Collections.Generic.List<Unity.Entities.CodeGen.StaticTypeRegistryPostProcessor.SystemTypeGenInfo>;
+using TypeReferenceEqualityComparer = Unity.Cecil.Awesome.Comparers.TypeReferenceEqualityComparer;
 using static Unity.Entities.BuildUtils.MonoExtensions;
 using Unity.Entities.BuildUtils;
 using Unity.Cecil.Awesome;
@@ -18,6 +19,7 @@ using System.Runtime.CompilerServices;
 using System.Diagnostics;
 using Unity.Assertions;
 using UnityEngine.Scripting;
+using static Unity.Entities.TypeManager;
 
 namespace Unity.Entities.CodeGen
 {
@@ -212,19 +214,16 @@ namespace Unity.Entities.CodeGen
             {
                 var isUO = def.IsChildTypeOf(runnerOfMe._UnityEngine_ObjectDef) ? 1 : 0;
                 var isICD = def.Interfaces.Any(i =>
-                        Unity.Cecil.Awesome.Comparers.TypeReferenceEqualityComparer
-                        .AreEqual(
+                        TypeReferenceEqualityComparer.AreEqual(
                             i.InterfaceType.Resolve(),
                             runnerOfMe._IComponentDataDef)) ? 1 : 0;
 
                 var isIBED = def.Interfaces
-                        .Any(i => Unity.Cecil.Awesome.Comparers.TypeReferenceEqualityComparer
-                        .AreEqual(
+                        .Any(i => TypeReferenceEqualityComparer.AreEqual(
                             i.InterfaceType.Resolve(),
                             runnerOfMe._IBufferElementDataDef)) ? 1 : 0;
                 var isISCD = def.Interfaces
-                        .Any(i => Unity.Cecil.Awesome.Comparers.TypeReferenceEqualityComparer
-                        .AreEqual(
+                        .Any(i => TypeReferenceEqualityComparer.AreEqual(
                             i.InterfaceType.Resolve(),
                             runnerOfMe._ISharedComponentDataDef)) ? 1 : 0;
 
@@ -291,7 +290,7 @@ namespace Unity.Entities.CodeGen
         {
             var components = new HashSet<TypeReference>();
             var typeGenInfoList = new TypeGenInfoList();
-            var systemList = new SystemList();
+            var systemList = new List<TypeReference>();
             var invalidAutoSystems = new List<TypeDefinition>();
 
             // It's possible for the whole assembly to disable auto creation so check for it
@@ -338,7 +337,6 @@ namespace Unity.Entities.CodeGen
                 }
             }
 
-
             foreach (var attr in AssemblyDefinition.CustomAttributes)
             {
                 if (attr.AttributeType.Name.Contains("RegisterGenericSystemTypeAttribute"))
@@ -348,7 +346,6 @@ namespace Unity.Entities.CodeGen
                     closedSystemType.Resolve().MakeTypeInternal();
                     systemList.Add(closedSystemType);
                 }
-
             }
 
             // For any found generic components, validate the user has registered the closed form with the assembly
@@ -386,13 +383,216 @@ namespace Unity.Entities.CodeGen
                 PopulateWriteGroups(typeGenInfoList);
             }
 
-            return (typeGenInfoList, systemList);
+            var systemTypeGenInfoList = new SystemList();
+            foreach (var system in systemList)
+            {
+                systemTypeGenInfoList.Add(BuildSystemType(system, disableAsmAutoCreation)); 
+            }
+
+            return (typeGenInfoList, systemTypeGenInfoList);
+        }
+
+        internal SystemAttributeKind AttributeTypeToKindNoThrow(TypeReference attributeType, out bool wasSystemAttribute)
+        {
+            wasSystemAttribute = true;
+
+            //todo: move all this to the proton-but-without-the-charge-friendly way of doing things
+            if (TypeReferenceEqualityComparer
+                        .AreEqual(AssemblyDefinition.MainModule.ImportReference(typeof(UpdateBeforeAttribute)), attributeType))
+                return SystemAttributeKind.UpdateBefore;
+            if (TypeReferenceEqualityComparer
+                        .AreEqual(AssemblyDefinition.MainModule.ImportReference(typeof(UpdateAfterAttribute)), attributeType))
+                return SystemAttributeKind.UpdateAfter;
+            if (TypeReferenceEqualityComparer
+                        .AreEqual(AssemblyDefinition.MainModule.ImportReference(typeof(CreateBeforeAttribute)), attributeType))
+                return SystemAttributeKind.CreateBefore;
+            if (TypeReferenceEqualityComparer
+                        .AreEqual(AssemblyDefinition.MainModule.ImportReference(typeof(CreateAfterAttribute)), attributeType))
+                return SystemAttributeKind.CreateAfter;
+            if (TypeReferenceEqualityComparer
+                        .AreEqual(AssemblyDefinition.MainModule.ImportReference(typeof(DisableAutoCreationAttribute)), attributeType))
+                return SystemAttributeKind.DisableAutoCreation;
+            if (TypeReferenceEqualityComparer
+                        .AreEqual(AssemblyDefinition.MainModule.ImportReference(typeof(UpdateInGroupAttribute)), attributeType))
+                return SystemAttributeKind.UpdateInGroup;
+            if (TypeReferenceEqualityComparer
+                        .AreEqual(AssemblyDefinition.MainModule.ImportReference(typeof(RequireMatchingQueriesForUpdateAttribute)), attributeType))
+                return SystemAttributeKind.RequireMatchingQueriesForUpdate;
+
+            wasSystemAttribute = false;
+            return SystemAttributeKind.UpdateBefore;
+        }
+
+        struct MyComparer : IEqualityComparer<SystemAttributeWithTypeReference>
+        {
+            public bool Equals(SystemAttributeWithTypeReference x, SystemAttributeWithTypeReference y)
+            {
+                if (x.Kind != y.Kind) return false;
+                if (x.Flags != y.Flags) return false;
+                if (x.TargetSystemType == null && y.TargetSystemType == null) return true;
+                return x.TargetSystemType.FullName == y.TargetSystemType.FullName; 
+            }
+
+            //if you use HashCode.Combine, there's a runtime error because of mismatched bcl's
+            private static int CombineHashCodes(int h1, int h2)
+            {
+                unchecked // allow arithmetic overflow (wrap-around)
+                {
+                    const uint magic = 0x9E3779B9u;       // 2^32 / φ  ≈ 2654435769
+                    uint a = (uint)h1;
+                    uint b = (uint)h2;
+
+                    // Mix:  a = a XOR ( b + magic + (a << 6) + (a >> 2) )
+                    a ^= b + magic + (a << 6) + (a >> 2);
+
+                    return (int)a;
+                }
+            }
+            public int GetHashCode(SystemAttributeWithTypeReference obj)
+            {
+                return CombineHashCodes(obj.Kind.GetHashCode(), CombineHashCodes(obj.Flags.GetHashCode(), obj.TargetSystemType?.FullName.GetHashCode() ?? 0));
+            }
+        }
+
+        SystemTypeGenInfo BuildSystemType(TypeReference type, bool asmLevelDisableAutoCreation)
+        {
+            SystemTypeGenInfo ret = default;
+
+            ret.TypeReference = type;
+            ret.TypeFlags = 0;
+            var resolvedSystemType = type.Resolve();
+            if (resolvedSystemType
+                .IsChildTypeOf(AssemblyDefinition.MainModule.ImportReference(typeof(ComponentSystemGroup))
+                    .Resolve()))
+                ret.TypeFlags |= TypeManager.SystemTypeInfo.kIsSystemGroupFlag;
+
+            if (TypeUtilsInstance.IsManagedType(type, 0))
+                ret.TypeFlags |= TypeManager.SystemTypeInfo.kIsSystemManagedFlag;
+
+            if (type.TypeImplements(AssemblyDefinition.MainModule.ImportReference(typeof(ISystemStartStop))))
+                ret.TypeFlags |= TypeManager.SystemTypeInfo.kIsSystemISystemStartStopFlag;
+
+            ret.FilterFlags = GetFilterFlag(resolvedSystemType);
+
+            ret.Attributes = new HashSet<SystemAttributeWithTypeReference>(0, new MyComparer());
+
+            var allAttributes = new List<CustomAttribute>();
+            allAttributes.AddRange(resolvedSystemType.CustomAttributes);
+
+            var baseType = resolvedSystemType.BaseType;
+            var iters = 0;
+            while (baseType != null)
+            {
+
+                var resolvedBaseType = baseType.Resolve();
+                //don't inherit disableautocreation
+                allAttributes.AddRange(resolvedBaseType.CustomAttributes.Where(a=>!a.AttributeType.Name.Contains("DisableAutoCreation")));
+                baseType = resolvedBaseType.BaseType;
+                iters++;
+                if (iters > 100)
+                {
+                    break;
+                }
+            }
+
+            foreach (var attr in allAttributes)
+            {
+                var attributeKind = AttributeTypeToKindNoThrow(AssemblyDefinition.MainModule.ImportReference(attr.AttributeType), out var wasSystemAttribute);
+                if (wasSystemAttribute)
+                {
+                    switch (attributeKind)
+                    {
+                        case SystemAttributeKind.UpdateInGroup:
+                            int flags = 0;
+                            foreach (var f in attr.Fields)
+                            {
+                                if (f.Name == "OrderFirst" && f.Argument.Value is bool value)
+                                {
+                                    if (value)
+                                        flags |= SystemAttribute.kOrderFirstFlag;
+                                    continue;
+                                }
+                                if (f.Name == "OrderLast" && f.Argument.Value is bool value2)
+                                {
+                                    if (value2)
+                                        flags |= SystemAttribute.kOrderLastFlag;
+                                    continue;
+                                }
+                            }
+
+                            ret.Attributes.Add(new SystemAttributeWithTypeReference
+                            {
+                                /*
+                                 * make a systemattribute type that carries the type as a type object instead of as a type index
+                                 * make and init big array of those in the constructor
+                                 * translate that array one by one to type indices on startup
+                                 */
+
+
+                                Kind = attributeKind,
+                                TargetSystemType = (TypeReference)attr.ConstructorArguments[0].Value,
+                                Flags = flags
+                            });
+                            break;
+                        case SystemAttributeKind.RequireMatchingQueriesForUpdate:
+                            ret.Attributes.Add(new SystemAttributeWithTypeReference
+                            {
+                                Kind = attributeKind,
+                                TargetSystemType = null,
+                                Flags = 0
+                            });
+                            break;
+                        case SystemAttributeKind.CreateAfter:
+                        case SystemAttributeKind.CreateBefore:
+                            ret.Attributes.Add(new SystemAttributeWithTypeReference
+                            {
+                                Kind = attributeKind,
+                                TargetSystemType = (TypeReference)attr.ConstructorArguments[0].Value,
+                                Flags = 0
+                            });
+                            break;
+                        case SystemAttributeKind.UpdateAfter:
+                        case SystemAttributeKind.UpdateBefore:
+                            ret.Attributes.Add(new SystemAttributeWithTypeReference
+                            {
+                                /*
+                                 * make a systemattribute type that carries the type as a type object instead of as a type index
+                                 * make and init big array of those in the constructor
+                                 * translate that array one by one to type indices on startup
+                                 *
+                                 */
+                                Kind = attributeKind,
+                                TargetSystemType = (TypeReference)attr.ConstructorArguments[0].Value,
+                                Flags = 0
+                            });
+                            break;
+                        case SystemAttributeKind.DisableAutoCreation:
+                            if (asmLevelDisableAutoCreation) //it's assembly-wide anyway, so don't waste space
+                                break;
+                            ret.Attributes.Add(new SystemAttributeWithTypeReference
+                            {
+                                Kind = attributeKind,
+                                TargetSystemType = null,
+                                Flags = 0
+                            });
+                            break;
+                    }
+                }
+            }
+
+            /*if (AssemblyDefinition.Name.Name.Contains("Assembly-CSharp"))
+            {
+                Debugger.Launch();
+            }*/
+
+            return ret;
         }
 
 
         [MethodImpl(MethodImplOptions.NoOptimization)]
-        unsafe FieldReference InjectAssemblyTypeRegistry(TypeGenInfoList typeGenInfoList, SystemList systemList)
+        unsafe FieldReference InjectAssemblyTypeRegistry(TypeGenInfoList typeGenInfoList, SystemList systemtypeGenInfoList)
         {
+            var assemblyWideDisableAsmAutoCreation = AssemblyDefinition.CustomAttributes.Any(attr => attr.AttributeType.Name == "DisableAutoCreationAttribute");
             var typeRegistryDef = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._TypeRegistryDef);
 
             GeneratedRegistryDef = new TypeDefinition(
@@ -426,7 +626,12 @@ namespace Unity.Entities.CodeGen
             GeneratedRegistryDef.Fields.Add(assemblyTypeRegistryFieldDef);
 
             var assemblyTypeRegistryLocal = new VariableDefinition(typeRegistryDef);
+            var systemAttributeLocal = new VariableDefinition(AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry.SystemAttributeWithType)));
+            var systemAttributeArrayLocal = new VariableDefinition(AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry.SystemAttributeWithType[])));
             GeneratedRegistryCCTORDef.Body.Variables.Add(assemblyTypeRegistryLocal);
+            GeneratedRegistryCCTORDef.Body.Variables.Add(systemAttributeLocal);
+            GeneratedRegistryCCTORDef.Body.Variables.Add(systemAttributeArrayLocal);
+
 
             var il = GeneratedRegistryCCTORDef.Body.GetILProcessor();
 
@@ -444,10 +649,18 @@ namespace Unity.Entities.CodeGen
             il.Emit(OpCodes.Ldstr, AssemblyDefinition.Name.Name);
             il.Emit(OpCodes.Stfld, assemblyNameFieldDef);
 
+            il.Emit(OpCodes.Ldloc_0);
+            var hasAssemblyWideDisableAutoCreationFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("HasAssemblyWideDisableAutoCreation"));
+            if (assemblyWideDisableAsmAutoCreation)
+                il.Emit(OpCodes.Ldc_I4_1);
+            else
+                il.Emit(OpCodes.Ldc_I4_0);
+            il.Emit(OpCodes.Stfld, hasAssemblyWideDisableAutoCreationFieldDef);
+
             // Store TypeRegistry.TypeInfos[]
             il.Emit(OpCodes.Ldloc_0);
             var typeInfoCount = typeGenInfoList.Count;
-            var typeInfosFieldDef =
+            var typeInfosFieldDef = 
                 AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("TypeInfosPtr"));
             var typeInfoBlob = GenerateTypeInfoBlobArray(typeGenInfoList);
             if (typeInfoBlob.Length > 0)
@@ -590,22 +803,50 @@ namespace Unity.Entities.CodeGen
             var writeGroupsFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("WriteGroups", BindingFlags.Public | BindingFlags.Instance));
             GenerateWriteGroupArray(il, typeGenInfoList, writeGroupsFieldDef, false);
 
-            // Store TypeRegistry.SystemTypes[]
+
+
+
+            // Store TypeRegistry.SystemTypeInfos[]
+            il.Emit(OpCodes.Ldloc_0);
+            var systemtypeInfoCount = systemtypeGenInfoList.Count;
+            var systemtypeInfosFieldDef =
+                AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("SystemTypeInfosPtr", BindingFlags.Public | BindingFlags.Instance));
+            var systemtypeInfoBlob = GenerateSystemTypeInfoBlobArray(systemtypeGenInfoList);
+            if (systemtypeInfoBlob.Length > 0)
+            {
+                var constantSystemTypeInfoFieldDef = GenerateConstantData(GeneratedRegistryDef, systemtypeInfoBlob);
+                il.Emit(OpCodes.Ldsflda, constantSystemTypeInfoFieldDef);
+                if (systemtypeInfoCount != (systemtypeInfoBlob.Length / sizeof(SystemTypeInfo)))
+                {
+                    throw new Exception("Internal error: system type info blob array length doesn't match system type info size * " +
+                        "system type info count. This is a bug in Unity; please use Help->Report a Bug... to let us know!");
+                }
+            }
+            else
+            {
+                il.Emit(OpCodes.Ldc_I4_0);
+                il.Emit(OpCodes.Conv_U);
+            }
+            il.Emit(OpCodes.Stfld, systemtypeInfosFieldDef);
+
+
+            // Store TypeRegistry.SystemAttributes[]
+            il.Emit(OpCodes.Ldloc_0);
+            var systemAttributesFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("SystemAttributes", BindingFlags.Public | BindingFlags.Instance));
+            GenerateSystemAttributesArray(il, systemtypeGenInfoList.SelectMany(stgi => stgi.Attributes).ToList(), systemAttributesFieldDef, false);
+
+            var systemList = systemtypeGenInfoList.Select(tgi=>tgi.TypeReference).ToList(); 
+
+            // Store TypeRegistry.SystemTypes[] 
             il.Emit(OpCodes.Ldloc_0);
             var systemTypesFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("SystemTypes", BindingFlags.Public | BindingFlags.Instance));
             GenerateTypeArray(il, systemList, systemTypesFieldDef, false);
-
-            // Store TypeRegistry.SystemFilterFlags[]
-            var systemFilterFlagList = GetSystemFilterFlagList(systemList);
-            il.Emit(OpCodes.Ldloc_0);
-            var isSystemFilterFlagFieldDef = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._TypeRegistryDef.Resolve().Fields.Single(f => f.Name == "SystemFilterFlags"));
-            EntitiesILPostProcessors.StoreIntArrayInField(il, systemFilterFlagList, isSystemFilterFlagFieldDef, false);
 
             // Store TypeRegistry.SystemTypeNames[]
             il.Emit(OpCodes.Ldloc_0);
             var systemTypeNamesFieldDef = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._TypeRegistryDef.Resolve().Fields.Single(f => f.Name == "SystemTypeNames"));
             // TODO: SystemNames are currently _required_ for runtime component sorting. This should be replaced with a systemid at which point we can remove systemnames
-            //var systemTypeNames = IsReleaseConfig ? new List<string>() : systemList.Select(t => t.FullNameLikeRuntime()).ToList();
+            //var systemTypeNames = IsReleaseConfig ? new List<string>() : systemtypeGenInfoList.Select(t => t.FullNameLikeRuntime()).ToList();
             var systemTypeNames = systemList.Select(t => t.FullNameLikeRuntime()).ToList();
             EntitiesILPostProcessors.StoreStringArrayInField(il, systemTypeNames, systemTypeNamesFieldDef, false);
 
@@ -619,17 +860,11 @@ namespace Unity.Entities.CodeGen
             var systemTypeHashesFieldDef = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._TypeRegistryDef.Resolve().Fields.Single(f => f.Name == "SystemTypeHashes"));
             GenerateSystemTypeHashArray(il, systemList, systemTypeHashesFieldDef, false);
 
-            // Store TypeRegistry.SystemTypeFlags[]
-            var systemTypeFlagsList = GetSystemTypeFlagsList(systemList);
-            il.Emit(OpCodes.Ldloc_0);
-            var systemTypeFlagsFieldDef = AssemblyDefinition.MainModule.ImportReference(runnerOfMe._TypeRegistryDef.Resolve().Fields.Single(f => f.Name == "SystemTypeFlags"));
-            EntitiesILPostProcessors.StoreIntArrayInField(il, systemTypeFlagsList, systemTypeFlagsFieldDef, false);
-
 
             // Store Delegates
             ///////////////////
             (var boxedEqualsFn, var boxedEqualsPtrFn, var boxedGetHashCodeFn) = InjectEqualityFunctions(typeGenInfoList);
-
+            /*
             // Store TypeRegistry.BoxedEquals
             il.Emit(OpCodes.Ldloc_0);
             var boxedEqualsFnCtor = AssemblyDefinition.MainModule.ImportReference(
@@ -658,18 +893,7 @@ namespace Unity.Entities.CodeGen
             il.Emit(OpCodes.Ldnull); // no this ptr
             il.Emit(OpCodes.Ldftn, boxedGetHashCodeFn);
             il.Emit(OpCodes.Newobj, boxedGetHashCodeFnCtor);
-            il.Emit(OpCodes.Stfld, boxedGetHashCodeFnFieldDef);
-
-            // Store TypeRegistry.GetSystemAttributes
-            var getSystemAttributesFn = InjectGetSystemAttributes(systemList);
-            GeneratedRegistryDef.Methods.Add(getSystemAttributesFn);
-            il.Emit(OpCodes.Ldloc_0);
-            var getSystemAttributesFnCtor = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry.GetSystemAttributesFn).GetConstructor(new Type[] { typeof(object), typeof(IntPtr) }));
-            var getSystemAttributesFnFieldDef = AssemblyDefinition.MainModule.ImportReference(typeof(TypeRegistry).GetField("GetSystemAttributes", BindingFlags.Public | BindingFlags.Instance));
-            il.Emit(OpCodes.Ldnull); // no this ptr
-            il.Emit(OpCodes.Ldftn, getSystemAttributesFn);
-            il.Emit(OpCodes.Newobj, getSystemAttributesFnCtor);
-            il.Emit(OpCodes.Stfld, getSystemAttributesFnFieldDef);
+            il.Emit(OpCodes.Stfld, boxedGetHashCodeFnFieldDef);*/
 
             // Store TypeRegistry.SetSharedTypeIndices
             var setSharedTypeIndicesFn = InjectSetSharedStaticTypeIndices(typeGenInfoList);

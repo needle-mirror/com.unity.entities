@@ -1,4 +1,4 @@
-﻿using System;
+using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Collections;
@@ -76,13 +76,11 @@ namespace Unity.Entities
             ITypedVisit<UntypedUnityObjectRef>,
             IDisposable
         {
-            UnsafeHashSet<int> m_References;
             UnsafeHashSet<int>* m_InstanceIDRefs;
 
             public ManagedUnityObjectRefCollector(UnsafeHashSet<int>* instanceIDRefs)
             {
                 m_InstanceIDRefs = instanceIDRefs;
-                m_References = new UnsafeHashSet<int>(256, Allocator.Temp);
             }
 
             IPropertyBag GetPropertyBag(object obj)
@@ -124,10 +122,7 @@ namespace Unity.Entities
                 m_InstanceIDRefs->Add(value.instanceId);
             }
 
-            public void Dispose()
-            {
-                m_References.Dispose();
-            }
+            public void Dispose() { }
         }
 
         private static unsafe void AddInstanceIDRefsFromComponent(byte* componentData, TypeManager.EntityOffsetInfo* unityObjectRefOffsets, int unityObjectRefCount, UnsafeHashSet<int>* instanceIDRefs)
@@ -351,9 +346,17 @@ namespace Unity.Entities
     /// A utility structure that stores a reference of an <see cref="UnityEngine.Object"/> for Entities. Allows references to be stored on unmanaged component.
     /// </summary>
     /// <typeparam name="T">Type of the Object that is going to be referenced by UnityObjectRef.</typeparam>
-    /// <remarks><para>Stores the Object's instance ID. Will also serialize asset references in SubScenes the same way managed components do with direct references to <see cref="UnityEngine.Object"/>. This is the recommended way to store references to Unity assets in Entities as it remains unmanaged.</para>
-    /// <para>Serialization is supported on <see cref="IComponentData"/> <see cref="ISharedComponentData"/> and <see cref="IBufferElementData"/></para>
-    /// <para>Unity assets referenced in this way will be prevented from being collect by Asset Garbage Collection (such as calling <see cref="Resources.UnloadUnusedAssets()"/>).</para></remarks>
+    /// <remarks>
+    /// Stores the Object's instance ID. Also serializes asset references in subscenes the same way managed components 
+    /// do with direct references to <see cref="UnityEngine.Object"/>. This is the recommended way to store references to Unity 
+    /// assets in Entities because it remains unmanaged.
+    /// 
+    /// Serialization is supported on <see cref="IComponentData"/> <see cref="ISharedComponentData"/> and <see cref="IBufferElementData"/>.
+    /// 
+    /// Just as when referencing an asset in a Monobehaviour, the asset will not be collected by any asset garbage collection (such as calling <see cref="Resources.UnloadUnusedAssets()"/>).
+    /// 
+    /// For more information, refer to [Reference Unity objects in your code](xref:reference-unity-objects).
+    /// </remarks>
     [Serializable]
     [StructLayout(LayoutKind.Sequential)]
     public struct UnityObjectRef<T> : IEquatable<UnityObjectRef<T>>

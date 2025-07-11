@@ -143,7 +143,7 @@ namespace Unity.Entities
 
         internal struct SystemElement 
         {
-            public int SystemTypeIndex;
+            public SystemTypeIndex SystemTypeIndex;
             public UpdateIndex Index;
             public int OrderingBucket; // 0 = OrderFirst, 1 = none, 2 = OrderLast
             public NativeList<int> updateBefore;

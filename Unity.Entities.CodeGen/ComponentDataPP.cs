@@ -13,6 +13,8 @@ using Unity.Cecil.Awesome;
 using UnityEngine.Scripting;
 using System.Reflection;
 using Unity.Burst;
+using TypeReferenceEqualityComparer = Unity.Cecil.Awesome.Comparers.TypeReferenceEqualityComparer;
+
 
 namespace Unity.Entities.CodeGen
 {
@@ -131,10 +133,42 @@ namespace Unity.Entities.CodeGen
                             targetMethod = type.Methods.Single(x =>
                             {
                                 var isEquals = (name == "Equals");
+
                                 if (isEquals)
-                                    return x.Name == name &&
-                                           x.Parameters.Count == 1 &&
-                                           x.Parameters[0].ParameterType.Name == type.Name;
+                                {
+                                    /*
+                                     Irritatingly, if you do this: 
+    public struct SceneTag : ISharedComponentData, IEquatable<SceneTag>
+    {
+        public Entity  SceneEntity;
+        public bool Equals(SceneTag other)
+        {
+            return SceneEntity == other.SceneEntity;
+        }
+
+                                    Overrides will be empty, so you can't just check that.
+
+                                    But if you do this:
+ public bool System.IEquatable<SceneTag>.Equals(SceneTag other)
+
+                                    then Name will not be Equals, so you can't just check Name either.
+
+                                    So you have to check both. 
+                                     */
+                                    if (x.Name == name &&
+                                        x.Parameters.Count == 1 &&
+                                        x.Parameters[0].ParameterType.Name == type.Name)
+                                        return true;
+                                    foreach (var y in x.Overrides)
+                                    {
+                                        if (TypeReferenceEqualityComparer.AreEqual(
+                                                AssemblyDefinition.MainModule.ImportReference(y.DeclaringType.Resolve()),
+                                                iequatableType) &&
+                                            y.Name == "Equals")
+                                            return true;
+                                    }
+                                    return false;
+                                }
                                 else
                                 {
                                     return x.Name == name && x.Parameters.Count == 0;

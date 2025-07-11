@@ -36,7 +36,9 @@ namespace Unity.Entities.CodeGen
         {
             bool changes = false;
 
-            if (unmanagedComponentSystemTypes.Length == 0) return false;
+            var assemblyAttributes = AssemblyDefinition.CustomAttributes;
+            if (unmanagedComponentSystemTypes.Length == 0 && assemblyAttributes.Count == 0) return false;
+            
             // Create the registration class first so that if we need to put forwarders for generic ISystems into it, it's ready.
             // This must use a stable hash code function (do not using string.GetHashCode).
             var autoClassName = $"__UnmanagedPostProcessorOutput__{TypeHash.FNV1A64(AssemblyDefinition.FullName)}";
@@ -65,7 +67,6 @@ namespace Unity.Entities.CodeGen
 
             }
 
-            var assemblyAttributes = AssemblyDefinition.CustomAttributes;
             foreach (var attr in assemblyAttributes)
             {
                 if (attr.AttributeType.Resolve().FullName == "Unity.Entities.RegisterGenericSystemTypeAttribute")
@@ -179,7 +180,7 @@ namespace Unity.Entities.CodeGen
                 if (_targetMethodDef.DeclaringType.HasGenericParameters)
                 {
                     _targetMethodRef =
-                        mod.ImportReference(_targetMethodRef.MakeGenericHostMethod(specializedSystemType));
+                        mod.ImportReference(_targetMethodRef.MakeGenericHostMethod(LaunderTypeRef(specializedSystemType)));
                 }
                 if (_targetMethodRef == null)
                     continue;

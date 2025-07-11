@@ -259,6 +259,9 @@ namespace Unity.Entities.Tests.ForEachCodegen
 
     [Test]
     public void ExtensionMethodToInvoke() => m_TestSystem.ExtensionMethodToInvoke();
+
+    [Test]
+    public void ScheduleThroughFunctionInvocation() => m_TestSystem.ScheduleThroughFunctionInvocation();
 #endregion
 
 #region Interfaces
@@ -1858,6 +1861,20 @@ namespace Unity.Entities.Tests.ForEachCodegen
             IJobEntityExtensions.Run(new ExtensionMethodToInvokeJob());
             Assert.That(SystemAPI.GetComponent<EcsTestData>(s_TestEntity).value, Is.EqualTo(k_EcsTestDataValue+1));
         }
+
+        partial struct ScheduleThroughFunctionInvocationJob : IJobEntity
+        {
+            void Execute(ref EcsTestData data) => data.value += 1;
+        }
+        public void ScheduleThroughFunctionInvocation()
+        {
+            Assert.That(SystemAPI.GetComponent<EcsTestData>(s_TestEntity).value, Is.EqualTo(k_EcsTestDataValue));
+            CreateScheduleThroughFunctionInvocationJob().Schedule();
+            CompleteDependency();
+            Assert.That(SystemAPI.GetComponent<EcsTestData>(s_TestEntity).value, Is.EqualTo(k_EcsTestDataValue+1));
+        }
+
+        ScheduleThroughFunctionInvocationJob CreateScheduleThroughFunctionInvocationJob() => new ScheduleThroughFunctionInvocationJob();
 
 #endregion
 #region Interfaces

@@ -4,6 +4,38 @@ uid: changelog
 
 # Changelog
 
+## [1.4.0-pre.4] - 2025-07-11
+
+### Added
+
+* Manual documentation for UnityObjectRef.
+* RemoteContentCatalogBuildUtility.PublishContent  will now create content sets for all objects and scenes, using the UntypedWeakReferenceId.ToString() as the name of the set.  This allows for downloading dependencies of specific objects and scenes.  For SubScenes, the content set is named with just the guid and contains the header, all entity section files, and any unity object references in content archives.
+* RemoteContentCatalogBuildUtility.PublishContent will now create a text file containing all remapping information.  This file will be created in the root of the remote content folder and is named DebugCatalog.txt.  This file shows how each file is remapped to its cache location and what its RemoteContentId is.  It also lists all content sets defined during the Publish step.
+
+### Changed
+
+* Instantiating an entity that doesn't have a LinkedEntityGroup will now behave the same as if the entity had a LinkedEntityGroup only containing the entity itself. It practice, it means that if the entity has components referencing the entity itself, those same components on the instances of that entity will always reference themselves. Previously, this only happened when an LinkedEntityGroup was present and it would leave the reference pointing to the original entity otherwise. That behavior was inconsistent and surprising.
+* EntityReferences, BlobReferences and UnityObjectReferences that are below the max search depth will be ignored. If they should not be ignored `ForceReferenceAttribute` should be added to the type.
+
+### Fixed
+
+* Addressed a potential use after free when blob assets are recreated with identical content in open subscenes (live baking). This error only affected the editor and was a potential crash.
+* Removed two sources of internal compilation errors related to the use of invalid generic parameters in SystemAPI.Query. Only the regular C# errors will be reported.
+* RuntimeContentManager.WaitForCompletion in play mode in the editor now works.
+* Fixed issue where a base system class may not update correctly if a derived system is also present.
+* Content delivery initialization will now always download the content set named "local_catalogs", defined in ContentDeliveryGlobalState.kLocalCatalogsContentSet.  During the publish process, all .bin files are added to this content set.  This is done to ensure that all necessary local catalog files are downloaded before initialization ends.  The files that will end up in this set are ContentArchives/archive_dependencies.bin and EntityScenes/scene_info.bin.
+* Improved burstability of BlobAssetComputationContext. (Thanks tertle!)
+* Further reduced reflection on TypeManager startup.
+* Scheduling a job in Runtime from a method invocation will no longer throw `Exception: This method should have been replaced by source gen.`
+* "BadImageFormatException: Expected reference type but got type kind 17" no longer happens when you have a generic ISystem MyISystem and then T and/or the RegisterGenericSystem declaration are not in the same assembly as MyISystem.
+* Assemblies that have no systems defined, but do have `[assembly: RegisterGenericSystemType()]` calls are no longer skipped, and the systems are registered.
+* Compilation will not fail in ILPostProcessing when you have a shared component with bool System.IEquatable<YourSharedComponent>.Equals(YourSharedComponent other) rather than bool Equals(YourSharedComponent other).
+* TypeManager.IsZeroSized will now correctly be true for component data that only has static fields.
+* When having a UnityObjectReference, a BlobReference and a EntityReference, the UnityObjectReference would be ignored through a faulty early-out.
+
+### Security
+
+
 ## [1.4.0-pre.3] - 2025-06-06
 
 ### Added
@@ -30,7 +62,6 @@ uid: changelog
 * `SystemAPI.Query` no longer generates duplicate component references if `.WithChangeFilter<T>()` is used in with `.WithDisabled<T>()` or `.WithPresent<T>()`.
 * Removed a broken link to the SystemInstance structure in the package documentation.
 * TypeManager.Initialize is much faster due to lazily registering companion component types.
-
 
 
 ## [1.4.0-exp.2] - 2025-03-07

@@ -29,23 +29,34 @@ namespace Unity.Scenes.Editor.Tests
             Directory.CreateDirectory(BuildPath);
             Directory.CreateDirectory(UpdatePath);
             Directory.CreateDirectory(PublishPath);
-            BuildTestData(10, 256, 8, "start");
-            BuildTestData(10, 256, 8, "extra1");
-            BuildTestData(10, 256, 8, "update");
+            BuildTestData(5, 32, 4, "EntityScenes", "start");
+            BuildTestData(5, 32, 4, "ContentArchives", "start");
+            BuildTestData(5, 32, 4, "OtherStuff", "start");
+            BuildTestData(5, 32, 4, "EntityScenes", "extra");
+            BuildTestData(5, 32, 4, "ContentArchives", "extra");
+            BuildTestData(5, 32, 4, "OtherStuff", "extra");
+            BuildTestData(5, 32, 4, "EntityScenes", "update");
+            BuildTestData(5, 32, 4, "ContentArchives", "update");
+            BuildTestData(5, 32, 4, "OtherStuff", "update");
+            BuildTestData(5, 32, 4, "OtherStuff", "donotdeliver");
             RemoteContentCatalogBuildUtility.PublishContent(BuildPath, PublishPath, f => new string[] { f.Substring(f.LastIndexOf('_') + 1) });
         }
 
-        void BuildTestData(int fileCount, int fileSize, int changeCount, string setName)
+        void BuildTestData(int fileCount, int fileSize, int changeCount, string folderName, string setName)
         {
             try
             {
+                Directory.CreateDirectory($"{BuildPath}/{folderName}");
+                Directory.CreateDirectory($"{UpdatePath}/{folderName}");
+                CreateTestFile($"{BuildPath}/{folderName}/initialization_file.bin", 64);
+                CreateTestFile($"{UpdatePath}/{folderName}/initialization_file.bin", 64);
                 for (int i = 0; i < fileCount; i++)
                 { 
-                    CreateTestFile($"{BuildPath}/file{i}_{setName}", fileSize);
-                    if (File.Exists($"{UpdatePath}/file{i}_{setName}"))
-                        File.Delete($"{UpdatePath}/file{i}_{setName}");
-                    File.Copy($"{BuildPath}/file{i}_{setName}", $"{UpdatePath}/file{i}_{setName}", true);
-                    ModifyTestFile($"{UpdatePath}/file{i}_{setName}", changeCount);
+                    CreateTestFile($"{BuildPath}/{folderName}/file{i}_{setName}", fileSize);
+                    if (File.Exists($"{UpdatePath}/{folderName}/file{i}_{setName}"))
+                        File.Delete($"{UpdatePath}/{folderName}/file{i}_{setName}");
+                    File.Copy($"{BuildPath}/{folderName}/file{i}_{setName}", $"{UpdatePath}/{folderName}/file{i}_{setName}", true);
+                    ModifyTestFile($"{UpdatePath}/{folderName}/file{i}_{setName}", changeCount);
                 }
             }
             catch (Exception ex)
@@ -86,6 +97,8 @@ namespace Unity.Scenes.Editor.Tests
 
         void CreateTestFile(string path, int length)
         {
+            if (File.Exists(path))
+                File.Delete(path);
             using (var fs = File.OpenWrite(path))
             {
                 var data = new byte[length];
@@ -124,18 +137,95 @@ namespace Unity.Scenes.Editor.Tests
             }
         }
 
+        [Test]
+        unsafe public void ExpectedContentSetsAreCreated()
+        {
+            using (var cds = CreateService())
+            {
+                foreach (var ls in cds.LocationServices)
+                {
+                    Assert.IsTrue(ls.TryGetLocationSet(ContentDeliveryGlobalState.kLocalCatalogsContentSet, out var _, out var _));
+                    Assert.IsTrue(ls.TryGetLocationSet("EntityScenes", out var _, out var _));
+                    Assert.IsTrue(ls.TryGetLocationSet("ContentArchives", out var _, out var _));
+                    Assert.IsTrue(ls.TryGetLocationSet("OtherStuff", out var _, out var _));
+                }
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator WhenInititializationComplete_LocalCatalogsAreDelivered()
+        {
+            using (var cds = CreateService())
+            {
+                yield return UpdateService(cds);
+                var cachePath = cds.RemapContentPath("ContentArchives/initialization_file.bin", false);
+                Assert.IsTrue(File.Exists(cachePath));
+                var cachePath2 = cds.RemapContentPath("EntityScenes/initialization_file.bin", false);
+                Assert.IsTrue(File.Exists(cachePath2));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator WhenInititializationComplete_OnlyInitialContentSetIsDelivered()
+        {
+            using (var cds = CreateService())
+            {
+                yield return UpdateService(cds);
+                var cachePath = cds.RemapContentPath("ContentArchives/file1_start", false);
+                Assert.IsTrue(File.Exists(cachePath));
+                var cachePath2 = cds.RemapContentPath("ContentArchives/file1_extra", false);
+                Assert.IsFalse(File.Exists(cachePath2));
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator RemapPathWithFileCheckRespectedFileCheckFlag()
+        {
+            using (var cds = CreateService())
+            {
+                yield return UpdateService(cds);
+                var cachePath = cds.RemapContentPath("OtherStuff/file1_donotdeliver", false);
+                Assert.AreNotEqual("OtherStuff/file1_donotdeliver", cachePath);
+                cachePath = cds.RemapContentPath("OtherStuff/file1_donotdeliver", true);
+                Assert.AreEqual("OtherStuff/file1_donotdeliver", cachePath);
+                cachePath = cds.RemapContentPath("none", false);
+                Assert.AreEqual("none", cachePath);
+            }
+        }
+
+        [UnityTest]
+        public IEnumerator ExtraContentSetCanBeDliveredAfterIntitialization()
+        {
+            using (var cds = CreateService())
+            {
+                yield return UpdateService(cds);
+                var cachePath2 = cds.RemapContentPath("ContentArchives/file1_extra", false);
+                Assert.IsFalse(File.Exists(cachePath2));
+                var id = cds.DeliverContent("extra");
+                while (cds.GetDeliveryStatus(id).State < ContentDeliveryService.DeliveryState.ContentDownloaded)
+                {
+                    cds.Process();
+                    yield return null;
+                }
+                var status = cds.GetDeliveryStatus(id);
+                Assert.AreEqual(ContentDeliveryService.DeliveryState.ContentDownloaded, status.State);
+                Assert.IsTrue(File.Exists(cachePath2));
+                File.Delete(cachePath2);
+            }
+        }
+
         [UnityTest]
         public IEnumerator WhenContentDelivered_WithRemoteId_FileExistsInCache()
         {
             using (var cds = CreateService())
             {
                 yield return UpdateService(cds);
-                var id = new RemoteContentId($"file3_extra1");
+                var id = new RemoteContentId($"ContentArchives/file3_extra");
                 yield return DownloadFile(cds, id);
                 var status = cds.GetDeliveryStatus(id);
                 Assert.AreEqual(ContentDeliveryService.DeliveryState.ContentDownloaded, status.State);
                 Assert.IsTrue(File.Exists(status.DownloadStatus.LocalPath.ToString()));
-                Assert.IsTrue(CompareFiles(status.DownloadStatus.LocalPath.ToString(), $"{BuildPath}/file3_extra1"), "Downloaded file does not match built file.");
+                Assert.IsTrue(CompareFiles(status.DownloadStatus.LocalPath.ToString(), $"{BuildPath}/ContentArchives/file3_extra"), "Downloaded file does not match built file.");
                 File.Delete(status.DownloadStatus.LocalPath.ToString());
             }
         }
@@ -206,7 +296,7 @@ namespace Unity.Scenes.Editor.Tests
 
                 cds.AddDownloadService(new ContentDownloadService("default", CachePath, 50, 5, () => new NonCompletingDownloadOperation()));
 
-                var id = new RemoteContentId($"file3_extra1");
+                var id = new RemoteContentId($"ContentArchives/file3_extra");
                 cds.DeliverContent(id);
                 while (cds.GetDeliveryStatus(id).State < ContentDeliveryService.DeliveryState.DownloadingContent)
                 {

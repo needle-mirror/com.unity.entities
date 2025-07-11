@@ -117,7 +117,7 @@ namespace Doc.CodeSamples.Tests
                     return;
 
                 // Update translation to move the chasing entity toward the target
-                float3 targetPosition = entityPosition.Position;
+                float3 targetPosition = EntityPositions[targetEntity].Position;
                 float3 chaserPosition = transform.Position;
 
                 float3 displacement = targetPosition - chaserPosition;
@@ -179,9 +179,9 @@ namespace Doc.CodeSamples.Tests
                 if (!EntityPositions.HasComponent(targetEntity))
                     return;
 
-                // Update translation to move the chasing enitity toward the target
+                // Update translation to move the chasing entity toward the target
                 #region lookup-ijobchunk-read
-                float3 targetPosition = entityPosition.Position;
+                float3 targetPosition = EntityPositions[targetEntity].Position;
                 float3 chaserPosition = transform.Position;
                 float3 displacement = targetPosition - chaserPosition;
                 float3 newPosition = chaserPosition + displacement * deltaTime;

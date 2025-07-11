@@ -1,5 +1,6 @@
 using System;
 using System.Diagnostics;
+using Unity.Burst;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
 using Unity.Mathematics;
@@ -129,7 +130,7 @@ namespace Unity.Entities
         /// <returns>True if the BlobAsset was found and returned, false if it wasn't</returns>
         public bool TryGet<T>(Hash128 hash, out BlobAssetReference<T> blobAssetReference) where T : unmanaged
         {
-            var typedHash = ComputeKeyAndTypeHash(hash, typeof(T));
+            var typedHash = ComputeKeyAndTypeHash<T>(hash);
 
             return TryGetWithFullHash(typedHash, out blobAssetReference);
         }
@@ -215,7 +216,7 @@ namespace Unity.Entities
         /// <returns>True if the Store contains the BlobAsset or false if it doesn't</returns>
         public bool Contains<T>(Hash128 key)
         {
-            var typedHash = ComputeKeyAndTypeHash(key, typeof(T));
+            var typedHash = ComputeKeyAndTypeHash<T>(key);
             return m_BlobAssets.ContainsKey(typedHash);
         }
 
@@ -254,7 +255,7 @@ namespace Unity.Entities
         {
             ValidateBlob(blobAsset.m_data);
 
-            var fullHash = ComputeKeyAndTypeHash(customHash, typeof(T));
+            var fullHash = ComputeKeyAndTypeHash<T>(customHash);
 
             return TryAddWithFullHash<T>(ref blobAsset, fullHash);
         }
@@ -292,7 +293,7 @@ namespace Unity.Entities
             Hash128 hash = default;
             UnsafeUtility.MemCpy(&hash, &blobAsset.m_data.Header->Hash, sizeof(ulong));
             objectHash = hash;
-            var fullHash = ComputeKeyAndTypeHash(objectHash, typeof(T));
+            var fullHash = ComputeKeyAndTypeHash<T>(objectHash);
 
             return TryAddWithFullHash<T>(ref blobAsset, fullHash);
         }
@@ -379,11 +380,10 @@ namespace Unity.Entities
         /// <summary>
         /// Function to calculate a hash value associated with a Type
         /// </summary>
-        /// <param name="type">The BlobAsset type from where the hash is calculated.</param>
         /// <returns>Calculated hash value</returns>
-        internal static uint ComputeTypeHash(Type type)
+        internal static uint ComputeTypeHash<T>()
         {
-            return (uint)type.GetHashCode();
+            return (uint)BurstRuntime.GetHashCode32<T>();
         }
 
         /// <summary>
@@ -392,9 +392,9 @@ namespace Unity.Entities
         /// <param name="key">The hash associated with the BlobAsset.</param>
         /// <param name="type">The BlobAsset type from where the hash is calculated.</param>
         /// <returns>Calculated hash value</returns>
-        internal static Hash128 ComputeKeyAndTypeHash(Hash128 key, Type type)
+        internal static Hash128 ComputeKeyAndTypeHash<T>(Hash128 key)
         {
-            return new Hash128(math.hashwide(new uint4x2 { c0 = key.Value, c1 = new uint4(ComputeTypeHash(type))}));
+            return new Hash128(math.hashwide(new uint4x2 { c0 = key.Value, c1 = new uint4(ComputeTypeHash<T>())}));
         }
 
         /// <summary>

@@ -38,4 +38,4 @@ If a system doesn't do much work, for example if it only processes the component
 
 ## Additional resources
 
-* [Spawner example](ecs-workflow-example.md)
+* [ECS workflow examples](ecs-workflow-tutorial.md)

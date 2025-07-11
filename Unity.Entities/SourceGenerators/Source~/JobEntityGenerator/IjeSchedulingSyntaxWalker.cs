@@ -49,6 +49,7 @@ public class IjeSchedulingSyntaxWalker : CSharpSyntaxWalker, IModuleSyntaxWalker
     private string _userDefinedQueryArgument;
     private string _userDefinedDependency;
     private ObjectCreationExpressionSyntax _jobEntityInstanceCreationSyntax;
+    private InvocationExpressionSyntax _jobEntityInvocationSyntax;
 
     internal IjeSchedulingSyntaxWalker(ref SystemDescription systemDescription, Dictionary<InvocationExpressionSyntax, JobEntityInstanceInfo> jobEntityInfos)
         : base(SyntaxWalkerDepth.Trivia)
@@ -86,7 +87,17 @@ public class IjeSchedulingSyntaxWalker : CSharpSyntaxWalker, IModuleSyntaxWalker
                     base.VisitInvocationExpression(node);
             }
             else
+            {
                 base.VisitInvocationExpression(node);
+                if (_jobEntityInvocationSyntax == node)
+                {
+                    _schedulingJobEntityInstanceArgument = _schedulingArgsInnerWriter.ToString();
+
+                    // StringWriter.Flush() unfortunately doesn't clear the buffer correctly: https://stackoverflow.com/a/13706647
+                    // Since IndentedTextWriter.Flush() calls stringWriter.Flush(), we cannot use it either.
+                    _schedulingArgsInnerWriter.GetStringBuilder().Clear();
+                }
+            }
         }
         else if (_schedulingInvocationNodes.TryGetValue(node, out var jobEntityInfo))
         {
@@ -113,11 +124,32 @@ public class IjeSchedulingSyntaxWalker : CSharpSyntaxWalker, IModuleSyntaxWalker
 
                     _isWalkingSchedulingInvocationArgument = false;
                 }
-                else
+                else if (tryGetJobArg.IdentifierNameSyntax != null)
                 {
                     _jobEntityInstanceCreationSyntax = null;
                     _schedulingJobEntityInstanceArgument = tryGetJobArg.IdentifierNameSyntax.ToString();
                 }
+                else
+                {
+                    _isWalkingSchedulingInvocationArgument = true;
+
+                    /* The user might have used sourcegen-dependent API when creating a `CreateJobEntity` invocation, e.g.
+
+                        CreateUsingCodeGenInsideAScheduleObjectInitJob
+                        (
+                            SystemAPI.GetComponentLookup<EcsTestData>()
+                        ).Schedule(SystemAPI.QueryBuilder().WithAll<EcsTestData>().Build(), Dependency).Complete();
+
+                    Thus we need to walk the object creation syntax, and cede write control to the appropriate syntax walker if necessary.
+                    In the example above, we need to cede write control to the `SystemApiContextWalker` when we reach the
+                    `SystemAPI.GetComponentLookup<EcsTestData>()` node, so that the `SystemApiContextWalker` can patch it accordingly.
+                    */
+                    _jobEntityInvocationSyntax = tryGetJobArg.InvocationExpressionSyntax;
+                    VisitInvocationExpression(_jobEntityInvocationSyntax);
+
+                    _isWalkingSchedulingInvocationArgument = false;
+                }
+
             }
 
             var result =

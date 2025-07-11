@@ -13,6 +13,7 @@ using UnityEngine.Profiling;
 using Unity.Core;
 using UnityEngine;
 using System.Text;
+using static Unity.Entities.TypeManager;
 
 namespace Unity.Entities
 {
@@ -410,15 +411,15 @@ namespace Unity.Entities
         }
 
         /// <summary>
-        /// [TypeOverrides] can be applied to a component that is known to never contain Entity and/or Blob references,
+        /// [TypeOverrides] can be applied to a component that is known to contain Entity, Blob and/or UnityObject references,
         /// in order to reduce time taken during serialization operations.
         /// </summary>
         /// <remarks>
-        /// For example, a managed component containing a base class type field can only be determined to have entity or blob
-        /// references at runtime since the runtime instance might hold a child type instance which does contain Entity and/or
-        /// BlobAssetReferences. As such, serializing operations for managed components needs to walk runtime type instances
+        /// For example, a managed component containing a base class type field can only be determined to have entity, blob or unityObj
+        /// references at runtime since the runtime instance might hold a child type instance which does contain Entity, UnityObject
+        /// and/or BlobAssetReferences. As such, serializing operations for managed components needs to walk runtime type instances
         /// which might be unnecessary. Use this attribute to prevent this walking to improve managed component serialization
-        /// operations when you know the component type will never contain Entity and/or Blob references.
+        /// operations when you know the component type will never contain Entity, Blob and/or UnityObject references.
         /// </remarks>
         [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
         public class TypeOverridesAttribute : Attribute
@@ -442,9 +443,6 @@ namespace Unity.Entities
             /// </remarks>
             public bool  HasNoUnityObjectReferences;
 
-            // Use this to bypass the TypeManager check which complains if you say no references but it actually has them
-            internal bool AllowForceNoReferences;
-
             /// <summary>
             /// <see cref="TypeOverridesAttribute"/>
             /// </summary>
@@ -456,15 +454,48 @@ namespace Unity.Entities
                 HasNoEntityReferences = hasNoEntityReferences;
                 HasNoBlobReferences = hasNoBlobReferences;
                 HasNoUnityObjectReferences = hasNoUnityObjectReferences;
-                AllowForceNoReferences = false;
             }
+        }
+        /// <summary>
+        /// [ForceReferenceSearch] can be applied to a managed component that is known to contain Entity, Blob and/or UnityObject references,
+        /// in case that the reference is nested beyond the max search depth and can therefore not normally be found.
+        /// </summary>
+        /// <remarks>
+        /// If a type nesting exceeds the max search depth without finding a reference type, it will assume there are none
+        /// to be found to avoid a heavy (potentially unnecessary) performance cost of recursing further down.
+        /// If you know that there is a reference further down that needs to be caught and the performance hit is acceptable
+        /// you can add this attribute to forcibly mark the type as having a certain type of reference.
+        /// </remarks>
+        [AttributeUsage(AttributeTargets.Struct | AttributeTargets.Class)]
+        public class ForceReferenceAttribute : Attribute
+        {
+            /// <summary>
+            /// Force the component's <see cref="TypeIndex.HasEntityReferences"/> to be true if set to true here.
+            /// Otherwise, the value will only be true if the component actually has entity references that can be found before the maxdepth is hit.
+            /// </summary>
+            public bool  HasEntityReferences;
+            /// <summary>
+            /// Configures the TypeManager to force the component to be marked to have BlobAssetReferences.
+            /// Otherwise, this will only be set if the component actually has a blob reference that can be found before the maxdepth is hit.
+            /// </summary>
+            public bool  HasBlobReferences;
+            /// <summary>
+            /// Configures the TypeManager to  force the component to be marked to have UnityObjectReferences.
+            /// Otherwise, this will only be set if the component actually has a UnityObjectReferences that can be found before the maxdepth is hit.
+            /// </summary>
+            public bool  HasUnityObjectReferences;
 
-            internal TypeOverridesAttribute(bool hasNoEntityReferences, bool hasNoBlobReferences, bool hasNoUnityObjectReferences, bool allowForcedNoReferences)
+            /// <summary>
+            /// <see cref="ForceReferenceAttribute"/>
+            /// </summary>
+            /// <param name="hasEntityReferences"></param>
+            /// <param name="hasBlobReferences"></param>
+            /// <param name="hasUnityObjectReferences"></param>
+            public ForceReferenceAttribute(bool hasEntityReferences, bool hasBlobReferences, bool hasUnityObjectReferences = false)
             {
-                HasNoEntityReferences = hasNoEntityReferences;
-                HasNoBlobReferences = hasNoBlobReferences;
-                HasNoUnityObjectReferences = hasNoUnityObjectReferences;
-                AllowForceNoReferences = allowForcedNoReferences;
+                HasEntityReferences = hasEntityReferences;
+                HasBlobReferences = hasBlobReferences;
+                HasUnityObjectReferences = hasUnityObjectReferences;
             }
         }
 
@@ -521,6 +552,8 @@ namespace Unity.Entities
         /// Maximum number of unique component types supported by the <seealso cref="TypeManager"/>/>
         /// </summary>
         public const int MaximumTypesCount = 1 << 13;
+
+        internal const int MaximumSystemTypesCount = MaximumTypesCount;
 
         /// <summary>
         /// Bitflag set for component types that do not contain an <seealso cref="Entity"/> member.
@@ -1648,7 +1681,7 @@ namespace Unity.Entities
             SharedSystemTypeNames.Ref.Data = default;
             SharedSystemAttributes.Ref.Data = default;
             SharedSystemCount.Ref.Data = default;
-            SharedSystemTypeHashes.Ref.Data = default;
+            SharedSystemTypeInfos.Ref.Data = default;
         }
 
         static void RegisterSpecialComponents()
@@ -2742,7 +2775,7 @@ namespace Unity.Entities
                  * now that type indices have been built, we can use them as keys in our hash map
                  */
                 GatherSharedComponentMethods(s_ManagedTypeToIndex);
-                 
+
                 foreach (var typeNode in typeTreeNodes)
                 {
                     var typeIndex = GetTypeIndex(typeNode.Type);
@@ -3003,38 +3036,13 @@ namespace Unity.Entities
             var typeOverride = type.GetCustomAttribute<TypeOverridesAttribute>(true);
             if (typeOverride != null)
             {
-                EntityRemapUtility.HasEntityReferencesManaged(type, out var actuallyHasEntityRefs, out var actuallyHasBlobRefs, out var actuallyHasUnityObjectRefs, cache, 128);
-                if (typeOverride.HasNoEntityReferences && actuallyHasEntityRefs == EntityRemapUtility.HasRefResult.HasRef)
-                {
-                    throw new ArgumentException(
-                        $"Component type '{type}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
-                        $"Entity references, however the type does in fact contain a (potentially nested) Entity reference. " +
-                        $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
-                }
-
-                if (typeOverride.HasNoBlobReferences && actuallyHasBlobRefs == EntityRemapUtility.HasRefResult.HasRef)
-                {
-                    throw new ArgumentException(
-                        $"Component type '{type}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
-                        $"BlobAssetReferences, however the type does in fact contain a (potentially nested) BlobAssetReference. " +
-                        $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
-                }
-
-                if (typeOverride.HasNoUnityObjectReferences && !typeOverride.AllowForceNoReferences && actuallyHasUnityObjectRefs == EntityRemapUtility.HasRefResult.HasRef)
-                {
-                    throw new ArgumentException(
-                        $"Component type '{type}' has a {nameof(TypeOverridesAttribute)} marking the component as not having " +
-                        $"UnityObjectRef<T>, however the type does in fact contain a (potentially nested) UnityObjectRef<T>. " +
-                        $"This is not allowed. Please refer to the documentation for {nameof(TypeOverridesAttribute)} for how to use this attribute.");
-                }
+                if (typeOverride.HasNoEntityReferences)
+                    hasEntityReferences = false;
+                if (typeOverride.HasNoBlobReferences)
+                    hasBlobReferences = false;
+                if (typeOverride.HasNoUnityObjectReferences)
+                    hasUnityObjectReferences = false;
             }
-
-            if (typeOverride != null && typeOverride.HasNoEntityReferences)
-                hasEntityReferences = false;
-            if (typeOverride != null && typeOverride.HasNoBlobReferences)
-                hasBlobReferences = false;
-            if (typeOverride != null && typeOverride.HasNoUnityObjectReferences)
-                hasUnityObjectReferences = false;
         }
 
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
@@ -3335,11 +3343,11 @@ namespace Unity.Entities
 
                 category = TypeCategory.ComponentData;
                 sizeInChunk = sizeof(int);
-                EntityRemapUtility.HasEntityReferencesManaged(type, out var entityRefResult, out var blobRefResult, out var unityObjRefResult, caches.HasEntityOrBlobAssetReferenceCache);
+                EntityRemapUtility.HasReferencesManaged(type, out var entityRefResult, out var blobRefResult, out var unityObjRefResult, caches.HasEntityOrBlobAssetReferenceCache);
 
-                hasEntityReferences = entityRefResult > 0;
-                hasBlobReferences = blobRefResult > 0;
-                hasUnityObjectRefs = unityObjRefResult > 0;
+                hasEntityReferences = entityRefResult;
+                hasBlobReferences = blobRefResult;
+                hasUnityObjectRefs = unityObjRefResult;
             }
 #endif
             else if (typeof(IBufferElementData).IsAssignableFrom(type))
@@ -3377,12 +3385,12 @@ namespace Unity.Entities
 
                 if (isManaged)
                 {
-                    EntityRemapUtility.HasEntityReferencesManaged(type, out var entityRefResult, out var blobRefResult, out var unityObjectRefResult, caches.HasEntityOrBlobAssetReferenceCache);
+                    EntityRemapUtility.HasReferencesManaged(type, out _, out var blobRefResult, out var unityObjectRefResult, caches.HasEntityOrBlobAssetReferenceCache);
 
                     // Managed shared components explicitly do not allow patching of entity references
                     hasEntityReferences = false;
-                    hasBlobReferences = blobRefResult > 0;
-                    hasUnityObjectRefs = unityObjectRefResult > 0;
+                    hasBlobReferences = blobRefResult;
+                    hasUnityObjectRefs = unityObjectRefResult;
                 }
                 else
                 {
@@ -3416,10 +3424,10 @@ namespace Unity.Entities
 
             AddFastEqualityInfo(type, category == TypeCategory.UnityEngineObject, caches.FastEqualityLayoutInfoCache);
 
-            int entityOffsetCount = s_EntityOffsetList.Length - entityOffsetIndex;
-            int blobAssetRefOffsetCount = s_BlobAssetRefOffsetList.Length - blobAssetRefOffsetIndex;
+            int entityOffsetCount = hasEntityReferences ? s_EntityOffsetList.Length - entityOffsetIndex : 0;
+            int blobAssetRefOffsetCount = hasBlobReferences ? s_BlobAssetRefOffsetList.Length - blobAssetRefOffsetIndex : 0;
+            int unityObjectRefOffsetCount = hasUnityObjectRefs ? s_UnityObjectRefOffsetList.Length - unityObjectRefOffsetIndex : 0;
             int weakAssetRefOffsetCount =  s_WeakAssetRefOffsetList.Length - weakAssetRefOffsetIndex;
-            int unityObjectRefOffsetCount =  s_UnityObjectRefOffsetList.Length - unityObjectRefOffsetIndex;
 
             int writeGroupIndex = s_WriteGroupList.Length;
             int writeGroupCount = writeGroups == null ? 0 : writeGroups.Length;
@@ -3598,7 +3606,6 @@ namespace Unity.Entities
 
                     if (atr != null)
                     {
-
                         trs.Add((TypeRegistry)atr.GetField("TypeRegistry").GetValue(atr));
                     }
                 }
@@ -3800,8 +3807,10 @@ namespace Unity.Entities
                 }
 
                 // Register system types
-                RegisterAssemblySystemTypes(typeRegistry);
             }
+
+            RegisterAssemblySystemTypes(registries);
+
 
             var componentTypes = new Type[componentTypeSet.Count];
             componentTypeSet.CopyTo(componentTypes);
@@ -3892,6 +3901,13 @@ namespace Unity.Entities
         public unsafe delegate void SetSharedTypeIndicesFn(int* typeInfoArray, int count);
         public delegate Attribute[] GetSystemAttributesFn(Type system);
 
+        internal struct SystemAttributeWithType
+        {
+            public SystemAttributeKind Kind;
+            public Type TargetSystemType;
+            public int Flags;
+        }
+
         public GetBoxedEqualsFn BoxedEquals;
         public GetBoxedEqualsPtrFn BoxedEqualsPtr;
         public BoxedGetHashCodeFn BoxedGetHashCode;
@@ -3916,16 +3932,25 @@ namespace Unity.Entities
         public int* WeakAssetReferenceOffsetsPtr;
         public int WeakAssetReferenceOffsetsCount;
 
+        public bool HasAssemblyWideDisableAutoCreation;
+
         public Type[] Types;
         public string[] TypeNames;
         public Type[] WriteGroups;
 
+        public TypeManager.SystemTypeInfo* SystemTypeInfosPtr;
+
+        public SystemAttributeWithType[] SystemAttributes;
+
+        /*
+         * for size, we should generate a function that takes a list of typeinfos and sets typeinfo[i].Size = sizeof(MySystemType), 
+         * one line per system. 
+         */
+
         public Type[] SystemTypes;
-        public WorldSystemFilterFlags[] SystemFilterFlags;
         public string[] SystemTypeNames;
         public int[] SystemTypeSizes;
         public long[] SystemTypeHashes;
-        public int[] SystemTypeFlags;
 
         public delegate int IRefCountedDelegate(IntPtr iRefCountedSelf);
 

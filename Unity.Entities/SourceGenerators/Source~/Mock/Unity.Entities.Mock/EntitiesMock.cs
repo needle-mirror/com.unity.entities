@@ -12,7 +12,7 @@ namespace Unity.Entities
 
     public class EntitiesMock { }
 
-    public struct Entity : IQueryTypeParameter { }
+    public struct Entity { }
 
     public struct EntityQueryBuilder
     {
@@ -801,7 +801,9 @@ namespace Unity.Jobs
 
 namespace Unity.Mathematics
 {
+#pragma warning disable CS8981 // The type name only contains lower-cased ascii characters. Such names may become reserved for the language.
     public static partial class math
+#pragma warning restore CS8981 // The type name only contains lower-cased ascii characters. Such names may become reserved for the language.
     {
         public static int countbits(ulong x) => default;
         public static int min(int x, int y) { return x < y ? x : y; }

@@ -9,6 +9,7 @@ using MethodAttributes = Mono.Cecil.MethodAttributes;
 using ParameterAttributes = Mono.Cecil.ParameterAttributes;
 using Unity.Cecil.Awesome;
 using static Unity.Entities.BuildUtils.MonoExtensions;
+using static Unity.Entities.TypeRegistry;
 
 
 namespace Unity.Entities.CodeGen
@@ -37,15 +38,15 @@ namespace Unity.Entities.CodeGen
 
         static WorldSystemFilterFlags GetChildDefaultFilterFlag(TypeDefinition typeDef)
         {
-            var flags =  WorldSystemFilterFlags.Default;
+            var flags = WorldSystemFilterFlags.Default;
             var filterFlagsAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == nameof(WorldSystemFilterAttribute) && ca.ConstructorArguments.Count >= 2);
-            if(filterFlagsAttribute != null)
+            if (filterFlagsAttribute != null)
             {
                 // override the default value if flags are provided
-                flags = (WorldSystemFilterFlags) filterFlagsAttribute.ConstructorArguments[1].Value;
+                flags = (WorldSystemFilterFlags)filterFlagsAttribute.ConstructorArguments[1].Value;
             }
             else if (typeDef.BaseType != null) // Traverse the hierarchy to fetch a flags from an ancestor if we can't find one on this type
-                flags = (WorldSystemFilterFlags) GetChildDefaultFilterFlag(typeDef.BaseType.Resolve());
+                flags = (WorldSystemFilterFlags)GetChildDefaultFilterFlag(typeDef.BaseType.Resolve());
             return flags;
         }
         static WorldSystemFilterFlags GetParentGroupDefaultFilterFlags(TypeDefinition typeDef)
@@ -78,18 +79,18 @@ namespace Unity.Entities.CodeGen
             return systemFlags;
         }
 
-        int GetFilterFlag(TypeDefinition typeDef, bool isBase = false)
+        WorldSystemFilterFlags GetFilterFlag(TypeDefinition typeDef, bool isBase = false)
         {
             // If no flags are given we assume the default world
-            var flags =  WorldSystemFilterFlags.Default;
+            var flags = WorldSystemFilterFlags.Default;
             var filterFlagsAttribute = typeDef.CustomAttributes.FirstOrDefault(ca => ca.AttributeType.Name == nameof(WorldSystemFilterAttribute) && ca.ConstructorArguments.Count >= 1);
-            if(filterFlagsAttribute != null)
+            if (filterFlagsAttribute != null)
             {
                 // override the default value if flags are provided
-                flags = (WorldSystemFilterFlags) filterFlagsAttribute.ConstructorArguments[0].Value;
+                flags = (WorldSystemFilterFlags)filterFlagsAttribute.ConstructorArguments[0].Value;
             }
             else if (typeDef.BaseType != null) // Traverse the hierarchy to fetch a flags from an ancestor if we can't find one on this type
-                flags = (WorldSystemFilterFlags) GetFilterFlag(typeDef.BaseType.Resolve(), true);
+                flags = (WorldSystemFilterFlags)GetFilterFlag(typeDef.BaseType.Resolve(), true);
 
             if (!isBase && (flags & WorldSystemFilterFlags.Default) != 0)
             {
@@ -97,15 +98,9 @@ namespace Unity.Entities.CodeGen
                 flags |= GetParentGroupDefaultFilterFlags(typeDef);
             }
 
-            if(typeDef.HasAttribute("UnityEngine.ExecuteAlways"))
+            if (typeDef.HasAttribute("UnityEngine.ExecuteAlways"))
                 flags |= WorldSystemFilterFlags.Editor;
 
-            return (int) flags;
-        }
-
-        public List<int> GetSystemFilterFlagList(List<TypeReference> systems)
-        {
-            var flags = systems.Select(s => GetFilterFlag(s.Resolve())).ToList();
             return flags;
         }
 
@@ -319,6 +314,59 @@ namespace Unity.Entities.CodeGen
                 default:
                     throw new ArgumentException($"Invalid custom argument type for {caType.FullName}");
             }
+        }
+
+        internal void GenerateSystemAttributesArray(ILProcessor il, List<SystemAttributeWithTypeReference> attributes, FieldReference fieldRef, bool isStaticField)
+        {
+            EntitiesILPostProcessors.PushNewArray(il, AssemblyDefinition.MainModule.ImportReference(typeof(SystemAttributeWithType)), attributes.Count);
+            il.Emit(OpCodes.Stloc_2);
+
+
+            var sawtRef = AssemblyDefinition.MainModule.ImportReference(typeof(SystemAttributeWithType));
+            var sawtDef = sawtRef.Resolve();
+
+            for (int typeIndex = 0; typeIndex < attributes.Count; ++typeIndex)
+            {
+                var attribute = attributes[typeIndex];
+                var targetIsNull = attribute.TargetSystemType == null;
+                TypeReference targetSystemTypeRef = targetIsNull ? null : AssemblyDefinition.MainModule.ImportReference(attribute.TargetSystemType);
+
+
+
+                il.Emit(OpCodes.Ldloca_S, (byte)1);
+                il.Emit(OpCodes.Initobj, sawtRef);
+                il.Emit(OpCodes.Ldloca_S, (byte)1);
+                EntitiesILPostProcessors.EmitLoadConstant(il, (int)attribute.Kind); 
+                il.Emit(OpCodes.Stfld, AssemblyDefinition.MainModule.ImportReference(sawtDef.Fields[0]));
+
+                il.Emit(OpCodes.Ldloca_S, (byte)1);
+
+                if (targetIsNull)
+                    il.Emit(OpCodes.Ldnull);
+                else
+                {
+                    il.Emit(OpCodes.Ldtoken, targetSystemTypeRef);
+                    il.Emit(OpCodes.Call, m_GetTypeFromHandleFnRef); // Call System.Type.GetTypeFromHandle with the above stack arg. Return value pushed on the stack
+                }
+                il.Emit(OpCodes.Stfld, AssemblyDefinition.MainModule.ImportReference(sawtDef.Fields[1]));
+
+                il.Emit(OpCodes.Ldloca_S, (byte)1);
+
+                EntitiesILPostProcessors.EmitLoadConstant(il, (int)attribute.Flags);  
+                il.Emit(OpCodes.Stfld, AssemblyDefinition.MainModule.ImportReference(sawtDef.Fields[2]));
+
+                il.Emit(OpCodes.Ldloc_2);//, (byte)2);
+                EntitiesILPostProcessors.EmitLoadConstant(il, typeIndex); // Push array index onto the stack
+
+                il.Emit(OpCodes.Ldloc_1);
+
+                il.Emit(OpCodes.Stelem_Any, sawtRef);
+
+            }
+
+            il.Emit(OpCodes.Ldloc_2);
+
+            EntitiesILPostProcessors.StoreTopOfStackToField(il, fieldRef, isStaticField); 
         }
     }
 }

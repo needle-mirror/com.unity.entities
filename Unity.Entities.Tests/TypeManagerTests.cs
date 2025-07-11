@@ -79,6 +79,24 @@ namespace Unity.Entities.Tests
         }
 #endif
 
+        public struct TestTypeWithFunkyIEQOverride : ISharedComponentData, IEquatable<TestTypeWithFunkyIEQOverride>
+        {
+            public int x;
+            bool System.IEquatable<TestTypeWithFunkyIEQOverride>.Equals(Unity.Entities.Tests.TypeManagerTests.TestTypeWithFunkyIEQOverride other)
+            {
+                return x == other.x;
+            }
+            public override int GetHashCode()
+            {
+                return x;
+            }
+        }
+
+        public struct ZeroSizedTestTypeWithStatic : IComponentData
+        {
+            public static readonly int test = 1;
+        }
+
         public struct TestTypeWithGCHandle : IComponentData
         {
             public GCHandle handle;
@@ -319,6 +337,13 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(1, ti.WeakAssetRefOffsetCount);
             Assert.AreEqual(8, y[0].Offset);
         }
+
+        [Test]
+        public void ZeroSizedTypeWithStatic_IsZeroSized()
+        {
+            Assert.IsTrue(TypeManager.IsZeroSized(TypeManager.GetTypeIndex<ZeroSizedTestTypeWithStatic>()));
+        }
+
         [Test]
         public void TypeWithGCHandle_HasCorrectSize()
         {
@@ -1305,7 +1330,6 @@ namespace Unity.Entities.Tests
             Assert.AreEqual(UnsafeUtility.GetFieldOffset(typeof(EcsTestDataUnityObjectRef2).GetField(nameof(EcsTestDataUnityObjectRef2.value2))), offsetB);
         }
 
-        [DisableAutoTypeRegistration]
         [TypeManager.TypeOverrides(hasNoEntityReferences: true, hasNoBlobReferences: true)]
         public struct TypeOverridesBlobEntityUnmanaged : IComponentData
         {
@@ -1313,14 +1337,12 @@ namespace Unity.Entities.Tests
             public BlobAssetReference<int> blob;
         }
 
-        [DisableAutoTypeRegistration]
         [TypeManager.TypeOverrides(hasNoEntityReferences: true, hasNoBlobReferences: false)]
         public struct TypeOverridesEntityUnmanaged : IComponentData
         {
             public Entity entity;
         }
 
-        [DisableAutoTypeRegistration]
         [TypeManager.TypeOverrides(hasNoEntityReferences: false, hasNoBlobReferences: true)]
         public struct TypeOverridesBlobUnmanaged : IComponentData
         {
@@ -1330,12 +1352,25 @@ namespace Unity.Entities.Tests
         [Test]
         public void TypeOverrideWorks_Unmanaged_InvalidTypesThrow()
         {
-            TypeManager.ShutdownSharedStatics();
-            var cache = new TypeManager.BuildComponentCache();
-            Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlobUnmanaged), cache); });
-            Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesEntityUnmanaged), cache); });
-            Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlobEntityUnmanaged), cache); });
-            TypeManager.InitializeSharedStatics();
+            var typeOverridesNoBlobNoUnityObjectInfo = TypeManager.GetTypeInfo<TypeOverridesBlobUnmanaged>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoBlobNoUnityObjectInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesNoBlobNoUnityObjectInfo.HasUnityObjectRefs);
+            Assert.IsFalse(typeOverridesNoBlobNoUnityObjectInfo.HasBlobAssetRefs);
+
+            var typeOverridesNoEntityNoUnityObjectInfo = TypeManager.GetTypeInfo<TypeOverridesEntityUnmanaged>();
+            Assert.IsFalse(typeOverridesNoEntityNoUnityObjectInfo.HasBlobAssetRefs);
+            Assert.IsFalse(typeOverridesNoEntityNoUnityObjectInfo.HasUnityObjectRefs);
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoEntityNoUnityObjectInfo.TypeIndex));
+
+            var typeOverridesNoEntityNoBlobInfo = TypeManager.GetTypeInfo<TypeOverridesBlobEntityUnmanaged>();
+            Assert.IsFalse(typeOverridesNoEntityNoBlobInfo.HasUnityObjectRefs);
+            Assert.IsFalse(typeOverridesNoEntityNoBlobInfo.HasBlobAssetRefs);
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoEntityNoBlobInfo.TypeIndex));
+
+            var typeOverridesNoBlobNoEntityNoUnityObjectInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlobNoEntityNoUnityObjectUnmanaged>();
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoBlobNoEntityNoUnityObjectInfo.TypeIndex));
+            Assert.IsFalse(typeOverridesNoBlobNoEntityNoUnityObjectInfo.HasBlobAssetRefs);
+            Assert.IsFalse(typeOverridesNoBlobNoEntityNoUnityObjectInfo.HasUnityObjectRefs);
         }
 
         [DisableAutoTypeRegistration]
@@ -1469,7 +1504,7 @@ namespace Unity.Entities.Tests
 
         }
 
-        /* 
+        /*
          * These systems exist to make sure that if you put a weird
          * attribute on your system, the ILPP / codegen situation will not
          * blow up.
@@ -1508,7 +1543,7 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => TypeHash.CalculateStableTypeHash(typeof(int)));
         }
 
-        [Test] 
+        [Test]
         public void TestTypeHashComponentWithCircularReference()
         {
             var cache = new Dictionary<Type, ulong>();
@@ -1541,21 +1576,18 @@ namespace Unity.Entities.Tests
             public UnityObjectRef<UnityEngine.Object> objectRef;
         }
 
-        [DisableAutoTypeRegistration]
         [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:false, hasNoUnityObjectReferences:false)]
         public sealed class TypeOverridesEntity : IComponentData
         {
             public Entity entity;
         }
 
-        [DisableAutoTypeRegistration]
         [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:true, hasNoUnityObjectReferences:false)]
         public sealed class TypeOverridesBlob: IComponentData
         {
             public BlobAssetReference<int> blob;
         }
 
-        [DisableAutoTypeRegistration]
         [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:false, hasNoUnityObjectReferences:true)]
         public sealed class TypeOverridesUnityObjectRef: IComponentData
         {
@@ -1574,10 +1606,29 @@ namespace Unity.Entities.Tests
             public BlobAssetReference<int> blob;
         }
 
-        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:false, hasNoUnityObjectReferences:false)]
-        public sealed class TypeOverridesNoBlobNoEntity: IComponentData
+        [TypeManager.TypeOverrides(hasNoEntityReferences:false, hasNoBlobReferences:false, hasNoUnityObjectReferences:true)]
+        public sealed class TypeOverridesNoUnityObjectRefs : IComponentData
+        {
+            public BlobAssetReference<int> blob;
+        }
+
+        [TypeManager.TypeOverrides(hasNoEntityReferences:true, hasNoBlobReferences:true, hasNoUnityObjectReferences:true)]
+        public sealed class TypeOverridesReferencesEntity: IComponentData
         {
             public string data;
+        }
+
+        struct TestTypeWithUnityObjRf : IComponentData
+        {
+            UnityObjectRef<UnityEngine.Object> UnityObjectRef;
+        }
+
+        [DisableAutoTypeRegistration]
+        public sealed class EntityBlobAndUnityObjectRef : IComponentData
+        {
+            TestTypeWithUnityObjRf UnityObjectRef;
+            TestTypeWithBlobRef blob;
+            TestTypeWithEntity entity;
         }
 
         [Test]
@@ -1586,9 +1637,9 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestNoRefManaged>()));
             Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestBlobArray>()));
             Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestBlobRefInClassWithManagedFields>()));
+            Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEmbedInterface>()));
+            Assert.IsFalse(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestTestEmbedBaseClass>()));
 
-            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEmbedInterface>()));
-            Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestTestEmbedBaseClass>()));
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestHasBlobRefAndEntityRef>()));
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEntityInClass>()));
             Assert.IsTrue(TypeManager.HasEntityReferences(TypeManager.GetTypeIndex<TestEntityInClassWithManagedFields>()));
@@ -1602,9 +1653,9 @@ namespace Unity.Entities.Tests
             Assert.IsFalse(TypeManager.GetTypeInfo<TestEntityInClass>().HasBlobAssetRefs);
             Assert.IsFalse(TypeManager.GetTypeInfo<TestEntityInClassWithManagedFields>().HasBlobAssetRefs);
             Assert.IsFalse(TypeManager.GetTypeInfo<TestEntityArray>().HasBlobAssetRefs);
+            Assert.IsFalse(TypeManager.GetTypeInfo<TestEmbedInterface>().HasBlobAssetRefs);
+            Assert.IsFalse(TypeManager.GetTypeInfo<TestTestEmbedBaseClass>().HasBlobAssetRefs);
 
-            Assert.IsTrue(TypeManager.GetTypeInfo<TestEmbedInterface>().HasBlobAssetRefs);
-            Assert.IsTrue(TypeManager.GetTypeInfo<TestTestEmbedBaseClass>().HasBlobAssetRefs);
             Assert.IsTrue(TypeManager.GetTypeInfo<TestHasBlobRefAndEntityRef>().HasBlobAssetRefs);
             Assert.IsTrue(TypeManager.GetTypeInfo<TestHasBlobRefAndEntityRef>().HasBlobAssetRefs);
             Assert.IsTrue(TypeManager.GetTypeInfo<TestBlobRefInClassWithManagedFields>().HasBlobAssetRefs);
@@ -1667,31 +1718,168 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        public void TypeOverrideWorks_Managed_InvalidTypesThrow()
+        public void TypeOverrideWorks_Managed_InvalidTypesDoNotThrow()
         {
-            TypeManager.ShutdownSharedStatics();
-            TypeManager.BuildComponentCache cache = new TypeManager.BuildComponentCache();
-            Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlob), cache); });
-            Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesEntity), cache); });
-            Assert.Throws<ArgumentException>(() => { TypeManager.BuildComponentType(typeof(TypeOverridesBlobEntityUnityObject), cache); });
-            TypeManager.InitializeSharedStatics();
+            var typeOverridesBlobInfo = TypeManager.GetTypeInfo<TypeOverridesBlob>();
+            // Shouldn't have
+            Assert.IsFalse(typeOverridesBlobInfo.HasBlobAssetRefs);
+            Assert.IsTrue(typeOverridesBlobInfo.BlobAssetRefOffsetCount == 0);
+
+            var typeOverridesEntityInfo = TypeManager.GetTypeInfo<TypeOverridesEntity>();
+            // Shouldn't have
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesEntityInfo.TypeIndex));
+            Assert.IsTrue(typeOverridesEntityInfo.EntityOffsetCount == 0);
+
+            var typeOverridesUnityObjectRefInfo = TypeManager.GetTypeInfo<TypeOverridesUnityObjectRef>();
+            // Shouldn't have
+            Assert.IsFalse(typeOverridesUnityObjectRefInfo.HasBlobAssetRefs);
+            Assert.IsTrue(typeOverridesUnityObjectRefInfo.BlobAssetRefOffsetCount == 0);
+
+            Assert.IsFalse(typeOverridesUnityObjectRefInfo.TypeIndex.HasEntityReferences);
+            Assert.IsTrue(typeOverridesUnityObjectRefInfo.EntityOffsetCount == 0);
+
+            Assert.IsFalse(typeOverridesUnityObjectRefInfo.HasUnityObjectRefs);
+            Assert.IsTrue(typeOverridesUnityObjectRefInfo.UnityObjectRefOffsetCount == 0);
         }
 
         [Test]
         public void TypeOverrideWorks_Managed_ValidTypesDoNotThrow()
         {
             var typeOverridesNoBlobInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlob>();
-            Assert.IsTrue(TypeManager.HasEntityReferences(typeOverridesNoBlobInfo.TypeIndex));
+            // Shouldn't have
             Assert.IsFalse(typeOverridesNoBlobInfo.HasBlobAssetRefs);
+            Assert.IsTrue(typeOverridesNoBlobInfo.BlobAssetRefOffsetCount == 0);
+            // Should have
+            Assert.IsTrue(TypeManager.HasEntityReferences(typeOverridesNoBlobInfo.TypeIndex));
 
             var typeOverridesNoEntityInfo = TypeManager.GetTypeInfo<TypeOverridesNoEntity>();
+            // Shouldn't have
             Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoEntityInfo.TypeIndex));
+            Assert.IsTrue(typeOverridesNoEntityInfo.EntityOffsetCount == 0);
+            // Should have
             Assert.IsTrue(typeOverridesNoEntityInfo.HasBlobAssetRefs);
 
-            var typeOverridesNoBlobNoEntityInfo = TypeManager.GetTypeInfo<TypeOverridesNoBlobNoEntity>();
-            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoBlobNoEntityInfo.TypeIndex));
+            var typeOverridesNoUnityObjRefsInfo = TypeManager.GetTypeInfo<TypeOverridesNoUnityObjectRefs>();
+            // Shouldn't have
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoUnityObjRefsInfo.TypeIndex));
+            Assert.IsTrue(typeOverridesNoUnityObjRefsInfo.EntityOffsetCount == 0);
+            // Should have
+            Assert.IsTrue(typeOverridesNoUnityObjRefsInfo.HasBlobAssetRefs);
+
+            var typeOverridesNoBlobNoEntityInfo = TypeManager.GetTypeInfo<TypeOverridesReferencesEntity>();
+            // Shouldn't have
             Assert.IsFalse(typeOverridesNoBlobNoEntityInfo.HasBlobAssetRefs);
+            Assert.IsTrue(typeOverridesNoBlobNoEntityInfo.BlobAssetRefOffsetCount == 0);
+
+            Assert.IsFalse(TypeManager.HasEntityReferences(typeOverridesNoBlobNoEntityInfo.TypeIndex));
+            Assert.IsTrue(typeOverridesNoBlobNoEntityInfo.EntityOffsetCount == 0);
+
+            Assert.IsFalse(typeOverridesNoBlobNoEntityInfo.HasUnityObjectRefs);
+            Assert.IsTrue(typeOverridesNoBlobNoEntityInfo.UnityObjectRefOffsetCount == 0);
         }
+
+        [TypeManager.ForceReference(hasEntityReferences:false, hasBlobReferences:true, hasUnityObjectReferences:false)]
+        public sealed class ForceReferenceSearchBlob: IComponentData
+        {
+            public BlobAssetReference<int> blob;
+        }
+
+        [TypeManager.ForceReference(hasEntityReferences:true, hasBlobReferences:false, hasUnityObjectReferences:false)]
+        public sealed class ForceReferenceSearchEntity : IComponentData
+        {
+            public Entity entity;
+        }
+
+        [TypeManager.ForceReference(hasEntityReferences:false, hasBlobReferences:false, hasUnityObjectReferences:true)]
+        public sealed class ForceReferenceSearchUnityObjectRef: IComponentData
+        {
+            public UnityObjectRef<UnityEngine.Object> UnityObjectRef;
+        }
+
+        [TypeManager.ForceReference(hasEntityReferences:false, hasBlobReferences:false, hasUnityObjectReferences:true)]
+        public sealed class ForceReferenceSearchNoUnityObjectRef : IComponentData
+        {
+            public string data;
+        }
+
+        [TypeManager.ForceReference(hasEntityReferences:false, hasBlobReferences:true, hasUnityObjectReferences:false)]
+        public sealed class ForceReferenceSearchNoBlob : IComponentData
+        {
+            public string data;
+        }
+
+        [TypeManager.ForceReference(hasEntityReferences:true, hasBlobReferences:false, hasUnityObjectReferences:false)]
+        public sealed class ForceReferenceSearchNoEntity : IComponentData
+        {
+            public string data;
+        }
+
+        [TypeManager.ForceReference(hasEntityReferences:true, hasBlobReferences:true, hasUnityObjectReferences:true)]
+        public sealed class ForceReferenceSearchAllRefs
+            : IComponentData
+        {
+            public Entity entity;
+            public BlobAssetReference<int> blob;
+            public UnityObjectRef<UnityEngine.Object> UnityObjectRef;
+        }
+
+        [TypeManager.ForceReference(hasEntityReferences:true, hasBlobReferences:true, hasUnityObjectReferences:true)]
+        public sealed class ForceReferenceSearchNoRefs
+            : IComponentData
+        {
+            public string data;
+        }
+
+        [TypeManager.ForceReference(hasEntityReferences:false, hasBlobReferences:false, hasUnityObjectReferences:true)]
+        public sealed class ForceReferenceSearchAllRefsNotAllOverridden
+            : IComponentData
+        {
+            public Entity entity;
+            public BlobAssetReference<int> blob;
+            public UnityObjectRef<UnityEngine.Object> UnityObjectRef;
+        }
+
+
+        [Test]
+        public void ForceReferenceSearchWorks_Managed()
+        {
+            // Assert you have it: you are telling the truth
+            var frsBlobInfo = TypeManager.GetTypeInfo<ForceReferenceSearchBlob>();
+            Assert.IsTrue(frsBlobInfo.HasBlobAssetRefs);
+
+            var frsEntityInfo = TypeManager.GetTypeInfo<ForceReferenceSearchEntity>();
+            Assert.IsTrue(TypeManager.HasEntityReferences(frsEntityInfo.TypeIndex));
+
+            var frsUnityObjectRefInfo = TypeManager.GetTypeInfo<ForceReferenceSearchUnityObjectRef>();
+            Assert.IsTrue(frsUnityObjectRefInfo.HasUnityObjectRefs);
+
+            var frsAllRefsInfo = TypeManager.GetTypeInfo<ForceReferenceSearchAllRefs>();
+            Assert.IsTrue(frsAllRefsInfo.HasBlobAssetRefs);
+            Assert.IsTrue(TypeManager.HasEntityReferences(frsAllRefsInfo.TypeIndex));
+            Assert.IsTrue(frsAllRefsInfo.HasUnityObjectRefs);
+
+            // Assert you have it: you are lying
+            var frsNoBlobInfo = TypeManager.GetTypeInfo<ForceReferenceSearchNoBlob>();
+            Assert.IsTrue(frsNoBlobInfo.HasBlobAssetRefs); //
+
+            var frsNoEntityInfo = TypeManager.GetTypeInfo<ForceReferenceSearchNoEntity>();
+            Assert.IsTrue(TypeManager.HasEntityReferences(frsNoEntityInfo.TypeIndex));
+
+            var frsNoUnityObjectRefInfo = TypeManager.GetTypeInfo<ForceReferenceSearchNoUnityObjectRef>();
+            Assert.IsTrue(frsNoUnityObjectRefInfo.HasUnityObjectRefs);
+
+            var frsNoAllRefsInfo = TypeManager.GetTypeInfo<ForceReferenceSearchNoRefs>();
+            Assert.IsTrue(frsNoAllRefsInfo.HasBlobAssetRefs);
+            Assert.IsTrue(TypeManager.HasEntityReferences(frsNoAllRefsInfo.TypeIndex));
+            Assert.IsTrue(frsNoAllRefsInfo.HasUnityObjectRefs);
+
+            // Assert you have one: still find the others before depth
+            var frsAllRefsInfoNotAllOverridden = TypeManager.GetTypeInfo<ForceReferenceSearchAllRefsNotAllOverridden>();
+            Assert.IsTrue(frsAllRefsInfoNotAllOverridden.HasBlobAssetRefs);
+            Assert.IsTrue(TypeManager.HasEntityReferences(frsAllRefsInfoNotAllOverridden.TypeIndex));
+            Assert.IsTrue(frsAllRefsInfoNotAllOverridden.HasUnityObjectRefs);
+        }
+
 
         class CircularReferenceViaArray
         {
