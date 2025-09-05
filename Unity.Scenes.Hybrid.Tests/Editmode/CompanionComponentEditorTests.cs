@@ -147,7 +147,7 @@ namespace Unity.Entities.Tests
             TestWithSceneCameraCulling.TearDown();
         }
 
-        #if false
+#if false
         [UnityTest]
         public IEnumerator CompanionComponent_SceneCulling([Values]bool sceneViewShowRuntime)
         {

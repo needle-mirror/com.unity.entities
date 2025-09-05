@@ -71,44 +71,47 @@ namespace DocCodeSamples.Tests
     #endregion
 
     #region EntityIndexInQuery
-    [RequireMatchingQueriesForUpdate]
-    public partial class EntityInQuerySystem : SystemBase
-    {
-        // This query should match `CopyPositionsJob` parameters
-        EntityQuery query;
-        protected override void OnCreate()
-        {
-            // Get query that matches `CopyPositionsJob` parameters
-            query = GetEntityQuery(ComponentType.ReadOnly<LocalToWorld>());
-        }
-
-        protected override void OnUpdate()
-        {
-            // Get a native array equal to the size of the amount of entities found by the query.
-            var positions = new NativeArray<float3>(query.CalculateEntityCount(), World.UpdateAllocator.ToAllocator);
-
-            // Schedule job on parallel threads for this array.
-            new CopyPositionsJob{copyPositions = positions}.ScheduleParallel();
-
-            // Dispose the array of positions found by the job.
-            positions.Dispose(Dependency);
-        }
-    }
-    #endregion
-
-    #region Boids
     [BurstCompile]
     partial struct CopyPositionsJob : IJobEntity
     {
         public NativeArray<float3> copyPositions;
 
         // Iterates over all `LocalToWorld` and stores their position inside `copyPositions`.
+        // The [EntityIndexInQuery] attribute provides the index of the current entity within the query results.
         public void Execute([EntityIndexInQuery] int entityIndexInQuery, in LocalToWorld localToWorld)
         {
             copyPositions[entityIndexInQuery] = localToWorld.Position;
         }
     }
-    
+
+    [RequireMatchingQueriesForUpdate]
+    public partial struct EntityInQuerySystem : ISystem
+    {
+        // This query should match `CopyPositionsJob` parameters
+        EntityQuery query;
+
+        public void OnCreate(ref SystemState state)
+        {
+            // Get query that matches `CopyPositionsJob` parameters
+            query = state.GetEntityQuery(ComponentType.ReadOnly<LocalToWorld>());
+        }
+
+        public void OnUpdate(ref SystemState state)
+        {
+            // Get a native array equal to the size of the amount of entities found by the query.
+            var positions = new NativeArray<float3>(query.CalculateEntityCount(), state.WorldUnmanaged.UpdateAllocator.ToAllocator);
+
+            // Schedule job on parallel threads for this array.
+            // The EntityIndexInQuery parameter ensures each entity gets a unique index for array access.
+            new CopyPositionsJob{copyPositions = positions}.ScheduleParallel();
+
+            // Dispose the array of positions found by the job.
+            positions.Dispose(state.Dependency);
+        }
+    }
+    #endregion
+
+    #region Boids    
     [RequireMatchingQueriesForUpdate]
     public partial class BoidJobEntitySystem : SystemBase
     {
@@ -129,6 +132,7 @@ namespace DocCodeSamples.Tests
             var copyObstaclePositions = CollectionHelper.CreateNativeArray<float3, RewindableAllocator>(obstacleCount, ref World.UpdateAllocator);
 
             // Schedule job for respective arrays to be stored with respective queries.
+            // The CopyPositionsJob is defined in #region EntityIndexInQuery
             new CopyPositionsJob { copyPositions = cellSeparation}.ScheduleParallel(m_BoidQuery);
             new CopyPositionsJob { copyPositions = copyTargetPositions}.ScheduleParallel(m_TargetQuery);
             new CopyPositionsJob { copyPositions = copyObstaclePositions}.ScheduleParallel(m_ObstacleQuery);

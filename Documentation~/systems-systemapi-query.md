@@ -1,3 +1,7 @@
+---
+uid: entities-systems-systemapi-query
+---
+
 # Iterate over component data with SystemAPI.Query
 
 To iterate through a collection of data on the main thread, you can use the [`SystemAPI.Query<T>`](xref:Unity.Entities.SystemAPI.Query*) method in both [`ISystem`](systems-isystem.md) and [`SystemBase`](systems-systembase.md) system types. It uses C#’s idiomatic `foreach` syntax.

@@ -16,17 +16,13 @@ readonly partial struct MyAspect : IAspect
 
 ## Fields
 
-You can use `RefRW<T>` or `RefRO<T>` to declare a component as part of an aspect. To declare a buffer, use `DynamicBuffer<T>`. For more information on the fields available, see the [`IAspect`](xref:Unity.Entities.IAspect) documentation.
+You can use `RefRW<T>` or `RefRO<T>` to declare a component as part of an aspect. `RefRW<T>` provides read-write access to the component, and `RefRO<T>` provides read-only access.
+
+To declare a buffer, use `DynamicBuffer<T>`. For more information on the fields available, refer to the [`IAspect`](xref:Unity.Entities.IAspect) documentation.
 
 Fields declared inside an aspect define what data must be queried in order for an aspect instance to be valid on a specific entity.
 
 To make a field optional, use the `[Optional]` attribute. To declare `DynamicBuffer` and nested aspects as read-only, use the `[ReadOnly]` attribute. 
-
-## Read-only and read-write access
-
-Use the `RefRO` and `RefRW` fields to provide read-only, or read-write access to components in the aspect. When you want to reference an aspect in code, use `in` to override all references to become read-only, or `ref` to respect the read-only or read-write access declared in the aspect. 
-
-If you use `in` to reference an aspect that has read-write access to components, it might throw exceptions on write attempts.
 
 ## Create aspect instances in a system
 
@@ -64,7 +60,7 @@ using Unity.Burst;
 [BurstCompile]
 partial struct CannonBallJob : IJobEntity
 {
-    void Execute(ref CannonBallAspect cannonBall)
+    void Execute(CannonBallAspect cannonBall)
     {
         // Your game logic
     }

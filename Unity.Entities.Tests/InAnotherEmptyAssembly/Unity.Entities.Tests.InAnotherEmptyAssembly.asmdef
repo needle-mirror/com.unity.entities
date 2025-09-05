@@ -1,0 +1,19 @@
+{
+    "name": "Unity.Entities.Tests.InAnotherEmptyAssembly",
+    "references": [
+        "Unity.Entities",
+        "Unity.Collections",
+      "Unity.Entities.Tests.InAnotherAssembly"
+    ],
+    "includePlatforms": [],
+    "excludePlatforms": [],
+    "allowUnsafeCode": true,
+    "overrideReferences": true,
+    "precompiledReferences": [
+    ],
+    "autoReferenced": false,
+    "versionDefines": [],
+    "defineConstraints": [
+        "UNITY_INCLUDE_TESTS"
+    ]
+}

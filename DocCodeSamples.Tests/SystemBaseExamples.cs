@@ -10,6 +10,7 @@ namespace Doc.CodeSamples.SyBase.Tests
     using System.Collections.Generic;
     using UnityEngine;
     using Unity.Mathematics;
+    using Unity.Burst;
 
     #region basic-system
 
@@ -26,23 +27,26 @@ namespace Doc.CodeSamples.SyBase.Tests
     [RequireMatchingQueriesForUpdate]
     public partial class ECSSystem : SystemBase
     {
+        [BurstCompile]
+        public partial struct ExampleJob : IJobEntity
+        {
+            public float DeltaTime;
+            
+            public void Execute(ref Position position, in Velocity velocity)
+            {
+                position.Value += velocity.Value * DeltaTime;
+            }
+        }
+
         protected override void OnUpdate()
         {
-            // Local variable captured in ForEach
-            float dT = SystemAPI.Time.DeltaTime;
+            // Create and schedule the job
+            var job = new ExampleJob
+            {
+                DeltaTime = SystemAPI.Time.DeltaTime
+            };
 
-            Entities
-                .WithName("Update_Displacement")
-                .ForEach(
-                    (ref Position position, in Velocity velocity) =>
-                    {
-                        position = new Position()
-                        {
-                            Value = position.Value + velocity.Value * dT
-                        };
-                    }
-                )
-                .ScheduleParallel();
+            job.ScheduleParallel();
         }
     }
 

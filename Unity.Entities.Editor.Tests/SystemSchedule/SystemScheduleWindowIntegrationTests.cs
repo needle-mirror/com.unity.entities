@@ -321,6 +321,7 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(testSystemInDefaultWorldHash, Is.Not.EqualTo(testSystemInTestWorldHash));
         }
 
+        [Ignore("Unstable case UUM-119382")]
         [UnityTest]
         public IEnumerator SystemScheduleWindow_ScheduleSystemInDifferentWorld()
         {

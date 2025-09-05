@@ -4,6 +4,26 @@ uid: changelog
 
 # Changelog
 
+## [1.4.2] - 2025-09-05
+
+### Changed
+
+* Updated Burst dependency to version 1.8.24
+* Modified .unity-entities__search_element__add-filter-button and .unity-platforms__search_element__add-filter-button .uss classes from using percentage to their equivalent size in pixels.
+
+### Fixed
+
+* Fixed incorrect source generation for `SystemBase` instances declared as `public partial`.
+* Fix to SGICE002 error thrown when using `SystemAPI` inside a `Entities.ForEach` that also uses `WithDeferredPlaybackSystem`.
+* Memory leak during world serialization is fixed.
+* Fixed Inspector not initializing when exiting PlayMode with Entity selected.
+
+
+### Changed
+
+* Changed font-size field from percentage to equivalent size in pixels 
+
+
 ## [1.4.0-pre.4] - 2025-07-11
 
 ### Added
@@ -16,6 +36,7 @@ uid: changelog
 
 * Instantiating an entity that doesn't have a LinkedEntityGroup will now behave the same as if the entity had a LinkedEntityGroup only containing the entity itself. It practice, it means that if the entity has components referencing the entity itself, those same components on the instances of that entity will always reference themselves. Previously, this only happened when an LinkedEntityGroup was present and it would leave the reference pointing to the original entity otherwise. That behavior was inconsistent and surprising.
 * EntityReferences, BlobReferences and UnityObjectReferences that are below the max search depth will be ignored. If they should not be ignored `ForceReferenceAttribute` should be added to the type.
+* Updated Burst dependency to version 1.8.23
 
 ### Fixed
 
@@ -32,8 +53,6 @@ uid: changelog
 * Compilation will not fail in ILPostProcessing when you have a shared component with bool System.IEquatable<YourSharedComponent>.Equals(YourSharedComponent other) rather than bool Equals(YourSharedComponent other).
 * TypeManager.IsZeroSized will now correctly be true for component data that only has static fields.
 * When having a UnityObjectReference, a BlobReference and a EntityReference, the UnityObjectReference would be ignored through a faulty early-out.
-
-### Security
 
 
 ## [1.4.0-pre.3] - 2025-06-06

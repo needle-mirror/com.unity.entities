@@ -14,7 +14,7 @@ All system events run on the main thread. It's best practice to use the `OnUpdat
 * [`IJobEntity`](xref:Unity.Entities.IJobEntity): Iterates over component data.
 * [`IJobChunk`](xref:Unity.Entities.IJobChunk): Iterates over data by [archetype chunk](concepts-archetypes.md#archetype-chunks).
 
-The following example illustrates using `Entities.ForEach` to implement a system that updates one component based on the value of another:
+The following example illustrates using [`IJobEntity`](xref:Unity.Entities.IJobEntity) to implement a system that schedules parallel jobs to update the position of entities each frame based on their velocity:
  
 [!code-cs[basic-system](../DocCodeSamples.Tests/SystemBaseExamples.cs#basic-system)]
 

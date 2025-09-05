@@ -38,8 +38,10 @@ You can also get and set the chunk components of a chunk via any of the chunk's 
 ```c#
 private void ChunkComponentExample(Entity e)
 {
+    var entityChunk = EntityManager.GetChunk(e);
     // Sets the ExampleChunkComponent value of the entity's chunk.
-    EntityManager.SetChunkComponentData<ExampleChunkComponent>(e, new ExampleChunkComponent { Value = 6 });
+    EntityManager.SetChunkComponentData<ExampleChunkComponent>(entityChunk,
+        new ExampleChunkComponent { Value = 6 });
 
     // Gets the ExampleChunkComponent value of the entity's chunk.
     ExampleChunkComponent exampleChunkComponent = EntityManager.GetChunkComponentData<ExampleChunkComponent>(e);

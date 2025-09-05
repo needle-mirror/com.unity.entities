@@ -36,9 +36,6 @@ namespace Doc.CodeSamples.Tests.GettingStarted
                 Ecb = ecb,
                 RandomSeed = random.NextUInt()
             }.ScheduleParallel();
-
-            // Update the random seed for next frame
-            random.InitState(random.NextUInt());
         }
 
         private EntityCommandBuffer.ParallelWriter 
@@ -68,7 +65,7 @@ namespace Doc.CodeSamples.Tests.GettingStarted
             if (spawner.NextSpawnTime < ElapsedTime)
             {
                 // Create a deterministic random generator for this entity
-                var randomGenerator = new Random(RandomSeed + (uint)chunkIndex);
+                var randomGenerator = Random.CreateFromIndex(RandomSeed + (uint)chunkIndex);
 
                 // Spawns a new entity and positions it at the spawner.
                 Entity newEntity = Ecb.Instantiate(chunkIndex, spawner.Prefab);

@@ -1189,7 +1189,7 @@ namespace Unity.Entities.Tests
         }
 
         [Test]
-        [TestRequiresDotsDebugOrCollectionChecks("Test requires safety handle checks")]
+        [TestRequiresCollectionChecks("Test requires safety handle checks")]
         public void ACS_SetComponentEnabled_ReadOnlyTypeHandle_Throws()
         {
             int entityCount = 120;

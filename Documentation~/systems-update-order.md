@@ -44,7 +44,25 @@ In the Editor, you can use the Systems window (**Window &gt; Entities &gt; Syste
 
 ![Systems window showing hierarchical ordering of system updates](images/editor-system-window.png)<br/>_Systems window showing hierarchical ordering of system updates_
 
+To view all the low-level methods that form part of the Unity [player loop](https://docs.unity3d.com/ScriptReference/LowLevel.PlayerLoop.html), including non entities-related methods:
+
+* In the **Systems** window, in the More menu (⋮), enable the **Show Full Player Loop** setting.
+
 For more information, refer to the [Systems window](editor-systems-window.md) documentation.
+
+### ECS system execution order in the Unity Player loop
+
+Unity merges ECS system group updates into the Player update loop.
+
+The following diagram provides a high-level overview of where the default ECS system groups execute in the Player loop relative to regular MonoBehaviour functions. For readability, the scope of the chart is limited to key parts of the script lifecycle, with some extra internal subsystem updates provided for context. For more information, refer to [Event function execution order](https://docs.unity3d.com/6000.2/Documentation/Manual/execution-order.html).
+
+![Order of execution for event functions during the lifecycle of a system.](images/monobehaviour_flowchart_with_ecs.svg)
+
+The three default injection points in the Player loop combined with the `UpdateBefore` and `UpdateAfter` events cover the majority of customization use cases. If your case requires further customization, you can use the following techniques:
+
+1. Use the [`ScriptBehaviourUpdateOrder`](xref:Unity.Entities.ScriptBehaviourUpdateOrder) class to customize when ECS systems run relative to MonoBehaviour lifecycle events.
+
+2. Define custom update groups and dependencies in ECS to control the order of system execution.
 
 ## Default system groups
 

@@ -64,7 +64,7 @@
     height: 16px;
     margin: 0;
     padding: 0;
-    font-size: 95%;
+    font-size: 12px;
     border-width: 0;
     background-color: transparent;
 }

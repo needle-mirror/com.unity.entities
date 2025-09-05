@@ -135,7 +135,8 @@ sealed class LambdaBodyRewriter
                 foreach (var parameter in description.LambdaParameters)
                 {
                     var patchedMethodTypeArgument = methodSymbol.TypeArguments.First();
-                    if (parameter.TypeSymbol.ToFullName() != patchedMethodTypeArgument.ToFullName())
+                    if (parameter.TypeSymbol == null ||
+                        parameter.TypeSymbol.ToFullName() != patchedMethodTypeArgument.ToFullName())
                         continue;
 
                     if (!readOnlyAccess)

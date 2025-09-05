@@ -1385,7 +1385,7 @@ namespace Unity.Entities.Serialization
                                 w.Write(patch.ChunkOffset);
                                 w.Write(patch.AllocSizeBytes);
                                 w.WriteBytes(bufferData, patch.AllocSizeBytes);
-                                Memory.Unmanaged.Free(bufferData, Allocator.TempJob);
+                                Memory.Unmanaged.Free(bufferData, Allocator.Persistent);
                             }
                             curRecordStartIndex += recordCount;
                         }

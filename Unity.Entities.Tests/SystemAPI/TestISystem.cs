@@ -139,7 +139,7 @@ namespace Unity.Entities.Tests.TestSystemAPI
         [Test]
         public void GetSingletonBufferWithSystemEntity([Values] SystemAPIAccess access) => GetTestSystemUnsafe().TestGetSingletonBufferWithSystemEntity(ref GetSystemStateRef(), access);
         [Test]
-        [TestRequiresDotsDebugOrCollectionChecks]
+        [TestRequiresCollectionChecks]
         public void GetSingletonBufferHasWorkingParam() => GetTestSystemUnsafe().TestGetSingletonBufferHasWorkingParam(ref GetSystemStateRef());
         [Test]
         public void TryGetSingletonBuffer([Values] SystemAPIAccess access, [Values] TypeArgumentExplicit typeArgumentExplicit) => GetTestSystemUnsafe().TestTryGetSingletonBuffer(ref GetSystemStateRef(), access, typeArgumentExplicit);

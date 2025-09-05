@@ -10,7 +10,7 @@ namespace Unity.Entities.Tests
 {
 
     // If ENABLE_UNITY_COLLECTIONS_CHECKS is not defined we will ignore the test
-    // When using this attribute, consider it to logically AND with any other TestRequiresxxxx attrubute
+    // When using this attribute, consider it to logically AND with any other TestRequiresxxxx attribute
 #if ENABLE_UNITY_COLLECTIONS_CHECKS
     internal class TestRequiresCollectionChecks : System.Attribute
     {
@@ -25,7 +25,7 @@ namespace Unity.Entities.Tests
 
     // If ENABLE_UNITY_COLLECTIONS_CHECKS and UNITY_DOTS_DEBUG is not defined we will ignore the test
     // conversely if either of them are defined the test will be run.
-    // When using this attribute, consider it to logically AND with any other TestRequiresxxxx attrubute
+    // When using this attribute, consider it to logically AND with any other TestRequiresxxxx attribute
 #if ENABLE_UNITY_COLLECTIONS_CHECKS || UNITY_DOTS_DEBUG
     internal class TestRequiresDotsDebugOrCollectionChecks: System.Attribute
     {

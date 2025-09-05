@@ -115,11 +115,6 @@ namespace Unity.Entities
             Initialize(header, 0);
         }
 
-        public static void FreeBufferPtr(void* ptr)
-        {
-            Memory.Unmanaged.Free(ptr, Allocator.Persistent);
-        }
-
         // After cloning two worlds have access to the same malloc'ed buffer pointer leading to double deallocate etc.
         // So after cloning, just allocate all malloc based buffers and copy the data.
         public static void PatchAfterCloningChunk(Archetype* archetype, byte* chunkBuffer, int entityCount)

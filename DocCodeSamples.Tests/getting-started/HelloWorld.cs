@@ -25,6 +25,7 @@ namespace Doc.CodeSamples.Tests.GettingStarted
             state.EntityManager.AddComponentData(entity, new HelloComponent 
                 { Message = "Hello ECS World" });
             // Set the name of the entity to make it easier to identify it.
+            // Note: the entity Name property only exists in the Editor.
             state.EntityManager.SetName(entity, "Hello World Entity");
         }
 

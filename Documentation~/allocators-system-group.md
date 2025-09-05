@@ -16,7 +16,7 @@ The system group allocator contains double rewindable allocators and works in th
 
 If the system group skips its update, it switches the double rewindable allocators of the system group allocator, rewinds the one that swaps in, and then brings back the [world update allocator](allocators-world-update.md). Because this is a double rewindable allocator, the lifetime of an allocation from a system group allocator lasts two system group updates. You don't need to manually free the allocations, so there isn't any memory leakage.
 
-In the example below, the system group allocator is used in `ExampleSystemGroupAllocatorSystem` which is in a fixed rate system group that has a rate manager `FixedRateSimpleManager` as shown above.
+In the example below, the system group allocator is used in `AllocateNativeArrayISystem` which is in a fixed rate system group that has a rate manager `FixedRateSimpleManager` as shown above.
 
 [!code-cs[world-update-allocator-worl](../Unity.Entities.Tests/AllocatorsCustomPrebuiltTests.cs#world-update-allocator-system-state)]
 

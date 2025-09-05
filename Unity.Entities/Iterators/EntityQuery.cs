@@ -2512,7 +2512,7 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// <param name="jobhandle">An `out` parameter assigned a handle that you can use as a dependency for a Job
         /// that uses the output data.</param>
         /// <returns>An array containing all the entities selected by the query. The contents of this array must not be
-        /// accessed before <paramref name="jobhandle"/> has been completed..</returns>
+        /// accessed before <paramref name="jobhandle"/> has been completed.</returns>
         /// <exception cref="InvalidOperationException">Thrown in the query contains any enableable components.</exception>
         [Obsolete("This method does not correctly support enableable components, and is generally unsafe. Use ToEntityListAsync() instead. (RemovedAfter Entities 1.0)")]
         public NativeArray<Entity> ToEntityArrayAsync(AllocatorManager.AllocatorHandle allocator, out JobHandle jobhandle) => _GetImpl()->ToEntityArrayAsync(allocator, out jobhandle, this);
@@ -2521,12 +2521,19 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// Creates (and asynchronously populates) a NativeList containing the selected entities. Since the exact number of entities matching
         /// the query won't be known until the job runs, this method returns a <see cref="NativeList{T}"/>.
         /// </summary>
+        /// <remarks>
+        /// This function is provided to handle cases that require a single linear indexable array of entities which match a query.
+        /// If your goal is to iterate over entities to perform a per-entity operation, consider using <see cref="IJobEntity"/> or
+        /// [idiomatic foreach](xref:entities-systems-systemapi-query) to iterate over the entities directly in their chunks,
+        /// instead of creating a temporary copy.
+        ///
+        /// The job scheduled by this call will automatically use the component safety system to determine its input dependencies,
+        /// to avoid the most common race conditions. If additional input dependencies are required beyond what the component safety system
+        /// knows about, use <see cref="ToEntityListAsync"/>.
+        /// </remarks>
         /// <param name="allocator">The type of memory to allocate.</param>
         /// <param name="outJobHandle">An `out` parameter assigned a handle that you can use as a dependency for a Job
         /// that uses the output data.</param>
-        /// <remarks>The job scheduled by this call will automatically use the component safety system to determine its input dependencies,
-        /// to avoid the most common race conditions. If additional input dependencies are required beyond what the component safety system
-        /// knows about, use <see cref="ToEntityListAsync"/>.</remarks>
         /// <returns>A list containing all the entities selected by the query. The contents of this list (including
         /// the list's `Length` property) must not be accessed before <paramref name="outJobHandle"/> has been completed. To pass this list to a job
         /// that expects a <see cref="NativeArray{T}"/>, use <see cref="NativeList{T}.AsDeferredJobArray"/>.</returns>
@@ -2536,6 +2543,12 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// Creates (and asynchronously populates) a NativeList containing the selected entities. Since the exact number of entities matching
         /// the query won't be known until the job runs, this method returns a <see cref="NativeList{T}"/>.
         /// </summary>
+        /// <remarks>
+        /// This function is provided to handle cases that require a single linear indexable array of entities matches a query.
+        /// If your goal is to iterate over entities to perform a per-entity operation, consider using <see cref="IJobEntity"/> or
+        /// [idiomatic foreach](xref:entities-systems-systemapi-query) to iterate over the entities directly in their chunks,
+        /// instead of creating a temporary copy.
+        /// </remarks>
         /// <param name="allocator">The type of memory to allocate.</param>
         /// <param name="additionalInputDep">A job handle which the newly scheduled job will depend upon, in addition to
         /// the dependencies automatically determined by the component safety system.</param>
@@ -2549,8 +2562,15 @@ First chunk: entityCount={matchingChunkCache.ChunkIndices[0].Count}, archetype={
         /// <summary>
         /// Creates a NativeArray containing the selected entities.
         /// </summary>
-        /// <remarks>This version of the function blocks on all registered jobs against the relevant query components.
-        /// For a non-blocking variant, see <see cref="ToEntityListAsync"/></remarks>
+        /// <remarks>
+        /// This function is provided to handle cases that require a single linear indexable array of entities which match a query.
+        /// If your goal is to iterate over entities to perform a per-entity operation, consider using <see cref="IJobEntity"/> or
+        /// [idiomatic foreach](xref:entities-systems-systemapi-query) to iterate over the entities directly in their chunks,
+        /// instead of creating a temporary copy.
+        ///
+        /// This version of the function blocks on all registered jobs against the relevant query components.
+        /// For a non-blocking variant, see <see cref="ToEntityListAsync"/>.
+        /// </remarks>
         /// <param name="allocator">The type of memory to allocate.</param>
         /// <returns>An array containing all the entities selected by the EntityQuery.</returns>
         public NativeArray<Entity> ToEntityArray(AllocatorManager.AllocatorHandle allocator) => _GetImpl()->ToEntityArray(allocator, this);

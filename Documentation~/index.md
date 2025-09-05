@@ -27,3 +27,4 @@ See the [ECS Samples](https://github.com/Unity-Technologies/EntityComponentSyste
 * [Upgrade guide](upgrade-guide.md)
 * [Entity component system concepts](concepts-intro.md)
 * [ECS workflow tutorial](ecs-workflow-tutorial.md)
+* [Entity Component System at Unity Discussions](https://discussions.unity.com/lists/ecs)
