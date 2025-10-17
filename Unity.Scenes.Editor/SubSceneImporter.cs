@@ -78,6 +78,9 @@ namespace Unity.Scenes.Editor
 
                 using (var writer = new StreamBinaryWriter(path))
                 {
+#if UNITY_DOTS_IMHEX
+                    writer.ImHexPattern.WriteTypeWithPosition<int>($"assetDependencyGUIDs_Length", writer.Position);
+#endif
                     writer.Write(assetDependencyGUIDs.Length);
                     writer.WriteArray(assetDependencyGUIDs.AsArray());
                 }
@@ -91,6 +94,9 @@ namespace Unity.Scenes.Editor
             var path = ctx.GetOutputArtifactFilePath(EntityScenesPaths.GetExtension(EntityScenesPaths.PathType.EntitiesGlobalUsage));
             using (var writer = new StreamBinaryWriter(path))
             {
+#if UNITY_DOTS_IMHEX
+                writer.ImHexPattern.WriteTypeWithPosition<BuildUsageTagGlobal>("globalUsage", writer.Position);
+#endif
                 writer.WriteBytes(&globalUsage, sizeof(BuildUsageTagGlobal));
             }
         }
@@ -203,7 +209,10 @@ namespace Unity.Scenes.Editor
                 }
                 finally
                 {
-                    EditorSceneManager.CloseScene(scene, true);
+                    if (isScene)
+                        EditorSceneManager.CloseScene(scene, true);
+                    else
+                        EditorSceneManager.NewScene(NewSceneSetup.EmptyScene, NewSceneMode.Single);
                 }
             }
             // Currently it's not acceptable to let the asset database catch the exception since it will create a default asset without any dependencies

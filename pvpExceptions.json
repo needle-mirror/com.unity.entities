@@ -5,6 +5,11 @@
         "Unity.Entities/SourceGenerators/Source~/SystemGeneratorTests/results/SystemMethodWithComponentAccessInvocation/Test0__System_19875963020.g.cs"
       ]
     },
+    "PVP-23-1": {
+      "errors": [
+        "Unity.Entities/SourceGenerators/Source~/publish-dlls.bat"
+      ]
+    },
     "PVP-25-1": {
       "errors": [
         "Unity.Entities/SourceGenerators/AspectGenerator.dll",
@@ -23,11 +28,11 @@
         "Unity.Entities/SourceGenerators/SystemGenerator.SystemAPI.QueryBuilder.dll",
         "Unity.Entities/SourceGenerators/Unity.Entities.Analyzer.CodeFixes.dll",
         "Unity.Entities/SourceGenerators/Unity.Entities.Analyzer.dll",
-	"Unity.Entities.CodeGen/Mono.Cecil.dll",
-	"Unity.Entities.CodeGen/Mono.Cecil.Mdb.dll",
-	"Unity.Entities.CodeGen/Mono.Cecil.Pdb.dll",
-	"Unity.Entities.CodeGen/Mono.Cecil.Rocks.dll",
-	"Unity.Entities.CodeGen/Unity.Cecil.Awesome.dll"
+        "Unity.Entities.CodeGen/Mono.Cecil.dll",
+        "Unity.Entities.CodeGen/Mono.Cecil.Mdb.dll",
+        "Unity.Entities.CodeGen/Mono.Cecil.Pdb.dll",
+        "Unity.Entities.CodeGen/Mono.Cecil.Rocks.dll",
+        "Unity.Entities.CodeGen/Unity.Cecil.Awesome.dll"
       ]
     },
     "PVP-31-1": {

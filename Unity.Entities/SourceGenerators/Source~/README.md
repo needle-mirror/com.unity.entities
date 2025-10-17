@@ -23,7 +23,17 @@ Source generator DLLs need to be compiled manually outside of the Unity compilat
 https://dotnet.microsoft.com/en-us/download/dotnet/6.0
 That can be done with dotnet from within the `Packages\com.unity.entities\Unity.Entities\SourceGenerators\Source~` directory:
 
-`dotnet publish -c Release`
+`dotnet publish -c Release -p:Deterministic=true`
+
+for convinience we added scripts that issue the command above:
+
+Windows:
+
+`publish-dlls.bat`
+
+MacOS/Linux:
+
+`./publish-dlls.sh`
 
 Additionally, they can be built/debugged with the SourceGenerator solution in the same folder.
  

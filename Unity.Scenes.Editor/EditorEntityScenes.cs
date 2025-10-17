@@ -685,9 +685,9 @@ namespace Unity.Scenes.Editor
             objRefs = null;
             int decompressedSize;
             int compressedSize;
-            using (var writer = new StreamBinaryWriter(entitiesBinaryPath))
+            using (var writer = new StreamBinaryWriter(entitiesBinaryPath, entityManager: scene))
             using (var unityObjectRefs = new UnityObjectRefMap(Allocator.Temp))
-            using (var entitiesWriter = new MemoryBinaryWriter())
+            using (var entitiesWriter = new MemoryBinaryWriter(scene))
             {
                 var entityRemapInfosCreated = entityRemapInfos.IsCreated;
                 if (!entityRemapInfosCreated)
@@ -715,11 +715,18 @@ namespace Unity.Scenes.Editor
                     var allocatorType = Allocator.Temp;
                     compressedSize = CodecService.Compress(writeEntitySceneSettings.Codec, entitiesWriter.Data, entitiesWriter.Length,
                         out var compressedData, allocatorType);
+#if UNITY_DOTS_IMHEX
+                    writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("CompressedEntitiesMakeSureToNotCompressOrDecompressFirst", writer.Position, compressedSize);
+#endif
                     writer.WriteBytes(compressedData, compressedSize);
                     Memory.Unmanaged.Free(compressedData, allocatorType);
                 }
                 else
                 {
+#if UNITY_DOTS_IMHEX
+                    writer.OverwriteImHexPattern(entitiesWriter.ImHexPattern);
+                    entitiesWriter.ImHexPattern.shouldWriteToDisk = false;
+#endif
                     writer.WriteBytes(entitiesWriter.Data, entitiesWriter.Length);
                 }
             }
@@ -769,7 +776,7 @@ namespace Unity.Scenes.Editor
 
             SerializeSceneSectionCustomMetadata(sections, ref metaData, builder, sceneName, entityManager);
             long headerSize = 0;
-            using (var writer = new StreamBinaryWriter(headerPath))
+            using (var writer = new StreamBinaryWriter(headerPath, entityManager:entityManager))
             {
                 var blobAssetPtrs = new NativeArray<BlobAssetPtr>(sceneSectionBlobHeaders.Count, Allocator.Temp);
                 for (int i = 0; i < sceneSectionBlobHeaders.Count; ++i)

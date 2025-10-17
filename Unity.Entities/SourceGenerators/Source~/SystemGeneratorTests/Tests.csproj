@@ -5,7 +5,8 @@
         <TargetFramework>net8.0</TargetFramework>
         <Nullable>enable</Nullable>
         <IsPackable>false</IsPackable>
-        <Deterministic>True</Deterministic>
+        <Deterministic>true</Deterministic>
+        <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
         <PlatformTarget>AnyCPU</PlatformTarget>
     </PropertyGroup>
 

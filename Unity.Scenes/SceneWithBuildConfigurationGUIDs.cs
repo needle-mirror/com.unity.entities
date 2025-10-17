@@ -89,6 +89,9 @@ namespace Unity.Scenes
             Directory.CreateDirectory(k_SceneDependencyCachePath);
             using (var writer = new StreamBinaryWriter(path))
             {
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                writer.ImHexPattern.WriteTypeWithPosition<SceneWithBuildConfigurationGUIDs>("sceneWithBuildConfigurationGUIDs", writer.Position);
+#endif
                 writer.WriteBytes(&sceneWithBuildConfigurationGUIDs, sizeof(SceneWithBuildConfigurationGUIDs));
             }
             File.WriteAllText(path + ".meta",

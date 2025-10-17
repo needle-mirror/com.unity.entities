@@ -640,7 +640,13 @@ namespace Unity.Entities
         {
             using (var asset = builder.CreateBlobAssetReference<T>(Allocator.TempJob))
             {
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                writer.ImHexPattern.WriteTypeWithPosition<int>("BlobVersion", writer.Position);
+#endif
                 writer.Write(version);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                writer.ImHexPattern.WriteTypeWithPosition<BlobAssetReference<T>>("Asset", writer.Position);
+#endif
                 writer.Write(asset);
             }
         }
@@ -1023,7 +1029,13 @@ namespace Unity.Entities
             var blobAssetLength = blob.m_data.Header->Length;
             var serializeReadyHeader = BlobAssetHeader.CreateForSerialize(blobAssetLength, blob.m_data.Header->Hash);
 
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            binaryWriter.ImHexPattern.WriteTypeWithPosition<BlobAssetHeader>("serializeReadyHeader", binaryWriter.Position);
+#endif
             binaryWriter.WriteBytes(&serializeReadyHeader, sizeof(BlobAssetHeader));
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            binaryWriter.ImHexPattern.WriteTypeWithPosition<T>("blobData", binaryWriter.Position);
+#endif
             binaryWriter.WriteBytes(blob.m_data.Header + 1, blobAssetLength);
         }
 

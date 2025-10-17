@@ -116,7 +116,7 @@ namespace Unity.Entities.Tests
         #endregion
 
         [Test]
-         [Ignore("Failing in Packageworks")]
+        [Ignore("Failing in Packageworks")]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
         public void MissedDependencyMakesActionableErrorMessage([Values]bool iSystem)
         {

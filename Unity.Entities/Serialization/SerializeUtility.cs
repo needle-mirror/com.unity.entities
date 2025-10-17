@@ -1272,7 +1272,7 @@ namespace Unity.Entities.Serialization
                     {
                         using (dotsWriter.CreateNode<DotsSerialization.FolderNode>(DebugSectionNodeType))
                         {
-                            WriteTypeNames(dotsWriter, entityComponentStore);
+                            WriteTypeNames(dotsWriter, ref entityManager);
                         }
                     }
 
@@ -1359,6 +1359,9 @@ namespace Unity.Entities.Serialization
                 chunkNode.NodeHeader.Revision = 1;
 
                 var w = writerHandle.Writer;
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                w.ImHexPattern.WriteTypeWithPosition<int>("totalChunkCount", w.Position);
+#endif
                 w.Write(totalChunkCount);
                 var curChunkIndex = 0;
                 var curRecordStartIndex = 0;
@@ -1372,6 +1375,9 @@ namespace Unity.Entities.Serialization
                     {
                         // Write the count of patch records for this chunk
                         var recordCount = bufferPatchesCountPerChunk[curChunkIndex++];
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                        w.ImHexPattern.WriteTypeWithPosition<int>("recordCount", w.Position);
+#endif
                         w.Write(recordCount);
 
                         if (recordCount > 0)
@@ -1382,8 +1388,17 @@ namespace Unity.Entities.Serialization
                             {
                                 var patch = bufferPatches[curRecordStartIndex + i];
                                 var bufferData = (void*)bufferDataList[bufferDataRecordIndex++];
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                                w.ImHexPattern.WriteTypeWithPosition<int>("chunkOffset", w.Position);
+#endif
                                 w.Write(patch.ChunkOffset);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                                w.ImHexPattern.WriteTypeWithPosition<int>("allocSizeBytes", w.Position);
+#endif
                                 w.Write(patch.AllocSizeBytes);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                                w.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("bufferData", w.Position, patch.AllocSizeBytes);
+#endif
                                 w.WriteBytes(bufferData, patch.AllocSizeBytes);
                                 Memory.Unmanaged.Free(bufferData, Allocator.Persistent);
                             }
@@ -1413,7 +1428,6 @@ namespace Unity.Entities.Serialization
                 chunkNode.NodeHeader.Revision = 1;
 
                 var w = writerHandle.Writer;
-                //w.Write(totalChunkCount);
 
                 int currentManagedComponentIndex = 1;
                 for (int a = 0; a < archetypeArray.Length; ++a)
@@ -1457,6 +1471,24 @@ namespace Unity.Entities.Serialization
 
                         tempChunk->ArchetypeIndexForSerialization = a;
 
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                        var chunkStartOffset = (int)(chunk.GetPtr()->Buffer - (byte*)chunk.GetPtr());
+                        w.ImHexPattern.WriteTypeWithPosition<Chunk>("chunkHeader", w.Position);
+                        for (var indexIntoTypes = 0; indexIntoTypes < archetype->TypesCount; ++indexIntoTypes)
+                        {
+                            var ti = archetype->TypeMemoryOrderIndexToIndexInArchetype[indexIntoTypes];
+                            var typeIndex = archetype->Types[ti].TypeIndex;
+
+                            if (!typeIndex.IsBuffer)
+                            {
+                                var currentOffset = archetype->Offsets[ti] + chunkStartOffset;
+                                var type = TypeManager.GetType(typeIndex);
+                                w.ImHexPattern.WriteArrayOfTypeWithPosition(type, type.Name, w.Position + currentOffset, entityCount, $"CurrentOffset: {currentOffset}, Chunk ListIndex: {chunk.ListIndex}, Chunk Count: {chunk.Count}, Chunk Index: {ci}");
+                            }
+                        }
+                        w.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("chunkData", w.Position, Chunk.kChunkSize, $"Archetype stores {archetype->TypesCount} types and has {archetype->Chunks.Count} chunks");
+#endif
+
                         w.WriteBytes(tempChunk, Chunk.kChunkSize);
                     }
                 }
@@ -1475,6 +1507,9 @@ namespace Unity.Entities.Serialization
             using (var writerHandle = sharedComponentsNode.GetWriterHandle())
             {
                 var w = writerHandle.Writer;
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                w.ImHexPattern.WriteTypeWithPosition<int>("sharedComponentArray_Length", w.Position);
+#endif
                 w.Write(sharedComponentArrays.Length);
                 w.WriteArray(sharedComponentArrays);
                 sharedComponentArrays.Dispose();
@@ -1516,7 +1551,9 @@ namespace Unity.Entities.Serialization
             using (var writerHandle = enabledBitsNode.GetWriterHandle())
             {
                 var w = writerHandle.Writer;
-
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                w.ImHexPattern.WriteTypeWithPosition<int>("enabledBitsDataSizeInBytes", w.Position);
+#endif
                 w.Write(enabledBitsDataSizeInBytes);
                 for (int archetypeIndex = 0; archetypeIndex < archetypeArray.Length; ++archetypeIndex)
                 {
@@ -1525,9 +1562,15 @@ namespace Unity.Entities.Serialization
 
                     var bitsPtr = chunks.GetPointerToComponentEnabledArrayForArchetype();
                     var bitsSizeInBytesForArchetype = chunks.Count * (int)archetype->Chunks.ComponentEnabledBitsSizeTotalPerChunk;
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                    w.ImHexPattern.WriteArrayOfTypeWithPosition<byte>($"enableBitsForArchetype_{archetypeIndex}", w.Position, bitsSizeInBytesForArchetype);
+#endif
                     w.WriteBytes(bitsPtr, bitsSizeInBytesForArchetype);
                 }
 
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                w.ImHexPattern.WriteTypeWithPosition<int>("enabledBitsHierarchicalDataSizeInBytes", w.Position);
+#endif
                 w.Write(enabledBitsHierarchicalDataSizeInBytes);
                 for (int archetypeIndex = 0; archetypeIndex < archetypeArray.Length; ++archetypeIndex)
                 {
@@ -1536,6 +1579,9 @@ namespace Unity.Entities.Serialization
 
                     var hierarchicalDataPtr = chunks.GetPointerToChunkDisabledCountForArchetype();
                     var hierarchicalDataSizeInBytesForArchetype = chunks.Count * (int)archetype->Chunks.ComponentEnabledBitsHierarchicalDataSizePerChunk;
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                    w.ImHexPattern.WriteArrayOfTypeWithPosition<byte>($"hierarchicalDataForArchetype_{archetypeIndex}", w.Position, hierarchicalDataSizeInBytesForArchetype);
+#endif
                     w.WriteBytes(hierarchicalDataPtr, hierarchicalDataSizeInBytesForArchetype);
                 }
             }
@@ -1560,6 +1606,9 @@ namespace Unity.Entities.Serialization
             using (var writerHandle = prefabNode.GetWriterHandle())
             {
                 prefabNode.NodeHeader.Revision = 1;
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                writerHandle.Writer.ImHexPattern.WriteTypeWithPosition<Entity>("prefabNode", writerHandle.Writer.Position);
+#endif
                 writerHandle.Writer.WriteBytes(&prefabRoot, sizeof(Entity));
             }
         }
@@ -1582,6 +1631,9 @@ namespace Unity.Entities.Serialization
         internal static unsafe void WriteBlobAssetBatch(BinaryWriter writer, NativeArray<BlobAssetPtr> blobAssets, int totalBlobAssetBatchSize)
         {
             var blobAssetBatch = BlobAssetBatch.CreateForSerialize(blobAssets.Length, totalBlobAssetBatchSize);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            writer.ImHexPattern.WriteTypeWithPosition<BlobAssetBatch>("blobAssetBatch", writer.Position);
+#endif
             writer.WriteBytes(&blobAssetBatch, sizeof(BlobAssetBatch));
             var zeroBytes = int4.zero;
             for (int i = 0; i < blobAssets.Length; ++i)
@@ -1589,8 +1641,17 @@ namespace Unity.Entities.Serialization
                 var blobAssetLength = blobAssets[i].Header->Length;
                 var blobAssetHash = blobAssets[i].Header->Hash;
                 var header = BlobAssetHeader.CreateForSerialize(Align16(blobAssetLength), blobAssetHash);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                writer.ImHexPattern.WriteTypeWithPosition<BlobAssetHeader>("blobAssetHeader", writer.Position);
+#endif
                 writer.WriteBytes(&header, sizeof(BlobAssetHeader));
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("blobAsset", writer.Position, blobAssetLength);
+#endif
                 writer.WriteBytes(blobAssets[i].Header + 1, blobAssetLength);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("zeroBytes", writer.Position, header.Length - blobAssetLength);
+#endif
                 writer.WriteBytes(&zeroBytes, header.Length - blobAssetLength);
             }
         }
@@ -1663,8 +1724,12 @@ namespace Unity.Entities.Serialization
             }
         }
 
-        private static unsafe void WriteTypeNames(DotsSerializationWriter dotsWriter, EntityComponentStore* entityComponentStore)
+        private static unsafe void WriteTypeNames(DotsSerializationWriter dotsWriter, ref EntityManager em)
         {
+            var entityComponentStore = em.GetCheckedEntityDataAccess()->EntityComponentStore;
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            ImHexPatternEntitySceneBinaryWriter.currentWorld = em.World;
+#endif
             using (var stringTable = dotsWriter.CreateStringTableNode(TypesNameStringTableNodeType))
             using (var typesNameNode = dotsWriter.CreateNode<DotsSerialization.TypeNamesNode>(TypesNameNodeType))
             using (var writerHandle = typesNameNode.GetWriterHandle())
@@ -1690,7 +1755,13 @@ namespace Unity.Entities.Serialization
                 {
                     ref readonly var typeInfo = ref TypeManager.GetTypeInfo(typeIndex);
                     var name = typeInfo.DebugTypeName;
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                    writer.ImHexPattern.WriteTypeWithPosition<ulong>("StableTypeHash", writer.Position);
+#endif
                     writer.Write(typeInfo.StableTypeHash);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                    writer.ImHexPattern.WriteTypeWithPosition<int>("IndexToNameInStringTable", writer.Position);
+#endif
                     writer.Write(stringTable.WriteString(name.ToString()));
                 }
 
@@ -1711,10 +1782,13 @@ namespace Unity.Entities.Serialization
                 archetypeArray = GetAllArchetypes(entityComponentStore, Allocator.Temp);
 
                 var typeHashToIndexMap = new UnsafeHashMap<ulong, int>(archetypeArray.Length * 8, Allocator.Temp);
-                for (int i = 0; i != archetypeArray.Length; i++)
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                var typeHashToTypeIndex = new UnsafeHashMap<ulong, TypeIndex>(archetypeArray.Length * 8, Allocator.Temp);
+#endif
+                for (var i = 0; i != archetypeArray.Length; i++)
                 {
                     var archetype = archetypeArray.Ptr[i];
-                    for (int iType = 0; iType < archetype->TypesCount; ++iType)
+                    for (var iType = 0; iType < archetype->TypesCount; ++iType)
                     {
                         var typeIndex = archetype->Types[iType].TypeIndex;
                         var typeInfo = TypeManager.GetTypeInfo(typeIndex);
@@ -1723,14 +1797,26 @@ namespace Unity.Entities.Serialization
                         ValidateTypeForSerialization(typeInfo);
 
                         typeHashToIndexMap.TryAdd(hash, i);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                        typeHashToTypeIndex.TryAdd(hash, typeIndex);
+#endif
                     }
                 }
 
                 using (var typeHashSet = typeHashToIndexMap.GetKeyArray(Allocator.Temp))
                 {
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                    writer.ImHexPattern.WriteTypeWithPosition<int>("typeHashSet_Length", writer.Position);
+#endif
                     writer.Write(typeHashSet.Length);
                     foreach (ulong hash in typeHashSet)
+                    {
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                        var typeInfo = TypeManager.GetTypeInfo(typeHashToTypeIndex[hash]);
+                        writer.ImHexPattern.WriteTypeWithPosition<ulong>($"typeHashSet", writer.Position, $"Belongs to type: {typeInfo.Type}");
+#endif
                         writer.Write(hash);
+                    }
 
                     for (int i = 0; i < typeHashSet.Length; ++i)
                         typeHashToIndexMap[typeHashSet[i]] = i;
@@ -1855,12 +1941,24 @@ namespace Unity.Entities.Serialization
                     }
                 }
             }
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            writer.ImHexPattern.WriteTypeWithPosition<int>("sharedComponentRecordArray_Length", writer.Position);
+#endif
             writer.Write(sharedComponentRecordArray.Length);
             writer.WriteArray(sharedComponentRecordArray);
 
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            writer.ImHexPattern.WriteTypeWithPosition<int>("allManagedObjectsBuffer_Length", writer.Position);
+#endif
             writer.Write(allManagedObjectsBuffer.Length);
 
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            writer.ImHexPattern.WriteTypeWithPosition<int>("managedComponentCount", writer.Position);
+#endif
             writer.Write(managedComponentCount);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("allManagedObjectsBuffer", writer.Position, allManagedObjectsBuffer.Length);
+#endif
             writer.WriteBytes(allManagedObjectsBuffer.Ptr, allManagedObjectsBuffer.Length);
 
             sharedComponentRecordArray.Dispose();
@@ -1888,10 +1986,19 @@ namespace Unity.Entities.Serialization
                 sharedComponentRecordArray[i] = WriteUnmanagedSharedComponent(index, remapping, blobAssetMap, blobAssetOffsets, access, ref allUnmanagedSharedComponentBuffer, unityObjectRefs);
             }
 
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            writer.ImHexPattern.WriteTypeWithPosition<int>("sharedComponentRecordArray_Length", writer.Position);
+#endif
             writer.Write(sharedComponentRecordArray.Length);
             writer.WriteArray(sharedComponentRecordArray);
 
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            writer.ImHexPattern.WriteTypeWithPosition<int>("allUnmanagedSharedComponentBuffer_Length", writer.Position);
+#endif
             writer.Write(allUnmanagedSharedComponentBuffer.Length);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("allUnmanagedSharedComponentBuffer", writer.Position, allUnmanagedSharedComponentBuffer.Length);
+#endif
             writer.WriteBytes(allUnmanagedSharedComponentBuffer.Ptr, allUnmanagedSharedComponentBuffer.Length);
 
             sharedComponentRecordArray.Dispose();
@@ -2603,19 +2710,32 @@ namespace Unity.Entities.Serialization
 
         static unsafe void WriteArchetypes(BinaryWriter writer, UnsafePtrList<Archetype> archetypeArray, UnsafeHashMap<ulong, int> typeHashToIndexMap)
         {
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            writer.ImHexPattern.WriteTypeWithPosition<int>("archetypeArray_Length", writer.Position);
+#endif
             writer.Write(archetypeArray.Length);
 
             for (int a = 0; a < archetypeArray.Length; ++a)
             {
                 var archetype = archetypeArray.Ptr[a];
 
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                writer.ImHexPattern.WriteTypeWithPosition<int>("archetype_EntityCount", writer.Position);
+#endif
                 writer.Write(archetype->EntityCount);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                writer.ImHexPattern.WriteTypeWithPosition<int>("archetype_TypesCount", writer.Position);
+#endif
                 writer.Write(archetype->TypesCount - 1);
                 for (int i = 1; i < archetype->TypesCount; ++i)
                 {
                     var componentType = archetype->Types[i];
                     int flag = componentType.IsChunkComponent ? TypeManager.ChunkComponentTypeFlag : 0;
                     var hash = TypeManager.GetTypeInfo(componentType.TypeIndex).StableTypeHash;
+
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                    writer.ImHexPattern.WriteTypeWithPosition<int>($"archetype_Component_TypeFlags", writer.Position, $"TypeFlag for {TypeManager.GetTypeInfo(componentType.TypeIndex).Type.Name}.");
+#endif
                     writer.Write(typeHashToIndexMap[hash] | flag);
                 }
             }

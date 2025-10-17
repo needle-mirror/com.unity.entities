@@ -44,6 +44,11 @@ namespace Unity.Entities.Tests
             }
         }
 
+        internal unsafe struct MyEntityPtrComponent : IComponentData
+        {
+            Entity* entityPtr;
+        }
+
         /*
          * this exercises the type traversal logic in the typemanager ILPP; it catches a bug
          * that only triggered when one of the members of the tuple implemented IEquatable<T>
@@ -152,6 +157,28 @@ namespace Unity.Entities.Tests
 
         [AttributeWithStringArgument(null)]
         partial class SystemWithAttributeWithNullString : SystemBase
+        {
+            protected override void OnCreate()
+            {
+                throw new NotImplementedException();
+            }
+            protected override void OnUpdate()
+            {
+                throw new NotImplementedException();
+            }
+            protected override void OnDestroy()
+            {
+                throw new NotImplementedException();
+            }
+        }
+
+        [WorldSystemFilter(WorldSystemFilterFlags.All,ChildDefaultFilterFlags = WorldSystemFilterFlags.ClientSimulation)]
+        partial class SystemGroup_With_NonDefault_ChildDefaultFilterFlags : ComponentSystemGroup
+        {
+        }
+
+        [UpdateInGroup(typeof(SystemGroup_With_NonDefault_ChildDefaultFilterFlags))]
+        partial class System_Inheriting_WorldSystemFilterFlags : SystemBase
         {
             protected override void OnCreate()
             {
@@ -354,6 +381,13 @@ namespace Unity.Entities.Tests
         public void TypeWithGuid_HasCorrectSize()
         {
             Assert.AreEqual(Marshal.SizeOf<TestTypeWithGuid>(), TypeManager.GetTypeInfo<TestTypeWithGuid>().TypeSize);
+        }
+
+        [Test]
+        public unsafe void ComponentWithEntityPtr_DoesNotHaveEntityOffset()
+        {
+            var offsetPtr = TypeManager.GetEntityOffsets(TypeManager.GetTypeIndex<MyEntityPtrComponent>(), out var count);
+            Assert.AreEqual(0, count);
         }
 
         [Test]
@@ -811,17 +845,27 @@ namespace Unity.Entities.Tests
             var disableAttributes = TypeManager.GetSystemAttributes(typeof(DisabledSystem), typeof(DisableAutoCreationAttribute));
             Assert.AreEqual(1, disableAttributes.Length);
 
+
+
             // Annoyingly we cannot test this without adding a new dependent assembly to this test assembly. This is because all systems are disabled (rightfully so)
             // for this test assembly via [assembly: DisableAutoCreation] so we cannot check that a child system defined in this assembly is _not_ disabled
             //var inheritedDisableAttributes = TypeManager.GetSystemAttributes(typeof(ChildOfDisabledSystem), typeof(DisableAutoCreationAttribute));
             //Assert.AreEqual(0, inheritedDisableAttributes.Length); // we should not inherit DisableAutoCreation attributes
         }
 
+
         [Test]
         public void TestIsComponentSystemGroup()
         {
             Assert.IsTrue(!TypeManager.IsSystemAGroup(typeof(TestComponentSystem)));
             Assert.IsTrue(TypeManager.IsSystemAGroup(typeof(TestComponentSystemGroup)));
+        }
+
+        [Test]
+        public void TestGetSystemFilterFlags()
+        {
+            var filterflags = TypeManager.GetSystemFilterFlags(typeof(System_Inheriting_WorldSystemFilterFlags));
+            Assert.AreEqual(WorldSystemFilterFlags.ClientSimulation, filterflags);
         }
 
         [WorldSystemFilter(WorldSystemFilterFlags.Default)]

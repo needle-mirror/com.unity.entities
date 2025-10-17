@@ -57,12 +57,23 @@ namespace Unity.Entities.Tests
         public TestBinaryWriter(Allocator allocator)
         {
             content = new NativeList<byte>(allocator);
+#if UNITY_DOTS_IMHEX
+            m_ImHexPattern = ImHexPatternEntitySceneBinaryWriter.Create(nameof(TestBinaryWriter));
+#endif
         }
 
         public void Dispose()
         {
+#if UNITY_DOTS_IMHEX
+            m_ImHexPattern.Dispose();
+#endif
             content.Dispose();
         }
+
+#if UNITY_DOTS_IMHEX
+        public ref ImHexPatternEntitySceneBinaryWriter ImHexPattern => ref m_ImHexPattern;
+        ImHexPatternEntitySceneBinaryWriter m_ImHexPattern;
+#endif
 
         public void WriteBytes(void* data, int bytes)
         {

@@ -636,7 +636,17 @@ namespace Unity.Entities.CodeGen
 
             if (typeToLookIn != null)
             {
-                GetFieldOffsetsOfRecurse((_, typeRef) => TypeReferenceEqualityComparer.AreEqual(typeRef.Resolve(), typeToFind), 0, typeToLookIn, offsets, archBits);
+
+                GetFieldOffsetsOfRecurse((_, typeRef) =>
+                                {
+                                    //we never look for pointer types
+                                    return (!typeRef.IsPointer) &&
+                                           TypeReferenceEqualityComparer.AreEqual(typeRef.Resolve(), typeToFind);
+                                },
+                                0,
+                                typeToLookIn,
+                                offsets,
+                                archBits);
             }
 
             return offsets;

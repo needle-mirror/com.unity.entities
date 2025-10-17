@@ -193,12 +193,18 @@ namespace Unity.Entities.Serialization
             WriteHeaderToFile();
 
             // Write the metadata
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            _writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("MetadataSection", _writer.Position, _metadataSection.Length);
+#endif
             _writer.WriteBytes(_metadataSection.Ptr, _metadataSection.Length);
 
             // Write the nodes data
             ref var pages = ref _nodesAllocation.Pages;
             for (int i = 0; i < pages.Length; i++)
             {
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                _writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("NodePage", _writer.Position, pages[i].FreeOffset);
+#endif
                 _writer.WriteBytes(pages[i].Buffer, pages[i].FreeOffset);
             }
         }
@@ -222,6 +228,9 @@ namespace Unity.Entities.Serialization
             WriteHeaderToFile();
 
             // Write the metadata
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            _writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("MetaDataSection", _writer.Position, _metadataSection.Length);
+#endif
             _writer.WriteBytes(_metadataSection.Ptr, _metadataSection.Length);
             var metaSectionArray = blobBuilder.Allocate(ref root.MetadataSection, _metadataSection.Length);
             UnsafeUtility.MemCpy(metaSectionArray.GetUnsafePtr(), _metadataSection.Ptr, _metadataSection.Length);
@@ -248,6 +257,9 @@ namespace Unity.Entities.Serialization
 
             for (int i = 0; i < pages.Length; i++)
             {
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                _writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("NodePage", _writer.Position, pages[i].FreeOffset);
+#endif
                 _writer.WriteBytes(pages[i].Buffer, pages[i].FreeOffset);
                 UnsafeUtility.MemCpy(nodes, pages[i].Buffer, pages[i].FreeOffset);
                 nodes += _metadataSection.Length;
@@ -538,6 +550,9 @@ namespace Unity.Entities.Serialization
                 throw new InvalidOperationException($"Can't write data for the node {nodeHeader.Id} before and after processing its children. You must pack your write before or after processing the children ");
             }
 
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            _writer.ImHexPattern.WriteTypeWithPosition<T>("data", _writer.Position);
+#endif
             _writer.WriteBytes(data, dataLength);
             nodeHeader.DataSize += dataLength;
         }
@@ -620,6 +635,9 @@ namespace Unity.Entities.Serialization
             _header.DataSectionOffset = _header.HeaderSize;
 
             // Set the writer position at the Data Segment starting location
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            _writer.ImHexPattern.WriteTypeWithPosition<DotsSerialization.FileHeader>("FileHeader", writer.Position);
+#endif
             _writer.Position = _header.DataSectionOffset;
         }
 
@@ -627,6 +645,9 @@ namespace Unity.Entities.Serialization
         {
             var pos = _writer.Position;
             _writer.Position = 0L;
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+            _writer.ImHexPattern.WriteTypeWithPosition<DotsSerialization.FileHeader>("header", _writer.Position);
+#endif
             _writer.WriteBytes(UnsafeUtility.AddressOf(ref _header), UnsafeUtility.SizeOf<DotsSerialization.FileHeader>());
             _writer.Position = pos;
         }
@@ -661,7 +682,13 @@ namespace Unity.Entities.Serialization
             fixed (void* b = bytes)
             {
                 var pos = (int)_writerHandle.Writer.Position;
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                _writerHandle.Writer.ImHexPattern.WriteTypeWithPosition<int>("stringLength", _writerHandle.Writer.Position);
+#endif
                 _writerHandle.Writer.Write(bytes.Length);
+#if UNITY_EDITOR && UNITY_DOTS_IMHEX
+                _writerHandle.Writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("stringData", _writerHandle.Writer.Position, bytes.Length);
+#endif
                 _writerHandle.Writer.WriteBytes(b, bytes.Length);
                 return pos;
             }

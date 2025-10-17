@@ -168,4 +168,5 @@
     * [Entity command buffer allocators](allocators-entity-command-buffer.md)
     * [System group allocators](allocators-system-group.md)
   * [Journaling](entities-journaling.md)
+  * [Binary debugging](entities-binary-debugging.md)
   * [Common error messages](common-errors.md)

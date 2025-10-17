@@ -156,7 +156,7 @@ namespace Unity.Scenes.Editor
 #endif
 
                 if (!artifactHash.isValid)
-                    throw new Exception($"Building EntityScene artifact failed: '{AssetDatabaseCompatibility.GuidToPath(sceneGuid)}' ({sceneGuid}). There were exceptions during the entity scene imports.");
+                    throw new Exception($"Building EntityScene artifact failed: '{scenePath}' ({sceneGuid}). There were exceptions during the entity scene imports.");
 
                 AssetDatabaseCompatibility.GetArtifactPaths(artifactHash, out var artifactPaths);
 

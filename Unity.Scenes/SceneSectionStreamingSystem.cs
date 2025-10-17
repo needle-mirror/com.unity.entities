@@ -859,6 +859,36 @@ namespace Unity.Scenes
             Assert.AreNotEqual(UpdateLoadOperationResult.Aborted, result);
         }
 
+        internal void CancelOperationsForScene(Unity.Entities.Hash128 sceneGUID)
+        {
+            for (int i = 0; i < m_Streams.Length; i++)
+            {
+                if (m_Streams[i].Operation == null || m_Streams[i].SectionEntity == Entity.Null)
+                    continue;
+
+                if (!EntityManager.HasComponent<SceneEntityReference>(m_Streams[i].SectionEntity))
+                    continue;
+
+                var sceneEntityRef = EntityManager.GetComponentData<SceneEntityReference>(m_Streams[i].SectionEntity);
+                if (!EntityManager.HasComponent<SceneReference>(sceneEntityRef.SceneEntity))
+                    continue;
+
+                var sceneRef = EntityManager.GetComponentData<SceneReference>(sceneEntityRef.SceneEntity);
+                if (sceneRef.SceneGUID != sceneGUID)
+                    continue;
+
+                m_Streams[i].Operation?.Dispose();
+                m_Streams[i].Operation = null;
+
+                if (m_Streams[i].World != null)
+                {
+                    DestroyStreamWorld(i);
+                    if (i < m_ConcurrentSectionStreamCount)
+                        CreateStreamWorld(i);
+                }
+            }
+        }
+
         internal static bool CheckDependantSectionsLoaded(EntityManager entityManager, Entity sceneEntity)
         {
             var sectionEntities = entityManager.GetBuffer<ResolvedSectionEntity>(sceneEntity);

@@ -5,7 +5,8 @@
     <NoWarn>RS2007</NoWarn>
     <TargetFramework>netstandard2.0</TargetFramework>
     <LangVersion>9</LangVersion>
-    <Deterministic>True</Deterministic>
+    <Deterministic>true</Deterministic>
+    <ContinuousIntegrationBuild>true</ContinuousIntegrationBuild>
     <PlatformTarget>AnyCPU</PlatformTarget>
   </PropertyGroup>
 

@@ -378,13 +378,24 @@ namespace Unity.Scenes
                 var sceneGUID = _AddedSceneGUID;
                 _AddedSceneGUID = default;
 
-                foreach (var world in World.All)
+                // Iterate backwards to be safe against removals from the list
+                for (int i = World.s_AllWorlds.Count - 1; i >= 0; --i)
                 {
+                    var world = World.s_AllWorlds[i];
+                    if (!world.IsCreated)
+                        continue;
+
                     var sceneSystem = world.GetExistingSystem<SceneSystem>();
 
                     var stateptr = world.Unmanaged.ResolveSystemState(sceneSystem);
                     if (stateptr != null)
+                    {
+                        var streamingSystem = world.GetExistingSystemManaged<SceneSectionStreamingSystem>();
+                        if (streamingSystem != null)
+                            streamingSystem.CancelOperationsForScene(sceneGUID);
+
                         SceneSystem.UnloadScene(world.Unmanaged, sceneGUID, SceneSystem.UnloadParameters.DestroyMetaEntities);
+                    }
                 }
             }
         }
