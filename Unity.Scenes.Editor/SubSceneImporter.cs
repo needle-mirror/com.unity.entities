@@ -170,9 +170,6 @@ namespace Unity.Scenes.Editor
 
         public override void OnImportAsset(AssetImportContext ctx)
         {
-#if ENABLE_CLOUD_SERVICES_ANALYTICS
-            var watch = System.Diagnostics.Stopwatch.StartNew();
-#endif
             try
             {
                 var sceneWithBuildConfiguration = SceneWithBuildConfigurationGUIDs.ReadFromFile(ctx.assetPath);
@@ -221,11 +218,6 @@ namespace Unity.Scenes.Editor
             {
                 Debug.Log($"Exception thrown during SubScene import: {e}");
             }
-
-#if ENABLE_CLOUD_SERVICES_ANALYTICS
-            watch.Stop();
-            BakingAnalytics.SendAnalyticsEvent(watch.ElapsedMilliseconds, BakingAnalytics.EventType.BackgroundImporter);
-#endif
         }
     }
 }

@@ -1188,6 +1188,7 @@ namespace Unity.Entities
         }
 
         [MethodImpl(MethodImplOptions.AggressiveInlining)]
+        [IgnoreWarning(1305)] // Suppresses warning about intrinsic use when compiled with FloatMode=FloatMode.Deterministic
         internal static void GetEnabledMask(int chunkIndexInArchetype, int chunkEntityCount, in EnabledMaskMatchingArchetypeState archetypeState, out v128 enabledMask)
         {
             var matchingArchetype = archetypeState.MatchingArchetype;

@@ -14,6 +14,7 @@ using Unity.Jobs;
 using Unity.Profiling;
 using UnityEngine;
 using System.Linq;
+using UnityEditor;
 
 namespace Unity.Scenes
 {
@@ -420,6 +421,7 @@ namespace Unity.Scenes
             {
                 unityObjectRefs = new NativeArray<int>(0, Allocator.Persistent);
             }
+            s_UnityObjectsRefs.AddRange(unityObjectRefs);
 
             var loadJob = new AsyncLoadSceneJob
             {
@@ -471,5 +473,37 @@ namespace Unity.Scenes
             if (!missingSceneTag.IsEmptyIgnoreFilter)
                 _EntityManager.AddSharedComponentManaged(missingSceneTag, new SceneTag { SceneEntity = _Data.SceneSectionEntity });
         }
+
+#if !UNITY_EDITOR
+        [RuntimeInitializeOnLoadMethod]
+#else
+        [UnityEditor.InitializeOnLoadMethod]
+#endif
+        public static void EditorInitializeOnLoadMethod()
+        {
+#if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)            
+            UnityObjectRefUtility.RegisterAdditionalRootsHandlerForEntitiesAssetGC(
+                state => UnityObjectRefUtility.MarkInstanceIDsAsRoot(s_UnityObjectsRefs.AsArray(), state));
+#endif
+            
+            if (!s_AppDomainUnloadRegistered)
+            {
+                // important: this will always be called from a special unload thread (main thread will be blocking on this)
+                AppDomain.CurrentDomain.DomainUnload += (_, __) =>
+                {
+                    if (s_UnityObjectsRefs.IsCreated)
+                        s_UnityObjectsRefs.Dispose();
+                };
+
+                // There is no domain unload in player builds, so we must be sure to shutdown when the process exits.
+                AppDomain.CurrentDomain.ProcessExit += (_, __) => { s_UnityObjectsRefs.Dispose(); };
+                s_AppDomainUnloadRegistered = true;
+            }
+
+            s_UnityObjectsRefs = new NativeList<int>(Allocator.Persistent);
+
+        }
+        static NativeList<int> s_UnityObjectsRefs;
+        private static bool s_AppDomainUnloadRegistered;
     }
 }

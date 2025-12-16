@@ -59,7 +59,7 @@ namespace Unity.Entities.Content
         /// <param name="blobBuilder">The builder to use when creating the data.</param>
         /// <param name="blobDataRoot">The root object to create data into.</param>
         /// <param name="idRemapFunc">Functor to remap <seealso cref="ContentRuntimeId"/>.</param>
-        public static void Create(IRuntimeCatalogDataSource dataSource, BlobBuilder blobBuilder, ref RuntimeContentCatalogData blobDataRoot, Func<UntypedWeakReferenceId, UntypedWeakReferenceId> idRemapFunc)
+        public static void Create(IRuntimeCatalogDataSource dataSource, ref BlobBuilder blobBuilder, ref RuntimeContentCatalogData blobDataRoot, Func<UntypedWeakReferenceId, UntypedWeakReferenceId> idRemapFunc)
         {
             var archiveEnum = dataSource.GetArchiveIds();
             var archiveCount = archiveEnum.Count();

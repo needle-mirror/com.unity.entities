@@ -296,6 +296,7 @@ namespace Unity.Entities.CodeGen
             // It's possible for the whole assembly to disable auto creation so check for it
             var disableAsmAutoCreation = AssemblyDefinition.CustomAttributes.Any(attr => attr.AttributeType.Name == "DisableAutoCreationAttribute");
             var componentSystemBaseClass = AssemblyDefinition.MainModule.ImportReference(typeof(ComponentSystemBase)).Resolve();
+            var disableRegistration = AssemblyDefinition.CustomAttributes.Any(a => a.AttributeType.Name.Contains("DisableAutoTypeRegistrationAttribute"));
 
             foreach (var type in AssemblyDefinition.MainModule.GetAllTypes())
             {
@@ -304,7 +305,7 @@ namespace Unity.Entities.CodeGen
                     // Generic components are handled below
                     if (type.HasGenericParameters) continue;
 
-                    if (AddTypeToListIfSupported(components, type)) continue;
+                    if (!disableRegistration && AddTypeToListIfSupported(components, type)) continue;
 
                     // If we're here the type isn't a component so see if it's a system
 

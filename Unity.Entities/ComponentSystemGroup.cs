@@ -91,6 +91,12 @@ namespace Unity.Entities
         internal UnsafeList<SystemHandle> m_UnmanagedSystemsToUpdate;
         internal UnsafeList<SystemHandle> m_UnmanagedSystemsToRemove;
 
+        // function pointers used by netcode's tracing. Used to run the same tracing code before/after every systems in a given group
+        internal delegate void SystemWrapperDelegate(SystemTypeIndex targetSystem, ref SystemState targetSystemState);
+        // The assumption is that those function pointers won't touch the target system's state dependencies (and so those function pointers are run after those dependencies are updated)
+        internal FunctionPointer<SystemWrapperDelegate> OnUpdateBefore;
+        internal FunctionPointer<SystemWrapperDelegate> OnUpdateAfter;
+
         /// <summary>
         /// The list of managed systems in this group, sorted by update order.
         /// </summary>
@@ -714,13 +720,19 @@ namespace Unity.Entities
                     {
                         // Update unmanaged (burstable) code.
                         var handle = m_UnmanagedSystemsToUpdate[index.Index];
+                        var state = (OnUpdateBefore.IsCreated || OnUpdateAfter.IsCreated) ? world.ResolveSystemState(handle) : null;
+                        if (OnUpdateBefore.IsCreated && state != null) OnUpdateBefore.Invoke(state->m_SystemTypeIndex, ref *state);
                         worldImpl.UpdateSystem(handle);
+                        if (OnUpdateAfter.IsCreated && state != null) OnUpdateAfter.Invoke(state->m_SystemTypeIndex, ref *state);
                     }
                     else
                     {
                         // Update managed code.
                         var sys = m_managedSystemsToUpdate[index.Index];
+                        var state = sys.m_StatePtr;
+                        if (OnUpdateBefore.IsCreated && state != null) OnUpdateBefore.Invoke(state->m_SystemTypeIndex, ref *state);
                         sys.Update();
+                        if (OnUpdateAfter.IsCreated && state != null) OnUpdateAfter.Invoke(state->m_SystemTypeIndex, ref *state);
                     }
                 }
                 catch (Exception e)

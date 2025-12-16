@@ -48,7 +48,7 @@ namespace Unity.Entities
             using var writer = new IndentedTextWriter(new StringWriter());
             using var allTypes = new NativeHashSet<ComponentType>(100, Allocator.Temp);
             using var archetypes = new NativeList<EntityArchetype>(Allocator.Temp);
-            
+
             entityManager.GetAllArchetypes(archetypes);
             foreach (var archetype in archetypes)
             {
@@ -114,114 +114,228 @@ namespace Unity.Entities
 
         void WriteImHexType(Type type)
         {
-            var queue = new Queue<Type>();
-            var typesToAdd = new Stack<Type>();
-            queue.Enqueue(type);
-            typesToAdd.Push(type);
-
-            CollectTypesToWrite(queue, typesToAdd);
-            WriteTypesToWriter(typesToAdd);
+            var typeQueue = CollectTypes(type);
+            while (typeQueue.Count > 0)
+                WriteType(typeQueue.Dequeue());
         }
-
-        static void CollectTypesToWrite(Queue<Type> queue, Stack<Type> typesToAdd)
+        
+        enum TypeBucket
         {
-            while (queue.Count > 0)
-            {
-                var currentType = queue.Dequeue();
+            None = 0,
+            User = 1,
+            Unity = 2,
+            System = 3
+        }
+        
+        Queue<Type> CollectTypes(Type currentType)
+        {
+            var processingStack = new List<Type> { currentType };
+            var processedTypes = new HashSet<Type>();
 
-                foreach (var fieldInfo in currentType.GetRuntimeFields())
+            var systemQueue = new Queue<Type>();
+            var unityQueue = new Queue<Type>();
+            var userQueue = new Queue<Type>();
+            
+            while (processingStack.Count > 0)
+            {
+                var startingIndex = processingStack.Count - 1;
+                currentType = processingStack[startingIndex];
+                if (m_AlreadyWrittenTypes.Contains(currentType) || processedTypes.Contains(currentType))
                 {
-                    if (fieldInfo.IsStatic)
+                    processingStack.RemoveAt(startingIndex);
+                    continue;
+                }
+                
+                var currentTypeBucket = GetTypeBucket(currentType);
+                var hasAddedSameTypeBucketToStack = CollectGenericTypes(currentType, currentType, currentTypeBucket, processedTypes, processingStack);
+
+                if (currentType.IsArray)
+                {
+                    var arrayType = currentType.GetElementType();
+                    if (arrayType != null 
+                        && !arrayType.IsPrimitive
+                        && !m_AlreadyWrittenTypes.Contains(arrayType) 
+                        && !processedTypes.Contains(arrayType))
+                    {
+                        processingStack.Add(arrayType);
+                        
+                        hasAddedSameTypeBucketToStack |= currentTypeBucket == GetTypeBucket(arrayType);
+                        hasAddedSameTypeBucketToStack |= CollectGenericTypes(arrayType, currentType, currentTypeBucket, processedTypes, processingStack);
+                    }
+                }                
+                
+                var fields = GetUniqueRuntimeFieldTypes(currentType);
+                foreach (var fieldType in fields)
+                {
+                    if (m_AlreadyWrittenTypes.Contains(fieldType) || processedTypes.Contains(fieldType))
                         continue;
 
-                    var fieldType = fieldInfo.FieldType;
                     // Add non-primitives that are also not fixed buffer types of primitives
                     if (!fieldType.IsPrimitive && fieldType != typeof(void*))
                     {
-                        queue.Enqueue(fieldType);
-                        typesToAdd.Push(fieldType);
+                        processingStack.Add(fieldType);
+                        hasAddedSameTypeBucketToStack |= currentTypeBucket == GetTypeBucket(fieldType);
+                        hasAddedSameTypeBucketToStack |= CollectGenericTypes(fieldType, currentType, currentTypeBucket, processedTypes, processingStack);
                     }
                 }
 
-                if (currentType.IsGenericType)
+                // Detect if there's a circular dependency. If so, write the type to the queue to break the circle.
+                var alreadyHasTypeInStack = false;
+                for (var i = 0; i < processingStack.Count; ++i)
                 {
-                    foreach (var genType in currentType.GenericTypeArguments)
+                    if (i == startingIndex)
+                        continue;
+                    if (processingStack[i] != currentType) 
+                        continue;
+                    
+                    alreadyHasTypeInStack = true;
+                    break;
+                }
+                
+                if (!hasAddedSameTypeBucketToStack || alreadyHasTypeInStack)
+                {
+                    processingStack.Remove(currentType);
+                    processedTypes.Add(currentType);
+                    
+                    // No need to add array types to stack, as we only need the array element type in ImHex.
+                    if (currentType.IsArray)
+                        continue;
+                    
+                    switch (currentTypeBucket)
                     {
-                        if (genType.IsPrimitive || genType.IsPointer)
-                            continue;
-
-                        queue.Enqueue(genType);
-                        typesToAdd.Push(genType);
+                        case TypeBucket.Unity:
+                            unityQueue.Enqueue(currentType);
+                            break;
+                        case TypeBucket.System:
+                            systemQueue.Enqueue(currentType);
+                            break;
+                        case TypeBucket.None:
+                        case TypeBucket.User:
+                        default:
+                            userQueue.Enqueue(currentType);
+                            break;
                     }
                 }
             }
+            
+            var typeQueue = new Queue<Type>(systemQueue.Count + unityQueue.Count + userQueue.Count);
+            foreach (var type in systemQueue)
+                typeQueue.Enqueue(type);
+            foreach (var type in unityQueue)
+                typeQueue.Enqueue(type);
+            foreach (var type in userQueue)
+                typeQueue.Enqueue(type);
+            return typeQueue;
         }
 
-        void WriteTypesToWriter(Stack<Type> typesToAdd)
+        static TypeBucket GetTypeBucket(Type type)
         {
-            while (typesToAdd.Count > 0)
+            switch (type.Namespace)
             {
-                var currentType = typesToAdd.Pop();
-                if (currentType.IsArray)
-                    currentType = currentType.GetElementType();
+                case not null when type.Namespace.StartsWith("Unity"): 
+                    return TypeBucket.Unity;
+                case not null when type.Namespace.StartsWith("System"): 
+                    return TypeBucket.System;
+                default:
+                    return TypeBucket.User;
+            }
+        }
+        
+        static IEnumerable<Type> GetUniqueRuntimeFieldTypes(Type type)
+        {
+            var fields = type.GetRuntimeFields();
+            var uniqueTypes = new HashSet<Type>();
+            foreach (var field in fields)
+            {
+                if (!field.IsStatic)
+                    uniqueTypes.Add(field.FieldType);
+            }
+            return uniqueTypes;
+        }        
 
-                switch (currentType)
-                {
-                    case var _ when m_AlreadyWrittenTypes.Contains(currentType):
-                    case var _ when m_AlreadyWrittenTypeNames.Contains(currentType.Name):
-                        break;
-                    case var _ when currentType.IsPrimitive:
-                        Debug.LogError($"Should not be hit, primitive type {TypeHelper.GetHexTypeFullName(currentType)} found in queue.");
-                        break;
-                    case var _ when TypeHelper.IsUnityComponent(currentType):
-                        WriteUnityComponent(m_IndentedTextWriter, currentType, sizeof(int));
-                        m_AlreadyWrittenTypes.Add(currentType);
-                        break;
-                    case var _ when TypeHelper.IsUnityObjectRef(currentType):
-                        WriteUnityComponent(m_IndentedTextWriter, currentType, sizeof(long));
-                        m_AlreadyWrittenTypeNames.Add(currentType.Name);
-                        break;
-                    case var _ when currentType.IsEnum:
-                        WriteEnum(m_IndentedTextWriter, currentType);
-                        m_AlreadyWrittenTypes.Add(currentType);
-                        break;
-                    default:
-                        string typeStr;
-                        if (currentType.IsGenericType || TypeHelper.IsFakeGeneric(currentType))
-                        {
-                            typeStr = GetGenericTypeString(currentType, false);
-                            m_AlreadyWrittenTypeNames.Add(currentType.Name);
-                        }
-                        else if (TypeHelper.IsChunkComponent(currentType))
-                            typeStr = "ChunkComponent";
-                        else
-                            typeStr = TypeHelper.GetHexTypeFullName(currentType);
+        bool CollectGenericTypes(Type type, Type currentType, TypeBucket currentTypeBucket, HashSet<Type> processedTypes, List<Type> stack)
+        {
+            if (!type.IsGenericType) 
+                return false;
 
-                        m_IndentedTextWriter.WriteLine($"struct {typeStr} {{");
-                        m_IndentedTextWriter.Indent++;
+            var hasAddedSameTypeBucketToStack = false;
+            foreach (var genType in type.GenericTypeArguments)
+            {
+                if (currentType == genType ||
+                    m_AlreadyWrittenTypes.Contains(genType) 
+                    || processedTypes.Contains(genType))
+                    continue;
+                if (genType.IsPrimitive || genType.IsPointer)
+                    continue;
+                        
+                stack.Add(genType);
+                hasAddedSameTypeBucketToStack |= currentTypeBucket == GetTypeBucket(genType);
+            }
 
-                        var fieldSizeCounter = 0;
-                        foreach (var fieldInfo in currentType.GetRuntimeFields())
-                        {
-                            WriteField(m_IndentedTextWriter, fieldInfo);
-                            fieldSizeCounter += fieldInfo.FieldType.IsValueType ? UnsafeUtility.SizeOf(fieldInfo.FieldType) : GetSizeOfUnityClass(fieldInfo.FieldType);
-                        }
+            return hasAddedSameTypeBucketToStack;
+        }
 
-                        m_IndentedTextWriter.Indent--;
-                        var sizeOfType = currentType.IsValueType
-                            ? UnsafeUtility.SizeOf(currentType)
-                            : fieldSizeCounter;
+        void WriteType(Type type)
+        {
+            switch (type)
+            {
+                case var _ when m_AlreadyWrittenTypes.Contains(type):
+                case var _ when m_AlreadyWrittenTypeNames.Contains(type.Name):
+                    break;
+                case var _ when type.IsPrimitive:
+                    Debug.LogError($"Should not be hit, primitive type {TypeHelper.GetImHexSupportedFullName(type)} found in queue.");
+                    break;
+                case var _ when type.IsArray:
+                    Debug.LogError($"Should not be hit, array type {TypeHelper.GetImHexSupportedFullName(type)} found in queue.");
+                    break;
+                case var _ when TypeHelper.IsUnityComponent(type):
+                    WriteUnityComponent(m_IndentedTextWriter, type, sizeof(int));
+                    m_AlreadyWrittenTypes.Add(type);
+                    break;
+                case var _ when TypeHelper.IsUnityObjectRef(type):
+                    WriteUnityComponent(m_IndentedTextWriter, type, sizeof(long));
+                    m_AlreadyWrittenTypeNames.Add(type.Name);
+                    break;
+                case var _ when type.IsEnum:
+                    WriteEnum(m_IndentedTextWriter, type);
+                    m_AlreadyWrittenTypes.Add(type);
+                    break;
+                default:
+                    string typeStr;
+                    if (type.IsGenericType || TypeHelper.IsFakeGeneric(type))
+                    {
+                        typeStr = GetGenericTypeString(type, false);
+                        m_AlreadyWrittenTypeNames.Add(type.Name);
+                    }
+                    else if (TypeHelper.IsChunkComponent(type))
+                        typeStr = "ChunkComponent";
+                    else
+                        typeStr = TypeHelper.GetImHexSupportedFullName(type);
 
-                        m_IndentedTextWriter.WriteLine($"}} [[fixed_size({sizeOfType})]]{GetCommentText(GetPremadeComment(currentType))};\n");
-                        m_AlreadyWrittenTypes.Add(currentType);
-                        break;
-                }
+                    m_IndentedTextWriter.WriteLine($"struct {typeStr} {{");
+                    m_IndentedTextWriter.Indent++;
+
+                    var fieldSizeCounter = 0;
+                    foreach (var fieldInfo in type.GetFields())
+                    {
+                        WriteField(m_IndentedTextWriter, fieldInfo);
+                        fieldSizeCounter += fieldInfo.FieldType.IsValueType ? UnsafeUtility.SizeOf(fieldInfo.FieldType) : GetSizeOfUnityClass(fieldInfo.FieldType);
+                    }
+
+                    m_IndentedTextWriter.Indent--;
+                    var sizeOfType = type.IsValueType
+                        ? UnsafeUtility.SizeOf(type)
+                        : fieldSizeCounter;
+
+                    m_IndentedTextWriter.WriteLine($"}} [[fixed_size({sizeOfType})]]{GetCommentText(GetPremadeComment(type))};\n");
+                    m_AlreadyWrittenTypes.Add(type);
+                    break;
             }
         }
 
         static void WriteUnityComponent(IndentedTextWriter writer, Type type, int componentSize)
         {
-            writer.WriteLine($"struct {TypeHelper.GetHexTypeFullName(type)} {{");
+            writer.WriteLine($"struct {TypeHelper.GetImHexSupportedFullName(type)} {{");
             writer.Indent++;
             writer.WriteLine($"{GetImHexPatternNameForPrimitiveType(typeof(int))} instanceId @ addressof(this)+0;");
             writer.Indent--;
@@ -230,7 +344,7 @@ namespace Unity.Entities
 
         static void WriteEnum(IndentedTextWriter writer, Type type)
         {
-            writer.WriteLine($"enum {TypeHelper.GetHexTypeFullName(type)} : {GetImHexPatternNameForPrimitiveType(type.GetEnumUnderlyingType())} {{");
+            writer.WriteLine($"enum {TypeHelper.GetImHexSupportedFullName(type)} : {GetImHexPatternNameForPrimitiveType(type.GetEnumUnderlyingType())} {{");
             writer.Indent++;
             var enumNames = type.GetEnumNames();
             for (var i = 0; i < enumNames.Length; ++i)
@@ -249,29 +363,31 @@ namespace Unity.Entities
             var fieldType = fieldInfo.FieldType;
             switch (fieldType)
             {
+                case var _ when fieldType.IsPointer || fieldType == typeof(IntPtr):
+                    writer.Write($"{GetImHexPatternNameForPointerType(fieldType)} *{TypeHelper.GetImHexSupportedName(fieldInfo.Name)} : {GetImHexPatternNameForPrimitiveType(typeof(int))}");
+                    break;
                 case var _ when fieldType.IsPrimitive:
-                    writer.Write($"{GetImHexPatternNameForPrimitiveType(fieldType)} {fieldInfo.Name}");
+                    writer.Write($"{GetImHexPatternNameForPrimitiveType(fieldType)} {TypeHelper.GetImHexSupportedName(fieldInfo.Name)}");
                     break;
                 case var _ when TypeHelper.IsUnityObjectRef(fieldType):
-                    writer.Write($"{TypeHelper.GetHexTypeFullName(fieldType)} {fieldInfo.Name}");
+                    writer.Write($"{TypeHelper.GetImHexSupportedFullName(fieldType)} {TypeHelper.GetImHexSupportedName(fieldInfo.Name)}");
                     break;
                 case var _ when fieldType.IsGenericType || TypeHelper.IsFakeGeneric(fieldType):
-                    writer.Write($"{GetGenericTypeString(fieldType, true)} {fieldInfo.Name}");
+                    writer.Write($"{GetGenericTypeString(fieldType, true)} {TypeHelper.GetImHexSupportedName(fieldInfo.Name)}");
                     break;
                 case var _ when TypeHelper.IsChunkComponent(fieldType):
-                    writer.Write($"ChunkComponent {fieldInfo.Name}");
-                    break;
-                case var _ when fieldType.IsPointer:
-                    writer.Write($"{GetImHexPatternNameForPointerType(fieldType)} *{fieldInfo.Name} : {GetImHexPatternNameForPrimitiveType(typeof(int))}");
+                    writer.Write($"ChunkComponent {TypeHelper.GetImHexSupportedName(fieldInfo.Name)}");
                     break;
                 case var _ when fieldType.IsArray:
-                    writer.Write($"{TypeHelper.GetHexTypeFullName(fieldType.GetElementType())} {fieldInfo.Name}[]");
+                    var elementType = fieldType.GetElementType();
+                    var typeName = elementType != null && elementType.IsPrimitive ? GetImHexPatternNameForPrimitiveType(elementType) : TypeHelper.GetImHexSupportedFullName(elementType);
+                    writer.Write($"{typeName} {TypeHelper.GetImHexSupportedName(fieldInfo.Name)}[]");
                     break;
                 default:
-                    writer.Write($"{TypeHelper.GetHexTypeFullName(fieldType)} {fieldInfo.Name}");
+                    writer.Write($"{TypeHelper.GetImHexSupportedFullName(fieldType)} {TypeHelper.GetImHexSupportedName(fieldInfo.Name)}");
                     break;
             }
-            writer.WriteLine($" @ addressof(this)+{UnsafeUtility.GetFieldOffset(fieldInfo)}{GetCommentText(GetPremadeComment(fieldType, fieldInfo.Name))};");
+            writer.WriteLine($" @ addressof(this)+{UnsafeUtility.GetFieldOffset(fieldInfo)}{GetCommentText(GetPremadeComment(fieldType, TypeHelper.GetImHexSupportedName(fieldInfo.Name)))};");
         }
 
         static string GetPremadeComment(Type type, string fieldName = "") => type switch
@@ -303,16 +419,18 @@ namespace Unity.Entities
             if (type.IsGenericType)
                 return GetGenericTypeString(type, true);
 
-            return TypeHelper.GetHexTypeFullName(type);
+            return TypeHelper.GetImHexSupportedFullName(type);
         }
 
         static string GetGenericTypeString(Type type, bool shouldAddRealType)
         {
             var sb = new System.Text.StringBuilder();
 
-            var fullName = type.FullName;
-            var typeName = fullName.Split('`')[0].Replace('.', '_');
+            var typeName = type.FullName;
+            typeName = TypeHelper.GetImHexSupportedName(typeName.Split('[')[0]);
 
+            // System.Collections.Generic.Dictionary`2+ValueCollection[[System.String, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089],[System.Int32, mscorlib, Version=4.0.0.0, Culture=neutral, PublicKeyToken=b77a5c561934e089]]
+            // Will be converted to: System_Collections_Generic_Dictionary_2_ValueCollection<T0 ,T1>
             if (type.IsGenericType)
             {
                 sb.Append($"{typeName}<");
@@ -324,12 +442,12 @@ namespace Unity.Entities
                     if (i < genericArguments.Length - 1)
                         sb.Append(" ,");
                 }
-
-                sb.Append(">");
             }
             // E.g. Unity.Entities.BlobArray`1[[Unity.Entities.SceneSectionData, Unity.Entities, Version=0.0.0.0, Culture=neutral, PublicKeyToken=null]]
+            // Will be converted to: Unity_Entities_BlobArray_1<T0>
             else
             {
+                var fullName = type.FullName;
                 var allArgs = fullName.Split('[')[2].Split(',');
                 var noOfArgs = int.Parse(fullName[fullName.IndexOf('`') + 1].ToString());
 
@@ -341,8 +459,9 @@ namespace Unity.Entities
                     if (i < noOfArgs - 1)
                         sb.Append(" ,");
                 }
-                sb.Append(">");
             }
+
+            sb.Append(">");
             return sb.ToString();
         }
 
@@ -360,13 +479,14 @@ namespace Unity.Entities
             { Name: "Double" } => "double",
             { Name: "Boolean" } => "bool",
             { Name: "Char" } => "char",
-            _ => throw new NotSupportedException($"Type '{TypeHelper.GetHexTypeFullName(type)}' is not a supported primitive by ImHexPatternEntitySceneBinaryWriter.")
+            _ => throw new NotSupportedException($"Type '{TypeHelper.GetImHexSupportedFullName(type)}' is not a supported primitive by ImHexPatternEntitySceneBinaryWriter.")
         };
 
         static string GetImHexPatternNameForPointerType(Type type) => type switch
         {
             { Name: "Void*" } => "u32",
-            _ => TypeHelper.GetHexTypeFullName(type)
+            { Name: "IntPtr" } => "u32",
+            _ => TypeHelper.GetImHexSupportedFullName(type)
         };
 
         static int GetSizeOfUnityClass(Type type)
@@ -375,7 +495,6 @@ namespace Unity.Entities
             {
                 case var _ when type.Name == "CompanionReference":
                 case var _ when type.IsGenericType && type.GetGenericTypeDefinition() == typeof(UnityObjectRef<>):
-                    return sizeof(int);
                 default:
                     return sizeof(int);
             }
@@ -411,14 +530,16 @@ namespace Unity.Entities
 
     internal static class TypeHelper
     {
-        public static string GetHexTypeFullName(Type type) => type.FullName
-            .Replace('.', '_')
+        public static string GetImHexSupportedFullName(Type type) => GetImHexSupportedName(type.FullName);
+        public static string GetImHexSupportedName(string name) => 
+            name.Replace('.', '_')
             .Replace('+', '_')
             .Replace('<', '_')
             .Replace('>', '_')
+            .Replace('`', '_')
             .Replace("*", string.Empty)
             .Split(',')[0]
-            .Split('`')[0];
+            .Split('[')[0];
 
         public static bool IsChunkComponent(Type type) => type.FullName != null && type.FullName.Contains("Unity.Entities.Chunk+<Buffer>");
         public static bool IsUnityComponent(Type type) => type.IsClass &&

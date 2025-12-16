@@ -1,10 +1,16 @@
 using System.Collections;
+using System.Text;
+using System.Text.RegularExpressions;
 using NUnit.Framework;
 using UnityEngine.TestTools;
 using Unity.Entities;
 using Unity.Entities.Serialization;
 using UnityEngine;
 using Hash128 = Unity.Entities.Hash128;
+
+#if UNITY_EDITOR
+using UnityEditor;
+#endif
 
 namespace Unity.Scenes.Hybrid.Tests.Playmode
 {
@@ -101,6 +107,17 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
 
 #if UNITY_EDITOR
             var modelPrefabGUID = SetupTestScene("Packages/com.unity.entities/Unity.Scenes.Hybrid.Tests/TestSceneWithSubScene/TestModel.fbx");
+
+#if !UNITY_6000_0_OR_NEWER
+            bool isAppleSilicon = UnityEngine.SystemInfo.processorType.Contains("Apple M");
+            bool isCI = !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("CI"));
+
+			if (isAppleSilicon && isCI)
+            {
+                LogAssert.Expect(LogType.Error, new Regex(@"(\[Worker\d*\] )?Failed to find a suitable OpenCL device, baking cannot use GPU lightmapper."));
+            }
+#endif
+
             Assert.IsTrue(modelPrefabGUID.IsValid);
             var prefabReference = new EntityPrefabReference(modelPrefabGUID);
 #else

@@ -58,7 +58,7 @@ namespace Unity.Entities
             var archetype = GetArchetype(entityInChunk.Chunk);
             var typeOffset = ChunkDataUtility.GetIndexInTypeArray(archetype, typeIndex);
 
-            SetComponentEnabled(entityInChunk.Chunk, entityInChunk.IndexInChunk, typeOffset, value);
+            SetComponentEnabled(entityInChunk.Chunk, entityInChunk.IndexInChunk, typeOffset, value, GlobalSystemVersion);
         }
 
         internal void SetComponentEnabled(Entity entity, TypeIndex typeIndex, bool value, ref LookupCache typeLookupCache)
@@ -68,10 +68,10 @@ namespace Unity.Entities
             if (Hint.Unlikely(archetype != typeLookupCache.Archetype))
                 typeLookupCache.Update(archetype, typeIndex);
 
-            SetComponentEnabled(entityInChunk.Chunk, entityInChunk.IndexInChunk, typeLookupCache.IndexInArchetype, value);
+            SetComponentEnabled(entityInChunk.Chunk, entityInChunk.IndexInChunk, typeLookupCache.IndexInArchetype, value, GlobalSystemVersion);
         }
 
-        internal void SetComponentEnabled(ChunkIndex chunk, int indexInChunk, int typeIndexInArchetype, bool value)
+        internal void SetComponentEnabled(ChunkIndex chunk, int indexInChunk, int typeIndexInArchetype, bool value, uint globalSystemVersion)
         {
             var archetype = GetArchetype(chunk);
             var capacity = archetype->ChunkCapacity;
@@ -82,7 +82,7 @@ namespace Unity.Entities
                 throw new ArgumentException($"indexInChunk {indexInChunk} is outside the valid range [0..{capacity - 1}]");
 #endif
 
-            var bits = ChunkDataUtility.GetEnabledRefRW(chunk, archetype, typeIndexInArchetype, GlobalSystemVersion, out var ptrChunkDisabledCount);
+            var bits = ChunkDataUtility.GetEnabledRefRW(chunk, archetype, typeIndexInArchetype, globalSystemVersion, out var ptrChunkDisabledCount);
             var numStridesIntoBits = (indexInChunk / 64);
             var pBits = bits.Ptr + numStridesIntoBits;
             var indexInPBits = indexInChunk - (numStridesIntoBits * 64);

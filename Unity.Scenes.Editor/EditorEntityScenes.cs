@@ -774,7 +774,7 @@ namespace Unity.Scenes.Editor
             var sceneSectionDataArray = builder.Construct(ref metaData.Sections, sections);
             builder.AllocateString(ref metaData.SceneName, sceneName);
 
-            SerializeSceneSectionCustomMetadata(sections, ref metaData, builder, sceneName, entityManager);
+            SerializeSceneSectionCustomMetadata(sections, ref metaData, ref builder, sceneName, entityManager);
             long headerSize = 0;
             using (var writer = new StreamBinaryWriter(headerPath, entityManager:entityManager))
             {
@@ -842,7 +842,7 @@ namespace Unity.Scenes.Editor
         }
 
         private static void SerializeSceneSectionCustomMetadata(SceneSectionData[] sections, ref SceneMetaData metaData,
-            BlobBuilder builder, string sceneName, EntityManager entityManager)
+            ref BlobBuilder builder, string sceneName, EntityManager entityManager)
         {
             var metaDataArray = builder.Allocate(ref metaData.SceneSectionCustomMetadata, sections.Length);
             EntityQuery sectionEntityQuery = default;
@@ -850,12 +850,12 @@ namespace Unity.Scenes.Editor
             {
                 var sectionEntity = SerializeUtility.GetSceneSectionEntity(sections[i].SubSectionIndex, entityManager, ref sectionEntityQuery, false);
                 if (sectionEntity != Entity.Null)
-                    SerializeSceneSectionCustomMetadata(sectionEntity, ref metaDataArray[i], builder, sections[i], sceneName, entityManager);
+                    SerializeSceneSectionCustomMetadata(sectionEntity, ref metaDataArray[i], ref builder, sections[i], sceneName, entityManager);
             }
         }
 
         private static unsafe void SerializeSceneSectionCustomMetadata(Entity sectionEntity, ref BlobArray<SceneSectionCustomMetadata> metaDataSectionArray,
-            BlobBuilder builder, SceneSectionData sectionData, string sceneName, EntityManager entityManager)
+            ref BlobBuilder builder, SceneSectionData sectionData, string sceneName, EntityManager entityManager)
         {
             var types = entityManager.GetComponentTypes(sectionEntity);
             int componentCount = 0;

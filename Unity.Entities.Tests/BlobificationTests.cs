@@ -782,7 +782,7 @@ public partial class BlobTests : ECSTestsFixture
     {
         // note that the size of the internal chunks used by the builder is set to 64 bytes
         // nothing special with 64 but there's no reason to use large chunks (default is 64k)
-        var blobBuilder = new BlobBuilder(Allocator.Temp, 64);
+        var blobBuilder = new BlobBuilder(World.UpdateAllocator.ToAllocator, 64);
 
         // constructing the root creates the first chunk (1st allocation)
         ref var root = ref blobBuilder.ConstructRoot<BlobArray<BlobArray<BlobString>>>();
@@ -832,5 +832,8 @@ public partial class BlobTests : ECSTestsFixture
         // This error would not happen without the large allocation. Because when two chunks have consecutive
         // addresses, they usually end up after each other in the finalized blob, causing the off by one error
         // to be completely harmless.
+
+        // Finally, let's clean up the allocator we used to avoid interfering with other tests.
+        World.UpdateAllocator.Rewind();
     }
 }

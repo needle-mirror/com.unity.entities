@@ -1957,7 +1957,7 @@ namespace Unity.Entities.Serialization
 #endif
             writer.Write(managedComponentCount);
 #if UNITY_EDITOR && UNITY_DOTS_IMHEX
-            writer.ImHexPattern.WriteArrayOfTypeWithPosition<byte>("allManagedObjectsBuffer", writer.Position, allManagedObjectsBuffer.Length);
+            writer.ImHexPattern.WriteArrayOfTypeWithPosition<ulong>("allManagedObjectsBuffer", writer.Position, allManagedObjectsBuffer.Length / sizeof(ulong));
 #endif
             writer.WriteBytes(allManagedObjectsBuffer.Ptr, allManagedObjectsBuffer.Length);
 

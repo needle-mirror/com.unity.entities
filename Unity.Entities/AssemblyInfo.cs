@@ -35,6 +35,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Transforms.Tests")]
 [assembly: InternalsVisibleTo("Unity.Transforms.PerformanceTests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Baking.PerformanceTests")]
+[assembly: InternalsVisibleTo("Unity.NetCode.EntitiesInternalAccess")]
 // This adds internal access for UNSUPPORTED package that is currently in the Monorepo
 [assembly: InternalsVisibleTo("Unity.StableID.Hybrid")]
 #if UNITY_ENTITIES_RUNTIME_TOOLING

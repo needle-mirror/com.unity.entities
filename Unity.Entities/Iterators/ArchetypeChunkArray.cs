@@ -954,10 +954,10 @@ namespace Unity.Entities
             return typeIndexInArchetype;
         }
 
-        private readonly void SetComponentEnabledForAllInChunk(Archetype* archetype, short typeIndexInArchetype, bool value)
+        private readonly void SetComponentEnabledForAllInChunk(Archetype* archetype, short typeIndexInArchetype, bool value, uint globalSystemVersion)
         {
             var bits = ChunkDataUtility.GetEnabledRefRW(m_Chunk, archetype,
-                typeIndexInArchetype, m_EntityComponentStore->GlobalSystemVersion, out var ptrChunkDisabledCount);
+                typeIndexInArchetype, globalSystemVersion, out var ptrChunkDisabledCount);
             bits.SetBits(0, value, Count);
             *ptrChunkDisabledCount = value ? 0 : Count;
         }
@@ -991,7 +991,7 @@ namespace Unity.Entities
 #endif
             var archetype = Archetype.Archetype;
             var typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref typeHandle, archetype);
-            SetComponentEnabledForAllInChunk(archetype, typeIndexInArchetype, value);
+            SetComponentEnabledForAllInChunk(archetype, typeIndexInArchetype, value, typeHandle.GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))
@@ -1021,7 +1021,7 @@ namespace Unity.Entities
 #endif
             var archetype = Archetype.Archetype;
             var typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref bufferTypeHandle, archetype);
-            SetComponentEnabledForAllInChunk(archetype, typeIndexInArchetype, value);
+            SetComponentEnabledForAllInChunk(archetype, typeIndexInArchetype, value, bufferTypeHandle.GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))
@@ -1058,7 +1058,7 @@ namespace Unity.Entities
 #endif
             var archetype = Archetype.Archetype;
             short typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref typeHandle, archetype);
-            SetComponentEnabledForAllInChunk(archetype, typeIndexInArchetype, value);
+            SetComponentEnabledForAllInChunk(archetype, typeIndexInArchetype, value, typeHandle.GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))
@@ -1093,7 +1093,7 @@ namespace Unity.Entities
 #endif
             var archetype = Archetype.Archetype;
             short typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref typeHandle, archetype);
-            m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value);
+            m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value, typeHandle.GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))
@@ -1142,7 +1142,7 @@ namespace Unity.Entities
 #endif
             var archetype = Archetype.Archetype;
             short typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref bufferTypeHandle, archetype);
-            m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value);
+            m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value, bufferTypeHandle.GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))
@@ -1188,7 +1188,7 @@ namespace Unity.Entities
 #endif
             var archetype = Archetype.Archetype;
             short typeIndexInArchetype = GetRequiredTypeIndexInArchetype(ref typeHandle, archetype);
-            m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value);
+            m_EntityComponentStore->SetComponentEnabled(m_Chunk, entityIndexInChunk, typeIndexInArchetype, value, typeHandle.GlobalSystemVersion);
 
 #if (UNITY_EDITOR || DEVELOPMENT_BUILD) && !DISABLE_ENTITIES_JOURNALING
             if (Hint.Unlikely(m_EntityComponentStore->m_RecordToJournal != 0))

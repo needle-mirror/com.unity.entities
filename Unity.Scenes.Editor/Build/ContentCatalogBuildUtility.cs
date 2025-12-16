@@ -56,16 +56,17 @@ namespace Unity.Entities.Content
         /// <param name="idRemapFunc">Functor that remaps runtime ids.</param>
         public static void BuildCatalogDataRuntime(IRuntimeCatalogDataSource src, string outputPath, Func<UntypedWeakReferenceId, UntypedWeakReferenceId> idRemapFunc)
         {
-            using (var blobBuilder = new BlobBuilder(Allocator.Temp))
+            var blobBuilder = new BlobBuilder(Allocator.Temp);
+            ref var blob = ref blobBuilder.ConstructRoot<RuntimeContentCatalogData>();
+
+            RuntimeContentCatalogDataUtility.Create(src, ref blobBuilder, ref blob, idRemapFunc);
+            using (var aref = blobBuilder.CreateBlobAssetReference<RuntimeContentCatalogData>(Allocator.Temp))
             {
-                ref var blob = ref blobBuilder.ConstructRoot<RuntimeContentCatalogData>();
-                RuntimeContentCatalogDataUtility.Create(src, blobBuilder, ref blob, idRemapFunc);
-                using (var aref = blobBuilder.CreateBlobAssetReference<RuntimeContentCatalogData>(Allocator.Temp))
-                {
-                    Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
-                    BlobAssetReference<RuntimeContentCatalogData>.Write(blobBuilder, outputPath, 1);
-                }
+                Directory.CreateDirectory(Path.GetDirectoryName(outputPath));
+                BlobAssetReference<RuntimeContentCatalogData>.Write(blobBuilder, outputPath, 1);
             }
+            
+            blobBuilder.Dispose();
         }
     }
 }

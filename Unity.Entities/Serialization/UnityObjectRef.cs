@@ -1,4 +1,4 @@
-using System;
+﻿using System;
 using System.Collections.Generic;
 using System.Runtime.InteropServices;
 using Unity.Collections;
@@ -273,8 +273,21 @@ namespace Unity.Entities
         private static ProfilerMarker s_AddFromManagedComponents = new ProfilerMarker("AddFromManagedComponents");
         private static ProfilerMarker s_AddFromManagedSharedComponents = new ProfilerMarker("AddFromManagedSharedComponents");
 
-        static unsafe void AdditionalRootsHandlerDelegate(IntPtr state)
+        // The EntitiesAssetGC struct was added in order to fix UUM-125895. Since a min version bump was not possible, we've decided to ifdef the solution out.
+        // This means that it is possible to see the UUM-125895 bug while on 22.3 or U6.0. EntitiesAssetGC is available in 2022.3.43f1 and 6000.0.16f1 and onwards.
+#if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)        
+        private static List<ResourcesAPIInternal.EntitiesAssetGC.AdditionalRootsHandlerDelegate> s_AdditionalRootsHandlerDelegates = new List<ResourcesAPIInternal.EntitiesAssetGC.AdditionalRootsHandlerDelegate>();
+#endif
+
+        static unsafe void RootsHandlerDelegate(IntPtr state)
         {
+#if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)            
+            foreach (var additionalRootsHandlerDelegate in s_AdditionalRootsHandlerDelegates)
+            {
+                additionalRootsHandlerDelegate(state);
+            }
+#endif
+
             using var instanceIDRefs = new UnsafeHashSet<int>(256, Allocator.Temp);
             foreach (var world in World.s_AllWorlds)
             {
@@ -314,8 +327,31 @@ namespace Unity.Entities
         static void EditorInitializeOnLoadMethod()
         {
             #if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)
-            ResourcesAPIInternal.EntitiesAssetGC.RegisterAdditionalRootsHandler(AdditionalRootsHandlerDelegate);
+            ResourcesAPIInternal.EntitiesAssetGC.RegisterAdditionalRootsHandler(RootsHandlerDelegate);
             #endif
+        }
+
+
+        public static void MarkInstanceIDsAsRootForEntitiesAssetGC(IntPtr instanceIDs, int count, IntPtr state)
+        {
+#if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)
+            ResourcesAPIInternal.EntitiesAssetGC.MarkInstanceIDsAsRoot(instanceIDs, count, state);
+#endif
+        }
+
+#if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)        
+        public static void RegisterAdditionalRootsHandlerForEntitiesAssetGC(ResourcesAPIInternal.EntitiesAssetGC.AdditionalRootsHandlerDelegate additionalRootsHandlerDelegate)
+        {
+            if (additionalRootsHandlerDelegate != null)
+                s_AdditionalRootsHandlerDelegates.Add(additionalRootsHandlerDelegate);
+        }
+#endif
+
+        internal static unsafe void MarkInstanceIDsAsRoot(NativeArray<int> unityObjects, IntPtr state)
+        {
+#if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)            
+            ResourcesAPIInternal.EntitiesAssetGC.MarkInstanceIDsAsRoot((IntPtr)unityObjects.GetUnsafePtr(), unityObjects.Length, state);
+#endif
         }
     }
 
@@ -347,14 +383,14 @@ namespace Unity.Entities
     /// </summary>
     /// <typeparam name="T">Type of the Object that is going to be referenced by UnityObjectRef.</typeparam>
     /// <remarks>
-    /// Stores the Object's instance ID. Also serializes asset references in subscenes the same way managed components 
-    /// do with direct references to <see cref="UnityEngine.Object"/>. This is the recommended way to store references to Unity 
+    /// Stores the Object's instance ID. Also serializes asset references in subscenes the same way managed components
+    /// do with direct references to <see cref="UnityEngine.Object"/>. This is the recommended way to store references to Unity
     /// assets in Entities because it remains unmanaged.
-    /// 
+    ///
     /// Serialization is supported on <see cref="IComponentData"/> <see cref="ISharedComponentData"/> and <see cref="IBufferElementData"/>.
-    /// 
+    ///
     /// Just as when referencing an asset in a Monobehaviour, the asset will not be collected by any asset garbage collection (such as calling <see cref="Resources.UnloadUnusedAssets()"/>).
-    /// 
+    ///
     /// For more information, refer to [Reference Unity objects in your code](xref:reference-unity-objects).
     /// </remarks>
     [Serializable]

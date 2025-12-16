@@ -4,6 +4,30 @@ uid: changelog
 
 # Changelog
 
+## [1.4.4] - 2025-12-16
+
+### Changed
+
+* Updated the `com.unity.nuget.mono-cecil` dependency to version `1.11.6`
+* Updated `com.unity.profiling.core` dependency to version `1.0.3`
+* Updated the `com.unity.scriptablebuildpipeline` dependnecy to version `1.23.1`
+* Updated `com.unity.serialization` dependency to version `3.1.3`
+* Fixed an issue where the ImHex writer would throw an error when a managed component contained an IntPtr field.
+
+### Removed
+
+* Removed expensive baking analytics even during subscene importing.
+
+### Fixed
+
+* Fixed race condition in `ArchetypeChunk.SetComponentEnabled()` and `.SetComponentEnabledForAll()` which could lead to incorrect change versions for the target component.
+* Suppress benign Burst warning about intrinsics use in ChunkIterationUtility.GetEnabledMask() when compiling with FloatMode.Deterministic.
+* Problem where we didn't GC root UnityObjectRefs.
+* Fixed an issue where the ImHex writer would get stuck in an infinite loop when processing managed components.
+* Fixed an issue where the ImHex writer would display an error when a managed component contained primitive array types.
+
+
+
 ## [1.4.3] - 2025-10-17
 
 ### Added
@@ -28,7 +52,7 @@ uid: changelog
 ### Changed
 
 * Modified .unity-entities__search_element__add-filter-button and .unity-platforms__search_element__add-filter-button .uss classes from using percentage to their equivalent size in pixels.
-* Changed font-size field from percentage to equivalent size in pixels 
+* Changed font-size field from percentage to equivalent size in pixels
 
 ### Fixed
 

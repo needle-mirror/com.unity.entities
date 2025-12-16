@@ -265,6 +265,104 @@ namespace Unity.Entities.Tests
             }
         }
 
+        public struct TestTimerFlag : IComponentData, IEnableableComponent { }
+        public partial struct TestWritingSystem : ISystem
+        {
+            private EntityQuery _query;
+            private ComponentTypeHandle<TestTimerFlag> _flagHandle;
+
+            public void OnCreate(ref SystemState state)
+            {
+                _query = SystemAPI.QueryBuilder().WithPresent<TestTimerFlag>().Build();
+                _flagHandle = state.GetComponentTypeHandle<TestTimerFlag>(isReadOnly: false);
+            }
+
+            void ISystem.OnUpdate(ref SystemState state)
+            {
+                // Test SetComponentEnabled path
+                {
+                    _flagHandle.Update(ref state);
+                    var expectedSystemVersion = state.GlobalSystemVersion;
+                    Assert.AreEqual(expectedSystemVersion, _flagHandle.GlobalSystemVersion);
+                    var writerJob = new WriteToEachFlagJob()
+                    {
+                        FlagHandle = _flagHandle, // capture the handle with the expected system version in the job struct
+                    };
+                    // Bump system version before letting the job do its work
+                    state.EntityManager.Debug.IncrementGlobalSystemVersion();
+                    writerJob.Run(_query);
+                    // Make sure the chunk got its system version from the handle, not the global ECS version.l
+                    var chunks = _query.ToArchetypeChunkArray(Allocator.Temp);
+                    foreach (var chunk in chunks)
+                    {
+                        uint chunkChangeVersion = chunk.GetChangeVersion(ref _flagHandle);
+                        Assert.AreEqual(expectedSystemVersion, chunkChangeVersion,
+                            "chunk change version doesn't match global change version after SetComponentEnabled");
+                    }
+                }
+
+                // Test SetComponentEnabledForAll path
+                {
+                    _flagHandle.Update(ref state);
+                    var expectedSystemVersion = state.GlobalSystemVersion;
+                    Assert.AreEqual(expectedSystemVersion, _flagHandle.GlobalSystemVersion);
+                    var writerJob = new WriteToAllFlagsJob()
+                    {
+                        FlagHandle = _flagHandle, // capture the handle with the expected system version in the job struct
+                    };
+                    // Bump system version before letting the job do its work
+                    state.EntityManager.Debug.IncrementGlobalSystemVersion();
+                    writerJob.Run(_query);
+                    // Make sure the chunk got its system version from the handle, not the global ECS version.l
+                    var chunks = _query.ToArchetypeChunkArray(Allocator.Temp);
+                    foreach (var chunk in chunks)
+                    {
+                        uint chunkChangeVersion = chunk.GetChangeVersion(ref _flagHandle);
+                        Assert.AreEqual(expectedSystemVersion, chunkChangeVersion,
+                            "chunk change version doesn't match global change version after SetComponentEnabledForAll");
+                    }
+                }
+
+                state.Dependency = default;
+            }
+
+            struct WriteToEachFlagJob : IJobChunk
+            {
+                public ComponentTypeHandle<TestTimerFlag> FlagHandle;
+
+                public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+                {
+                    var enumerator = new ChunkEntityEnumerator(useEnabledMask, chunkEnabledMask, chunk.Count);
+                    while (enumerator.NextEntityIndex(out int entityIndex))
+                    {
+                        chunk.SetComponentEnabled(ref FlagHandle, entityIndex, true);
+                    }
+                }
+            }
+
+            struct WriteToAllFlagsJob : IJobChunk
+            {
+                public ComponentTypeHandle<TestTimerFlag> FlagHandle;
+
+                public void Execute(in ArchetypeChunk chunk, int unfilteredChunkIndex, bool useEnabledMask, in v128 chunkEnabledMask)
+                {
+                    chunk.SetComponentEnabledForAll(ref FlagHandle, true);
+                }
+            }
+        }
+
+        // Regression test for ECSB-1792
+        [Test]
+        public void SetComponentEnabled_GlobalVersionNumberEqualsChangeVersion()
+        {
+            var chunkCount = 10;
+            var archetype = m_Manager.CreateArchetype(typeof(TestTimerFlag));
+            using var entities = m_Manager.CreateEntity(archetype, archetype.ChunkCapacity * chunkCount,
+                World.UpdateAllocator.ToAllocator);
+            var sys = World.CreateSystem<TestWritingSystem>();
+            sys.Update(World.Unmanaged);
+        }
+
         partial class IJobEntity_GeneratesCorrectBatches_ParallelJob_TestSystem : SystemBase
         {
             EntityQuery _query;

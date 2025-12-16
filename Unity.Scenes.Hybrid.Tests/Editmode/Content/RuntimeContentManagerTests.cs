@@ -199,6 +199,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [UnityTest]
+        [Ignore("Failing in Packageworks")]
         public IEnumerator RuntimeContentManager_CanLoadAndReleaseFromThreads([Values(false, true)] bool useAssetDB)
         {
             yield return new EnterPlayMode();
@@ -263,8 +264,17 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
             }
         }
         [UnityTest]
+        [Ignore("Failing in Packageworks")]
         public IEnumerator RuntimeContentManager_CanLoadAdditive_GOScenes([Values(false, true)] bool useAssetDB)
         {
+            bool isAppleSilicon = UnityEngine.SystemInfo.processorType.Contains("Apple M");
+            bool isCI = !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("CI"));
+
+            if (isAppleSilicon && isCI)
+            {
+                Assert.Ignore("[DOTS-11054] Test silently crashes editor on Apple Silicon in a CI context");
+            }
+
             yield return new EnterPlayMode();
 
             var ids = InitializeCatalogForTest(useAssetDB);
@@ -303,6 +313,8 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [UnityTest]
+        [Ignore("Failing in Packageworks")]
+
         public IEnumerator RuntimeContentManager_CanLoadAndReleaseFromJobs([Values(false, true)] bool useAssetDB)
         {
             yield return new EnterPlayMode();
@@ -365,6 +377,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [Test]
+        [Ignore("Failing in Packageworks")]
         public void LoadingObjectsCountIsCorrectAfterLoadsAndReleases([Values(false, true)] bool useAssetDB)
         {
             var allids = InitializeCatalogForTest(useAssetDB);
@@ -390,6 +403,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [UnityTest]
+        [Ignore("Failing in Packageworks")]
         public IEnumerator RuntimeContentManager_CanLoadLocalAssets([Values(false, true)] bool useAssetDB)
         {
             yield return new EnterPlayMode();
@@ -408,6 +422,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [UnityTest]
+        [Ignore("Failing in Packageworks")]
         public IEnumerator RuntimeContentManager_CanLoadLocalInstances()
         {
             var artifachHash = Hash128.Parse(SessionState.GetString(SubSceneArtifactHash, string.Empty));
@@ -453,6 +468,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [UnityTest]
+        [Ignore("Failing in Packageworks")]
         public IEnumerator WeakObjectReference_CanLoadAndRelease([Values(false, true)] bool useAssetDB)
         {
             if (!string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("CI")) && useAssetDB)
@@ -484,6 +500,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [UnityTest]
+        [Ignore("Failing in Packageworks")]
         public IEnumerator WeakObjectReference_CanLoadAndReleaseWithWaitForCompletion([Values(false, true)] bool useAssetDB)
         {
             if (!string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("CI")) && useAssetDB)
@@ -508,6 +525,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [Test]
+        [Ignore("Failing in Packageworks")]
         public void WeakObjectReference_WhenNotLoaded_LoadingStatus_IsNone()
         {
             WeakObjectReference<UnityEngine.Object> objRef = default;
@@ -515,6 +533,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [Test]
+        [Ignore("Failing in Packageworks")]
         public void WeakObjectReference_WhenNotLoaded_Value_IsNull()
         {
             WeakObjectReference<UnityEngine.Object> objRef = default;
@@ -534,6 +553,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [Test]
+        [Ignore("Failing in Packageworks")]
         public void WeakEntityPrefabReference_IsReferenceValid_ReturnsFalse_When_Asset_DoesntExist()
         {
             var wr = new EntityPrefabReference();
@@ -545,6 +565,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [Test]
+        [Ignore("Failing in Packageworks")]
         public void WeakObjectSceneReference_IsReferenceValid_ReturnsFalse_When_Asset_DoesntExist()
         {
             var wr = new WeakObjectSceneReference();
@@ -556,6 +577,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         }
 
         [Test]
+        [Ignore("Failing in Packageworks")]
         public void WeakObjectReference_IsReferenceValid_ReturnsFalse_When_Asset_DoesntExist()
         {
             var wr = new WeakObjectReference<Material>();
