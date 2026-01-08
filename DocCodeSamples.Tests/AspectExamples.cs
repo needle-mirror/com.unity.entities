@@ -2,6 +2,7 @@ using Unity.Entities;
 using Unity.Mathematics;
 using Unity.Transforms;
 using Unity.Burst;
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
 
 namespace Doc.CodeSamples.Tests
 {

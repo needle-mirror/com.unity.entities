@@ -1,5 +1,8 @@
 # Aspect source generation
 
+> [!WARNING]  
+> Aspects are deprecated and will be removed in a future release. Use component access and query methods directly instead.
+
 Source generators generate code during compilation by analyzing your existing code. The Entities package generates methods and types that allow you to use your aspects with other parts of the Unity API. For more information about source generators in Unity, see the user manual documentation on [Roslyn analyzers and source generators](xref:roslyn-analyzers).
 
 ## Aspect-generated methods

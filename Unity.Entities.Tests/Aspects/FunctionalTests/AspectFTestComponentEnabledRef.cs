@@ -1,3 +1,4 @@
+#pragma warning disable 618
 using NUnit.Framework;
 using static Unity.Entities.SystemAPI;
 namespace Unity.Entities.Tests.Aspects.FunctionalTests

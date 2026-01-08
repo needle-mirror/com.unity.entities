@@ -1,6 +1,5 @@
+using Unity.Burst;
 using Unity.Collections;
-using UnityEngine;
-using Unity.Entities;
 
 namespace Unity.Entities.Hybrid.Baking
 {
@@ -29,22 +28,32 @@ namespace Unity.Entities.Hybrid.Baking
         }
     }
 
+    [BurstCompile]
+    partial struct AddBakingOnlyEntityJob : IJobEntity
+    {
+        public EntityCommandBuffer.ParallelWriter ConcurrentCommands;
+
+        public void Execute(Entity entity, [ChunkIndexInQuery] int chunkIndex,
+            in DynamicBuffer<BakingOnlyEntityAuthoringBaker.BakingOnlyChildren> childrenBuffer)
+        {
+            foreach (var child in childrenBuffer)
+            {
+                ConcurrentCommands.AddComponent<BakingOnlyEntity>(chunkIndex, child.entity);
+            }
+        }
+    }
+
     [WorldSystemFilter(WorldSystemFilterFlags.BakingSystem)]
     partial class BakingOnlyEntityAuthoringBakingSystem : SystemBase
     {
         protected override void OnUpdate()
         {
             var ecb = new EntityCommandBuffer(Allocator.TempJob);
-            var ecbP = ecb.AsParallelWriter();
-
-            Entities
-                .ForEach((int nativeThreadIndex, in DynamicBuffer<BakingOnlyEntityAuthoringBaker.BakingOnlyChildren> childrenBuffer) =>
-                {
-                    foreach (var child in childrenBuffer)
-                    {
-                        ecbP.AddComponent<BakingOnlyEntity>(nativeThreadIndex, child.entity);
-                    }
-                }).ScheduleParallel();
+            var job = new AddBakingOnlyEntityJob
+            {
+                ConcurrentCommands = ecb.AsParallelWriter(),
+            };
+            Dependency = job.ScheduleParallel(Dependency);
 
             CompleteDependency();
             ecb.Playback(EntityManager);

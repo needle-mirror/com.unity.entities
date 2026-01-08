@@ -23,10 +23,12 @@ namespace Unity.Entities.Tests
         public int Value;
     }
 
+#pragma warning disable 0618 // Disable Aspects obsolete warnings
     readonly partial struct EcsTestDataAspect : IAspect
     {
         public readonly RefRW<EcsTestData> TestComponent;
     }
+#pragma warning restore 0618
 
     partial class TestSystemWithEmptyJob : SystemBase
     {

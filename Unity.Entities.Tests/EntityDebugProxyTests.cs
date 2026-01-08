@@ -1,3 +1,4 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 using System.Runtime.InteropServices;
 using NUnit.Framework;
 using Unity.Collections;

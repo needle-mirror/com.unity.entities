@@ -10,11 +10,13 @@ using static Unity.Entities.SystemAPI;
 
 namespace Unity.Entities.Tests
 {
+#pragma warning disable 0618 // Disable Aspects obsolete warnings
     readonly partial struct EntityTestAspect : IAspect
     {
         readonly RefRW<EcsTestDataEntity> _entityData;
         public void SetEntity(Entity entity) => _entityData.ValueRW.value1 = entity;
     }
+#pragma warning restore 0618
 
     public partial class IdiomaticCSharpForEachIterationTests : ECSTestsFixture
     {
@@ -49,8 +51,10 @@ namespace Unity.Entities.Tests
         T GetManagedComponent<T>(Entity entity) where T : IComponentData => m_Manager.GetComponentObject<T>(entity);
 #endif
 
+#pragma warning disable 0618 // Disable Aspects obsolete warnings
         T GetAspect<T>(Entity entity) where T : struct, IAspect, IAspectCreate<T> => default(T).CreateAspect(entity, ref EmptySystem.CheckedStateRef);
         T GetAspect<T>(SystemHandle system) where T : struct, IAspect, IAspectCreate<T> => default(T).CreateAspect(system.m_Entity, ref EmptySystem.CheckedStateRef);
+#pragma warning restore 0618
         T GetComponent<T>(Entity entity) where T : unmanaged, IComponentData => m_Manager.GetComponentData<T>(entity);
         T GetComponent<T>(SystemHandle system) where T : unmanaged, IComponentData => m_Manager.GetComponentData<T>(system);
         T GetSharedComponent<T>(Entity entity) where T : struct, ISharedComponentData => m_Manager.GetSharedComponentManaged<T>(entity);

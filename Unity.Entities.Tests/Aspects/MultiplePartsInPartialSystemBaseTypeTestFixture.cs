@@ -1,4 +1,5 @@
-﻿using NUnit.Framework;
+#pragma warning disable 618
+using NUnit.Framework;
 using Unity.Collections;
 
 namespace Unity.Entities.Tests

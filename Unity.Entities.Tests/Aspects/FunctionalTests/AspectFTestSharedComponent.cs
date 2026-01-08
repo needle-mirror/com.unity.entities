@@ -6,6 +6,7 @@ using TestComponentType = Unity.Entities.Tests.EcsTestSharedComp;
 using TestFieldType = Unity.Entities.Tests.EcsTestSharedComp;
 using NestedAspectType = Unity.Entities.Tests.Aspects.Types.AspectWithSharedComponent;
 
+#pragma warning disable 0618 // Disable Aspects obsolete warnings
 namespace Unity.Entities.Tests.Aspects.FunctionalTests
 {
     readonly partial struct AspectAliasingSharedComponentSimple : IAspect

@@ -1,0 +1,154 @@
+using System.Collections.Generic;
+using Microsoft.VisualStudio.TestTools.UnitTesting;
+using System.Threading.Tasks;
+
+using VerifyCS = Unity.Entities.Analyzer.Test.CSharpCodeFixVerifier<
+    Unity.Entities.Analyzer.SystemAPIAnalyzer,
+    Unity.Entities.Analyzer.EntitiesCodeFixProvider>;
+
+namespace Unity.Entities.Analyzer
+{
+    [TestClass]
+    public class SystemAPITests
+    {
+        public static IEnumerable<object[]> EFEAllowedAPIMethods() => SystemAPIMethods.EFEAllowedAPIMethods;
+
+        [DataTestMethod]
+        [DynamicData(nameof(EFEAllowedAPIMethods), DynamicDataSourceType.Method)]
+        [DataRow("Time", @"var time = {|#0:SystemAPI.Time|}.DeltaTime")]
+        public async Task AllowedSystemAPIUseInEFE_NoError(string memberName, string apiMethodInvocation)
+        {
+            var test = @$"
+                using Unity.Entities;
+                using Unity.Entities.Tests;
+                using static Unity.Entities.SystemAPI;
+
+                partial class TestSystem : SystemBase
+                {{
+                    protected override void OnUpdate()
+                    {{
+                        Entities
+                            .ForEach((Entity entity) =>
+                            {{
+                                {apiMethodInvocation};
+                            }})
+                            .ScheduleParallel();
+                    }}
+                }}";
+            await VerifyCS.VerifyAnalyzerAsync(test);
+        }
+
+        [DataTestMethod]
+        [DataRow("HasSingleton", @"{|#0:SystemAPI.HasSingleton<EcsTestData>()|}")]
+        [DataRow("HasSingleton", @"{|#0:HasSingleton<EcsTestData>()|}")]
+        [DataRow("Time", @"var time = {|#0:SystemAPI.Time|}.DeltaTime")]
+        [DataRow("Time", @"var time = {|#0:Time|}.DeltaTime")]
+        public async Task SystemAPIUseInNonSystemType_Error(string memberName, string apiMethodInvocation)
+        {
+            var test = @$"
+                using Unity.Entities;
+                using Unity.Entities.Tests;
+                using static Unity.Entities.SystemAPI;
+
+                partial class NonSystemType
+                {{
+                    protected void OnUpdate()
+                    {{
+                        {apiMethodInvocation};
+                    }}
+                }}";
+
+            var expected = VerifyCS.Diagnostic(EntitiesDiagnostics.ID_EA0004).WithLocation(0).WithArguments(memberName);
+            await VerifyCS.VerifyAnalyzerAsync(test, expected);
+        }
+
+        [DataTestMethod]
+        [DataRow("HasSingleton", @"{|#0:SystemAPI.HasSingleton<EcsTestData>()|}")]
+        [DataRow("HasSingleton", @"{|#0:HasSingleton<EcsTestData>()|}")]
+        // [DataRow("Time", @"var time = {|#0:Time|}.DeltaTime")] Invalid test as always find SystemBase.Time currently
+        public async Task SystemAPIUseInEFE_Error(string memberName, string apiMethodInvocation)
+        {
+            var test = @$"
+                using Unity.Entities;
+                using Unity.Entities.Tests;
+                using static Unity.Entities.SystemAPI;
+
+                partial class TestSystem : SystemBase
+                {{
+                    protected override void OnUpdate()
+                    {{
+                        Entities
+                            .ForEach((Entity entity) =>
+                            {{
+                                {apiMethodInvocation};
+                            }})
+                            .ScheduleParallel();
+                    }}
+                }}";
+
+            var expected = VerifyCS.Diagnostic(EntitiesDiagnostics.ID_EA0005).WithLocation(0).WithArguments(memberName);
+            await VerifyCS.VerifyAnalyzerAsync(test, expected);
+        }
+
+
+        [DataTestMethod]
+        [DataRow("GetComponentLookup", "SystemAPI.GetComponentLookup<EcsTestData>()")]
+        [DataRow("GetComponent", "SystemAPI.GetComponent<EcsTestData>(entity)")]
+        [DataRow("GetComponentRW", "SystemAPI.GetComponentRW<EcsTestData>(entity)")]
+        [DataRow("GetComponentRO", "SystemAPI.GetComponentRO<EcsTestData>(entity)")]
+        [DataRow("SetComponent", "SystemAPI.SetComponent<EcsTestData>(entity, new EcsTestData())")]
+        [DataRow("HasComponent", "SystemAPI.HasComponent<EcsTestData>(entity)")]
+        [DataRow("GetBufferLookup", "SystemAPI.GetBufferLookup<EcsIntElement>(true)")]
+        [DataRow("GetBuffer", "SystemAPI.GetBuffer<EcsIntElement>(entity)")]
+        [DataRow("HasBuffer", "SystemAPI.HasBuffer<EcsIntElement>(entity)")]
+        [DataRow("GetEntityStorageInfoLookup", "SystemAPI.GetEntityStorageInfoLookup()")]
+        [DataRow("Exists", "SystemAPI.Exists(entity)")]
+        [DataRow("GetAspect", "SystemAPI.GetAspect<EcsTestAspect>(entity)")]
+        public async Task SystemAPIUseInEFE_NoError(string memberName, string apiMethodInvocation)
+        {
+            var test = @$"
+                using Unity.Entities;
+                using Unity.Entities.Tests;
+                using static Unity.Entities.SystemAPI;
+
+                partial class TestSystem : SystemBase
+                {{
+                    protected override void OnUpdate()
+                    {{
+                        Entities
+                            .ForEach((Entity entity) =>
+                            {{
+                                {apiMethodInvocation};
+                            }})
+                            .Run();
+                    }}
+                }}";
+
+            await VerifyCS.VerifyAnalyzerAsync(test);
+        }
+
+        [DataTestMethod]
+        [DataRow("HasSingleton", @"{|#0:SystemAPI.HasSingleton<EcsTestData>()|}")]
+        [DataRow("HasSingleton", @"{|#0:HasSingleton<EcsTestData>()|}")]
+        [DataRow("Time", @"var time = {|#0:SystemAPI.Time|}.DeltaTime")]
+        [DataRow("Time", @"var time = {|#0:Time|}.DeltaTime")]
+        public async Task SystemAPIUseInStaticMethod_Error(string memberName, string apiMethodInvocation)
+        {
+            var test = @$"
+                using Unity.Entities;
+                using Unity.Entities.Tests;
+                using static Unity.Entities.SystemAPI;
+
+                partial struct TestSystem : ISystem
+                {{
+                    static void StaticMethod()
+                    {{
+                        {apiMethodInvocation};
+                    }}
+                }}";
+
+            var expected = VerifyCS.Diagnostic(EntitiesDiagnostics.ID_EA0006).WithLocation(0).WithArguments(memberName);
+            await VerifyCS.VerifyAnalyzerAsync(test, expected);
+        }
+    }
+}

@@ -14,11 +14,13 @@ using Unity.PerformanceTesting;
 namespace Unity.Entities.PerformanceTests
 {
     using static AspectUtils;
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
     readonly partial struct PerfTestAspect : IAspect
     {
         readonly public RefRW<EcsTestFloatData3> Output;
         readonly public RefRO<EcsTestFloatData> Input;
     }
+#pragma warning restore CS0618
 
     [TestFixture]
     [Category("Performance")]

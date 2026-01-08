@@ -1,3 +1,4 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 using Unity.Collections;
 using Unity.Entities.Hybrid.Baking;
 using UnityEngine;

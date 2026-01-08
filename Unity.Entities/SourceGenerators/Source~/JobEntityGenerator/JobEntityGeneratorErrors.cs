@@ -10,19 +10,6 @@ public static class JobEntityGeneratorErrors
 {
     const string k_ErrorTitle = "IJobEntity Error";
 
-    public static void SGJE0003(
-        ISourceGeneratorDiagnosable context,
-        Location location,
-        string parameterName,
-        string parameterType)
-    {
-        context.LogError(
-            nameof(SGJE0003),
-            k_ErrorTitle,
-            $"The parameter '{parameterName}' of type {parameterType} will be ignored.",
-            location);
-    }
-
     public static void SGJE0006(ISourceGeneratorDiagnosable context, Location location, string jobEntityTypeName, string methodSignature, string nonIntegerEntityQueryParameter, string attributeName)
     {
         context.LogError(
@@ -60,16 +47,6 @@ public static class JobEntityGeneratorErrors
             nameof(SGJE0010),
             k_ErrorTitle,
             $"IJobEntity.Execute() parameter '{parameter}' of type {parameterType} is not supported.",
-            location);
-    }
-
-    // TODO: Needs test
-    public static void SGJE0011(ISourceGeneratorDiagnosable diagnosable, Location location, string notValidParam)
-    {
-        diagnosable.LogError(
-            nameof(SGJE0011),
-            k_ErrorTitle,
-            $"Execute() parameter '{notValidParam}' is not a supported parameter in an IJobEntity type.",
             location);
     }
 

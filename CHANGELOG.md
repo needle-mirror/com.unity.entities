@@ -4,11 +4,31 @@ uid: changelog
 
 # Changelog
 
+## [1.3.15] - 2026-01-08
+
+### Changed
+
+ * Entities.ForEach marked as obsolete. In order to consolidate our API and improve iteration time, we have decided to remove Entities.ForEach in a future major release of Entities. The two replacement APIs for Entities.ForEach are IJobEntity and SystemAPI.Query. Both Entities.ForEach and Aspects will remain supported in 1.x packages of Entities.
+ *  IAspect marked as obsolete. In order to consolidate our API and improve iteration time, we have decided to remove Aspects in a future major release of Entities. Component and EntityQuery APIs should be used directly in the future instead of Aspects. Both Entities.ForEach and Aspects will remain supported in 1.x packages of Entities.
+
+### Fixed
+* FastEquality returned incorrect results for nested structs.
+* Now you can use fully specified generic components as parameter in an IJobEntity.Execute
+* Now you can use conditional using statements in the middle of other using statements when you have a source file containing an IJobEntity
+* fixed compile error when an IJobEntity is inside a namespace which contains conditional using statements
+* Assemblies are no longer stripped if they include a system that doesn't use source generated features.
+* `SystemAPI.Query` no longer generates duplicate component references if `.WithChangeFilter<T>()` is used in with `.WithDisabled<T>()` or `.WithPresent<T>()`.
+
 
 ## [1.3.14] - 2025-04-11
 
+### Added
+
+
+### Changed
+
 * Updated the `com.unity.burst` dependency to version `1.8.19`
-* The minimum supported editor version is now 2022.3.20f1
+* The minimum supported editor version is now 2022.3.13f1
 
 ### Fixed
 
@@ -28,8 +48,11 @@ uid: changelog
 * The `WorldUpdateAllocator` available in Baking systems is now correctly rewound between baking World updates.
 * Fixed SystemAPIs called from property declarations not working correctly.
 * When the clone of a companion GameObject is instantiated (during Live Conversion) it is now placed inside the correct scene on instantiation.
-* Fixed: When the clone of a companion GameObject is instantiated (during Live Conversion) it is now placed inside the correct scene on instantiation.
-* Fixing SystemScheduleWindow test failure
+* Fixing SystemScheduleWindow test Failure
+
+
+### Security
+
 
 
 

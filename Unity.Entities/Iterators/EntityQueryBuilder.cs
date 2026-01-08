@@ -198,6 +198,7 @@ namespace Unity.Entities
         /// </summary>
         /// <typeparam name="TAspect">The aspect to add to the query</typeparam>
         /// <returns>The builder object that invoked this method.</returns>
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
         [GenerateTestsForBurstCompatibility(GenericTypeArguments = new[] { typeof(BurstCompatibleAspect) })]
         public EntityQueryBuilder WithAspect<TAspect>()
             where TAspect : struct, IAspect, IAspectCreate<TAspect>
@@ -207,6 +208,7 @@ namespace Unity.Entities
             _builderDataPtr->_isFinalized = 0;
             return this;
         }
+#pragma warning restore CS0618
 
         /// <summary>
         /// Obsolete. Use <see cref="WithAll"/> instead.

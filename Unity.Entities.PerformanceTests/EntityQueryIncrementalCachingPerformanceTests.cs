@@ -226,7 +226,9 @@ namespace Unity.Entities.PerformanceTests
         {
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities.ForEach((ref EcsTestData2 data2) => { data2.value1 = data2.value0; }).Run();
+#pragma warning restore CS0618
             }
         }
 
@@ -234,11 +236,13 @@ namespace Unity.Entities.PerformanceTests
         {
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities.ForEach((ref EcsTestData2 data2) =>
                 {
                     Assert.AreEqual(data2.value0, data2.value1);
                     data2.value1 = -1;
                 }).Run();
+#pragma warning restore CS0618
             }
         }
 

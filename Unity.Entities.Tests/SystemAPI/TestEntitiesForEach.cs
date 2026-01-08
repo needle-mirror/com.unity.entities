@@ -1,3 +1,4 @@
+#pragma warning disable 618
 using NUnit.Framework;
 using Unity.Core;
 using Unity.Mathematics;

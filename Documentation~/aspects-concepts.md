@@ -1,5 +1,8 @@
 # Aspect concepts
 
+> [!WARNING]  
+> Aspects are deprecated and will be removed in a future release. Use component access and query methods directly instead.
+
 An aspect is an object-like wrapper that you can use to group together a subset of an entity's components into a single C# struct. Aspects are useful for organizing component code and simplifying queries in your systems. Unity provides predefined aspects for groups of related components or you can define your own with the [`IAspect`](xref:Unity.Entities.IAspect) interface.
 
 Aspects can include items such as the following:

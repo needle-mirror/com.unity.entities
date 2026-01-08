@@ -2,6 +2,7 @@ using System;
 using System.Collections.Generic;
 using System.Reflection;
 using Unity.Properties;
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
 
 namespace Unity.Entities.Editor
 {
@@ -66,6 +67,7 @@ namespace Unity.Entities.Editor
     /// The <see cref="EntityAspectPropertyBag{TAspect}"/> exposes all properties of an underlying <see cref="TAspect"/> in a safe way.
     /// </summary>
     /// <typeparam name="TAspect">The aspect which the <see cref="EntityAspectContainer{TAspect}"/> wraps.</typeparam>
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
     class EntityAspectPropertyBag<TAspect> : PropertyBag<EntityAspectContainer<TAspect>>, INamedProperties<EntityAspectContainer<TAspect>>
         where TAspect : struct, IAspect, IAspectCreate<TAspect>
     {
@@ -218,4 +220,5 @@ namespace Unity.Entities.Editor
             throw new InvalidOperationException("Failed to forward aspect property.");
         }
     }
+#pragma warning restore CS0618
 }

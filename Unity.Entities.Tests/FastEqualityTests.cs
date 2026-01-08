@@ -15,31 +15,30 @@ namespace Unity.Entities.Tests
         [StructLayout(LayoutKind.Sequential)]
         struct Simple
         {
-            int a;
-            int b;
+            public int a;
+            public int b;
         }
 
         [StructLayout(LayoutKind.Sequential)]
         struct SimpleEmbedded
         {
-            float4 a;
-            int b;
+            public float4 a;
+            public int b;
         }
 
         [StructLayout(LayoutKind.Sequential)]
-
         struct BytePadding
         {
-            byte a;
-            byte b;
-            float c;
+            public byte a;
+            public byte b;
+            public float c;
         }
 
         [StructLayout(LayoutKind.Sequential)]
         struct AlignSplit
         {
-            float3 a;
-            double b;
+            public float3 a;
+            public double b;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -58,7 +57,102 @@ namespace Unity.Entities.Tests
         [StructLayout(LayoutKind.Sequential)]
         unsafe struct FloatPointer
         {
-            float* a;
+            public float* a;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct SubStruct1
+        {
+            public Nephew a;
+            public int b;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct SubStruct2
+        {
+            public Nephew a;
+            public int b;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct SubStruct3
+        {
+            public int a;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct SubStruct4
+        {
+            public int a;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct SubStruct5 { }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct Nested1
+        {
+            public SubStruct1 a;
+            public SubStruct2 b;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct Nested2
+        {
+            public SubStruct3 a;
+            public SubStruct4 b;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct Nested3
+        {
+            public SubStruct1 a;
+            public SubStruct3 b;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct Nested4
+        {
+            public SubStruct3 a;
+            public SubStruct2 b;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct Nested5
+        {
+            public SubStruct1 a;
+            public SubStruct1 b;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct Nested6
+        {
+            public SubStruct3 a;
+            public SubStruct3 b;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct Nested7
+        {
+            public int a;
+            public SubStruct5 b;
+            public int c;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct Nested8
+        {
+            public Nephew a;
+            public SubStruct5 b;
+            public int c;
+        }
+
+        [StructLayout(LayoutKind.Sequential)]
+        struct Nested9
+        {
+            public int a;
+            public Simple b;
+            public int c;
         }
 
         [StructLayout(LayoutKind.Sequential)]
@@ -150,10 +244,73 @@ namespace Unity.Entities.Tests
             var b = new int4(1, 2, 3, 5);
             var c = new int4(0, 2, 3, 4);
             var d = new int4(5, 6, 7, 8);
-            Assert.IsTrue( FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
             Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
             Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
             Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref d), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsSimple()
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(Simple));
+            var a = new Simple(){a = 1, b = 2};
+            var aa = new Simple(){a = 1, b = 2};
+            var b = new Simple(){a = 1, b = 3};
+            var c = new Simple(){a = 4, b = 2};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsSimpleEmbedded()
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(SimpleEmbedded));
+            var a = new SimpleEmbedded(){a = new float4(1), b = 2};
+            var aa = new SimpleEmbedded(){a = new float4(1), b = 2};
+            var b = new SimpleEmbedded(){a = new float4(1), b = 3};
+            var c = new SimpleEmbedded(){a = new float4(4), b = 2};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsBytePadding()
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(BytePadding));
+            var a = new BytePadding(){a = 1, b = 2};
+            var aa = new BytePadding(){a = 1, b = 2};
+            var b = new BytePadding(){a = 1, b = 3};
+            var c = new BytePadding(){a = 4, b = 2};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsAlignSplit()
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(AlignSplit));
+            var a = new AlignSplit(){a = new float3(1), b = 2};
+            var aa = new AlignSplit(){a = new float3(1), b = 2};
+            var b = new AlignSplit(){a = new float3(1), b = 3};
+            var c = new AlignSplit(){a = new float3(4), b = 2};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsFloatPointer()
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(FloatPointer));
+            var a = new FloatPointer(){a = (float*) 1};
+            var aa = new FloatPointer(){a = (float*) 1};
+            var b = new FloatPointer(){a = (float*) 3};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
         }
 
         [Test]
@@ -167,6 +324,123 @@ namespace Unity.Entities.Tests
             Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
             Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
             Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref d), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsNested1() // Offsets are properly propagated
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(Nested1));
+            var a = new Nested1(){a = new SubStruct1(){a = Nephew.Dewey, b = 1}, b = new SubStruct2(){a = Nephew.Huey, b = 2}};
+            var aa = new Nested1(){a = new SubStruct1(){a = Nephew.Dewey, b = 1}, b = new SubStruct2(){a = Nephew.Huey, b = 2}};
+            var b = new Nested1(){a = new SubStruct1(){a = Nephew.Dewey, b = 1}, b = new SubStruct2(){a = Nephew.Huey, b = 3}};
+            var c = new Nested1(){a = new SubStruct1(){a = Nephew.Dewey, b = 1}, b = new SubStruct2(){a = Nephew.Louie, b = 2}};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsNested2() // Offsets are properly propagated
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(Nested2));
+            var a = new Nested2(){a = new SubStruct3(){a = 2}, b = new SubStruct4(){a = 2}};
+            var aa = new Nested2(){a = new SubStruct3(){a = 2}, b = new SubStruct4(){a = 2}};
+            var b = new Nested2(){a = new SubStruct3(){a = 3}, b = new SubStruct4(){a = 3}};
+            var c = new Nested2(){a = new SubStruct3(){a = 3}, b = new SubStruct4(){a = 2}};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsNested3()  // Offsets are properly propagated
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(Nested3));
+            var a = new Nested3(){a = new SubStruct1(){a = Nephew.Dewey, b = 1}, b = new SubStruct3(){a = 2}};
+            var aa = new Nested3(){a = new SubStruct1(){a = Nephew.Dewey, b = 1}, b = new SubStruct3(){a = 2}};
+            var b = new Nested3(){a = new SubStruct1(){a = Nephew.Dewey, b = 1}, b = new SubStruct3(){a = 3}};
+            var c = new Nested3(){a = new SubStruct1(){a = Nephew.Dewey, b = 3}, b = new SubStruct3(){a = 2}};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsNested4() // Offsets are properly propagated
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(Nested4));
+            var a = new Nested4(){a = new SubStruct3(){a = 2}, b = new SubStruct2(){a = Nephew.Huey, b = 2}};
+            var aa = new Nested4(){a = new SubStruct3(){a = 2}, b = new SubStruct2(){a = Nephew.Huey, b = 2}};
+            var b = new Nested4(){a = new SubStruct3(){a = 2}, b = new SubStruct2(){a = Nephew.Huey, b = 3}};
+            var c = new Nested4(){a = new SubStruct3(){a = 2}, b = new SubStruct2(){a = Nephew.Louie, b = 2}};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsNested5() // Should test that cached versions also go right
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(Nested5));
+            var a = new Nested5(){a = new SubStruct1(){a = Nephew.Dewey, b = 1}, b = new SubStruct1(){a = Nephew.Huey, b = 2}};
+            var aa = new Nested5(){a = new SubStruct1(){a = Nephew.Dewey, b = 1}, b = new SubStruct1(){a = Nephew.Huey, b = 2}};
+            var b = new Nested5(){a = new SubStruct1(){a = Nephew.Dewey, b = 1}, b = new SubStruct1(){a = Nephew.Huey, b = 3}};
+            var c = new Nested5(){a = new SubStruct1(){a = Nephew.Dewey, b = 3}, b = new SubStruct1(){a = Nephew.Louie, b = 2}};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsNested6() // Should test that cached versions also go right
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(Nested6));
+            var a = new Nested6(){a = new SubStruct3(){a = 1}, b = new SubStruct3(){a = 2}};
+            var aa = new Nested6(){a = new SubStruct3(){a = 1}, b = new SubStruct3(){a = 2}};
+            var b = new Nested6(){a = new SubStruct3(){a = 1}, b = new SubStruct3(){a = 3}};
+            var c = new Nested6(){a = new SubStruct3(){a = 3}, b = new SubStruct3(){a = 2}};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsNested7() // Offsets for empty structs are correct
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(Nested7));
+            var a = new Nested7(){a = 1, b = new SubStruct5(), c = 2};
+            var aa = new Nested7(){a =1, b = new SubStruct5(), c = 2};
+            var b = new Nested7(){a = 1, b = new SubStruct5(), c = 4};
+            var c = new Nested7(){a = 3, b = new SubStruct5(), c = 2};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsNested8() // Offsets for empty structs are correct
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(Nested8));
+            var a = new Nested8(){a = Nephew.Dewey, b = new SubStruct5(), c = 2};
+            var aa = new Nested8(){a = Nephew.Dewey, b = new SubStruct5(), c = 2};
+            var b = new Nested8(){a = Nephew.Dewey, b = new SubStruct5(), c = 4};
+            var c = new Nested8(){a = Nephew.Louie, b = new SubStruct5(), c = 2};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
+        }
+
+        [Test]
+        public void EqualsNested9() // All Copy commands are merged
+        {
+            using var typeInfo = FastEquality.CreateTypeInfo(typeof(Nested9));
+            var a = new Nested9(){a = 1, b = new Simple(), c = 2};
+            var aa = new Nested9(){a = 1, b = new Simple(), c = 2};
+            var b = new Nested9(){a = 1, b = new Simple(), c = 4};
+            var c = new Nested9(){a = 3, b = new Simple(), c = 2};
+            Assert.IsTrue (FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref aa), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref b), in typeInfo));
+            Assert.IsFalse(FastEquality.Equals(UnsafeUtility.AddressOf(ref a), UnsafeUtility.AddressOf(ref c), in typeInfo));
         }
 
         [Test]

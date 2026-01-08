@@ -184,6 +184,7 @@ namespace Unity.Entities.PerformanceTests
                 var ecb = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
                 var ecbWriter = ecb.AsParallelWriter();
                 var prefab = _prefabEntity;
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities
                     .ForEach((Entity e, int entityInQueryIndex, in EcsTestData spawnCount) =>
                     {
@@ -197,6 +198,7 @@ namespace Unity.Entities.PerformanceTests
                         entities.Dispose();
                         ecbWriter.DestroyEntity(entityInQueryIndex, e);
                     }).ScheduleParallel(Dependency).Complete();
+#pragma warning restore CS0618
                 ecb.Playback(EntityManager);
                 ecb.Dispose();
             }

@@ -822,7 +822,9 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities.ForEach((ref EcsTestData data ) => {  }).Schedule();
+#pragma warning restore CS0618
             }
         }
 
@@ -830,7 +832,9 @@ namespace Unity.Entities.Tests
         {
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities.ForEach((ref EcsTestDataEnableable data ) => {  }).Schedule();
+#pragma warning restore CS0618
             }
         }
 
@@ -2971,11 +2975,13 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities
                     .WithAll<EcsTestTagEnableable>()
                     .ForEach((Entity entity) =>
                     {
                     }).ScheduleParallel();
+#pragma warning restore CS0618
             }
         }
 
@@ -2991,12 +2997,14 @@ namespace Unity.Entities.Tests
             {
                 _lookup.Update(this);
                 var lookupCopy = _lookup;
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities
                     .WithNativeDisableParallelForRestriction(lookupCopy)
                     .ForEach((Entity entity) =>
                 {
                     lookupCopy.SetComponentEnabled(entity, false);
                 }).ScheduleParallel();
+#pragma warning restore CS0618
             }
         }
 
@@ -3142,10 +3150,12 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 Entities.WithNone<EcsTestTag>().ForEach((ref EcsTestData sum, in EcsTestData2 addends) =>
                 {
                     sum.value = addends.value0 + addends.value1;
                 }).Schedule();
+#pragma warning restore CS0618
             }
         }
 
@@ -3382,6 +3392,149 @@ namespace Unity.Entities.Tests
                 query.ToEntityArray(Allocator.Temp).ToArray());
         }
 
+        partial struct QueryWithChangeFilterAndWithAll : ISystem
+        {
+            public void OnUpdate(ref SystemState state)
+            {
+                // RW and EnabledRW access to component
+                foreach (var (data, dataEnabled) in SystemAPI
+                             .Query<RefRO<EcsTestDataEnableable>, EnabledRefRW<EcsTestDataEnableable>>()
+                             .WithAll<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // RO and EnabledRO access to component
+                foreach (var (data, dataEnabled) in SystemAPI.Query<RefRO<EcsTestDataEnableable>, EnabledRefRO<EcsTestDataEnableable>>()
+                             .WithAll<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // EnabledRW access to component
+                foreach (var dataEnabled in SystemAPI.Query<EnabledRefRO<EcsTestDataEnableable>>()
+                             .WithAll<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // No access to component
+                foreach (var data in SystemAPI.Query<RefRO<EcsTestData>>()
+                             .WithAll<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // RW access + no explicit constraint
+                foreach (var (data, dataEnabled) in SystemAPI
+                             .Query<RefRO<EcsTestDataEnableable>, EnabledRefRW<EcsTestDataEnableable>>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // No access + no explicit constraint
+                foreach (var data in SystemAPI
+                             .Query<RefRO<EcsTestData>>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+            }
+        }
+        [Test]
+        public void SystemApiQuery_WithAll_WithChangeFilter_Works()
+        {
+            var system = World.CreateSystem<QueryWithChangeFilterAndWithAll>();
+            Assert.DoesNotThrow(() => system.Update(World.Unmanaged));
+        }
+
+        partial struct QueryWithChangeFilterAndWithPresent : ISystem
+        {
+            public void OnUpdate(ref SystemState state)
+            {
+                // RW and EnabledRW access to component
+                foreach (var (data, dataEnabled) in SystemAPI
+                             .Query<RefRO<EcsTestDataEnableable>, EnabledRefRW<EcsTestDataEnableable>>()
+                             .WithPresent<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // RO and EnabledRO access to component
+                foreach (var (data, dataEnabled) in SystemAPI.Query<RefRO<EcsTestDataEnableable>, EnabledRefRO<EcsTestDataEnableable>>()
+                             .WithPresent<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // EnabledRW access to component
+                foreach (var dataEnabled in SystemAPI.Query<EnabledRefRO<EcsTestDataEnableable>>()
+                             .WithPresent<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // No access to component
+                foreach (var data in SystemAPI.Query<RefRO<EcsTestData>>()
+                             .WithPresent<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // RW access + no explicit constraint
+                foreach (var (data, dataEnabled) in SystemAPI
+                             .Query<RefRO<EcsTestDataEnableable>, EnabledRefRW<EcsTestDataEnableable>>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // No access + no explicit constraint
+                foreach (var data in SystemAPI
+                             .Query<RefRO<EcsTestData>>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+            }
+        }
+        [Test]
+        public void SystemApiQuery_WithPresent_WithChangeFilter_Works()
+        {
+            var system = World.CreateSystem<QueryWithChangeFilterAndWithPresent>();
+            Assert.DoesNotThrow(() => system.Update(World.Unmanaged));
+        }
+
+        partial struct QueryWithChangeFilterAndWithDisabled : ISystem
+        {
+            public void OnUpdate(ref SystemState state)
+            {
+                // RW and EnabledRW access to component
+                foreach (var (data, dataEnabled) in SystemAPI
+                             .Query<RefRO<EcsTestDataEnableable>, EnabledRefRW<EcsTestDataEnableable>>()
+                             .WithDisabled<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // RO and EnabledRO access to component
+                foreach (var (data, dataEnabled) in SystemAPI.Query<RefRO<EcsTestDataEnableable>, EnabledRefRO<EcsTestDataEnableable>>()
+                             .WithDisabled<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // EnabledRW access to component
+                foreach (var dataEnabled in SystemAPI.Query<EnabledRefRO<EcsTestDataEnableable>>()
+                             .WithDisabled<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // No access to component
+                foreach (var data in SystemAPI.Query<RefRO<EcsTestData>>()
+                             .WithDisabled<EcsTestDataEnableable>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // RW access + no explicit constraint
+                foreach (var (data, dataEnabled) in SystemAPI
+                             .Query<RefRO<EcsTestDataEnableable>, EnabledRefRW<EcsTestDataEnableable>>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+                // No access + no explicit constraint
+                foreach (var data in SystemAPI
+                             .Query<RefRO<EcsTestData>>()
+                             .WithChangeFilter<EcsTestDataEnableable>()) {}
+            }
+        }
+        [Test]
+        public void SystemApiQuery_WithDisabled_WithChangeFilter_Works()
+        {
+            var system = World.CreateSystem<QueryWithChangeFilterAndWithDisabled>();
+            Assert.DoesNotThrow(() => system.Update(World.Unmanaged));
+        }
+
+        partial struct QueryWithSharedComponentFilterAndExplicitConstraint : ISystem
+        {
+            public void OnUpdate(ref SystemState state)
+            {
+                // SharedComponentFilter + no explicit constraint
+                foreach (var data in SystemAPI
+                             .Query<RefRO<EcsTestData>>()
+                             .WithSharedComponentFilter(new EcsTestSharedComp{value = 17})) {}
+                // SharedComponentFilter + WithAll
+                foreach (var data in SystemAPI
+                             .Query<RefRO<EcsTestData>>()
+                             .WithAll<EcsTestSharedComp>()
+                             .WithSharedComponentFilter(new EcsTestSharedComp{value = 17})) {}
+                // SharedComponentFilter + WithPresent
+                foreach (var data in SystemAPI
+                             .Query<RefRO<EcsTestData>>()
+                             .WithPresent<EcsTestSharedComp>()
+                             .WithSharedComponentFilter(new EcsTestSharedComp{value = 17})) {}
+            }
+        }
+        [Test]
+        public void SystemApiQuery_WithExplicitConstraint_WithSharedComponentFilter_Works()
+        {
+            var system = World.CreateSystem<QueryWithSharedComponentFilterAndExplicitConstraint>();
+            Assert.DoesNotThrow(() => system.Update(World.Unmanaged));
+        }
+
+
+
         partial struct EmptyQueryISystem : ISystem
         {
             public EntityQuery EmptyQuery;
@@ -3471,7 +3624,9 @@ namespace Unity.Entities.Tests
 
             protected override void OnUpdate()
             {
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                  Entities.ForEach((ref EcsTestData data) => { data.value = 10; }).Schedule();
+#pragma warning restore CS0618
             }
         }
         [Test]
@@ -4914,6 +5069,7 @@ namespace Unity.Entities.Tests
             {
                 int expectedCount = _query.CalculateEntityCount();
                 int actualCount = 0;
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
                 // Should match 20 entities
                 Entities
                     .WithAll<TestTag0>()
@@ -4929,6 +5085,7 @@ namespace Unity.Entities.Tests
                     {
                         actualCount++;
                     }).Run();
+#pragma warning restore CS0618
                 Assert.AreEqual(30, expectedCount, "Query on common components should match all 30 entities");
                 Assert.AreEqual(30, actualCount, "Between the two jobs, all 30 entities should be found once each");
                 //Assert.AreEqual(expectedCount, actualCount);

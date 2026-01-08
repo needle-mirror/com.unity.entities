@@ -90,6 +90,7 @@ namespace Unity.Entities.Editor
     /// Aspects are returned as safe <see cref="EntityAspectContainer{TAspect}"/> objects.
     /// </remarks>
     /// <typeparam name="TAspect">The underlying aspect.</typeparam>
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
     class EntityAspectsCollectionContainerProperty<TAspect> : Property<EntityAspectsCollectionContainer, EntityAspectContainer<TAspect>>, IEntityAspectsCollectionContainerProperty
         where TAspect : struct, IAspect, IAspectCreate<TAspect>
     {
@@ -103,4 +104,5 @@ namespace Unity.Entities.Editor
         {
         }
     }
+#pragma warning restore CS0618
 }

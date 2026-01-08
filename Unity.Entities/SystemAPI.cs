@@ -661,7 +661,9 @@ namespace Unity.Entities
         /// The given entity is assumed to have all the components required by the aspect type.
         /// </remarks>
         /// <remarks> Not working in IJobEntity, Utility methods, and Aspects</remarks>
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
         public static T GetAspect<T>(Entity entity) where T : unmanaged, IAspect =>  throw Internal.InternalCompilerInterface.ThrowCodeGenException();
+#pragma warning restore CS0618
         #endregion
 
         #region Handles
@@ -782,7 +784,7 @@ namespace Unity.Entities
             ///
             /// When iterating over a set of entities with an idomatic foreach query, don't use this method to access the data of the
             /// current entity in the set. It's faster to access the data by requesting it as an argument of a query.
-            /// 
+            ///
             /// When you call this method this method gets replaced with component access methods through a cached <see cref="EntityManager.HasComponent{T}(Entity)"/>.
             ///
             /// This lookup method results in a slower, indirect memory access. When possible, organize your data to minimize the need for indirect lookups.

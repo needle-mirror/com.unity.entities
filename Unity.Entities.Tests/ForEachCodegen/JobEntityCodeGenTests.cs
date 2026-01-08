@@ -1,9 +1,9 @@
+#pragma warning disable CS0618 // Disable Entities.ForEach obsolete warnings
 using System;
 using NUnit.Framework;
 using Unity.Burst.Intrinsics;
 using Unity.Collections;
 using Unity.Collections.LowLevel.Unsafe;
-using Unity.Jobs;
 using Unity.Jobs.LowLevel.Unsafe;
 using Unity.Transforms;
 using UnityEngine;
@@ -263,6 +263,11 @@ namespace Unity.Entities.Tests.ForEachCodegen
     public void JobEntityChunkBeginEnd() => m_TestSystem.TestJobEntityChunkBeginEnd();
     [Test]
     public void OnChunkEnd() => m_TestSystem.TestOnChunkEnd();
+#endregion
+
+#region Misc (The best of names for a category)
+    [Test]
+    public void ClosedGenericWorks() => m_TestSystem.ClosedGenericWorks();
 #endregion
 
         partial class MyTestSystem : SystemBase
@@ -1896,6 +1901,23 @@ namespace Unity.Entities.Tests.ForEachCodegen
             Assert.That(SystemAPI.GetComponent<EcsTestData>(e1).value==0);
             Assert.That(SystemAPI.GetComponent<EcsTestData>(e2).value==5);
             Assert.That(EntityManager.GetChunkComponentData<EcsTestData2>(e2).GetValue()==10);
+        }
+#endregion
+
+#region Misc (The best of names for a category)
+        public partial struct JobEntityClosedGeneric : IJobEntity
+        {
+            void Execute(ref EcsTestGeneric<int> holder)
+            {
+                holder.value = 5;
+            }
+        }
+
+        public void ClosedGenericWorks()
+        {
+            var entity = EntityManager.CreateEntity(typeof(EcsTestGeneric<int>));
+            new JobEntityClosedGeneric().Run();
+            Assert.AreEqual(5, EntityManager.GetComponentData<EcsTestGeneric<int>>(entity).value);
         }
 #endregion
         protected override void OnUpdate() { }

@@ -1,3 +1,4 @@
+#pragma warning disable 618
 using System;
 using NUnit.Framework;
 using static Unity.Entities.SystemAPI;

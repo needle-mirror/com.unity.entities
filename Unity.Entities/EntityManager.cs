@@ -4760,12 +4760,14 @@ namespace Unity.Entities
         /// When calling from a SystemBase, use SystemBase.GetAspect instead.
         /// Use this method when calling from outside the dots runtime, e.g. from the editor code.
         /// </remarks>
+#pragma warning disable CS0618 // Disable Aspects obsolete warnings
         [ExcludeFromBurstCompatTesting("This unfortunately needs access to the managed world for the ExternalAPIState.")]
         public T GetAspect<T>(Entity entity) where T : struct, IAspect, IAspectCreate<T>
         {
             T aspect = default;
             return aspect.CreateAspect(entity, ref *World.ExternalAPIState);
         }
+#pragma warning restore CS0618
 
         /// <summary>
         /// Completes the dependency chain required for this component to have read and write access.
