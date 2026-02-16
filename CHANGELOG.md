@@ -4,6 +4,18 @@ uid: changelog
 
 # Changelog
 
+## [1.4.5] - 2026-02-16
+
+
+### Changed
+
+* Updated `com.unity.burst` dependency to version `1.8.27`
+
+### Fixed
+
+* ILPP no longer hangs when a particular flavor of recursive reference in a managed component exists.
+
+
 ## [1.4.4] - 2025-12-16
 
 ### Changed
@@ -25,7 +37,6 @@ uid: changelog
 * Problem where we didn't GC root UnityObjectRefs.
 * Fixed an issue where the ImHex writer would get stuck in an infinite loop when processing managed components.
 * Fixed an issue where the ImHex writer would display an error when a managed component contained primitive array types.
-
 
 
 ## [1.4.3] - 2025-10-17

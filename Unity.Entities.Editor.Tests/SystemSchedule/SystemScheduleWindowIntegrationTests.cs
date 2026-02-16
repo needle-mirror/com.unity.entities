@@ -321,7 +321,10 @@ namespace Unity.Entities.Editor.Tests
             Assert.That(testSystemInDefaultWorldHash, Is.Not.EqualTo(testSystemInTestWorldHash));
         }
 
-        [Ignore("Unstable case UUM-119382")]
+        #if false
+        //Unstable case UUM-119382
+        //Temporarily disabling this test due to failures exclusive to Packageworks
+        [UnityPlatform(exclude = new[] {RuntimePlatform.LinuxEditor})]
         [UnityTest]
         public IEnumerator SystemScheduleWindow_ScheduleSystemInDifferentWorld()
         {
@@ -349,6 +352,7 @@ namespace Unity.Entities.Editor.Tests
             if (m_TestWorld.IsCreated)
                 m_TestWorld.Dispose();
         }
+        #endif
 
         [UnityTest]
         public IEnumerator SystemScheduleWindow_SystemToggleState_AllEnabled()

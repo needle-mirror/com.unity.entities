@@ -115,9 +115,10 @@ namespace Unity.Entities.Tests
 
         #endregion
 
+        #if false
         [Test]
-        [Ignore("Failing in Packageworks")]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
+        //Temporarily disabling this test due to failures exclusive to Packageworks
         public void MissedDependencyMakesActionableErrorMessage([Values]bool iSystem)
         {
             var arch = World.EntityManager.CreateArchetype(typeof(EcsTestData));
@@ -147,10 +148,12 @@ namespace Unity.Entities.Tests
                 " behavior of other systems, the job or a dependency must be assigned to the Dependency property before " +
                 "returning from the OnUpdate method.");
         }
+        #endif
 
+        #if false
         [Test]
-        [Ignore("Failing in Packageworks")]
         [TestRequiresCollectionChecks("Requires Job Safety System")]
+        //Temporarily disabling this test due to failures exclusive to Packageworks
         public void MissedDependencyFromNestedUpdateMakesActionableErrorMessage([Values]bool iSystem)
         {
             var arch = World.EntityManager.CreateArchetype(typeof(EcsTestData));
@@ -183,7 +186,8 @@ namespace Unity.Entities.Tests
                 "returning from the OnUpdate method.");
             World.Update();
         }
-
+        #endif
+        
         public partial class ForEachReproSystem : SystemBase
         {
             protected override void OnUpdate()
@@ -229,7 +233,7 @@ namespace Unity.Entities.Tests
                 testJob.ScheduleParallel();
             }
         }
-
+        
         [Ignore("DOTS-6905 Needs re-evaluated after we solve the NullReferenceException issues")]
         [Test]
         public void NoExtraMessageFromForEachSystemRepro([Values]bool iSystem)

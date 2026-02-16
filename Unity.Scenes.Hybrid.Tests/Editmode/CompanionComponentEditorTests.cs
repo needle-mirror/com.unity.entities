@@ -147,8 +147,9 @@ namespace Unity.Entities.Tests
             TestWithSceneCameraCulling.TearDown();
         }
 
+        #if false
+        //Temporarily disabling this test due to failures exclusive to Packageworks
         [UnityTest]
-        [Ignore("Failing in Packageworks")]
         public IEnumerator CompanionComponent_SceneCulling([Values]bool sceneViewShowRuntime)
         {
             LiveConversionEditorSettings.LiveConversionSceneViewShowRuntime = sceneViewShowRuntime;
@@ -223,6 +224,7 @@ namespace Unity.Entities.Tests
                 }
             }
         }
+        #endif
     }
 }
 #endif

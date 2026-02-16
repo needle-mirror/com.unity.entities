@@ -278,7 +278,6 @@ namespace Unity.Entities
 #if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)        
         private static List<ResourcesAPIInternal.EntitiesAssetGC.AdditionalRootsHandlerDelegate> s_AdditionalRootsHandlerDelegates = new List<ResourcesAPIInternal.EntitiesAssetGC.AdditionalRootsHandlerDelegate>();
 #endif
-
         static unsafe void RootsHandlerDelegate(IntPtr state)
         {
 #if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)            
@@ -330,7 +329,6 @@ namespace Unity.Entities
             ResourcesAPIInternal.EntitiesAssetGC.RegisterAdditionalRootsHandler(RootsHandlerDelegate);
             #endif
         }
-
 
         public static void MarkInstanceIDsAsRootForEntitiesAssetGC(IntPtr instanceIDs, int count, IntPtr state)
         {

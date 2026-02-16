@@ -1,12 +1,12 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.4.4",
+  "version": "1.4.5",
   "unity": "2022.3",
   "unityRelease": "20f1",
   "dependencies": {
-    "com.unity.burst": "1.8.25",
-    "com.unity.collections": "2.6.4",
+    "com.unity.burst": "1.8.27",
+    "com.unity.collections": "2.6.5",
     "com.unity.mathematics": "1.3.2",
     "com.unity.nuget.mono-cecil": "1.11.6",
     "com.unity.profiling.core": "1.0.3",
@@ -27,15 +27,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Changed\n\n* Updated the `com.unity.nuget.mono-cecil` dependency to version `1.11.6`\n* Updated `com.unity.profiling.core` dependency to version `1.0.3`\n* Updated the `com.unity.scriptablebuildpipeline` dependnecy to version `1.23.1`\n* Updated `com.unity.serialization` dependency to version `3.1.3`\n* Fixed an issue where the ImHex writer would throw an error when a managed component contained an IntPtr field.\n\n### Removed\n\n* Removed expensive baking analytics even during subscene importing.\n\n### Fixed\n\n* Fixed race condition in `ArchetypeChunk.SetComponentEnabled()` and `.SetComponentEnabledForAll()` which could lead to incorrect change versions for the target component.\n* Suppress benign Burst warning about intrinsics use in ChunkIterationUtility.GetEnabledMask() when compiling with FloatMode.Deterministic.\n* Problem where we didn't GC root UnityObjectRefs.\n* Fixed an issue where the ImHex writer would get stuck in an infinite loop when processing managed components.\n* Fixed an issue where the ImHex writer would display an error when a managed component contained primitive array types."
+    "changelog": "### Changed\n\n* Updated `com.unity.burst` dependency to version `1.8.27`\n\n### Fixed\n\n* ILPP no longer hangs when a particular flavor of recursive reference in a managed component exists."
   },
   "upmCi": {
-    "footprint": "53e0cdd704ae7c509407aa71f814c0a2ef1cd0cf"
+    "footprint": "0aaf5d8f03dbc06d74f4971ac2aec286b13caac5"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.4/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "57e44ce5b0bcde27ee6efefec8150a8a9726b461"
+    "revision": "9ce7aaae63152f48e04b260300df3a0f662ce2b5"
   }
 }

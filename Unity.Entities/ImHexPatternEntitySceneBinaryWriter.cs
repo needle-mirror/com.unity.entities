@@ -48,7 +48,7 @@ namespace Unity.Entities
             using var writer = new IndentedTextWriter(new StringWriter());
             using var allTypes = new NativeHashSet<ComponentType>(100, Allocator.Temp);
             using var archetypes = new NativeList<EntityArchetype>(Allocator.Temp);
-
+            
             entityManager.GetAllArchetypes(archetypes);
             foreach (var archetype in archetypes)
             {

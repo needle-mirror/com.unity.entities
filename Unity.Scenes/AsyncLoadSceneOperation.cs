@@ -14,7 +14,6 @@ using Unity.Jobs;
 using Unity.Profiling;
 using UnityEngine;
 using System.Linq;
-using UnityEditor;
 
 namespace Unity.Scenes
 {
@@ -484,8 +483,7 @@ namespace Unity.Scenes
 #if (UNITY_2022_3 && UNITY_2022_3_43F1_OR_NEWER) || (UNITY_6000 && UNITY_6000_0_16F1_OR_NEWER)            
             UnityObjectRefUtility.RegisterAdditionalRootsHandlerForEntitiesAssetGC(
                 state => UnityObjectRefUtility.MarkInstanceIDsAsRoot(s_UnityObjectsRefs.AsArray(), state));
-#endif
-            
+#endif                
             if (!s_AppDomainUnloadRegistered)
             {
                 // important: this will always be called from a special unload thread (main thread will be blocking on this)
@@ -501,7 +499,6 @@ namespace Unity.Scenes
             }
 
             s_UnityObjectsRefs = new NativeList<int>(Allocator.Persistent);
-
         }
         static NativeList<int> s_UnityObjectsRefs;
         private static bool s_AppDomainUnloadRegistered;

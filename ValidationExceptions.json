@@ -3,29 +3,29 @@
     {
       "ValidationTest": "API Validation",
       "ExceptionMessage": "Breaking changes require a new major version.",
-      "PackageVersion": "1.4.4"
+      "PackageVersion": "1.4.5"
     },
     {
       "ValidationTest": "Restricted File Type Validation",
       "ExceptionMessage": "/Unity.Entities/SourceGenerators/Source~/publish-dlls.bat cannot be included in a package.",
-      "PackageVersion": "1.4.4"
+      "PackageVersion": "1.4.5"
     },
     {
       "ValidationTest": "API Validation",
       "ExceptionMessage": "New assembly \"Unity.Entities.TestComponents\" may only be added in a new minor or major version.",
-      "PackageVersion": "1.4.4"
+      "PackageVersion": "1.4.5"
     },
     {
       "ValidationTest": "API Validation",
       "ExceptionMessage": "New assembly \"Unity.Scenes.PerformanceTests\" may only be added in a new minor or major version.",
-      "PackageVersion": "1.4.4"
+      "PackageVersion": "1.4.5"
     },
     {
-        "ValidationTest": "API Validation",
-        "ExceptionMessage": "Additions require a new minor or major version.",
-        "PackageVersion": "1.4.4"
+      "ValidationTest": "API Validation",
+      "ExceptionMessage": "Additions require a new minor or major version.",
+      "PackageVersion": "1.4.5"
     }
-    
   ],
   "WarningExceptions": []
 }
+
