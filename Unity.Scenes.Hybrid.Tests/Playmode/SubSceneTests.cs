@@ -121,7 +121,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
         }
         #endif
 
-        #if false
+         #if false
         //Temporarily disabling this test due to failures exclusive to Packageworks
         [UnityTest]
         public IEnumerator LoadMultipleSubscenes_Blocking_WithAssetBundles()
@@ -426,7 +426,7 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
 
         private static int s_Counter = 0;
 
-        #if false
+         #if false
         //Temporarily disabling this test due to failures exclusive to Packageworks
         [Test]
         public void PostProcessAfterLoadGroup_SupportsSystemGroups()
@@ -554,9 +554,8 @@ namespace Unity.Scenes.Hybrid.Tests.Playmode
         #endif
 
 #endif
-        
-    }
 
+    }
 
     public struct TestProcessAfterLoadData : IComponentData
     {

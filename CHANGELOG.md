@@ -4,6 +4,27 @@ uid: changelog
 
 # Changelog
 
+## [1.4.6] - 2026-04-13
+
+### Changed
+
+* Updated the `com.unity.burst` dependency to version `1.8.28`
+* Write link.xml when building Entities Content
+* Fixed memory corruption when EntityCommandBuffer playback was interrupted by an exception after successfully processing dynamic buffer commands.
+
+### Removed
+
+* Removed expensive baking analytics even during subscene importing.
+
+### Fixed
+
+* Fixed Runtime Content management being non deterministic across builds when clearing the entity cache.
+
+### Security
+
+
+
+
 ## [1.4.5] - 2026-02-16
 
 

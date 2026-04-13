@@ -233,7 +233,7 @@ namespace Unity.Entities.Tests
                 testJob.ScheduleParallel();
             }
         }
-        
+
         [Ignore("DOTS-6905 Needs re-evaluated after we solve the NullReferenceException issues")]
         [Test]
         public void NoExtraMessageFromForEachSystemRepro([Values]bool iSystem)

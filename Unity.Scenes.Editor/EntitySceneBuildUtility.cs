@@ -209,13 +209,15 @@ namespace Unity.Scenes.Editor
                         the scene section hash is created in order to link the data at runtime.
                         */
                         var sectionIndex = EntityScenesPaths.GetSectionIndexFromPath(artifactPath);
-                        var address = $"{artifactHash}.{sectionIndex}";
-                        var id = UnityEngine.Hash128.Compute(address);
+                        var contentHash = HashingMethods.CalculateFile(artifactPath);
+                        var address = $"{sceneGuid}.{contentHash}.{sectionIndex}";
+                        var id = HashingMethods.Calculate(address).ToHash128();
                         var ssh = SceneHeaderUtility.CreateSceneSectionHash(sceneGuid, sectionIndex, default);
+
                         objIdRemapping.Add(id, ssh);
                         pathOverrides[artifactPath] = ssh;
 #if ENABLE_CONTENT_BUILD_DIAGNOSTICS
-                        Debug.Log($"Scene {sceneGuid}: ReferencedUnityObjects section {sectionIndex}, build id {id}, runtime section id {ssh}, path override: {artifactPath}");
+                        Debug.Log($"Scene {sceneGuid}: ReferencedUnityObjects section {sectionIndex}, contentHash {{contentHash}}, address {{address}}, build id {id}, runtime section id {ssh}, path override: {artifactPath}");
 #endif
                         var globalUsage = ReadGlobalUsageArtifact(globalUsgExt, artifactPaths);
                         customContent.Add(new CustomContent

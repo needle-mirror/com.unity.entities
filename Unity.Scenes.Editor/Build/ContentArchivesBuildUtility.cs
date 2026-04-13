@@ -84,7 +84,8 @@ namespace Unity.Entities.Content
             {
                 NonRecursiveDependencies = false,
                 UseCache = true,
-                BundleCompression = UnityEngine.BuildCompression.LZ4Runtime
+                BundleCompression = UnityEngine.BuildCompression.LZ4Runtime,
+                WriteLinkXML = true,
             };
             if (CachedTypeDB != null)
                 arParams.ScriptInfo = CachedTypeDB;

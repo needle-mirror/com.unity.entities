@@ -10,6 +10,9 @@ using Unity.Entities.Build;
 using UnityEngine;
 using UnityEditor.SceneManagement;
 using UnityEngine.SceneManagement;
+using UnityEditor.Build.Reporting;
+using UnityEditor.UnityLinker;
+using Unity.Entities.Content;
 
 namespace Unity.Scenes.Editor
 {
@@ -51,7 +54,7 @@ namespace Unity.Scenes.Editor
         public void RegisterAdditionalFilesToDeploy(Hash128[] rootSceneGUIDs, Hash128[] entitySceneGUIDs, EntitySectionBundlesInBuild additionalImports, Action<string, string> addAdditionalFile);
     }
 
-    internal class EntitySceneBuildPlayerProcessor : BuildPlayerProcessor
+    internal class EntitySceneBuildPlayerProcessor : BuildPlayerProcessor, IUnityLinkerProcessor
     {
         private string m_BuildWorkingDir = $"../Library/BuildWorkingDir/{PlayerSettings.productName}";
         private BuildPlayerContext m_BuildPlayerContext;
@@ -269,6 +272,15 @@ namespace Unity.Scenes.Editor
             var tempFile = Path.GetFullPath(Path.Combine(Application.dataPath, m_BuildWorkingDir, EntityScenesPaths.RelativePathForSceneInfoFile));
             ResourceCatalogBuildCode.WriteCatalogFile(sceneInfos, tempFile);
             registerAdditionalFileToDeploy(tempFile, EntityScenesPaths.RelativePathForSceneInfoFile);
+        }
+
+        public string GenerateAdditionalLinkXmlFile(BuildReport report, UnityLinkerBuildPipelineData data)
+        {
+            var path = Path.Combine(EntitySceneBuildUtility.WorkingBuildDir, RuntimeContentManager.k_ContentArchiveDirectory, "link.xml");
+            if (File.Exists(path))
+                return path;
+
+            return null;
         }
     }
 }

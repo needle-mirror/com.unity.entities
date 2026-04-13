@@ -353,7 +353,7 @@ namespace Unity.Entities.Editor.Tests
                 m_TestWorld.Dispose();
         }
         #endif
-
+        
         [UnityTest]
         public IEnumerator SystemScheduleWindow_SystemToggleState_AllEnabled()
         {

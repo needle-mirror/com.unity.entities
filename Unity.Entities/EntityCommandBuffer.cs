@@ -4413,6 +4413,11 @@ namespace Unity.Entities
                     mgr->SetBufferRaw(entity, cmd->ComponentTypeIndex,
                         &cmd->BufferNode.TempBuffer,
                         cmd->ComponentSize, in originSystem);
+                    
+                    // Clear the buffer header to mark that ownership has been transferred to the entity.
+                    // This avoids double disposal if the playback is interrupted by an exception.
+                    BufferHeader.Initialize(&cmd->BufferNode.TempBuffer, 0);
+                    
                     if (cmd->ValueRequiresEntityFixup != 0)
                     {
                         AssertNoFixupInMultiPlayback(isFirstPlayback != 0);
@@ -4444,6 +4449,11 @@ namespace Unity.Entities
                 {
                     mgr->SetBufferRaw(entity, cmd->ComponentTypeIndex, &cmd->BufferNode.TempBuffer,
                         cmd->ComponentSize, in originSystem);
+                    
+                    // Clear the buffer header to mark that ownership has been transferred to the entity.
+                    // This avoids double disposal if the playback is interrupted by an exception.
+                    BufferHeader.Initialize(&cmd->BufferNode.TempBuffer, 0);
+
                     if (cmd->ValueRequiresEntityFixup != 0)
                     {
                         AssertNoFixupInMultiPlayback(isFirstPlayback != 0);

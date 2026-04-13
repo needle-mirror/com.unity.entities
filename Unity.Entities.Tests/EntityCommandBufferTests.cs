@@ -81,6 +81,54 @@ namespace Unity.Entities.Tests
             Assert.DoesNotThrow(() => {cmds.Playback(m_Manager2); });
         }
 
+        [Test]
+        [TestRequiresDotsDebugOrCollectionChecks("Test requires entity command buffer safety checks")]
+        public void Playback_InterruptedByException_DoesNotDoubleDisposeDynamicBuffers()
+        {
+            // repro case for UUM-131632
+
+            var cmds = new EntityCommandBuffer(World.UpdateAllocator.ToAllocator);
+
+            var x = m_Manager.CreateEntity();
+            var y = m_Manager.CreateEntity();
+
+            var bx = cmds.AddBuffer<EcsIntElement>(x);
+            var by = cmds.AddBuffer<EcsIntElement>(y);
+
+            // add enough elements to the buffers to make them
+            // exceed their internal capacity and rely on a heap allocations
+
+            for (int i = 0; i < 20; ++i)
+            {
+                bx.Add(i);
+                by.Add(i);
+            }
+
+            // destroy the SECOND entity, this way the ECB playback will throw
+            m_Manager.DestroyEntity(y);
+
+            // this will store the first buffer just fine
+            // but since the second entity is missing, it'll throw afterward
+
+            Assert.Throws<InvalidOperationException>(() => cmds.Playback(m_Manager));
+
+            // because the ECB playback has thrown, the ECB has m_DidPlayback == false
+            // when cleaning up the ECB, the unassigned dynamic buffers should be disposed
+            // this test is about making sure it will not also dispose of the buffer that
+            // now belongs to the entity, and will only dispose the one for the second entity
+
+            cmds.Dispose();
+
+            // destroying the first entity will dispose of its dynamic buffer
+            // which is expected to have survived the cleanup of the ECB
+
+            m_Manager.DestroyEntity(x);
+
+            // the problem this regression test guards against is that the ECB used to
+            // indiscriminately dispose all of the dynamic buffers, and destroying the first
+            // entity would cause a double free (and a crash)
+        }
+
         unsafe bool CleanupListsAreEmpty(EntityCommandBufferChain* chain)
         {
             if (chain == null)
