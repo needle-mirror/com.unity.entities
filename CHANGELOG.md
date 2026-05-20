@@ -4,38 +4,35 @@ uid: changelog
 
 # Changelog
 
-## [1.4.6] - 2026-04-13
+## [1.4.7] - 2026-05-20
 
 ### Changed
+* Updated the `com.unity.burst` dependency to version `1.8.29`
 
+### Fixed
+* Fixed an issue where BlobAssets would cause the resulting artefact hash from baking to be different, even though the same input was used.
+
+
+## [1.4.6] - 2026-04-13
+### Changed
 * Updated the `com.unity.burst` dependency to version `1.8.28`
 * Write link.xml when building Entities Content
 * Fixed memory corruption when EntityCommandBuffer playback was interrupted by an exception after successfully processing dynamic buffer commands.
 
 ### Removed
-
 * Removed expensive baking analytics even during subscene importing.
 
 ### Fixed
-
 * Fixed Runtime Content management being non deterministic across builds when clearing the entity cache.
-
-### Security
-
-
-
 
 ## [1.4.5] - 2026-02-16
 
-
 ### Changed
-
 * Updated `com.unity.burst` dependency to version `1.8.27`
 
 ### Fixed
 
 * ILPP no longer hangs when a particular flavor of recursive reference in a managed component exists.
-
 
 ## [1.4.4] - 2025-12-16
 

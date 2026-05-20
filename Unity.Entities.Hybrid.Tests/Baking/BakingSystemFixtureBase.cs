@@ -49,6 +49,8 @@ namespace Unity.Entities.Hybrid.Tests.Baking
                 Assert.IsTrue(go == null, $"GameObject {go} was expected to be destroyed before test completion but wasn't"));
 
             Array.ForEach(destroyedByFixture, item => UnityObject.DestroyImmediate(item.obj));
+
+            base.TearDown();
         }
 
         T RegisterUnityObject<T>(T uobject, DestructionBy destructionBy = DestructionBy.Fixture)

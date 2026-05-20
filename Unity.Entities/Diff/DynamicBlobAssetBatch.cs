@@ -5,9 +5,20 @@ using Unity.Collections.LowLevel.Unsafe;
 
 namespace Unity.Entities
 {
-    struct BlobAssetPtrHashComparer : IComparer<BlobAssetPtr>
+    unsafe struct BlobAssetPtrHashComparer : IComparer<BlobAssetPtr>
     {
-        public int Compare(BlobAssetPtr x, BlobAssetPtr y) => x.Hash.CompareTo(y.Hash);
+        public int Compare(BlobAssetPtr x, BlobAssetPtr y)
+        {
+            var hashComparison = x.Hash.CompareTo(y.Hash);
+            if (hashComparison != 0)
+                return hashComparison;
+
+            var lengthComparison = x.Length.CompareTo(y.Length);
+            if (lengthComparison != 0)
+                return lengthComparison;
+
+            return UnsafeUtility.MemCmp(x.Data, y.Data, x.Length);
+        }
     }
 
     unsafe struct BlobAssetCache : IDisposable

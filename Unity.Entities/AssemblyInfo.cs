@@ -21,6 +21,7 @@ using System.Runtime.CompilerServices;
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.PerformanceTests")]
 [assembly: InternalsVisibleTo("Unity.Entities.Hybrid.Tests")]
 [assembly: InternalsVisibleTo("Unity.Entities.PerformanceTests")]
+[assembly: InternalsVisibleTo("Unity.Entities.Tests")]
 [assembly: InternalsVisibleTo("Unity.Runtime.UnityInstance")]
 [assembly: InternalsVisibleTo("Unity.Runtime.ILPP.Tests")]
 [assembly: InternalsVisibleTo("Unity.Samples.Tests")]

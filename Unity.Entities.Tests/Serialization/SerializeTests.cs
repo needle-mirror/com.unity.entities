@@ -3318,6 +3318,41 @@ namespace Unity.Entities.Tests
             }
         }
 
+        static BlobAssetReference<int> CreateIntBlobAsset(int value)
+        {
+            using var builder = new BlobBuilder(Allocator.Temp);
+            ref var data = ref builder.ConstructRoot<int>();
+            data = value;
+            return builder.CreateBlobAssetReference<int>(Allocator.Temp);
+        }
+
+        [Test]
+        public unsafe void BlobAssetPtrHashComparer_SortsByHashThenLengthThenContent()
+        {
+            var comparer = new BlobAssetPtrHashComparer();
+
+            var blob1 = CreateIntBlobAsset(100);
+            var blob2 = CreateIntBlobAsset(200);
+            var blob3 = CreateIntBlobAsset(100); // Same value as blob1, will have same hash
+
+            try
+            {
+                var ptr1 = new BlobAssetPtr(blob1.m_data.Header);
+                var ptr2 = new BlobAssetPtr(blob2.m_data.Header);
+                var ptr3 = new BlobAssetPtr(blob3.m_data.Header);
+
+                Assert.AreNotEqual(0, comparer.Compare(ptr1, ptr2), "Blobs with different hashes should not compare equal");
+                Assert.AreEqual(0, comparer.Compare(ptr1, ptr3), "Blobs with identical content should compare equal");
+                Assert.AreEqual(-comparer.Compare(ptr1, ptr2), comparer.Compare(ptr2, ptr1), "Compare(a,b) should equal -Compare(b,a)");
+            }
+            finally
+            {
+                blob1.Dispose();
+                blob2.Dispose();
+                blob3.Dispose();
+            }
+        }
+
 #if !UNITY_DISABLE_MANAGED_COMPONENTS
         [Test]
         public void SerializeEntities_WithUnityObjRef_ManagedComponentData()

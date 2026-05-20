@@ -1595,9 +1595,24 @@ namespace Unity.Entities.Serialization
             {
                 blobAssetNode.NodeHeader.Revision = 1;
                 GatherAllUsedBlobAssets(entityManager, sharedComponentsToSerialize, archetypeArray, out var blobAssets, out blobAssetMap);
+                SortBlobAssetsByHash(ref blobAssets, ref blobAssetMap);
                 WriteBlobAssetBatch(writerHandle.Writer, blobAssets.AsArray(), out blobAssetOffsets);
                 blobAssets.Dispose();
             }
+        }
+
+        static void SortBlobAssetsByHash(ref NativeList<BlobAssetPtr> blobAssets, ref NativeParallelHashMap<BlobAssetPtr, int> blobAssetMap)
+        {
+            if (blobAssets.Length <= 1)
+                return;
+
+            var array = blobAssets.AsArray();
+            array.Sort(new BlobAssetPtrHashComparer());
+
+            // Rebuild map with new sorted indices
+            blobAssetMap.Clear();
+            for (var i = 0; i < array.Length; i++)
+                blobAssetMap[array[i]] = i;
         }
 
         private static unsafe void WritePrefabNode(DotsSerializationWriter dotsWriter, Entity prefabRoot)
