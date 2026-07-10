@@ -32,8 +32,7 @@
     "allowUnsafeCode": true,
     "overrideReferences": true,
     "precompiledReferences": [
-        "Mono.Cecil.dll",
-        "System.Runtime.CompilerServices.Unsafe.dll"
+        "Mono.Cecil.dll"
     ],
     "autoReferenced": true,
     "defineConstraints": [],

@@ -4,16 +4,26 @@ uid: changelog
 
 # Changelog
 
+## [1.4.8] - 2026-07-10
+
+### Removed
+
+* Removed the dependency on the `System.IO.Hashing` and `System.Runtime.CompilerServices.Unsafe` precompiled assemblies. This avoids compile errors that could occur if those DLLs were included multiple times in a project.
+
+
 ## [1.4.7] - 2026-05-20
 
 ### Changed
+
 * Updated the `com.unity.burst` dependency to version `1.8.29`
 
 ### Fixed
+
 * Fixed an issue where BlobAssets would cause the resulting artefact hash from baking to be different, even though the same input was used.
 
 
 ## [1.4.6] - 2026-04-13
+
 ### Changed
 * Updated the `com.unity.burst` dependency to version `1.8.28`
 * Write link.xml when building Entities Content

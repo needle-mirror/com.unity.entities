@@ -1,12 +1,12 @@
 {
   "name": "com.unity.entities",
   "displayName": "Entities",
-  "version": "1.4.7",
+  "version": "1.4.8",
   "unity": "2022.3",
   "unityRelease": "20f1",
   "dependencies": {
     "com.unity.burst": "1.8.29",
-    "com.unity.collections": "2.6.7",
+    "com.unity.collections": "2.6.8",
     "com.unity.mathematics": "1.3.2",
     "com.unity.nuget.mono-cecil": "1.11.6",
     "com.unity.profiling.core": "1.0.3",
@@ -27,15 +27,15 @@
     "unity"
   ],
   "_upm": {
-    "changelog": "### Changed\n* Updated the `com.unity.burst` dependency to version `1.8.29`\n\n### Fixed\n* Fixed an issue where BlobAssets would cause the resulting artefact hash from baking to be different, even though the same input was used."
+    "changelog": "### Removed\n\n* Removed the dependency on the `System.IO.Hashing` and `System.Runtime.CompilerServices.Unsafe` precompiled assemblies. This avoids compile errors that could occur if those DLLs were included multiple times in a project."
   },
   "upmCi": {
-    "footprint": "d804d47b5f7f05d9603057f7e679bf0ba299baaf"
+    "footprint": "c9b56cfed9fc791ff871b2e1c8f3f180a98d0d98"
   },
   "documentationUrl": "https://docs.unity3d.com/Packages/com.unity.entities@1.4/manual/index.html",
   "repository": {
     "url": "https://github.cds.internal.unity3d.com/unity/dots.git",
     "type": "git",
-    "revision": "7f0c5eb268f143c01d07a594452ade84299d8378"
+    "revision": "4a34d600ff4a191ed22ac899ab955d96d7c683f7"
   }
 }

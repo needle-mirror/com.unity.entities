@@ -9,7 +9,6 @@ using UnityEngine;
 using UnityEditor;
 using System.Linq;
 using Unity.Entities.Build;
-using System.IO.Hashing;
 
 namespace Unity.Entities.Content
 {
@@ -186,8 +185,14 @@ namespace Unity.Entities.Content
                         var buffer = new byte[fs.Length];
                         fs.Read(buffer, 0, buffer.Length);
                         loc.Size = buffer.LongLength;
-                        var crcData = Crc32.Hash(buffer);
-                        loc.Crc = Crc32.HashToUInt32(crcData);
+                        // Preserve historical bit-for-bit behavior: the original code called
+                        // System.IO.Hashing.Crc32.HashToUInt32(Crc32.Hash(buffer)), which hashes
+                        // the 4-byte CRC output rather than converting it to a uint. Existing
+                        // published catalogs depend on this exact value, so keep the double-hash.
+                        uint innerCrc = Crc32.Compute(buffer);
+                        Span<byte> innerCrcBytes = stackalloc byte[4];
+                        System.Buffers.Binary.BinaryPrimitives.WriteUInt32LittleEndian(innerCrcBytes, innerCrc);
+                        loc.Crc = Crc32.Compute(innerCrcBytes);
                         var hashStr = (loc.Hash = UnityEngine.Hash128.Compute(buffer)).ToString();
                         loc.Path = $"{hashStr[0]}{hashStr[1]}/{hashStr}";
                         relPath = relPath.Replace('\\', '/');
