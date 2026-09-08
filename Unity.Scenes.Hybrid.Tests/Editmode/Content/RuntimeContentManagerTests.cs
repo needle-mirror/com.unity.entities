@@ -277,7 +277,7 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
 
             if (isAppleSilicon && isCI)
             {
-                Assert.Ignore("[DOTS-11054] Test silently crashes editor on Apple Silicon in a CI context");
+                Assert.Ignore("[UUM-131129] Test silently crashes editor on Apple Silicon in a CI context");
             }
 
             yield return new EnterPlayMode();
@@ -321,6 +321,14 @@ namespace Unity.Scenes.Hybrid.Tests.Editmode.Content
         [UnityTest]
         public IEnumerator RuntimeContentManager_CanLoadAndReleaseFromJobs([Values(false, true)] bool useAssetDB)
         {
+            bool isAppleSilicon = UnityEngine.SystemInfo.processorType.Contains("Apple M");
+            bool isCI = !string.IsNullOrEmpty(System.Environment.GetEnvironmentVariable("CI"));
+
+            if (isAppleSilicon && isCI)
+            {
+                Assert.Ignore("[UUM-131129] Test silently crashes editor on Apple Silicon in a CI context");
+            }
+
             yield return new EnterPlayMode();
 
             var allids = InitializeCatalogForTest(useAssetDB);

@@ -4,6 +4,13 @@ uid: changelog
 
 # Changelog
 
+## [1.5.0] - 2026-09-08
+
+### Changed
+
+* Updated the minimum editor version to 6000.0
+
+
 ## [1.4.8] - 2026-07-10
 
 ### Removed
